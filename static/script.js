@@ -9,11 +9,117 @@ let currentBeeswarmPrices = [];
 
 // Password Protection
 const CORRECT_PASSWORD = 'BreakersOnBudget25!';
+const MAX_LOGIN_ATTEMPTS = 3;
+const COOLDOWN_PERIOD = 15 * 60 * 1000; // 15 minutes in milliseconds
 
 // API key is now handled securely on the backend
 const DEFAULT_API_KEY = 'backend-handled';
 
+// Check if user is currently in cooldown
+function isInCooldown() {
+    const cooldownData = localStorage.getItem('kuya-comps-cooldown');
+    if (!cooldownData) return false;
+    
+    const { endTime } = JSON.parse(cooldownData);
+    return Date.now() < endTime;
+}
+
+// Get remaining cooldown time in seconds
+function getRemainingCooldownTime() {
+    const cooldownData = localStorage.getItem('kuya-comps-cooldown');
+    if (!cooldownData) return 0;
+    
+    const { endTime } = JSON.parse(cooldownData);
+    const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+    return remaining;
+}
+
+// Get current failed attempt count
+function getFailedAttempts() {
+    const attemptData = localStorage.getItem('kuya-comps-attempts');
+    if (!attemptData) return 0;
+    
+    const { count, lastAttempt } = JSON.parse(attemptData);
+    
+    // Reset attempts if it's been more than 1 hour since last attempt
+    if (Date.now() - lastAttempt > 60 * 60 * 1000) {
+        localStorage.removeItem('kuya-comps-attempts');
+        return 0;
+    }
+    
+    return count;
+}
+
+// Increment failed attempts
+function incrementFailedAttempts() {
+    const currentAttempts = getFailedAttempts();
+    const newCount = currentAttempts + 1;
+    
+    localStorage.setItem('kuya-comps-attempts', JSON.stringify({
+        count: newCount,
+        lastAttempt: Date.now()
+    }));
+    
+    return newCount;
+}
+
+// Start cooldown period
+function startCooldown() {
+    const endTime = Date.now() + COOLDOWN_PERIOD;
+    localStorage.setItem('kuya-comps-cooldown', JSON.stringify({ endTime }));
+    updateCooldownDisplay();
+}
+
+// Clear all attempt tracking
+function clearAttemptTracking() {
+    localStorage.removeItem('kuya-comps-attempts');
+    localStorage.removeItem('kuya-comps-cooldown');
+}
+
+// Update cooldown display
+function updateCooldownDisplay() {
+    const passwordError = document.getElementById('password-error');
+    const passwordSubmit = document.getElementById('password-submit');
+    const passwordInput = document.getElementById('password-input');
+    const toggleBtn = document.querySelector('.password-toggle-btn');
+    
+    if (isInCooldown()) {
+        const remainingTime = getRemainingCooldownTime();
+        const minutes = Math.floor(remainingTime / 60);
+        const seconds = remainingTime % 60;
+        
+        passwordError.innerHTML = `🔒 <strong>Account locked.</strong><br>Too many failed attempts.<br>Try again in ${minutes}:${seconds.toString().padStart(2, '0')}.`;
+        passwordError.style.display = 'block';
+        passwordSubmit.disabled = true;
+        passwordInput.disabled = true;
+        if (toggleBtn) toggleBtn.style.display = 'none';
+        
+        passwordSubmit.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
+        passwordSubmit.style.cursor = 'not-allowed';
+        
+        // Update every second
+        setTimeout(updateCooldownDisplay, 1000);
+    } else {
+        // Cooldown expired, re-enable login
+        passwordError.style.display = 'none';
+        passwordSubmit.disabled = false;
+        passwordInput.disabled = false;
+        if (toggleBtn) toggleBtn.style.display = 'flex';
+        
+        passwordSubmit.style.background = 'var(--gradient-primary)';
+        passwordSubmit.style.cursor = 'pointer';
+        
+        // Clear cooldown data if expired
+        localStorage.removeItem('kuya-comps-cooldown');
+    }
+}
+
 function checkPassword() {
+    // Check if in cooldown period
+    if (isInCooldown()) {
+        updateCooldownDisplay();
+        return;
+    }
     const passwordInput = document.getElementById('password-input');
     const passwordError = document.getElementById('password-error');
     const passwordOverlay = document.getElementById('password-overlay');
@@ -21,7 +127,9 @@ function checkPassword() {
     const rememberMe = document.getElementById('remember-me');
     
     if (passwordInput.value === CORRECT_PASSWORD) {
-        // Correct password - hide overlay and show main content
+        // Correct password - clear all attempt tracking and grant access
+        clearAttemptTracking();
+        
         passwordOverlay.style.display = 'none';
         mainContent.classList.add('authenticated');
         mainContent.style.display = 'block';
@@ -41,15 +149,28 @@ function checkPassword() {
         // Initialize the application
         initializeApp();
     } else {
-        // Incorrect password - show error
-        passwordError.style.display = 'block';
+        // Incorrect password - increment attempts
+        const currentAttempts = incrementFailedAttempts();
+        const remainingAttempts = MAX_LOGIN_ATTEMPTS - currentAttempts;
+        
         passwordInput.value = '';
         passwordInput.focus();
         
-        // Hide error after 3 seconds
-        setTimeout(() => {
-            passwordError.style.display = 'none';
-        }, 3000);
+        if (currentAttempts >= MAX_LOGIN_ATTEMPTS) {
+            // Max attempts reached - start cooldown
+            startCooldown();
+        } else {
+            // Show attempt warning
+            passwordError.innerHTML = `❌ <strong>Incorrect password</strong><br>${remainingAttempts} ${remainingAttempts === 1 ? 'attempt' : 'attempts'} remaining before lockout.`;
+            passwordError.style.display = 'block';
+            
+            // Hide error after 5 seconds
+            setTimeout(() => {
+                if (!isInCooldown()) {
+                    passwordError.style.display = 'none';
+                }
+            }, 5000);
+        }
     }
 }
 
@@ -80,14 +201,60 @@ function logout() {
     location.reload(); // Refresh page to show login screen
 }
 
+// Toggle password visibility
+function togglePasswordVisibility(event) {
+    // Prevent default button behavior
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    const passwordInput = document.getElementById('password-input');
+    const toggleIcon = document.getElementById('password-toggle-icon');
+    const toggleBtn = document.querySelector('.password-toggle-btn');
+    
+    if (!passwordInput || !toggleIcon || !toggleBtn) {
+        console.error('Password toggle elements not found');
+        return;
+    }
+    
+    console.log('Toggle clicked - current input type:', passwordInput.type);
+    
+    if (passwordInput.type === 'password') {
+        // Show password
+        passwordInput.type = 'text';
+        toggleIcon.textContent = '🙈';
+        toggleBtn.setAttribute('aria-label', 'Hide password');
+        toggleBtn.title = 'Hide password';
+        console.log('Password visibility: SHOWN');
+    } else {
+        // Hide password
+        passwordInput.type = 'password';
+        toggleIcon.textContent = '👁️';
+        toggleBtn.setAttribute('aria-label', 'Show password');
+        toggleBtn.title = 'Show password';
+        console.log('Password visibility: HIDDEN');
+    }
+    
+    // Keep focus on password input to continue typing
+    passwordInput.focus();
+    
+    return false;
+}
+
 // Allow Enter key to submit password
 document.addEventListener('DOMContentLoaded', () => {
     checkAuthentication();
     
+    // Check for cooldown status on page load
+    if (isInCooldown()) {
+        updateCooldownDisplay();
+    }
+    
     const passwordInput = document.getElementById('password-input');
     if (passwordInput) {
         passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !isInCooldown()) {
                 checkPassword();
             }
         });
@@ -189,9 +356,8 @@ async function runIntelligenceSearch() {
         return;
     }
     
-    // Test mode check - API key is handled on backend
-    const testMode = document.getElementById("test_mode").checked;
-    const apiKey = testMode ? "test" : "backend-handled";
+    // API key is handled on backend
+    const apiKey = "backend-handled";
     
     // Show loading state
     const insightsContainer = document.getElementById("insights-container");
@@ -217,8 +383,7 @@ async function runIntelligenceSearch() {
                 pages: 1,
                 delay: 2,
                 ungraded_only: false, // Include graded cards
-                api_key: testMode ? "test" : apiKey,
-                test_mode: testMode.toString()
+                api_key: apiKey
             });
             
             const url = `/comps?${params.toString()}`;
@@ -381,29 +546,71 @@ function resizeCanvas() {
     canvas.style.height = '200px';
 }
 
-async function renderData(data) {
-    // ----- RESULTS TABLE -----
-    let html = "<table>";
-    html += `
-      <tr>
-        <th>Title</th>
-        <th>Price</th>
-        <th>Item ID</th>
-      </tr>
+async function renderData(data, showFindDealsButton = true) {
+    const resultsDiv = document.getElementById("results");
+    
+    // Create a container for the table with fixed height and scrolling
+    let html = `
+      <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
+        <table>
+          <tr>
+            <th>Title</th>
+            <th>Price</th>
+            <th>Item ID</th>
+          </tr>
+          ${data.items.map(item => `
+            <tr>
+              <td>${item.title}</td>
+              <td>${formatMoney(item.total_price)}</td>
+              <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
     `;
-
-    for (const item of data.items) {
-      html += `
-        <tr>
-          <td>${item.title}</td>
-          <td>${formatMoney(item.total_price)}</td>
-          <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
-        </tr>
-      `;
+    
+    // Calculate market value from the current data being rendered
+    const marketValue = data.items.length > 0 ?
+        data.items.reduce((sum, item) => sum + (item.total_price || 0), 0) / data.items.length : 0;
+    
+    // Conditionally add the Find Deals button section
+    if (showFindDealsButton) {
+        html += `
+          <div style="text-align: center; padding: 1rem; background: var(--background-color); border-radius: 8px; margin-top: 1rem; border: 1px solid var(--border-color);">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--text-color);">💰 Market Value: ${formatMoney(marketValue)}</h4>
+            <p style="margin: 0 0 1rem 0; color: var(--subtle-text-color); font-size: 0.9rem;">Search for current listings below market value</p>
+            <button id="find-deals-button"
+                    style="background: linear-gradient(135deg, #ff4500, #ff6b35);
+                           box-shadow: 0 4px 12px rgba(255, 69, 0, 0.3);
+                           padding: 12px 24px;
+                           font-size: 1rem;
+                           border: none;
+                           border-radius: 8px;
+                           color: white;
+                           cursor: pointer;
+                           font-weight: 600;">
+              🎯 Find Deals
+            </button>
+          </div>
+        `;
     }
+      
+    // Deals Results Section (initially empty)
+    html += `<div id="deals-results" style="margin-top: 1.5rem;"></div>`;
+    
+    resultsDiv.innerHTML = html;
+    console.log('[DEBUG] renderData - HTML set, resultsDiv content:', resultsDiv.innerHTML.substring(0, 200));
 
-    html += "</table>";
-    document.getElementById("results").innerHTML = html;
+    // Add event listener to Find Deals button (only if it exists in the rendered HTML)
+    if (showFindDealsButton) {
+        const findDealsButton = document.getElementById('find-deals-button');
+        if (findDealsButton) {
+            findDealsButton.addEventListener('click', findDeals);
+            console.log('[DEALS] Event listener added to Find Deals button');
+        } else {
+            console.error('[DEALS] Could not find Find Deals button to add event listener');
+        }
+    }
 
     // Clear old stats and chart with smooth transition
     clearBeeswarm();
@@ -436,26 +643,83 @@ async function renderData(data) {
     chartContainer.style.opacity = '1';
 }
 
+// Combined search: Run comps search then immediately find deals
+async function runCompsAndDeals() {
+    const query = document.getElementById("query").value;
+    if (!query) {
+        alert("Please enter a search query.");
+        return;
+    }
+
+    // Add loading state to the Find Deals button
+    const compsAndDealsButton = document.querySelector('button[onclick="runCompsAndDeals()"]');
+    const originalButtonText = compsAndDealsButton.innerHTML;
+    compsAndDealsButton.innerHTML = '⏳ Searching...';
+    compsAndDealsButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
+    compsAndDealsButton.disabled = true;
+
+    try {
+        // First, run the regular comps search
+        console.log('[COMPS+DEALS] Starting comps search...');
+        await runSearchInternal(false); // Don't show Find Deals button
+        
+        // Wait for comps search to complete and get market value
+        if (!lastData || !lastData.items || lastData.items.length === 0) {
+            alert("No comp data found. Cannot search for deals without market value.");
+            return;
+        }
+
+        const marketValue = lastData.items.reduce((sum, item) => sum + (item.total_price || 0), 0) / lastData.items.length;
+        console.log('[COMPS+DEALS] Market value from comps:', marketValue);
+
+        // Now search for deals
+        console.log('[COMPS+DEALS] Starting deals search...');
+        await findDealsInternal(marketValue);
+        
+        console.log('[COMPS+DEALS] Both searches completed successfully');
+        
+    } catch (error) {
+        console.error('[COMPS+DEALS] Error:', error);
+        const resultsDiv = document.getElementById("results");
+        resultsDiv.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
+            <strong>Error:</strong> ${error}
+        </div>`;
+    } finally {
+        // Restore button state
+        compsAndDealsButton.innerHTML = originalButtonText;
+        compsAndDealsButton.style.background = 'linear-gradient(135deg, #ff4500, #ff6b35)';
+        compsAndDealsButton.disabled = false;
+    }
+}
+
 async function runSearch() {
+    await runSearchInternal(true); // Show Find Deals button for normal search
+}
+
+async function runSearchInternal(showFindDealsButton = true) {
   let query = document.getElementById("query").value;
   const delay = 2; // Fixed at 2 seconds
   const pages = 1; // Fixed at 1 page
   const ungradedOnly = document.getElementById("ungraded_only").checked;
-  
-  // Properly get test mode checkbox
-  const testModeElement = document.getElementById("test_mode");
-  const testMode = testModeElement ? testModeElement.checked : false;
-  const apiKey = testMode ? "test" : "backend-handled";
+  const baseOnly = document.getElementById("base_only").checked;
+  const excludeAutos = document.getElementById("exclude_autos").checked;
+  const apiKey = "backend-handled"; // Always use production mode
 
-  console.log('[DEBUG] Test Mode checkbox checked:', testMode);
+  console.log('[DEBUG] Raw Only checkbox checked:', ungradedOnly);
+  console.log('[DEBUG] Base Only checkbox checked:', baseOnly);
+  console.log('[DEBUG] Exclude Autographs checkbox checked:', excludeAutos);
 
   if (!query) {
     alert("Please enter a search query.");
     return;
   }
 
-  if (ungradedOnly && !testMode) {
-    const excludedPhrases = [
+  // Combine exclusion terms based on selected filters
+  let allExcludedPhrases = [];
+
+  // Add Raw Only exclusions if checked
+  if (ungradedOnly) {
+    const rawOnlyExclusions = [
       // PSA related
       '-psa', '-"Professional Sports Authenticator"', '-"Professional Authenticator"',
       '-"Pro Sports Authenticator"', '-"Certified 10"', '-"Certified Gem"', '-"Certified Mint"',
@@ -487,7 +751,35 @@ async function runSearch() {
       '-"Graded Rookie"', '-"Graded RC"', '-"Gem Rookie"', '-"Gem RC"'
     ];
     
-    query = `${query} ${excludedPhrases.join(' ')}`;
+    allExcludedPhrases = allExcludedPhrases.concat(rawOnlyExclusions);
+  }
+
+  // Add Base Only exclusions if checked
+  if (baseOnly) {
+    const baseOnlyExclusions = [
+      '-refractors', '-red', '-aqua', '-blue', '-magenta', '-yellow', '-lot',
+      '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
+      '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
+      '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
+      '-"buy-back"', '-buyback'
+    ];
+    
+    allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
+  }
+
+  // Add Exclude Autographs exclusions if checked
+  if (excludeAutos) {
+    const autoExclusions = [
+      '-auto', '-autos', '-autograph', '-autographs', '-autographes', '-signed'
+    ];
+    
+    allExcludedPhrases = allExcludedPhrases.concat(autoExclusions);
+  }
+
+  // Apply all exclusions to query if any are selected
+  if (allExcludedPhrases.length > 0) {
+    query = `${query} ${allExcludedPhrases.join(' ')}`;
+    console.log('[DEBUG] Modified query with exclusions:', query);
   }
 
   const params = new URLSearchParams({
@@ -495,12 +787,10 @@ async function runSearch() {
     pages: pages,
     delay: delay,
     ungraded_only: ungradedOnly,
-    api_key: testMode ? "test" : apiKey,
-    test_mode: testMode.toString()
+    api_key: apiKey
   });
 const url = `/comps?${params.toString()}`;
 console.log('[DEBUG] Request URL:', url);
-console.log('[DEBUG] Final test mode value:', testMode);
 
 // Enhanced loading states
 document.getElementById("results").innerHTML = '<div class="loading">Fetching comp data...</div>';
@@ -543,7 +833,7 @@ searchButton.disabled = true;
 
     lastData = data;
 
-    await renderData(data);
+    await renderData(data, showFindDealsButton);
     // Store prices for resize handling
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
@@ -575,77 +865,6 @@ function clearBeeswarm() {
 
 
 
-// ---- CSV EXPORT ----
-
-function downloadCSV() {
-  if (!lastData || !lastData.items || lastData.items.length === 0) {
-    alert("No data to export yet. Run a search first.");
-    return;
-  }
-
-  // Add brief loading state to download button
-  const downloadButton = document.querySelector('button[onclick="downloadCSV()"]');
-  const originalDownloadText = downloadButton.textContent;
-  downloadButton.textContent = '⏳ Downloading...';
-  downloadButton.disabled = true;
-
-  const rows = [];
-  rows.push([
-    "Title", "Item ID", "URL", "Subtitle", "Listing Type", "Price",
-    "Shipping Price", "Shipping Type", "Best Offer Enabled", "Has Best Offer",
-    "Sold Price", "End Time", "Auction Sold", "Total Bids", "Sold"
-  ]);
-
-  for (const item of lastData.items) {
-    rows.push([
-      item.title,
-      item.item_id,
-      item.url,
-      item.subtitle,
-      item.listing_type,
-      item.price,
-      item.shipping_price,
-      item.shipping_type,
-      item.best_offer_enabled,
-      item.has_best_offer,
-      item.sold_price,
-      item.end_time,
-      item.auction_sold,
-      item.total_bids,
-      item.sold,
-    ]);
-  }
-
-  const csvContent = rows
-    .map(row =>
-      row
-        .map(value => {
-          const v = value == null ? "" : String(value);
-          if (v.includes(",") || v.includes('"') || v.includes("\n")) {
-            return `"${v.replace(/"/g, '""')}"`;
-          }
-          return v;
-        })
-        .join(",")
-    )
-    .join("\n");
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "comps.csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  
-  // Restore button state after brief delay
-  setTimeout(() => {
-    downloadButton.textContent = originalDownloadText;
-    downloadButton.disabled = false;
-  }, 500);
-}
 
 function renderStats(data) {
     const container = document.getElementById("stats-container");
@@ -684,89 +903,13 @@ function renderStats(data) {
 
 function renderMarketIntelligence(intelligence) {
     const container = document.getElementById("insights-container");
-    if (!intelligence || Object.keys(intelligence).length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
-                <h3>🧠 No Market Intelligence Available</h3>
-                <p>Run a search to see advanced analytics and insights</p>
-            </div>
-        `;
-        return;
-    }
-
-    let intelligenceHtml = `
-      <div id="market-intelligence">
-        <h3>🧠 Smart Market Insights</h3>
+    // Always show empty state - no market intelligence UI
+    container.innerHTML = `
+        <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
+            <h3>🧠 Grading Intelligence</h3>
+            <p>Enter a specific card search above to see PSA grade comparison results</p>
+        </div>
     `;
-
-    // Parallel Premium Insights
-    if (intelligence.parallel_premiums && intelligence.parallel_premiums.length > 0) {
-        intelligenceHtml += `<div class="insight-section">
-            <h4>💎 Parallel Premiums</h4>
-            <ul class="insight-list">`;
-        intelligence.parallel_premiums.forEach(insight => {
-            intelligenceHtml += `<li>${insight}</li>`;
-        });
-        intelligenceHtml += `</ul></div>`;
-    }
-
-    // Grading Premium
-    if (intelligence.grading_premium) {
-        intelligenceHtml += `<div class="insight-section">
-            <h4>⭐ Grading Premium</h4>
-            <p class="insight-highlight">${intelligence.grading_premium}</p>
-        </div>`;
-    }
-
-    // Year Trends
-    if (intelligence.year_trends && intelligence.year_trends.length > 0) {
-        intelligenceHtml += `<div class="insight-section">
-            <h4>📈 Year-over-Year Trends</h4>
-            <ul class="insight-list">`;
-        intelligence.year_trends.forEach(trend => {
-            intelligenceHtml += `<li>${trend}</li>`;
-        });
-        intelligenceHtml += `</ul></div>`;
-    }
-
-    // Activity Premium
-    if (intelligence.activity_premium) {
-        intelligenceHtml += `<div class="insight-section">
-            <h4>🔥 High-Activity Premium</h4>
-            <p class="insight-highlight">${intelligence.activity_premium}</p>
-        </div>`;
-    }
-
-    // Card Type Breakdown
-    if (intelligence.parallel_breakdown && Object.keys(intelligence.parallel_breakdown).length > 0) {
-        intelligenceHtml += `<div class="insight-section">
-            <h4>📊 Card Type Breakdown</h4>
-            <div class="breakdown-grid">`;
-        Object.entries(intelligence.parallel_breakdown).forEach(([type, info]) => {
-            const displayType = type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-            intelligenceHtml += `
-                <div class="breakdown-item">
-                    <span class="breakdown-type">${displayType}:</span>
-                    <span class="breakdown-value">${info}</span>
-                </div>`;
-        });
-        intelligenceHtml += `</div></div>`;
-    }
-
-    // If no insights were generated
-    if (!intelligence.parallel_premiums && !intelligence.grading_premium &&
-        !intelligence.year_trends && !intelligence.activity_premium &&
-        (!intelligence.parallel_breakdown || Object.keys(intelligence.parallel_breakdown).length === 0)) {
-        intelligenceHtml += `
-            <div style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
-                <p>🔍 Not enough data variety to generate insights</p>
-                <p style="font-size: 0.9rem;">Try searching for broader terms to get more diverse card types</p>
-            </div>
-        `;
-    }
-
-    intelligenceHtml += `</div>`;
-    container.innerHTML = intelligenceHtml;
 }
 
 async function updateFmv(data) {
@@ -804,7 +947,7 @@ async function updateFmv(data) {
 
     const fmvHtml = `
       <div id="fmv">
-        <h3>📈 Volume-Weighted Fair Market Value</h3>
+        <h3>📈 Fair Market Value</h3>
         <div class="stat-grid">
           <div class="stat-item">
             <div class="stat-label">🏃‍♂️ Quick Sale</div>
@@ -820,7 +963,7 @@ async function updateFmv(data) {
           </div>
         </div>
         <p style="font-size: 0.8rem; text-align: center; color: var(--subtle-text-color); margin-top: 1.5rem;">
-          Based on ${fmvData.count} volume-weighted sales
+          Based on ${fmvData.count} recent sales
         </p>
       </div>
     `;
@@ -1114,4 +1257,183 @@ function drawBeeswarm(prices) {
   } else {
     ctx.fillText(`${filteredPrices.length} items`, width - 60, margin.top + 15);
   }
+}
+
+// Find deals by searching for current listings below market value
+async function findDeals() {
+    console.log('[DEALS] Button clicked, starting findDeals function');
+    
+    if (!lastData || !lastData.items || lastData.items.length === 0) {
+        alert("No data to analyze. Run a search first.");
+        return;
+    }
+
+    // Get the current search query
+    const query = document.getElementById("query").value;
+    if (!query) {
+        alert("Please enter a search query first.");
+        return;
+    }
+
+    // Get market value from FMV data
+    const marketValue = lastData.items.reduce((sum, item) => sum + (item.total_price || 0), 0) / lastData.items.length;
+    console.log('[DEALS] Market value calculated:', marketValue);
+
+    await findDealsInternal(marketValue);
+}
+
+// Internal function to find deals (can be called programmatically)
+async function findDealsInternal(marketValue) {
+    const query = document.getElementById("query").value;
+    console.log('[DEALS] Internal search started with market value:', marketValue);
+
+    // Show loading state in deals results section
+    const dealsResultsDiv = document.getElementById("deals-results");
+    dealsResultsDiv.innerHTML = '<div class="loading">Searching for deals...</div>';
+    console.log('[DEALS] Loading state set in deals section');
+
+    // Handle button state (may not exist in combined search mode)
+    const findDealsButton = document.getElementById('find-deals-button');
+    let originalButtonText = '';
+    if (findDealsButton) {
+        originalButtonText = findDealsButton.innerHTML;
+        findDealsButton.innerHTML = '⏳ Searching...';
+        findDealsButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
+        findDealsButton.disabled = true;
+    }
+
+    try {
+        // Search for active deals using the new /deals endpoint
+        const params = new URLSearchParams({
+            query: query,
+            market_value: marketValue,
+            pages: 1,
+            delay: 2,
+            sort_by: "price_low_to_high",
+            api_key: "backend-handled"
+        });
+
+        console.log('[DEALS] Fetching deals with params:', params.toString());
+        console.log('[DEALS] Market value threshold:', marketValue);
+        
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
+        console.log('[DEALS] About to fetch URL:', `/deals?${params.toString()}`);
+        
+        const resp = await fetch(`/deals?${params.toString()}`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        console.log('[DEALS] Response status:', resp.status);
+        console.log('[DEALS] Response headers:', resp.headers);
+        
+        if (!resp.ok) {
+            const errorText = await resp.text();
+            console.error('[DEALS] Error response text:', errorText);
+            throw new Error(`HTTP ${resp.status}: ${resp.statusText} - ${errorText}`);
+        }
+        
+        const data = await resp.json();
+        console.log('[DEALS] Response data:', data);
+
+        if (data.detail) {
+            resultsDiv.innerHTML = "Error: " + data.detail;
+            return;
+        }
+
+        // All items returned are already filtered to be below market value
+        // Sort deals by discount percentage (largest discount percentage first)
+        const deals = data.items.sort((a, b) => {
+            const priceA = a.total_price || ((a.extracted_price || 0) + (a.extracted_shipping || 0));
+            const priceB = b.total_price || ((b.extracted_price || 0) + (b.extracted_shipping || 0));
+            const discountA = ((marketValue - priceA) / marketValue * 100);
+            const discountB = ((marketValue - priceB) / marketValue * 100);
+            return discountB - discountA; // Largest discount percentage first
+        });
+
+        // Render deals or no deals message in the dedicated deals section
+        let dealsHtml = `
+            <div style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
+                <div style="text-align: center; margin-bottom: 1rem;">
+                    <h3 style="margin: 0; color: var(--text-color);">🎯 Current Deals</h3>
+                    <p style="color: var(--subtle-text-color); margin: 0.5rem 0;">
+                        Active listings below market value (${formatMoney(marketValue)})
+                    </p>
+                </div>`;
+
+        if (deals.length > 0) {
+            dealsHtml += `
+                <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px;">
+                    <table>
+                        <tr>
+                            <th>Title</th>
+                            <th>Price</th>
+                            <th>Type</th>
+                            <th>Item ID</th>
+                        </tr>
+                        ${deals.map(item => {
+                            const totalPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                            const listingType = item.is_auction ? "Auction" : "Buy It Now";
+                            const discount = ((marketValue - totalPrice) / marketValue * 100).toFixed(1);
+                            return `
+                                <tr>
+                                    <td>${item.title}</td>
+                                    <td>
+                                        ${formatMoney(totalPrice)}
+                                        <span style="color: #ff4500; font-weight: 600; margin-left: 8px;">
+                                            (-${discount}%)
+                                        </span>
+                                    </td>
+                                    <td>${listingType}</td>
+                                    <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </table>
+                </div>
+                <div style="text-align: center; margin-top: 1rem; color: var(--subtle-text-color);">
+                    ✅ Found ${deals.length} deals below market value
+                </div>`;
+        } else {
+            dealsHtml += `
+                <div style="text-align: center; padding: 2rem; color: var(--subtle-text-color); background: var(--background-color); border-radius: 8px;">
+                    <p style="margin: 0; font-size: 1.1rem;">🔍 No deals found at this time</p>
+                    <p style="margin: 0.5rem 0; font-size: 0.9rem;">All current listings are priced at or above market value</p>
+                    <p style="margin: 0.5rem 0; font-size: 0.9rem;">Try searching again later</p>
+                </div>`;
+        }
+
+        dealsHtml += `</div>`;
+
+        // Update only the deals results section
+        const dealsResultsDiv = document.getElementById("deals-results");
+        dealsResultsDiv.innerHTML = dealsHtml;
+
+    } catch (error) {
+        const dealsResultsDiv = document.getElementById("deals-results");
+        dealsResultsDiv.innerHTML = `
+            <div style="background: var(--card-background); border: 1px solid #ff3b30; border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
+                <div style="color: #ff3b30; text-align: center;">
+                    <h3 style="margin: 0; color: #ff3b30;">⚠️ Error Finding Deals</h3>
+                    <p style="margin: 0.5rem 0;"><strong>Error:</strong> ${error}</p>
+                    <p style="margin: 0.5rem 0; font-size: 0.9rem; color: var(--subtle-text-color);">Please try again or check your connection</p>
+                </div>
+            </div>`;
+    } finally {
+        // Restore Find Deals button state (only if button exists)
+        if (findDealsButton) {
+            findDealsButton.innerHTML = originalButtonText;
+            findDealsButton.style.background = 'linear-gradient(135deg, #ff4500, #ff6b35)';
+            findDealsButton.disabled = false;
+        }
+    }
+}
+
+// Clear the deals results
+function closeDeals() {
+    const resultsDiv = document.getElementById("results");
+    resultsDiv.innerHTML = '';
 }
