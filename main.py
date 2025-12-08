@@ -2,6 +2,10 @@
 import csv
 import os
 import re
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Tuple
 from collections import defaultdict
@@ -11,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import numpy as np
 from sklearn.neighbors import KernelDensity
-from scraper import scrape_sold_comps
+from scraper import scrape_sold_comps, scrape_active_listings
 
 
 app = FastAPI(
@@ -110,12 +114,6 @@ class CompsResponse(BaseModel):
     market_intelligence: Optional[Dict] = None
 
 
-    raw_items_scraped: Optional[int] = None
-    duplicates_filtered: Optional[int] = None
-    zero_price_filtered: Optional[int] = None
-    market_intelligence: Optional[Dict] = None
-
-
 class FmvResponse(BaseModel):
     fmv_low: Optional[float] = None
     fmv_high: Optional[float] = None
@@ -132,8 +130,13 @@ class FmvResponse(BaseModel):
 RESULTS_DIR = os.getenv('CSV_STORAGE_PATH', os.path.dirname(os.path.abspath(__file__)))
 RESULTS_FILE = "results_library_complete.csv"
 
-# Get the default API key from environment variable (for security in production)
-DEFAULT_API_KEY = os.getenv('SEARCH_API_KEY', 'r7jG9wt37puBBzzdP2SNUU2a')
+# Get the API key from environment variable (secure - no fallback)
+DEFAULT_API_KEY = os.getenv('SEARCH_API_KEY')
+
+# Validate API key is configured
+if not DEFAULT_API_KEY:
+    print("WARNING: SEARCH_API_KEY environment variable not set. App will only work in test mode.")
+    DEFAULT_API_KEY = None
 
 
 def write_results_to_csv(query: str, items: List[CompItem]):
@@ -589,6 +592,144 @@ def get_comps(
         market_intelligence=market_intelligence,
     )
 
+
+@app.get("/deals", response_model=CompsResponse)
+def get_deals(
+    query: str = Query(
+        ...,
+        description="Search term, e.g. '2024 topps chrome elly de la cruz auto /25'",
+    ),
+    market_value: float = Query(
+        ...,
+        description="Market value threshold - only return items below this price",
+    ),
+    delay: float = Query(
+        2.0,
+        ge=0.0,
+        le=10.0,
+        description="Delay between page fetches in seconds",
+    ),
+    pages: int = Query(
+        1,
+        ge=1,
+        le=3,
+        description="Number of pages to scrape (max 3 for deals)",
+    ),
+    sort_by: str = Query(
+        "price_low_to_high",
+        description="Sort order: price_low_to_high, price_high_to_low, time_newly_listed, etc.",
+    ),
+    buying_format: Optional[str] = Query(
+        None,
+        description="Filter by buying format: auction, buy_it_now, best_offer",
+    ),
+    condition: Optional[str] = Query(
+        None,
+        description="Filter by condition: new, used, pre_owned_excellent, etc.",
+    ),
+    api_key: str = Query(
+        "backend-handled",
+        description="API key handling (use 'test' for test mode)",
+    ),
+    test_mode: bool = Query(
+        False,
+        description="If true, use test data from CSV instead of SearchAPI.io",
+    ),
+):
+    """
+    Search for active eBay listings that are priced below the given market value.
+    Returns items that could be good deals.
+    """
+    try:
+        if test_mode or (api_key and api_key.lower() == "test"):
+            print("[INFO] Using test mode with CSV data for deals")
+            raw_items = load_test_data()
+        else:
+            # Use the backend's default API key for production
+            actual_api_key = DEFAULT_API_KEY
+            raw_items = scrape_active_listings(
+                query=query,
+                api_key=actual_api_key,
+                max_pages=pages,
+                delay_secs=delay,
+                sort_by=sort_by,
+                buying_format=buying_format,
+                condition=condition,
+                price_max=market_value,  # Only get items below market value
+            )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")
+
+    # Remove duplicates based on item_id and filter out zero-price items
+    print(f"[INFO] Processing {len(raw_items)} raw active listings")
+    
+    unique_items = []
+    seen_item_ids = set()
+    duplicates_removed = 0
+    zero_price_removed = 0
+    above_market_removed = 0
+    
+    for item in raw_items:
+        item_id = item.get('item_id')
+        
+        # Skip items without item_id
+        if not item_id:
+            continue
+        
+        # Skip duplicates
+        if item_id in seen_item_ids:
+            duplicates_removed += 1
+            continue
+            
+        # Check for valid price
+        extracted_price = item.get('extracted_price')
+        extracted_shipping = item.get('extracted_shipping', 0)
+        
+        if extracted_price is None or extracted_price <= 0:
+            zero_price_removed += 1
+            continue
+            
+        # Check if total price is below market value
+        total_price = extracted_price + (extracted_shipping or 0)
+        if total_price >= market_value:
+            above_market_removed += 1
+            continue
+            
+        # Item passed all filters - it's a potential deal
+        unique_items.append(item)
+        seen_item_ids.add(item_id)
+    
+    print(f"[INFO] Deal filtering results:")
+    print(f"  - Raw items: {len(raw_items)}")
+    print(f"  - Removed {duplicates_removed} duplicates")
+    print(f"  - Removed {zero_price_removed} zero-price items")
+    print(f"  - Removed {above_market_removed} items above market value")
+    print(f"  - Final deals found: {len(unique_items)}")
+    
+    comp_items = [CompItem(**item) for item in unique_items]
+
+    # Calculate total_price for each item
+    for item in comp_items:
+        item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
+
+    prices = [item.total_price for item in comp_items if item.total_price is not None]
+    min_price = min(prices) if prices else None
+    max_price = max(prices) if prices else None
+    avg_price = sum(prices) / len(prices) if prices else None
+
+    return CompsResponse(
+        query=f"{query} (deals below ${market_value:.2f})",
+        pages_scraped=pages,
+        items=comp_items,
+        min_price=min_price,
+        max_price=max_price,
+        avg_price=avg_price,
+        raw_items_scraped=len(raw_items),
+        duplicates_filtered=duplicates_removed,
+        zero_price_filtered=zero_price_removed,
+        market_intelligence={}  # No intelligence analysis for deals
+    )
 
 
 @app.post("/fmv", response_model=FmvResponse)

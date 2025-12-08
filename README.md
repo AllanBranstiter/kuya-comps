@@ -1,14 +1,18 @@
-# eBay Baseball Card Comps Tool
+# eBay Baseball Card Comps Tool v0.2
 
 This is a simple web application to scrape and display sold listings for baseball cards from eBay.
 
 ## Features
 
-*   Web UI to enter a search query and a `SearchAPI.io` API key.
-*   Scrapes multiple pages of eBay's sold listings.
-*   Displays results in a table.
-*   Allows downloading the raw data as a CSV file from the browser.
-*   Automatically saves the results to a CSV file on the server in the `results_library` directory.
+*   **Dual Search Functionality**: Search sold listings for market analysis and active listings for deals
+*   **Advanced Filtering**: Raw Only, Base Only, and Exclude Autographs filters
+*   **Combined Workflow**: "Find Deals" button runs both searches automatically
+*   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
+*   **Interactive Visualization**: Beeswarm chart showing price distribution
+*   **PSA Grade Intelligence**: Compare prices across different PSA grades
+*   **Password Protection**: Secure access with session management
+*   **Clean UI**: Modern interface with responsive design
+*   **Production Ready**: Environment-based configuration and deployment support
 
 ## Tech Stack
 
@@ -18,28 +22,94 @@ This is a simple web application to scrape and display sold listings for basebal
 
 ## Setup and Running
 
+### Local Development
+
 1.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-2.  **Run the application:**
+2.  **Set up Environment Variables:**
+    ```bash
+    cp .env.example .env
+    # Edit .env and add your SearchAPI.io API key
+    ```
+
+3.  **Run the application:**
     ```bash
     uvicorn main:app --reload
     ```
 
-3.  **Open your browser:**
+4.  **Open your browser:**
     Navigate to [http://127.0.0.1:8000](http://127.0.0.1:8000) to use the application.
+
+### Production Deployment (Railway)
+
+1.  **Push to GitHub:**
+    - Ensure `.env` is in `.gitignore` (already configured)
+    - Push your code to a GitHub repository
+
+2.  **Deploy on Railway:**
+    - Connect your GitHub repository to Railway
+    - Set environment variable: `SEARCH_API_KEY=your_searchapi_io_key`
+    - Railway will automatically detect the Python app and deploy using the Procfile
+
+3.  **Environment Variables Required:**
+    - `SEARCH_API_KEY`: Your SearchAPI.io API key
+    - `PORT`: Automatically set by Railway
 
 ## API
 
-The application exposes a single API endpoint:
+The application exposes two main API endpoints:
 
-*   `GET /comps`
+*   `GET /comps` - Search sold listings for market analysis
+*   `GET /deals` - Search active listings below market value
 
-    **Query Parameters:**
-    *   `query` (string, required): The search term for the card.
-    *   `api_key` (string, required): Your `SearchAPI.io` API key.
-    *   `pages` (integer, optional, default: 3): Number of pages to scrape (1-10).
-    *   `delay` (float, optional, default: 2.0): Delay in seconds between page fetches.
-    *   `ungraded_only` (boolean, optional, default: False): If true, filters out graded cards.
+Both endpoints support comprehensive filtering and modern analytics.
+
+## Security
+
+- API keys are handled securely on the backend via environment variables
+- The `.env` file is excluded from version control via `.gitignore`
+- Password protection prevents unauthorized access to the application
+- All API calls are routed through the secure backend, never exposing keys to the frontend
+
+## Version History
+
+### Version 0.2 (Current)
+- **Find Deals Functionality**: Added ability to search for current active listings below market value
+- **New /deals API Endpoint**: Backend support for active listing searches vs. sold listings
+- **Advanced Filtering System**:
+  - "Base Only" filter excludes parallels, refractors, and special variants
+  - "Exclude Autographs" filter removes auto/signed cards
+  - Combined filtering support when multiple filters selected
+- **Combined Search Workflow**: New "Find Deals" button that runs both comps + deals searches automatically
+- **UI/UX Improvements**:
+  - Larger, more prominent filter checkboxes
+  - Separate deals results section preserving sold listings visibility
+  - Deals sorted by largest discount percentage first
+  - Removed technical "Volume-Weighted" references for better user understanding
+- **Code Cleanup**:
+  - Removed Test Mode functionality (always production)
+  - Removed CSV export feature
+  - Simplified Smart Market Insights in Grading Intelligence tab
+  - Clean API parameter handling without test mode complexity
+
+### Version 0.2.0 (Previous)
+- Added Market Intelligence analytics for card variants and parallels
+- Implemented volume-weighted Fair Market Value (FMV) calculations
+- Added interactive beeswarm price distribution visualization
+- Added PSA grade comparison functionality
+- Enhanced UI with modern design and responsive layout
+- Added password protection for application access
+- Improved data filtering with outlier detection
+- Added support for saving results to CSV library
+- Enhanced error handling and user feedback
+
+### Version 0.1.0 (Initial Release)
+- Basic eBay sold listings scraping functionality
+- Simple web UI for search queries
+- Basic price statistics (min, max, average)
+- CSV export capability
+- Basic API endpoint for comps retrieval
+- Support for SearchAPI.io integration
