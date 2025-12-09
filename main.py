@@ -807,20 +807,24 @@ def get_deals(
     # Convert raw items to CompItems with proper buying format flags
     comp_items = []
     for item in unique_items:
-        # Set buying format flags based on API response
-        if 'buying_format' in item:
-            # Get the buying format from the API response
-            buying_format = item.get('buying_format', '').lower()
-            
-            # Set flags based on the buying format
-            item['is_auction'] = 'auction' in buying_format
-            item['is_buy_it_now'] = 'buy it now' in buying_format
-            item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
-            
-            # If it's an auction, override other flags
-            if item['is_auction']:
-                item['is_buy_it_now'] = False
-                item['is_best_offer'] = False
+        # Check multiple indicators for auction status
+        is_auction = False
+        buying_format = item.get('buying_format', '').lower()
+        
+        # Check various auction indicators
+        if any([
+            'auction' in buying_format,
+            item.get('bids', 0) > 0,
+            item.get('total_bids', 0) > 0,
+            item.get('time_left') and any(x in str(item.get('time_left', '')).lower() for x in ['left', 'ends in', 'ending']),
+            item.get('is_auction', False)
+        ]):
+            is_auction = True
+        
+        # Set flags with auction taking precedence
+        item['is_auction'] = is_auction
+        item['is_buy_it_now'] = False if is_auction else 'buy it now' in buying_format
+        item['is_best_offer'] = False if is_auction else (item.get('best_offer_enabled', False) or item.get('has_best_offer', False))
         
         comp_items.append(CompItem(**item))
 
