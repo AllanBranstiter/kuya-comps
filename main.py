@@ -454,9 +454,17 @@ def get_comps(
         le=10,
         description="Number of pages to scrape",
     ),
-    ungraded_only: bool = Query(
+    raw_only: bool = Query(
         False,
-        description="If true, filter out graded cards (PSA/SGC/BGS/etc.)",
+        description="If true, exclude graded cards",
+    ),
+    base_only: bool = Query(
+        False,
+        description="If true, exclude parallels and variations",
+    ),
+    exclude_autographs: bool = Query(
+        False,
+        description="If true, exclude cards with autographs",
     ),
     sort_by: str = Query(
         "best_match",
@@ -502,11 +510,16 @@ def get_comps(
         else:
             # Use the backend's default API key for production
             actual_api_key = DEFAULT_API_KEY
+            # Modify query based on filters
+            modified_query = query
+            if raw_only:
+                modified_query = f"{modified_query} -PSA -BGS -SGC -CSG -HGA -graded -grade -gem -mint"
+            
             raw_items = scrape_sold_comps(
-                query=query,
+                query=modified_query,
                 max_pages=pages,
                 delay_secs=delay,
-                ungraded_only=ungraded_only,
+                ungraded_only=raw_only,  # Keep this for backward compatibility
                 api_key=actual_api_key,
                 sort_by=sort_by,
                 buying_format=buying_format,
@@ -514,6 +527,27 @@ def get_comps(
                 price_min=price_min,
                 price_max=price_max,
             )
+
+            # Additional post-processing filtering
+            filtered_items = []
+            for item in raw_items:
+                title = item.get('title', '').lower()
+                
+                if raw_only and any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
+                    continue
+                    
+                if base_only and any(term in title for term in [
+                    'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple', 'blue', 'red', 'green',
+                    'yellow', 'orange', 'pink', 'black', 'atomic', 'xfractor', 'superfractor', 'numbered', 'stars', 'star'
+                ]):
+                    continue
+                    
+                if exclude_autographs and any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
+                    continue
+                    
+                filtered_items.append(item)
+
+            raw_items = filtered_items
         
     except TypeError as e:
         raise HTTPException(
@@ -662,11 +696,11 @@ def get_deals(
             # Modify query based on filters
             modified_query = query
             if raw_only:
-                modified_query = f"{modified_query} -PSA -BGS -SGC -graded"
+                modified_query = f"{modified_query} -PSA -BGS -SGC -CSG -HGA -graded -grade -gem -mint"
             if base_only:
-                modified_query = f"{modified_query} -refractor -prizm -parallel -wave -gold -purple -blue -red -green"
+                modified_query = f"{modified_query} -refractor -prizm -prism -parallel -wave -gold -purple -blue -red -green -yellow -orange -pink -black -atomic -xfractor -superfractor -numbered -stars -star"
             if exclude_autographs:
-                modified_query = f"{modified_query} -auto -autograph -signed"
+                modified_query = f"{modified_query} -auto -autograph -signed -signature -authentic -certified"
 
             raw_items = scrape_active_listings(
                 query=modified_query,
@@ -678,6 +712,27 @@ def get_deals(
                 condition=condition,
                 price_max=market_value,  # Only get items below market value
             )
+
+            # Additional post-processing filtering
+            filtered_items = []
+            for item in raw_items:
+                title = item.get('title', '').lower()
+                
+                if raw_only and any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
+                    continue
+                    
+                if base_only and any(term in title for term in [
+                    'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple', 'blue', 'red', 'green',
+                    'yellow', 'orange', 'pink', 'black', 'atomic', 'xfractor', 'superfractor', 'numbered', 'stars', 'star'
+                ]):
+                    continue
+                    
+                if exclude_autographs and any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
+                    continue
+                    
+                filtered_items.append(item)
+
+            raw_items = filtered_items
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")
