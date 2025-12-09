@@ -1399,7 +1399,10 @@ async function findDealsInternal(marketValue) {
             pages: 1,
             delay: 2,
             sort_by: "price_low_to_high",
-            api_key: "backend-handled"
+            api_key: "backend-handled",
+            raw_only: ungradedOnly,
+            base_only: baseOnly,
+            exclude_autographs: excludeAutos
         });
 
         console.log('[DEALS] Fetching deals with params:', params.toString());

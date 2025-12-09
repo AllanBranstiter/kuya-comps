@@ -750,7 +750,44 @@ def get_deals(
                 condition=condition,
                 price_max=market_value,  # Only get items below market value
             )
-        
+
+            # Additional post-processing filtering using API data
+            filtered_items = []
+            for item in raw_items:
+                title = item.get('title', '').lower()
+                condition = item.get('condition', '').lower()
+                authenticity = item.get('authenticity', '').lower()
+                extensions = [ext.lower() for ext in item.get('extensions', [])]
+                
+                # Raw Only filter - check both title and condition/authenticity data
+                if raw_only:
+                    if any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
+                        continue
+                    if 'graded' in condition or 'graded' in authenticity:
+                        continue
+                    if item.get('is_in_psa_vault'):
+                        continue
+                    
+                # Base Only filter - check title and extensions
+                if base_only:
+                    if any(term in title for term in [
+                        'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple', 'blue', 'red', 'green',
+                        'yellow', 'orange', 'pink', 'black', 'atomic', 'xfractor', 'superfractor', 'numbered', 'stars', 'star'
+                    ]):
+                        continue
+                    if any(term in ' '.join(extensions) for term in ['parallel', 'refractor', 'prizm', 'numbered']):
+                        continue
+                    
+                # Exclude Autographs filter - check title, authenticity, and extensions
+                if exclude_autographs:
+                    if any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
+                        continue
+                    if 'autograph' in authenticity or any('autograph' in ext for ext in extensions):
+                        continue
+                    
+                filtered_items.append(item)
+
+            raw_items = filtered_items
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")
 
