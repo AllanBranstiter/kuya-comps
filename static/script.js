@@ -1470,14 +1470,7 @@ async function findDealsInternal(marketValue) {
                         </tr>
                         ${deals.map(item => {
                             const totalPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-                            
-                            // Check multiple indicators for auction status
-                            const isAuction = item.is_auction ||
-                                            (item.bids && item.bids > 0) ||
-                                            (item.total_bids && item.total_bids > 0) ||
-                                            (item.time_left && /left|ends in|ending/i.test(item.time_left));
-                            
-                            const listingType = isAuction ? "Auction" : "Buy It Now";
+                            const listingType = item.listing_type || "Buy It Now";
                             const discount = ((marketValue - totalPrice) / marketValue * 100).toFixed(1);
                             return `
                                 <tr>

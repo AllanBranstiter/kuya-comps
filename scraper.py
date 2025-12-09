@@ -200,6 +200,18 @@ def scrape_active_listings(
         # Track items before adding to check for potential duplicates
         items_before = len(all_items)
         for r in results:
+            # Debug: Log the raw buying format
+            buying_format = r.get('buying_format', '')
+            print(f"[DEBUG] Raw buying_format from SearchAPI: {buying_format}")
+            
+            # Map the buying format to our display values
+            if 'auction' in buying_format.lower():
+                r['listing_type'] = 'Auction'
+            elif 'buy it now' in buying_format.lower():
+                r['listing_type'] = 'Buy It Now'
+            else:
+                r['listing_type'] = 'Buy It Now'  # Default case
+            
             # Clean up concatenated price data from eBay sale/discount listings
             if 'price' in r and r['price'] and isinstance(r['price'], str):
                 price_str = r['price']
