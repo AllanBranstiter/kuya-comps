@@ -714,91 +714,92 @@ async function runSearch() {
     await runSearchInternal(true); // Show Find Deals button for normal search
 }
 
+// Helper function to construct the search query with all selected exclusions
+function getSearchQueryWithExclusions(baseQuery) {
+    const ungradedOnly = document.getElementById("ungraded_only").checked;
+    const baseOnly = document.getElementById("base_only").checked;
+    const excludeAutos = document.getElementById("exclude_autos").checked;
+
+    let allExcludedPhrases = [];
+
+    if (ungradedOnly) {
+        const rawOnlyExclusions = [
+            // PSA related
+            '-psa', '-"Professional Sports Authenticator"', '-"Professional Authenticator"',
+            '-"Pro Sports Authenticator"', '-"Certified 10"', '-"Certified Gem"', '-"Certified Mint"',
+            '-slabbed', '-"Red Label"', '-lighthouse', '-"Gem Mint 10"', '-"Graded 10"', '-"Mint 10"',
+            
+            // BGS related
+            '-bgs', '-beckett', '-"Gem 10"', '-"Black Label"', '-"Gold Label"', '-"Silver Label"',
+            '-subgrades', '-subs', '-"Quad 9.5"', '-"True Gem"', '-"True Gem+"', '-"Gem+"', '-bvg',
+            
+            // SGC related
+            '-sgc', '-"Tuxedo Slab"', '-"Black Slab"', '-"Green Label"', '-"SG LLC"',
+            '-"SG Grading"', '-"Mint+ 9.5"', '-"10 Pristine"',
+            
+            // CGC related
+            '-csg', '-cgc', '-"Certified Collectibles Group"', '-"CGC Trading Cards"', '-"CSG Gem"',
+            '-"Pristine 10"', '-"Perfect 10"', '-"Green Slab"',
+            
+            // General grading terms
+            '-encapsulated', '-authenticated', '-verified', '-"Slabbed Card"', '-"Third-Party Graded"',
+            '-graded', '-gem', '-"Gem Mint"', '-pristine', '-"Mint+"', '-"NM-MT"',
+            '-"Certified Authentic"', '-"Pro Graded"',
+            
+            // Other grading companies
+            '-gma', '-hga', '-ksa', '-fgs', '-pgi', '-pro', '-isa', '-mnt', '-"MNT Grading"',
+            '-rcg', '-"TCG Grading"', '-bccg', '-tag', '-pgs', '-tga', '-ace', '-usg',
+            
+            // Slab related
+            '-slab', '-"Slabbed up"', '-"In case"', '-holdered', '-encased',
+            '-"Graded Rookie"', '-"Graded RC"', '-"Gem Rookie"', '-"Gem RC"'
+        ];
+        allExcludedPhrases = allExcludedPhrases.concat(rawOnlyExclusions);
+    }
+
+    if (baseOnly) {
+        const baseOnlyExclusions = [
+            '-refractors', '-red', '-aqua', '-blue', '-magenta', '-yellow', '-lot',
+            '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
+            '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
+            '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
+            '-"buy-back"', '-buyback'
+        ];
+        allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
+    }
+
+    if (excludeAutos) {
+        const autoExclusions = [
+            '-auto', '-autos', '-autograph', '-autographs', '-autographes', '-signed'
+        ];
+        allExcludedPhrases = allExcludedPhrases.concat(autoExclusions);
+    }
+
+    let finalQuery = baseQuery;
+    if (allExcludedPhrases.length > 0) {
+        finalQuery = `${baseQuery} ${allExcludedPhrases.join(' ')}`;
+    }
+    console.log('[DEBUG] Constructed query with exclusions:', finalQuery);
+    return finalQuery;
+}
+
 async function runSearchInternal(showFindDealsButton = true) {
-  let query = document.getElementById("query").value;
+  let baseQuery = document.getElementById("query").value;
   const delay = 2; // Fixed at 2 seconds
   const pages = 1; // Fixed at 1 page
-  const ungradedOnly = document.getElementById("ungraded_only").checked;
-  const baseOnly = document.getElementById("base_only").checked;
-  const excludeAutos = document.getElementById("exclude_autos").checked;
+  const ungradedOnly = document.getElementById("ungraded_only").checked; // Still needed for backend param
   const apiKey = "backend-handled"; // Always use production mode
 
   console.log('[DEBUG] Raw Only checkbox checked:', ungradedOnly);
-  console.log('[DEBUG] Base Only checkbox checked:', baseOnly);
-  console.log('[DEBUG] Exclude Autographs checkbox checked:', excludeAutos);
+  console.log('[DEBUG] Base Only checkbox checked:', document.getElementById("base_only").checked);
+  console.log('[DEBUG] Exclude Autographs checkbox checked:', document.getElementById("exclude_autos").checked);
 
-  if (!query) {
+  if (!baseQuery) {
     alert("Please enter a search query.");
     return;
   }
 
-  // Combine exclusion terms based on selected filters
-  let allExcludedPhrases = [];
-
-  // Add Raw Only exclusions if checked
-  if (ungradedOnly) {
-    const rawOnlyExclusions = [
-      // PSA related
-      '-psa', '-"Professional Sports Authenticator"', '-"Professional Authenticator"',
-      '-"Pro Sports Authenticator"', '-"Certified 10"', '-"Certified Gem"', '-"Certified Mint"',
-      '-slabbed', '-"Red Label"', '-lighthouse', '-"Gem Mint 10"', '-"Graded 10"', '-"Mint 10"',
-      
-      // BGS related
-      '-bgs', '-beckett', '-"Gem 10"', '-"Black Label"', '-"Gold Label"', '-"Silver Label"',
-      '-subgrades', '-subs', '-"Quad 9.5"', '-"True Gem"', '-"True Gem+"', '-"Gem+"', '-bvg',
-      
-      // SGC related
-      '-sgc', '-"Tuxedo Slab"', '-"Black Slab"', '-"Green Label"', '-"SG LLC"',
-      '-"SG Grading"', '-"Mint+ 9.5"', '-"10 Pristine"',
-      
-      // CGC related
-      '-csg', '-cgc', '-"Certified Collectibles Group"', '-"CGC Trading Cards"', '-"CSG Gem"',
-      '-"Pristine 10"', '-"Perfect 10"', '-"Green Slab"',
-      
-      // General grading terms
-      '-encapsulated', '-authenticated', '-verified', '-"Slabbed Card"', '-"Third-Party Graded"',
-      '-graded', '-gem', '-"Gem Mint"', '-pristine', '-"Mint+"', '-"NM-MT"',
-      '-"Certified Authentic"', '-"Pro Graded"',
-      
-      // Other grading companies
-      '-gma', '-hga', '-ksa', '-fgs', '-pgi', '-pro', '-isa', '-mnt', '-"MNT Grading"',
-      '-rcg', '-"TCG Grading"', '-bccg', '-tag', '-pgs', '-tga', '-ace', '-usg',
-      
-      // Slab related
-      '-slab', '-"Slabbed up"', '-"In case"', '-holdered', '-encased',
-      '-"Graded Rookie"', '-"Graded RC"', '-"Gem Rookie"', '-"Gem RC"'
-    ];
-    
-    allExcludedPhrases = allExcludedPhrases.concat(rawOnlyExclusions);
-  }
-
-  // Add Base Only exclusions if checked
-  if (baseOnly) {
-    const baseOnlyExclusions = [
-      '-refractors', '-red', '-aqua', '-blue', '-magenta', '-yellow', '-lot',
-      '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
-      '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
-      '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
-      '-"buy-back"', '-buyback'
-    ];
-    
-    allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
-  }
-
-  // Add Exclude Autographs exclusions if checked
-  if (excludeAutos) {
-    const autoExclusions = [
-      '-auto', '-autos', '-autograph', '-autographs', '-autographes', '-signed'
-    ];
-    
-    allExcludedPhrases = allExcludedPhrases.concat(autoExclusions);
-  }
-
-  // Apply all exclusions to query if any are selected
-  if (allExcludedPhrases.length > 0) {
-    query = `${query} ${allExcludedPhrases.join(' ')}`;
-    console.log('[DEBUG] Modified query with exclusions:', query);
-  }
+  let query = getSearchQueryWithExclusions(baseQuery);
 
   const params = new URLSearchParams({
     query: query,

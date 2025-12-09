@@ -616,7 +616,7 @@ def get_deals(
         description="Number of pages to scrape (max 3 for deals)",
     ),
     sort_by: str = Query(
-        "best_match", # Changed default sort_by to best_match
+        "best_match",
         description="Sort order: best_match, price_low_to_high, price_high_to_low, time_newly_listed, etc.",
     ),
     buying_format: Optional[str] = Query(
@@ -626,6 +626,18 @@ def get_deals(
     condition: Optional[str] = Query(
         None,
         description="Filter by condition: new, used, pre_owned_excellent, etc.",
+    ),
+    raw_only: bool = Query(
+        False,
+        description="If true, exclude graded cards",
+    ),
+    base_only: bool = Query(
+        False,
+        description="If true, exclude parallels and variations",
+    ),
+    exclude_autographs: bool = Query(
+        False,
+        description="If true, exclude cards with autographs",
     ),
     api_key: str = Query(
         "backend-handled",
@@ -647,8 +659,17 @@ def get_deals(
         else:
             # Use the backend's default API key for production
             actual_api_key = DEFAULT_API_KEY
+            # Modify query based on filters
+            modified_query = query
+            if raw_only:
+                modified_query = f"{modified_query} -PSA -BGS -SGC -graded"
+            if base_only:
+                modified_query = f"{modified_query} -refractor -prizm -parallel -wave -gold -purple -blue -red -green"
+            if exclude_autographs:
+                modified_query = f"{modified_query} -auto -autograph -signed"
+
             raw_items = scrape_active_listings(
-                query=query,
+                query=modified_query,
                 api_key=actual_api_key,
                 max_pages=pages,
                 delay_secs=delay,
