@@ -19,9 +19,12 @@ from scraper import scrape_sold_comps, scrape_active_listings
 
 
 app = FastAPI(
-    title="eBay Baseball Card Comps API",
-    description="Tiny API to pull eBay sold comps for baseball cards.",
-    version="0.2.0",
+    title="Kuya Comps: Your Personal Card Value Dugout",
+    description="Your personal assistant for finding baseball card values and deals.",
+    version="0.2.2",  # Version History:
+                      # 0.2.0 - Initial release
+                      # 0.2.1 - Added filtering for Raw Only, Base Only, and Exclude Autographs
+                      # 0.2.2 - Fixed Find Deals search functionality, updated branding and UI
 )
 
 
@@ -528,22 +531,39 @@ def get_comps(
                 price_max=price_max,
             )
 
-            # Additional post-processing filtering
+            # Additional post-processing filtering using API data
             filtered_items = []
             for item in raw_items:
                 title = item.get('title', '').lower()
+                condition = item.get('condition', '').lower()
+                authenticity = item.get('authenticity', '').lower()
+                extensions = [ext.lower() for ext in item.get('extensions', [])]
                 
-                if raw_only and any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
-                    continue
+                # Raw Only filter - check both title and condition/authenticity data
+                if raw_only:
+                    if any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
+                        continue
+                    if 'graded' in condition or 'graded' in authenticity:
+                        continue
+                    if item.get('is_in_psa_vault'):
+                        continue
                     
-                if base_only and any(term in title for term in [
-                    'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple', 'blue', 'red', 'green',
-                    'yellow', 'orange', 'pink', 'black', 'atomic', 'xfractor', 'superfractor', 'numbered', 'stars', 'star'
-                ]):
-                    continue
+                # Base Only filter - check title and extensions
+                if base_only:
+                    if any(term in title for term in [
+                        'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple', 'blue', 'red', 'green',
+                        'yellow', 'orange', 'pink', 'black', 'atomic', 'xfractor', 'superfractor', 'numbered', 'stars', 'star'
+                    ]):
+                        continue
+                    if any(term in ' '.join(extensions) for term in ['parallel', 'refractor', 'prizm', 'numbered']):
+                        continue
                     
-                if exclude_autographs and any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
-                    continue
+                # Exclude Autographs filter - check title, authenticity, and extensions
+                if exclude_autographs:
+                    if any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
+                        continue
+                    if 'autograph' in authenticity or any('autograph' in ext for ext in extensions):
+                        continue
                     
                 filtered_items.append(item)
 
@@ -596,7 +616,17 @@ def get_comps(
     print(f"  - Removed {no_item_id_removed} items without item_id")
     print(f"  - Final clean items: {len(unique_items)}")
     
-    comp_items = [CompItem(**item) for item in unique_items]
+    # Convert raw items to CompItems with proper buying format flags
+    comp_items = []
+    for item in unique_items:
+        # Set buying format flags based on API response
+        if 'buying_format' in item:
+            buying_format = item['buying_format'].lower()
+            item['is_auction'] = 'auction' in buying_format
+            item['is_buy_it_now'] = 'buy it now' in buying_format
+            item['is_best_offer'] = 'best offer' in buying_format or item.get('is_best_offer', False)
+        
+        comp_items.append(CompItem(**item))
 
     # Calculate total_price for each item
     for item in comp_items:
@@ -713,22 +743,39 @@ def get_deals(
                 price_max=market_value,  # Only get items below market value
             )
 
-            # Additional post-processing filtering
+            # Additional post-processing filtering using API data
             filtered_items = []
             for item in raw_items:
                 title = item.get('title', '').lower()
+                condition = item.get('condition', '').lower()
+                authenticity = item.get('authenticity', '').lower()
+                extensions = [ext.lower() for ext in item.get('extensions', [])]
                 
-                if raw_only and any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
-                    continue
+                # Raw Only filter - check both title and condition/authenticity data
+                if raw_only:
+                    if any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
+                        continue
+                    if 'graded' in condition or 'graded' in authenticity:
+                        continue
+                    if item.get('is_in_psa_vault'):
+                        continue
                     
-                if base_only and any(term in title for term in [
-                    'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple', 'blue', 'red', 'green',
-                    'yellow', 'orange', 'pink', 'black', 'atomic', 'xfractor', 'superfractor', 'numbered', 'stars', 'star'
-                ]):
-                    continue
+                # Base Only filter - check title and extensions
+                if base_only:
+                    if any(term in title for term in [
+                        'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple', 'blue', 'red', 'green',
+                        'yellow', 'orange', 'pink', 'black', 'atomic', 'xfractor', 'superfractor', 'numbered', 'stars', 'star'
+                    ]):
+                        continue
+                    if any(term in ' '.join(extensions) for term in ['parallel', 'refractor', 'prizm', 'numbered']):
+                        continue
                     
-                if exclude_autographs and any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
-                    continue
+                # Exclude Autographs filter - check title, authenticity, and extensions
+                if exclude_autographs:
+                    if any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
+                        continue
+                    if 'autograph' in authenticity or any('autograph' in ext for ext in extensions):
+                        continue
                     
                 filtered_items.append(item)
 
@@ -783,7 +830,17 @@ def get_deals(
     print(f"  - Removed {above_market_removed} items above market value")
     print(f"  - Final deals found: {len(unique_items)}")
     
-    comp_items = [CompItem(**item) for item in unique_items]
+    # Convert raw items to CompItems with proper buying format flags
+    comp_items = []
+    for item in unique_items:
+        # Set buying format flags based on API response
+        if 'buying_format' in item:
+            buying_format = item['buying_format'].lower()
+            item['is_auction'] = 'auction' in buying_format
+            item['is_buy_it_now'] = 'buy it now' in buying_format
+            item['is_best_offer'] = 'best offer' in buying_format or item.get('is_best_offer', False)
+        
+        comp_items.append(CompItem(**item))
 
     # Calculate total_price for each item
     for item in comp_items:
