@@ -159,7 +159,7 @@ def scrape_active_listings(
             "engine": "ebay_search",
             "q": query,
             # NO "filters": "sold_listings" - this searches active listings
-            "num": 60,
+            "num": 120,  # Increased to match comps endpoint
             "page": page,
             "ebay_domain": "ebay.com",
             "sort_by": sort_by,
