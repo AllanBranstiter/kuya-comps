@@ -21,11 +21,12 @@ from scraper import scrape_sold_comps, scrape_active_listings
 app = FastAPI(
     title="Kuya Comps: Your Personal Card Value Dugout",
     description="Your personal assistant for finding baseball card values and deals.",
-    version="0.2.3",  # Version History:
+    version="0.2.4",  # Version History:
                       # 0.2.0 - Initial release
                       # 0.2.1 - Added filtering for Raw Only, Base Only, and Exclude Autographs
                       # 0.2.2 - Fixed Find Deals search functionality, updated branding and UI
                       # 0.2.3 - Fixed buying format display to properly identify auction listings
+                      # 0.2.4 - Improved auction detection using multiple indicators (bids, time left)
 )
 
 
@@ -620,19 +621,18 @@ def get_comps(
     # Convert raw items to CompItems with proper buying format flags
     comp_items = []
     for item in unique_items:
-        # Set buying format flags based on API response
-        if 'buying_format' in item:
-            buying_format = item['buying_format'].lower()
-            # If it's an auction, mark it as auction regardless of other options
-            if 'auction' in buying_format:
-                item['is_auction'] = True
-                item['is_buy_it_now'] = False
-                item['is_best_offer'] = False
-            else:
-                # Only set these flags if it's not an auction
-                item['is_auction'] = False
-                item['is_buy_it_now'] = 'buy it now' in buying_format
-                item['is_best_offer'] = 'best offer' in buying_format or item.get('is_best_offer', False)
+        # Get the buying format from the API response
+        buying_format = item.get('buying_format', '').lower()
+        
+        # Set flags based on the buying format
+        item['is_auction'] = 'auction' in buying_format
+        item['is_buy_it_now'] = 'buy it now' in buying_format
+        item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
+        
+        # If it's an auction, override other flags
+        if item['is_auction']:
+            item['is_buy_it_now'] = False
+            item['is_best_offer'] = False
         
         comp_items.append(CompItem(**item))
 
@@ -843,17 +843,18 @@ def get_deals(
     for item in unique_items:
         # Set buying format flags based on API response
         if 'buying_format' in item:
-            buying_format = item['buying_format'].lower()
-            # If it's an auction, mark it as auction regardless of other options
-            if 'auction' in buying_format:
-                item['is_auction'] = True
+            # Get the buying format from the API response
+            buying_format = item.get('buying_format', '').lower()
+            
+            # Set flags based on the buying format
+            item['is_auction'] = 'auction' in buying_format
+            item['is_buy_it_now'] = 'buy it now' in buying_format
+            item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
+            
+            # If it's an auction, override other flags
+            if item['is_auction']:
                 item['is_buy_it_now'] = False
                 item['is_best_offer'] = False
-            else:
-                # Only set these flags if it's not an auction
-                item['is_auction'] = False
-                item['is_buy_it_now'] = 'buy it now' in buying_format
-                item['is_best_offer'] = 'best offer' in buying_format or item.get('is_best_offer', False)
         
         comp_items.append(CompItem(**item))
 
