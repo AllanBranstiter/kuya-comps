@@ -663,14 +663,32 @@ async function runCompsAndDeals() {
         console.log('[COMPS+DEALS] Starting comps search...');
         await runSearchInternal(false); // Don't show Find Deals button
         
-        // Wait for comps search to complete and get market value
+        // Wait for comps search to complete
         if (!lastData || !lastData.items || lastData.items.length === 0) {
             alert("No comp data found. Cannot search for deals without market value.");
             return;
         }
 
-        const marketValue = lastData.items.reduce((sum, item) => sum + (item.total_price || 0), 0) / lastData.items.length;
-        console.log('[COMPS+DEALS] Market value from comps:', marketValue);
+        // Call the /fmv endpoint to get the volume-weighted market value
+        console.log('[COMPS+DEALS] Calculating FMV...');
+        const fmvResp = await fetch('/fmv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(lastData.items)
+        });
+        const fmvData = await fmvResp.json();
+
+        if (fmvData.detail) {
+            alert("Error calculating FMV: " + fmvData.detail);
+            return;
+        }
+
+        const marketValue = fmvData.market_value;
+        if (!marketValue || marketValue <= 0) {
+            alert("Could not determine a valid market value for deals. Try a different search query.");
+            return;
+        }
+        console.log('[COMPS+DEALS] Market value from FMV:', marketValue);
 
         // Now search for deals
         console.log('[COMPS+DEALS] Starting deals search...');
@@ -1275,16 +1293,33 @@ async function findDeals() {
         return;
     }
 
-    // Get market value from FMV data
-    const marketValue = lastData.items.reduce((sum, item) => sum + (item.total_price || 0), 0) / lastData.items.length;
-    console.log('[DEALS] Market value calculated:', marketValue);
+    // Get market value from FMV data by calling the /fmv endpoint
+    console.log('[DEALS] Calculating FMV for direct call...');
+    const fmvResp = await fetch('/fmv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lastData.items)
+    });
+    const fmvData = await fmvResp.json();
+
+    if (fmvData.detail) {
+        alert("Error calculating FMV: " + fmvData.detail);
+        return;
+    }
+
+    const marketValue = fmvData.market_value;
+    if (!marketValue || marketValue <= 0) {
+        alert("Could not determine a valid market value for deals. Try a different search query.");
+        return;
+    }
+    console.log('[DEALS] Market value calculated from FMV:', marketValue);
 
     await findDealsInternal(marketValue);
 }
 
 // Internal function to find deals (can be called programmatically)
 async function findDealsInternal(marketValue) {
-    const query = document.getElementById("query").value;
+    let query = document.getElementById("query").value;
     console.log('[DEALS] Internal search started with market value:', marketValue);
 
     // Show loading state in deals results section
@@ -1303,6 +1338,59 @@ async function findDealsInternal(marketValue) {
     }
 
     try {
+        // Get exclusion terms from checkboxes, similar to runSearchInternal
+        const ungradedOnly = document.getElementById("ungraded_only").checked;
+        const baseOnly = document.getElementById("base_only").checked;
+        const excludeAutos = document.getElementById("exclude_autos").checked;
+
+        let allExcludedPhrases = [];
+
+        if (ungradedOnly) {
+            const rawOnlyExclusions = [
+                '-psa', '-"Professional Sports Authenticator"', '-"Professional Authenticator"',
+                '-"Pro Sports Authenticator"', '-"Certified 10"', '-"Certified Gem"', '-"Certified Mint"',
+                '-slabbed', '-"Red Label"', '-lighthouse', '-"Gem Mint 10"', '-"Graded 10"', '-"Mint 10"',
+                '-bgs', '-beckett', '-"Gem 10"', '-"Black Label"', '-"Gold Label"', '-"Silver Label"',
+                '-subgrades', '-subs', '-"Quad 9.5"', '-"True Gem"', '-"True Gem+"', '-"Gem+"', '-bvg',
+                '-sgc', '-"Tuxedo Slab"', '-"Black Slab"', '-"Green Label"', '-"SG LLC"',
+                '-"SG Grading"', '-"Mint+ 9.5"', '-"10 Pristine"',
+                '-csg', '-cgc', '-"Certified Collectibles Group"', '-"CGC Trading Cards"', '-"CSG Gem"',
+                '-"Pristine 10"', '-"Perfect 10"', '-"Green Slab"',
+                '-encapsulated', '-authenticated', '-verified', '-"Slabbed Card"', '-"Third-Party Graded"',
+                '-graded', '-gem', '-"Gem Mint"', '-pristine', '-"Mint+"', '-"NM-MT"',
+                '-"Certified Authentic"', '-"Pro Graded"',
+                '-gma', '-hga', '-ksa', '-fgs', '-pgi', '-pro', '-isa', '-mnt', '-"MNT Grading"',
+                '-rcg', '-"TCG Grading"', '-bccg', '-tag', '-pgs', '-tga', '-ace', '-usg',
+                '-slab', '-"Slabbed up"', '-"In case"', '-holdered', '-encased',
+                '-"Graded Rookie"', '-"Graded RC"', '-"Gem Rookie"', '-"Gem RC"'
+            ];
+            allExcludedPhrases = allExcludedPhrases.concat(rawOnlyExclusions);
+        }
+
+        if (baseOnly) {
+            const baseOnlyExclusions = [
+                '-refractors', '-red', '-aqua', '-blue', '-magenta', '-yellow', '-lot',
+                '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
+                '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
+                '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
+                '-"buy-back"', '-buyback'
+            ];
+            allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
+        }
+
+        if (excludeAutos) {
+            const autoExclusions = [
+                '-auto', '-autos', '-autograph', '-autographs', '-autographes', '-signed'
+            ];
+            allExcludedPhrases = allExcludedPhrases.concat(autoExclusions);
+        }
+
+        // Apply all exclusions to query if any are selected
+        if (allExcludedPhrases.length > 0) {
+            query = `${query} ${allExcludedPhrases.join(' ')}`;
+            console.log('[DEALS] Modified query with exclusions:', query);
+        }
+
         // Search for active deals using the new /deals endpoint
         const params = new URLSearchParams({
             query: query,
@@ -1340,18 +1428,23 @@ async function findDealsInternal(marketValue) {
         console.log('[DEALS] Response data:', data);
 
         if (data.detail) {
-            resultsDiv.innerHTML = "Error: " + data.detail;
+            // Assuming 'resultsDiv' is available in this scope or passed
+            // If not, you might need to adjust where this error is displayed
+            const resultsDiv = document.getElementById("results");
+            if (resultsDiv) {
+                resultsDiv.innerHTML = "Error: " + data.detail;
+            } else {
+                console.error("Error: " + data.detail);
+            }
             return;
         }
 
         // All items returned are already filtered to be below market value
-        // Sort deals by discount percentage (largest discount percentage first)
+        // Sort deals by Total Price (lowest to highest)
         const deals = data.items.sort((a, b) => {
             const priceA = a.total_price || ((a.extracted_price || 0) + (a.extracted_shipping || 0));
             const priceB = b.total_price || ((b.extracted_price || 0) + (b.extracted_shipping || 0));
-            const discountA = ((marketValue - priceA) / marketValue * 100);
-            const discountB = ((marketValue - priceB) / marketValue * 100);
-            return discountB - discountA; // Largest discount percentage first
+            return priceA - priceB; // Lowest Total Price first
         });
 
         // Render deals or no deals message in the dedicated deals section

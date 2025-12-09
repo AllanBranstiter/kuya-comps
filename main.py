@@ -616,8 +616,8 @@ def get_deals(
         description="Number of pages to scrape (max 3 for deals)",
     ),
     sort_by: str = Query(
-        "price_low_to_high",
-        description="Sort order: price_low_to_high, price_high_to_low, time_newly_listed, etc.",
+        "best_match", # Changed default sort_by to best_match
+        description="Sort order: best_match, price_low_to_high, price_high_to_low, time_newly_listed, etc.",
     ),
     buying_format: Optional[str] = Query(
         None,
