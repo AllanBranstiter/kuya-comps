@@ -211,6 +211,26 @@ def scrape_active_listings(
                         r['price'] = '$' + price_parts[0]  # Use sale price
                         print(f"[scraper] Cleaned concatenated price: {price_str} → ${price_parts[0]}")
             
+            # Check for auction indicators
+            buying_format = r.get('buying_format', '').lower()
+            bids = r.get('bids', 0)
+            time_left = str(r.get('time_left', '')).lower()
+            
+            # Set auction flag based on multiple indicators
+            r['is_auction'] = (
+                'auction' in buying_format or
+                bids > 0 or
+                any(x in time_left for x in ['left', 'ends in', 'ending'])
+            )
+            
+            # If it's an auction, override other buying format flags
+            if r['is_auction']:
+                r['is_buy_it_now'] = False
+                r['is_best_offer'] = False
+            else:
+                r['is_buy_it_now'] = 'buy it now' in buying_format
+                r['is_best_offer'] = r.get('best_offer_enabled', False) or r.get('has_best_offer', False)
+            
             all_items.append(r)
         
         items_added = len(all_items) - items_before
