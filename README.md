@@ -76,7 +76,10 @@ Both endpoints support comprehensive filtering and modern analytics.
 
 ## Version History
 
-### Version 0.2 (Current)
+### Version 0.2.1 (Current)
+- **Bug Fix**: Ensured "Find Deals" functionality correctly applies exclusion filters (Raw Only, Base Only, Exclude Autographs) to search queries.
+
+### Version 0.2.0 (Previous)
 - **Find Deals Functionality**: Added ability to search for current active listings below market value
 - **New /deals API Endpoint**: Backend support for active listing searches vs. sold listings
 - **Advanced Filtering System**:
@@ -95,16 +98,13 @@ Both endpoints support comprehensive filtering and modern analytics.
   - Simplified Smart Market Insights in Grading Intelligence tab
   - Clean API parameter handling without test mode complexity
 
-### Version 0.2.0 (Previous)
-- Added Market Intelligence analytics for card variants and parallels
-- Implemented volume-weighted Fair Market Value (FMV) calculations
-- Added interactive beeswarm price distribution visualization
-- Added PSA grade comparison functionality
-- Enhanced UI with modern design and responsive layout
-- Added password protection for application access
-- Improved data filtering with outlier detection
-- Added support for saving results to CSV library
-- Enhanced error handling and user feedback
+### Version 0.1.0 (Initial Release)
+- Basic eBay sold listings scraping functionality
+- Simple web UI for search queries
+- Basic price statistics (min, max, average)
+- CSV export capability
+- Basic API endpoint for comps retrieval
+- Support for SearchAPI.io integration
 
 ### Version 0.1.0 (Initial Release)
 - Basic eBay sold listings scraping functionality
