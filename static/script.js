@@ -1468,7 +1468,6 @@ async function findDealsInternal(marketValue) {
                         <tr>
                             <th>Title</th>
                             <th>Price</th>
-                            <th>Type</th>
                             <th>Item ID</th>
                         </tr>
                         ${deals.map(item => {
@@ -1484,7 +1483,6 @@ async function findDealsInternal(marketValue) {
                                             (-${discount}%)
                                         </span>
                                     </td>
-                                    <td>${listingType}</td>
                                     <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
                                 </tr>
                             `;
