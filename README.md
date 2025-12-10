@@ -1,12 +1,13 @@
-# eBay Baseball Card Comps Tool v0.2
+# eBay Baseball Card Comps Tool v0.3
 
 This is a simple web application to scrape and display sold listings for baseball cards from eBay.
 
 ## Features
 
-*   **Dual Search Functionality**: Search sold listings for market analysis and active listings for deals
-*   **Advanced Filtering**: Raw Only, Base Only, and Exclude Autographs filters
-*   **Combined Workflow**: "Find Deals" button runs both searches automatically
+*   **Dual Search Display**: Automatically shows both sold listings and active listings below FMV
+*   **Advanced Filtering**: Raw Only, Base Only, Exclude Autographs, and Buy It Now Only filters
+*   **Smart Deal Finding**: Active listings filtered to show only items priced at or below Fair Market Value
+*   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
@@ -63,7 +64,7 @@ This is a simple web application to scrape and display sold listings for basebal
 The application exposes two main API endpoints:
 
 *   `GET /comps` - Search sold listings for market analysis
-*   `GET /deals` - Search active listings below market value
+*   `GET /active` - Search active listings (all current market listings)
 
 Both endpoints support comprehensive filtering and modern analytics.
 
@@ -76,7 +77,23 @@ Both endpoints support comprehensive filtering and modern analytics.
 
 ## Version History
 
-### Version 0.2.1 (Current)
+### Version 0.3.0 (Current)
+- **Major UI Redesign**: Replaced single "Find Deals" button with automatic dual-search display
+- **New Active Listings Table**:
+  - Automatically searches and displays active listings below Fair Market Value
+  - Shows discount percentage in red (e.g., -25%, -50%)
+  - Displays listing type (Auction or Buy It Now)
+  - Sorted by price (lowest to highest)
+  - Sticky table headers for easy navigation
+- **Buy It Now Only Filter**: Checkbox to filter out auctions from active listings
+- **Improved Auction Detection**: Enhanced logic to detect auctions using "bid", "bids", or "auction" in buying format
+- **Expanded Year Support**: Validation now accepts years from 1800-2099 (vintage to modern cards)
+- **Better Search Validation**: Improved handling of quoted search terms
+- **Cleaner Labels**: Simplified table headers for better user experience
+- **Backend Enhancement**: New `/active` endpoint for active listing searches
+- **Code Cleanup**: Removed ~320 lines of deprecated Find Deals code
+
+### Version 0.2.1
 - **Bug Fix**: Ensured "Find Deals" functionality correctly applies exclusion filters (Raw Only, Base Only, Exclude Autographs) to search queries.
 
 ### Version 0.2.0 (Previous)
@@ -106,10 +123,3 @@ Both endpoints support comprehensive filtering and modern analytics.
 - Basic API endpoint for comps retrieval
 - Support for SearchAPI.io integration
 
-### Version 0.1.0 (Initial Release)
-- Basic eBay sold listings scraping functionality
-- Simple web UI for search queries
-- Basic price statistics (min, max, average)
-- CSV export capability
-- Basic API endpoint for comps retrieval
-- Support for SearchAPI.io integration

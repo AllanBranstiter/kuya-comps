@@ -21,12 +21,11 @@ from scraper import scrape_sold_comps, scrape_active_listings
 app = FastAPI(
     title="Kuya Comps: Your Personal Card Value Dugout",
     description="Your personal assistant for finding baseball card values and deals.",
-    version="0.2.4",  # Version History:
-                      # 0.2.0 - Initial release
-                      # 0.2.1 - Added filtering for Raw Only, Base Only, and Exclude Autographs
-                      # 0.2.2 - Fixed Find Deals search functionality, updated branding and UI
-                      # 0.2.3 - Fixed buying format display to properly identify auction listings
+    version="0.3.0",  # Version History:
+                      # 0.3.0 - Dual-search display with active listings filter
                       # 0.2.4 - Improved auction detection using multiple indicators (bids, time left)
+                      # 0.2.1 - Added filtering for Raw Only, Base Only, and Exclude Autographs
+                      # 0.2.0 - Initial release
 )
 
 
@@ -665,15 +664,11 @@ def get_comps(
     )
 
 
-@app.get("/deals", response_model=CompsResponse)
-def get_deals(
+@app.get("/active", response_model=CompsResponse)
+def get_active_listings(
     query: str = Query(
         ...,
         description="Search term, e.g. '2024 topps chrome elly de la cruz auto /25'",
-    ),
-    market_value: float = Query(
-        ...,
-        description="Market value threshold - only return items below this price",
     ),
     delay: float = Query(
         2.0,
@@ -684,8 +679,8 @@ def get_deals(
     pages: int = Query(
         1,
         ge=1,
-        le=3,
-        description="Number of pages to scrape (max 3 for deals)",
+        le=10,
+        description="Number of pages to scrape",
     ),
     sort_by: str = Query(
         "best_match",
@@ -699,169 +694,89 @@ def get_deals(
         None,
         description="Filter by condition: new, used, pre_owned_excellent, etc.",
     ),
-    raw_only: bool = Query(
-        False,
-        description="If true, exclude graded cards",
+    price_min: Optional[float] = Query(
+        None,
+        ge=0,
+        description="Minimum price filter",
     ),
-    base_only: bool = Query(
-        False,
-        description="If true, exclude parallels and variations",
-    ),
-    exclude_autographs: bool = Query(
-        False,
-        description="If true, exclude cards with autographs",
+    price_max: Optional[float] = Query(
+        None,
+        ge=0,
+        description="Maximum price filter",
     ),
     api_key: str = Query(
         "backend-handled",
-        description="API key handling (use 'test' for test mode)",
-    ),
-    test_mode: bool = Query(
-        False,
-        description="If true, use test data from CSV instead of SearchAPI.io",
+        description="API key handling",
     ),
 ):
     """
-    Search for active eBay listings that are priced below the given market value.
-    Returns items that could be good deals.
+    Scrape eBay ACTIVE listings (not sold) for a given query.
     """
     try:
-        if test_mode or (api_key and api_key.lower() == "test"):
-            print("[INFO] Using test mode with CSV data for deals")
-            raw_items = load_test_data()
-        else:
-            # Use the backend's default API key for production
-            actual_api_key = DEFAULT_API_KEY
-            # Modify query based on filters
-            modified_query = query
-            if raw_only:
-                modified_query = f"{modified_query} -PSA -BGS -SGC -CSG -HGA -graded -grade -gem -mint"
-            if base_only:
-                modified_query = f"{modified_query} -refractor -prizm -prism -parallel -wave -gold -purple -blue -red -green -yellow -orange -pink -black -atomic -xfractor -superfractor -numbered -stars -star"
-            if exclude_autographs:
-                modified_query = f"{modified_query} -auto -autograph -signed -signature -authentic -certified"
-
-            raw_items = scrape_active_listings(
-                query=modified_query,
-                api_key=actual_api_key,
-                max_pages=pages,
-                delay_secs=delay,
-                sort_by=sort_by,
-                buying_format=buying_format,
-                condition=condition,
-                price_max=market_value,  # Only get items below market value
-            )
-
-            # Additional post-processing filtering using API data
-            filtered_items = []
-            for item in raw_items:
-                title = item.get('title', '').lower()
-                condition = item.get('condition', '').lower()
-                authenticity = item.get('authenticity', '').lower()
-                extensions = [ext.lower() for ext in item.get('extensions', [])]
-                
-                # Raw Only filter - check both title and condition/authenticity data
-                if raw_only:
-                    if any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
-                        continue
-                    if 'graded' in condition or 'graded' in authenticity:
-                        continue
-                    if item.get('is_in_psa_vault'):
-                        continue
-                    
-                # Base Only filter - check title and extensions
-                if base_only:
-                    if any(term in title for term in [
-                        'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple', 'blue', 'red', 'green',
-                        'yellow', 'orange', 'pink', 'black', 'atomic', 'xfractor', 'superfractor', 'numbered', 'stars', 'star'
-                    ]):
-                        continue
-                    if any(term in ' '.join(extensions) for term in ['parallel', 'refractor', 'prizm', 'numbered']):
-                        continue
-                    
-                # Exclude Autographs filter - check title, authenticity, and extensions
-                if exclude_autographs:
-                    if any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
-                        continue
-                    if 'autograph' in authenticity or any('autograph' in ext for ext in extensions):
-                        continue
-                    
-                filtered_items.append(item)
-
-            raw_items = filtered_items
+        # Use the backend's default API key for production
+        actual_api_key = DEFAULT_API_KEY
+        
+        raw_items = scrape_active_listings(
+            query=query,
+            max_pages=pages,
+            delay_secs=delay,
+            api_key=actual_api_key,
+            sort_by=sort_by,
+            buying_format=buying_format,
+            condition=condition,
+            price_min=price_min,
+            price_max=price_max,
+        )
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")
 
-    # Remove duplicates based on item_id and filter out zero-price items
-    print(f"[INFO] Processing {len(raw_items)} raw active listings")
+    # Remove duplicates and filter
+    print(f"[INFO] Processing {len(raw_items)} raw active listings from scraper")
     
     unique_items = []
     seen_item_ids = set()
     duplicates_removed = 0
     zero_price_removed = 0
-    above_market_removed = 0
+    no_item_id_removed = 0
     
     for item in raw_items:
         item_id = item.get('item_id')
         
-        # Skip items without item_id
         if not item_id:
+            no_item_id_removed += 1
             continue
         
-        # Skip duplicates
         if item_id in seen_item_ids:
             duplicates_removed += 1
             continue
             
-        # Check for valid price
         extracted_price = item.get('extracted_price')
-        extracted_shipping = item.get('extracted_shipping', 0)
-        
         if extracted_price is None or extracted_price <= 0:
             zero_price_removed += 1
             continue
             
-        # Check if total price is below market value
-        # Include shipping in price comparison only if it's not free shipping
-        total_price = extracted_price
-        if extracted_shipping and extracted_shipping > 0:
-            total_price += extracted_shipping
-            
-        if total_price >= market_value:
-            above_market_removed += 1
-            continue
-            
-        # Item passed all filters - it's a potential deal
         unique_items.append(item)
         seen_item_ids.add(item_id)
     
-    print(f"[INFO] Deal filtering results:")
+    print(f"[INFO] Active listings filtering results:")
     print(f"  - Raw items: {len(raw_items)}")
     print(f"  - Removed {duplicates_removed} duplicates")
     print(f"  - Removed {zero_price_removed} zero-price items")
-    print(f"  - Removed {above_market_removed} items above market value")
-    print(f"  - Final deals found: {len(unique_items)}")
+    print(f"  - Removed {no_item_id_removed} items without item_id")
+    print(f"  - Final clean items: {len(unique_items)}")
     
-    # Convert raw items to CompItems with proper buying format flags
+    # Convert to CompItems
     comp_items = []
     for item in unique_items:
-        # Check multiple indicators for auction status
-        is_auction = False
         buying_format = item.get('buying_format', '').lower()
+        item['is_auction'] = 'auction' in buying_format
+        item['is_buy_it_now'] = 'buy it now' in buying_format
+        item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
         
-        # Check various auction indicators
-        if any([
-            'auction' in buying_format,
-            item.get('bids', 0) > 0,
-            item.get('total_bids', 0) > 0,
-            item.get('time_left') and any(x in str(item.get('time_left', '')).lower() for x in ['left', 'ends in', 'ending']),
-            item.get('is_auction', False)
-        ]):
-            is_auction = True
-        
-        # Set flags with auction taking precedence
-        item['is_auction'] = is_auction
-        item['is_buy_it_now'] = False if is_auction else 'buy it now' in buying_format
-        item['is_best_offer'] = False if is_auction else (item.get('best_offer_enabled', False) or item.get('has_best_offer', False))
+        if item['is_auction']:
+            item['is_buy_it_now'] = False
+            item['is_best_offer'] = False
         
         comp_items.append(CompItem(**item))
 
@@ -875,7 +790,7 @@ def get_deals(
     avg_price = sum(prices) / len(prices) if prices else None
 
     return CompsResponse(
-        query=f"{query} (deals below ${market_value:.2f})",
+        query=query,
         pages_scraped=pages,
         items=comp_items,
         min_price=min_price,
@@ -884,8 +799,9 @@ def get_deals(
         raw_items_scraped=len(raw_items),
         duplicates_filtered=duplicates_removed,
         zero_price_filtered=zero_price_removed,
-        market_intelligence={}  # No intelligence analysis for deals
     )
+
+
 
 
 @app.post("/fmv", response_model=FmvResponse)
@@ -893,6 +809,7 @@ def get_fmv(items: List[CompItem]):
     """
     Calculates the Fair Market Value (FMV) using volume weighting.
     Auctions with more bids get higher weight (more market validation).
+    Outliers are filtered using IQR method before calculation.
     """
     try:
         # Prepare data for volume weighting
@@ -910,8 +827,32 @@ def get_fmv(items: List[CompItem]):
             return FmvResponse(count=len(price_weight_pairs))
 
         # Extract prices and weights
-        prices = np.array([pair[0] for pair in price_weight_pairs])
-        weights = np.array([pair[1] for pair in price_weight_pairs])
+        all_prices = np.array([pair[0] for pair in price_weight_pairs])
+        all_weights = np.array([pair[1] for pair in price_weight_pairs])
+        
+        # Filter outliers using IQR method (need at least 4 data points)
+        if len(all_prices) >= 4:
+            # Calculate quartiles
+            q1 = np.percentile(all_prices, 25)
+            q3 = np.percentile(all_prices, 75)
+            iqr = q3 - q1
+            
+            # Define outlier bounds (1.5 * IQR is standard)
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+            
+            # Filter out outliers
+            mask = (all_prices >= lower_bound) & (all_prices <= upper_bound)
+            prices = all_prices[mask]
+            weights = all_weights[mask]
+            
+            outliers_removed = len(all_prices) - len(prices)
+            print(f"[FMV] Removed {outliers_removed} outliers using IQR method (bounds: ${lower_bound:.2f} - ${upper_bound:.2f})")
+        else:
+            # Not enough data for outlier detection
+            prices = all_prices
+            weights = all_weights
+            print(f"[FMV] Skipping outlier detection (need 4+ items, have {len(all_prices)})")
         
         # Calculate volume-weighted statistics
         weighted_mean = np.average(prices, weights=weights)
