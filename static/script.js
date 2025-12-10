@@ -703,8 +703,8 @@ async function runSearch() {
 
 // Helper function to validate search query format
 function validateSearchQuery(query) {
-    // Check for year (2000-2025)
-    const hasYear = /20(0[0-9]|1[0-9]|2[0-5])/.test(query);
+    // Check for year (1800-2099) - supports vintage, modern, and future cards
+    const hasYear = /(1[8-9][0-9]{2}|20[0-9]{2})/.test(query);
     
     // Check for card details (at least 3 words)
     const words = query.split(/\s+/).filter(word => word.length > 1);
