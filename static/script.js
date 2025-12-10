@@ -3,9 +3,14 @@ let lastData = null;
 // globals for expected sale band so we can draw it on the beeswarm
 let expectLowGlobal = null;
 let expectHighGlobal = null;
+let marketValueGlobal = null;
 
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
+
+// Store active listings data for filtering
+let activeListingsData = null;
+let currentMarketValue = null;
 
 // Password Protection
 const CORRECT_PASSWORD = 'BreakersOnBudget25!';
@@ -338,23 +343,28 @@ function updateFindCardButton() {
 
 // Intelligence Search Function - Multiple PSA Grade Searches
 async function runIntelligenceSearch() {
-    const query = document.getElementById("intelligence-query").value;
-    const selectedGrades = [];
-    
-    document.querySelectorAll('.psa-grade:checked').forEach(checkbox => {
-        const gradeNumber = checkbox.id.replace('psa', '');
-        selectedGrades.push(gradeNumber);
-    });
-    
-    if (!query.trim()) {
-        alert("Please enter a card search query.");
-        return;
-    }
-    
-    if (selectedGrades.length === 0) {
-        alert("Please select at least one PSA grade.");
-        return;
-    }
+    try {
+        const query = document.getElementById("intelligence-query").value.trim();
+        const selectedGrades = [];
+        
+        document.querySelectorAll('.psa-grade:checked').forEach(checkbox => {
+            const gradeNumber = checkbox.id.replace('psa', '');
+            selectedGrades.push(gradeNumber);
+        });
+        
+        // Validation
+        if (!query) {
+            throw new Error("Please enter a card search query");
+        }
+        
+        if (selectedGrades.length === 0) {
+            throw new Error("Please select at least one PSA grade");
+        }
+
+        // Validate query format
+        if (!validateSearchQuery(query)) {
+            throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
+        }
     
     // API key is handled on backend
     const apiKey = "backend-handled";
@@ -431,6 +441,13 @@ async function runIntelligenceSearch() {
         // Restore button state based on PSA selection
         findCardButton.innerHTML = originalFindCardText;
         updateFindCardButton();
+    }
+    } catch (error) {
+        console.error('[INTELLIGENCE] Outer error:', error);
+        const insightsContainer = document.getElementById("insights-container");
+        insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
+            <strong>Error:</strong> ${error.message}
+        </div>`;
     }
 }
 
@@ -546,18 +563,22 @@ function resizeCanvas() {
     canvas.style.height = '200px';
 }
 
-async function renderData(data, showFindDealsButton = true) {
+async function renderData(data, secondData = null, marketValue = null) {
     const resultsDiv = document.getElementById("results");
     
-    // Create a container for the table with fixed height and scrolling
+    // Create first table
     let html = `
+      <h3 style="margin-bottom: 1rem; color: var(--text-color);">Recently Sold Listings</h3>
       <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
         <table>
-          <tr>
-            <th>Title</th>
-            <th>Price</th>
-            <th>Item ID</th>
-          </tr>
+          <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <tr>
+              <th>Title</th>
+              <th>Price</th>
+              <th>Item ID</th>
+            </tr>
+          </thead>
+          <tbody>
           ${data.items.map(item => `
             <tr>
               <td>${item.title}</td>
@@ -565,52 +586,90 @@ async function renderData(data, showFindDealsButton = true) {
               <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
             </tr>
           `).join('')}
+          </tbody>
         </table>
       </div>
     `;
     
-    // Calculate market value from the current data being rendered
-    const marketValue = data.items.length > 0 ?
-        data.items.reduce((sum, item) => sum + (item.total_price || 0), 0) / data.items.length : 0;
-    
-    // Conditionally add the Find Deals button section
-    if (showFindDealsButton) {
+    // Add second table if second data exists
+    if (secondData && secondData.items && marketValue) {
+        // Filter active listings to only show items at or below market value
+        const filteredItems = secondData.items.filter(item => {
+            const price = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+            return price > 0 && price <= marketValue;
+        });
+        
+        // Sort by price (lowest to highest)
+        filteredItems.sort((a, b) => {
+            const priceA = a.total_price || ((a.extracted_price || 0) + (a.extracted_shipping || 0));
+            const priceB = b.total_price || ((b.extracted_price || 0) + (b.extracted_shipping || 0));
+            return priceA - priceB;
+        });
+        
+        // Store data for filtering
+        activeListingsData = filteredItems;
+        currentMarketValue = marketValue;
+        
         html += `
-          <div style="text-align: center; padding: 1rem; background: var(--background-color); border-radius: 8px; margin-top: 1rem; border: 1px solid var(--border-color);">
-            <h4 style="margin: 0 0 0.5rem 0; color: var(--text-color);">💰 Market Value: ${formatMoney(marketValue)}</h4>
-            <p style="margin: 0 0 1rem 0; color: var(--subtle-text-color); font-size: 0.9rem;">Search for current listings below market value</p>
-            <button id="find-deals-button"
-                    style="background: linear-gradient(135deg, #ff4500, #ff6b35);
-                           box-shadow: 0 4px 12px rgba(255, 69, 0, 0.3);
-                           padding: 12px 24px;
-                           font-size: 1rem;
-                           border: none;
-                           border-radius: 8px;
-                           color: white;
-                           cursor: pointer;
-                           font-weight: 600;">
-              🎯 Find Deals
-            </button>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; margin-top: 2rem;">
+            <h3 style="margin: 0; color: var(--text-color);">Active Listings Below Fair Market Value</h3>
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 500; cursor: pointer;">
+              <input type="checkbox" id="buy-it-now-only" onchange="filterActiveListings()" style="transform: scale(1.3); cursor: pointer;">
+              Buy It Now Only
+            </label>
+          </div>
+          <div id="active-listings-table" class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
+            <table>
+              <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <tr>
+                  <th>Title</th>
+                  <th>Price</th>
+                  <th>Discount</th>
+                  <th>Type</th>
+                  <th>Item ID</th>
+                </tr>
+              </thead>
+              <tbody>
+              ${filteredItems.length > 0 ? filteredItems.map(item => {
+                const buyingFormat = (item.buying_format || '').toLowerCase();
+                let displayType = 'Buy It Now'; // Default
+                
+                // Check for auction indicators: bid, bids, or auction
+                if (buyingFormat.includes('bid') ||
+                    buyingFormat.includes('bids') ||
+                    buyingFormat.includes('auction')) {
+                  displayType = 'Auction';
+                } else if (buyingFormat.includes('buy it now')) {
+                  displayType = 'Buy It Now';
+                }
+                
+                // Calculate discount percentage
+                const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                
+                return `
+                  <tr>
+                    <td>${item.title}</td>
+                    <td>${formatMoney(item.total_price)}</td>
+                    <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
+                    <td>${displayType}</td>
+                    <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+                  </tr>
+                `;
+              }).join('') : `
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                    No active listings found below Fair Market Value
+                  </td>
+                </tr>
+              `}
+              </tbody>
+            </table>
           </div>
         `;
     }
-      
-    // Deals Results Section (initially empty)
-    html += `<div id="deals-results" style="margin-top: 1.5rem;"></div>`;
     
     resultsDiv.innerHTML = html;
-    console.log('[DEBUG] renderData - HTML set, resultsDiv content:', resultsDiv.innerHTML.substring(0, 200));
-
-    // Add event listener to Find Deals button (only if it exists in the rendered HTML)
-    if (showFindDealsButton) {
-        const findDealsButton = document.getElementById('find-deals-button');
-        if (findDealsButton) {
-            findDealsButton.addEventListener('click', findDeals);
-            console.log('[DEALS] Event listener added to Find Deals button');
-        } else {
-            console.error('[DEALS] Could not find Find Deals button to add event listener');
-        }
-    }
 
     // Clear old stats and chart with smooth transition
     clearBeeswarm();
@@ -643,76 +702,206 @@ async function renderData(data, showFindDealsButton = true) {
     chartContainer.style.opacity = '1';
 }
 
-// Combined search: Run comps search then immediately find deals
-async function runCompsAndDeals() {
-    const query = document.getElementById("query").value;
-    if (!query) {
-        alert("Please enter a search query.");
-        return;
-    }
-
-    // Add loading state to the Find Deals button
-    const compsAndDealsButton = document.querySelector('button[onclick="runCompsAndDeals()"]');
-    const originalButtonText = compsAndDealsButton.innerHTML;
-    compsAndDealsButton.innerHTML = '⏳ Searching...';
-    compsAndDealsButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-    compsAndDealsButton.disabled = true;
-
-    try {
-        // First, run the regular comps search
-        console.log('[COMPS+DEALS] Starting comps search...');
-        await runSearchInternal(false); // Don't show Find Deals button
-        
-        // Wait for comps search to complete
-        if (!lastData || !lastData.items || lastData.items.length === 0) {
-            alert("No comp data found. Cannot search for deals without market value.");
-            return;
-        }
-
-        // Call the /fmv endpoint to get the volume-weighted market value
-        console.log('[COMPS+DEALS] Calculating FMV...');
-        const fmvResp = await fetch('/fmv', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(lastData.items)
+//Function to filter active listings based on Buy It Now Only checkbox
+function filterActiveListings() {
+    if (!activeListingsData || !currentMarketValue) return;
+    
+    const buyItNowOnly = document.getElementById('buy-it-now-only')?.checked || false;
+    const container = document.getElementById('active-listings-table');
+    
+    if (!container) return;
+    
+    // Filter items based on checkbox
+    let itemsToDisplay = activeListingsData;
+    if (buyItNowOnly) {
+        itemsToDisplay = activeListingsData.filter(item => {
+            const buyingFormat = (item.buying_format || '').toLowerCase();
+            const isAuction = buyingFormat.includes('bid') ||
+                            buyingFormat.includes('bids') ||
+                            buyingFormat.includes('auction');
+            return !isAuction; // Only show non-auction items
         });
-        const fmvData = await fmvResp.json();
-
-        if (fmvData.detail) {
-            alert("Error calculating FMV: " + fmvData.detail);
-            return;
-        }
-
-        const marketValue = fmvData.market_value;
-        if (!marketValue || marketValue <= 0) {
-            alert("Could not determine a valid market value for deals. Try a different search query.");
-            return;
-        }
-        console.log('[COMPS+DEALS] Market value from FMV:', marketValue);
-
-        // Now search for deals
-        console.log('[COMPS+DEALS] Starting deals search...');
-        await findDealsInternal(marketValue);
-        
-        console.log('[COMPS+DEALS] Both searches completed successfully');
-        
-    } catch (error) {
-        console.error('[COMPS+DEALS] Error:', error);
-        const resultsDiv = document.getElementById("results");
-        resultsDiv.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-            <strong>Error:</strong> ${error}
-        </div>`;
-    } finally {
-        // Restore button state
-        compsAndDealsButton.innerHTML = originalButtonText;
-        compsAndDealsButton.style.background = 'linear-gradient(135deg, #ff4500, #ff6b35)';
-        compsAndDealsButton.disabled = false;
     }
+    
+    // Render the filtered table
+    const tableHtml = `
+        <table>
+          <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <tr>
+              <th>Title</th>
+              <th>Price</th>
+              <th>Discount</th>
+              <th>Type</th>
+              <th>Item ID</th>
+            </tr>
+          </thead>
+          <tbody>
+          ${itemsToDisplay.length > 0 ? itemsToDisplay.map(item => {
+            const buyingFormat = (item.buying_format || '').toLowerCase();
+            let displayType = 'Buy It Now'; // Default
+            
+            // Check for auction indicators: bid, bids, or auction
+            if (buyingFormat.includes('bid') ||
+                buyingFormat.includes('bids') ||
+                buyingFormat.includes('auction')) {
+              displayType = 'Auction';
+            } else if (buyingFormat.includes('buy it now')) {
+              displayType = 'Buy It Now';
+            }
+            
+            // Calculate discount percentage
+            const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+            const discount = ((currentMarketValue - itemPrice) / currentMarketValue * 100).toFixed(0);
+            
+            return `
+              <tr>
+                <td>${item.title}</td>
+                <td>${formatMoney(item.total_price)}</td>
+                <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
+                <td>${displayType}</td>
+                <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+              </tr>
+            `;
+          }).join('') : `
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                ${buyItNowOnly ? 'No Buy It Now listings found below Fair Market Value' : 'No active listings found below Fair Market Value'}
+              </td>
+            </tr>
+          `}
+          </tbody>
+        </table>
+    `;
+    
+    container.innerHTML = tableHtml;
 }
+
 
 async function runSearch() {
-    await runSearchInternal(true); // Show Find Deals button for normal search
+    try {
+        const query = document.getElementById("query").value.trim();
+        if (!query) {
+            throw new Error("Please enter a search query");
+        }
+        
+        if (!validateSearchQuery(query)) {
+            throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
+        }
+        
+        await runSearchInternal();
+    } catch (error) {
+        showError(error.message);
+    }
 }
+
+// Helper function to validate search query format
+function validateSearchQuery(query) {
+    // Check for year (1800-2099) - supports vintage, modern, and future cards
+    const hasYear = /(1[8-9][0-9]{2}|20[0-9]{2})/.test(query);
+    
+    // Check for meaningful content (at least 2 non-quote, non-whitespace segments)
+    const cleanQuery = query.replace(/["']/g, '').trim();
+    const words = cleanQuery.split(/\s+/).filter(word => word.length > 1);
+    const hasDetails = words.length >= 2;
+    
+    return hasYear && hasDetails;
+}
+
+// Helper function to show errors
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.style.cssText = `
+        background: #ffebee;
+        color: #c62828;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 8px;
+        border: 1px solid #ef9a9a;
+        font-size: 0.9rem;
+        text-align: center;
+        animation: fadeIn 0.3s ease;
+    `;
+    errorDiv.textContent = message;
+    
+    // Remove any existing error messages
+    document.querySelectorAll('.error-message').forEach(el => el.remove());
+    
+    // Insert error message before the results container
+    const resultsContainer = document.getElementById('results');
+    resultsContainer.parentNode.insertBefore(errorDiv, resultsContainer);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        errorDiv.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => errorDiv.remove(), 300);
+    }, 5000);
+}
+
+// Add CSS for animations and loading states
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-10px); }
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .loading-container {
+        padding: 2rem;
+        background: var(--background-color);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+    .loading-stage {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 6px;
+        background: var(--card-background);
+        opacity: 0.5;
+        transition: all 0.3s ease;
+    }
+    .loading-stage.active {
+        opacity: 1;
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .loading-spinner {
+        width: 24px;
+        height: 24px;
+        border: 3px solid var(--border-color);
+        border-top-color: var(--primary-blue);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    .loading-text {
+        flex: 1;
+    }
+    .loading-text h4 {
+        margin: 0;
+        color: var(--text-color);
+    }
+    .loading-text p {
+        margin: 0.25rem 0 0;
+        color: var(--subtle-text-color);
+        font-size: 0.9rem;
+    }
+    .progress-info {
+        text-align: center;
+        margin-top: 1rem;
+        color: var(--subtle-text-color);
+        font-size: 0.9rem;
+    }
+`;
+document.head.appendChild(style);
 
 // Helper function to construct the search query with all selected exclusions
 function getSearchQueryWithExclusions(baseQuery) {
@@ -763,7 +952,9 @@ function getSearchQueryWithExclusions(baseQuery) {
             '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
             '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
             '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
-            '-"buy-back"', '-buyback'
+            '-"buy-back"', '-buyback',
+            '-SP', '-sp', '-"short print"', '-"Short Print"', '-ssp', '-SSP',
+            '-"super short print"', '-"Super Short Print"'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
     }
@@ -783,59 +974,213 @@ function getSearchQueryWithExclusions(baseQuery) {
     return finalQuery;
 }
 
-async function runSearchInternal(showFindDealsButton = true) {
-  let baseQuery = document.getElementById("query").value;
-  const delay = 2; // Fixed at 2 seconds
-  const pages = 1; // Fixed at 1 page
-  const ungradedOnly = document.getElementById("ungraded_only").checked; // Still needed for backend param
-  const apiKey = "backend-handled"; // Always use production mode
+async function runSearchInternal() {
+  try {
+    const startTime = Date.now();
+    let baseQuery = document.getElementById("query").value;
+    const delay = 2;
+    const pages = 1;
+    const ungradedOnly = document.getElementById("ungraded_only").checked;
+    const apiKey = "backend-handled";
 
-  console.log('[DEBUG] Raw Only checkbox checked:', ungradedOnly);
-  console.log('[DEBUG] Base Only checkbox checked:', document.getElementById("base_only").checked);
-  console.log('[DEBUG] Exclude Autographs checkbox checked:', document.getElementById("exclude_autos").checked);
+    if (!baseQuery) {
+      throw new Error("Please enter a search query");
+    }
 
-  if (!baseQuery) {
-    alert("Please enter a search query.");
-    return;
-  }
+    let query = getSearchQueryWithExclusions(baseQuery);
 
-  let query = getSearchQueryWithExclusions(baseQuery);
+    // Add loading styles if not present
+    if (!document.getElementById('loading-styles')) {
+      const style = document.createElement('style');
+      style.id = 'loading-styles';
+      style.textContent = `
+        .loading-container {
+          padding: 2rem;
+          background: var(--background-color);
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+        }
+        .loading-stage {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem;
+          margin-bottom: 1rem;
+          border-radius: 6px;
+          background: var(--card-background);
+          opacity: 0.5;
+          transition: all 0.3s ease;
+        }
+        .loading-stage.active {
+          opacity: 1;
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .loading-spinner {
+          width: 24px;
+          height: 24px;
+          border: 3px solid var(--border-color);
+          border-top-color: var(--primary-blue);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        .loading-text {
+          flex: 1;
+        }
+        .loading-text h4 {
+          margin: 0;
+          color: var(--text-color);
+        }
+        .loading-text p {
+          margin: 0.25rem 0 0;
+          color: var(--subtle-text-color);
+          font-size: 0.9rem;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
-  const params = new URLSearchParams({
-    query: query,
-    pages: pages,
-    delay: delay,
-    ungraded_only: ungradedOnly,
-    api_key: apiKey
-  });
-const url = `/comps?${params.toString()}`;
-console.log('[DEBUG] Request URL:', url);
+    // Show detailed loading state
+    const resultsDiv = document.getElementById("results");
+    const statsContainer = document.getElementById("stats-container");
+    
+    resultsDiv.innerHTML = `
+      <div class="loading-container">
+        <div class="loading-stage active" id="search-stage">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <h4>Searching eBay listings...</h4>
+            <p>Fetching recent sales data</p>
+          </div>
+        </div>
+        <div class="loading-stage" id="analysis-stage">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <h4>Analyzing Results...</h4>
+            <p>Calculating market values and statistics</p>
+          </div>
+        </div>
+        <div class="loading-stage" id="render-stage">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <h4>Preparing Display...</h4>
+            <p>Generating visualizations and insights</p>
+          </div>
+        </div>
+        <div class="progress-info" style="text-align: center; margin-top: 1rem; color: var(--subtle-text-color);">
+          <p>Estimated time remaining: ~15 seconds</p>
+        </div>
+      </div>
+    `;
 
-// Enhanced loading states
-document.getElementById("results").innerHTML = '<div class="loading">Fetching comp data...</div>';
-document.getElementById("stats-container").innerHTML = '<div class="loading">Loading analytics...</div>';
-clearBeeswarm();
+    statsContainer.innerHTML = '<div class="loading">Preparing analytics...</div>';
+    clearBeeswarm();
 
-// Add loading animation to button
-const searchButton = document.querySelector('button[onclick="runSearch()"]');
-const originalText = searchButton.textContent;
-searchButton.textContent = '⏳ Searching...';
-searchButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-searchButton.disabled = true;
+    const params = new URLSearchParams({
+      query: query,
+      pages: pages,
+      delay: delay,
+      ungraded_only: ungradedOnly,
+      api_key: apiKey
+    });
+    const url = `/comps?${params.toString()}`;
+
+    // Add loading animation to button and styles
+    const searchButton = document.querySelector('button[onclick="runSearch()"]');
+    const originalText = searchButton.textContent;
+    searchButton.innerHTML = '⏳ Searching...';
+    searchButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
+    searchButton.disabled = true;
+
+    // Add CSS for loading stages if not already present
+    if (!document.getElementById('loading-styles')) {
+      const style = document.createElement('style');
+      style.id = 'loading-styles';
+      style.textContent = `
+        .loading-container {
+          padding: 2rem;
+          background: var(--background-color);
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+        }
+        .loading-stage {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem;
+          margin-bottom: 1rem;
+          border-radius: 6px;
+          background: var(--card-background);
+          opacity: 0.5;
+          transition: all 0.3s ease;
+        }
+        .loading-stage.active {
+          opacity: 1;
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .loading-spinner {
+          width: 24px;
+          height: 24px;
+          border: 3px solid var(--border-color);
+          border-top-color: var(--primary-blue);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        .loading-text {
+          flex: 1;
+        }
+        .loading-text h4 {
+          margin: 0;
+          color: var(--text-color);
+        }
+        .loading-text p {
+          margin: 0.25rem 0 0;
+          color: var(--subtle-text-color);
+          font-size: 0.9rem;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
   // reset globals
   expectLowGlobal = null;
   expectHighGlobal = null;
 
-  try {
-    const resp = await fetch(url);
-    const data = await resp.json();
+    try {
+      // Set up timeout and abort controller
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    if (data.detail) {
-      document.getElementById("results").innerHTML = "Error: " + data.detail;
-      lastData = null;
-      return;
-    }
+      const resp = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        throw new Error(`Request failed (${resp.status}): ${errorText}`);
+      }
+
+      // Update loading stage
+      document.getElementById('search-stage').classList.remove('active');
+      document.getElementById('analysis-stage').classList.add('active');
+
+      const data = await resp.json();
+      if (data.detail) {
+        throw new Error(data.detail);
+      }
+
+      // Update progress info
+      const elapsedTime = Math.round((Date.now() - startTime) / 1000);
+      const progressInfo = document.querySelector('.progress-info p');
+      if (progressInfo) {
+        progressInfo.textContent = `Processing time: ${elapsedTime} seconds`;
+      }
     
     // Add query to data object before saving
     data.query = query;
@@ -852,21 +1197,60 @@ searchButton.disabled = true;
 
     lastData = data;
 
-    await renderData(data, showFindDealsButton);
-    // Store prices for resize handling
+    // Calculate Fair Market Value first
+    console.log('[DEBUG] Calculating Fair Market Value...');
+    const fmvResp = await fetch('/fmv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data.items)
+    });
+    const fmvData = await fmvResp.json();
+    const marketValue = fmvData.market_value || fmvData.expected_high;
+    console.log('[DEBUG] Calculated Market Value:', formatMoney(marketValue));
+
+    // Perform second search for ACTIVE listings (no sold filter)
+    console.log('[DEBUG] Performing second search for active listings...');
+    const activeUrl = url.replace('/comps?', '/active?');
+    const activeController = new AbortController();
+    const activeTimeoutId = setTimeout(() => activeController.abort(), 30000);
+    
+    const secondResp = await fetch(activeUrl, { signal: activeController.signal });
+    clearTimeout(activeTimeoutId);
+    
+    const secondData = await secondResp.json();
+    
+    if (secondData.detail) {
+        console.error('[DEBUG] Second search error:', secondData.detail);
+    }
+    
+    console.log('[DEBUG] Active listings search completed:', secondData.items ? secondData.items.length : 0, 'items');
+
+    await renderData(data, secondData, marketValue);
+    // Store prices for resize handling (using first search results)
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
-} catch (err) {
-    document.getElementById("results").innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-      <strong>Error:</strong> ${err}
-    </div>`;
-    document.getElementById("stats-container").innerHTML = "";
-    lastData = null;
-  } finally {
-    // Restore button state
-    searchButton.textContent = originalText;
-    searchButton.style.background = 'var(--gradient-primary)';
-    searchButton.disabled = false;
+    } catch (err) {
+      const errorHtml = `
+        <div class="error-container">
+          <div class="error-icon">⚠️</div>
+          <div class="error-content">
+            <h4>Search Failed</h4>
+            <p>${err.message}</p>
+          </div>
+        </div>
+      `;
+      document.getElementById("results").innerHTML = errorHtml;
+      document.getElementById("stats-container").innerHTML = "";
+      lastData = null;
+      console.error('[ERROR] Search failed:', err);
+    } finally {
+      // Restore button state
+      searchButton.textContent = originalText;
+      searchButton.style.background = 'var(--gradient-primary)';
+      searchButton.disabled = false;
+    }
+  } catch (error) {
+    showError(error.message);
   }
 }
 
@@ -956,11 +1340,12 @@ async function updateFmv(data) {
     // store for beeswarm chart
     expectLowGlobal = fmvData.expected_low;
     expectHighGlobal = fmvData.expected_high;
+    marketValueGlobal = fmvData.market_value || fmvData.expected_high;
 
     const listPrice = toNinetyNine(fmvData.expected_high);
 
     // Use new volume-weighted values with fallbacks
-    const marketValue = fmvData.market_value || fmvData.expected_high;
+    const marketValue = marketValueGlobal;
     const quickSale = fmvData.quick_sale || fmvData.expected_low;
     const patientSale = fmvData.patient_sale || fmvData.expected_high;
 
@@ -1251,18 +1636,19 @@ function drawBeeswarm(prices) {
     // Max
     ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 20);
     
-    // Avg
-    const avgPrice = filteredPrices.reduce((a, b) => a + b, 0) / filteredPrices.length;
-    const avgX = xScale(avgPrice);
-    ctx.fillText("Avg: " + formatMoney(avgPrice), avgX, height - margin.bottom + 35);
-    
-    // Draw line for avg
-    ctx.beginPath();
-    ctx.moveTo(avgX, height - margin.bottom);
-    ctx.lineTo(avgX, height - margin.bottom + 5);
-    ctx.strokeStyle = "#d92a2a";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // FMV marker instead of Avg
+    if (marketValueGlobal !== null && marketValueGlobal >= minPrice && marketValueGlobal <= maxPrice) {
+      const fmvX = xScale(marketValueGlobal);
+      ctx.fillText("FMV: " + formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 35);
+      
+      // Draw line for FMV
+      ctx.beginPath();
+      ctx.moveTo(fmvX, height - margin.bottom);
+      ctx.lineTo(fmvX, height - margin.bottom + 5);
+      ctx.strokeStyle = "#d92a2a";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
   } else {
     // All prices are the same
     ctx.fillText(formatMoney(minPrice), width / 2, height - margin.bottom + 20);
@@ -1278,257 +1664,3 @@ function drawBeeswarm(prices) {
   }
 }
 
-// Find deals by searching for current listings below market value
-async function findDeals() {
-    console.log('[DEALS] Button clicked, starting findDeals function');
-    
-    if (!lastData || !lastData.items || lastData.items.length === 0) {
-        alert("No data to analyze. Run a search first.");
-        return;
-    }
-
-    // Get the current search query
-    const query = document.getElementById("query").value;
-    if (!query) {
-        alert("Please enter a search query first.");
-        return;
-    }
-
-    // Get market value from FMV data by calling the /fmv endpoint
-    console.log('[DEALS] Calculating FMV for direct call...');
-    const fmvResp = await fetch('/fmv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lastData.items)
-    });
-    const fmvData = await fmvResp.json();
-
-    if (fmvData.detail) {
-        alert("Error calculating FMV: " + fmvData.detail);
-        return;
-    }
-
-    const marketValue = fmvData.market_value;
-    if (!marketValue || marketValue <= 0) {
-        alert("Could not determine a valid market value for deals. Try a different search query.");
-        return;
-    }
-    console.log('[DEALS] Market value calculated from FMV:', marketValue);
-
-    await findDealsInternal(marketValue);
-}
-
-// Internal function to find deals (can be called programmatically)
-async function findDealsInternal(marketValue) {
-    let query = document.getElementById("query").value;
-    console.log('[DEALS] Internal search started with market value:', marketValue);
-
-    // Show loading state in deals results section
-    const dealsResultsDiv = document.getElementById("deals-results");
-    dealsResultsDiv.innerHTML = '<div class="loading">Searching for deals...</div>';
-    console.log('[DEALS] Loading state set in deals section');
-
-    // Handle button state (may not exist in combined search mode)
-    const findDealsButton = document.getElementById('find-deals-button');
-    let originalButtonText = '';
-    if (findDealsButton) {
-        originalButtonText = findDealsButton.innerHTML;
-        findDealsButton.innerHTML = '⏳ Searching...';
-        findDealsButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-        findDealsButton.disabled = true;
-    }
-
-    try {
-        // Get exclusion terms from checkboxes, similar to runSearchInternal
-        const ungradedOnly = document.getElementById("ungraded_only").checked;
-        const baseOnly = document.getElementById("base_only").checked;
-        const excludeAutos = document.getElementById("exclude_autos").checked;
-
-        let allExcludedPhrases = [];
-
-        if (ungradedOnly) {
-            const rawOnlyExclusions = [
-                '-psa', '-"Professional Sports Authenticator"', '-"Professional Authenticator"',
-                '-"Pro Sports Authenticator"', '-"Certified 10"', '-"Certified Gem"', '-"Certified Mint"',
-                '-slabbed', '-"Red Label"', '-lighthouse', '-"Gem Mint 10"', '-"Graded 10"', '-"Mint 10"',
-                '-bgs', '-beckett', '-"Gem 10"', '-"Black Label"', '-"Gold Label"', '-"Silver Label"',
-                '-subgrades', '-subs', '-"Quad 9.5"', '-"True Gem"', '-"True Gem+"', '-"Gem+"', '-bvg',
-                '-sgc', '-"Tuxedo Slab"', '-"Black Slab"', '-"Green Label"', '-"SG LLC"',
-                '-"SG Grading"', '-"Mint+ 9.5"', '-"10 Pristine"',
-                '-csg', '-cgc', '-"Certified Collectibles Group"', '-"CGC Trading Cards"', '-"CSG Gem"',
-                '-"Pristine 10"', '-"Perfect 10"', '-"Green Slab"',
-                '-encapsulated', '-authenticated', '-verified', '-"Slabbed Card"', '-"Third-Party Graded"',
-                '-graded', '-gem', '-"Gem Mint"', '-pristine', '-"Mint+"', '-"NM-MT"',
-                '-"Certified Authentic"', '-"Pro Graded"',
-                '-gma', '-hga', '-ksa', '-fgs', '-pgi', '-pro', '-isa', '-mnt', '-"MNT Grading"',
-                '-rcg', '-"TCG Grading"', '-bccg', '-tag', '-pgs', '-tga', '-ace', '-usg',
-                '-slab', '-"Slabbed up"', '-"In case"', '-holdered', '-encased',
-                '-"Graded Rookie"', '-"Graded RC"', '-"Gem Rookie"', '-"Gem RC"'
-            ];
-            allExcludedPhrases = allExcludedPhrases.concat(rawOnlyExclusions);
-        }
-
-        if (baseOnly) {
-            const baseOnlyExclusions = [
-                '-refractors', '-red', '-aqua', '-blue', '-magenta', '-yellow', '-lot',
-                '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
-                '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
-                '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
-                '-"buy-back"', '-buyback'
-            ];
-            allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
-        }
-
-        if (excludeAutos) {
-            const autoExclusions = [
-                '-auto', '-autos', '-autograph', '-autographs', '-autographes', '-signed'
-            ];
-            allExcludedPhrases = allExcludedPhrases.concat(autoExclusions);
-        }
-
-        // Apply all exclusions to query if any are selected
-        if (allExcludedPhrases.length > 0) {
-            query = `${query} ${allExcludedPhrases.join(' ')}`;
-            console.log('[DEALS] Modified query with exclusions:', query);
-        }
-
-        // Search for active deals using the new /deals endpoint
-        const params = new URLSearchParams({
-            query: query,
-            market_value: marketValue,
-            pages: 1,
-            delay: 2,
-            sort_by: "price_low_to_high",
-            api_key: "backend-handled",
-            raw_only: ungradedOnly,
-            base_only: baseOnly,
-            exclude_autographs: excludeAutos
-        });
-
-        console.log('[DEALS] Fetching deals with params:', params.toString());
-        console.log('[DEALS] Market value threshold:', marketValue);
-        
-        // Add timeout to prevent hanging
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-        
-        console.log('[DEALS] About to fetch URL:', `/deals?${params.toString()}`);
-        
-        const resp = await fetch(`/deals?${params.toString()}`, {
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        console.log('[DEALS] Response status:', resp.status);
-        console.log('[DEALS] Response headers:', resp.headers);
-        
-        if (!resp.ok) {
-            const errorText = await resp.text();
-            console.error('[DEALS] Error response text:', errorText);
-            throw new Error(`HTTP ${resp.status}: ${resp.statusText} - ${errorText}`);
-        }
-        
-        const data = await resp.json();
-        console.log('[DEALS] Response data:', data);
-
-        if (data.detail) {
-            // Assuming 'resultsDiv' is available in this scope or passed
-            // If not, you might need to adjust where this error is displayed
-            const resultsDiv = document.getElementById("results");
-            if (resultsDiv) {
-                resultsDiv.innerHTML = "Error: " + data.detail;
-            } else {
-                console.error("Error: " + data.detail);
-            }
-            return;
-        }
-
-        // All items returned are already filtered to be below market value
-        // Sort deals by Total Price (lowest to highest)
-        const deals = data.items.sort((a, b) => {
-            const priceA = a.total_price || ((a.extracted_price || 0) + (a.extracted_shipping || 0));
-            const priceB = b.total_price || ((b.extracted_price || 0) + (b.extracted_shipping || 0));
-            return priceA - priceB; // Lowest Total Price first
-        });
-
-        // Render deals or no deals message in the dedicated deals section
-        let dealsHtml = `
-            <div style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
-                <div style="text-align: center; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; color: var(--text-color);">🎯 Current Deals</h3>
-                    <p style="color: var(--subtle-text-color); margin: 0.5rem 0;">
-                        Active listings below market value (${formatMoney(marketValue)})
-                    </p>
-                </div>`;
-
-        if (deals.length > 0) {
-            dealsHtml += `
-                <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px;">
-                    <table>
-                        <tr>
-                            <th>Title</th>
-                            <th>Price</th>
-                            <th>Item ID</th>
-                        </tr>
-                        ${deals.map(item => {
-                            const totalPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-                            const listingType = item.listing_type || "Buy It Now";
-                            const discount = ((marketValue - totalPrice) / marketValue * 100).toFixed(1);
-                            return `
-                                <tr>
-                                    <td>${item.title}</td>
-                                    <td>
-                                        ${formatMoney(totalPrice)}
-                                        <span style="color: #ff4500; font-weight: 600; margin-left: 8px;">
-                                            (-${discount}%)
-                                        </span>
-                                    </td>
-                                    <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </table>
-                </div>
-                <div style="text-align: center; margin-top: 1rem; color: var(--subtle-text-color);">
-                    ✅ Found ${deals.length} deals below market value
-                </div>`;
-        } else {
-            dealsHtml += `
-                <div style="text-align: center; padding: 2rem; color: var(--subtle-text-color); background: var(--background-color); border-radius: 8px;">
-                    <p style="margin: 0; font-size: 1.1rem;">🔍 No deals found at this time</p>
-                    <p style="margin: 0.5rem 0; font-size: 0.9rem;">All current listings are priced at or above market value</p>
-                    <p style="margin: 0.5rem 0; font-size: 0.9rem;">Try searching again later</p>
-                </div>`;
-        }
-
-        dealsHtml += `</div>`;
-
-        // Update only the deals results section
-        const dealsResultsDiv = document.getElementById("deals-results");
-        dealsResultsDiv.innerHTML = dealsHtml;
-
-    } catch (error) {
-        const dealsResultsDiv = document.getElementById("deals-results");
-        dealsResultsDiv.innerHTML = `
-            <div style="background: var(--card-background); border: 1px solid #ff3b30; border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
-                <div style="color: #ff3b30; text-align: center;">
-                    <h3 style="margin: 0; color: #ff3b30;">⚠️ Error Finding Deals</h3>
-                    <p style="margin: 0.5rem 0;"><strong>Error:</strong> ${error}</p>
-                    <p style="margin: 0.5rem 0; font-size: 0.9rem; color: var(--subtle-text-color);">Please try again or check your connection</p>
-                </div>
-            </div>`;
-    } finally {
-        // Restore Find Deals button state (only if button exists)
-        if (findDealsButton) {
-            findDealsButton.innerHTML = originalButtonText;
-            findDealsButton.style.background = 'linear-gradient(135deg, #ff4500, #ff6b35)';
-            findDealsButton.disabled = false;
-        }
-    }
-}
-
-// Clear the deals results
-function closeDeals() {
-    const resultsDiv = document.getElementById("results");
-    resultsDiv.innerHTML = '';
-}
