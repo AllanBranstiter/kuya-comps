@@ -663,6 +663,35 @@ def get_comps(
     )
 
 
+def write_active_listings_debug(query: str, items: List[CompItem], debug_dir: str = "/Users/allanbranstiter/Desktop/debug"):
+    """Saves active listings search results to a debug CSV file."""
+    if not items:
+        print("[DEBUG] No items to write to debug CSV")
+        return
+
+    # Create debug directory if it doesn't exist
+    os.makedirs(debug_dir, exist_ok=True)
+
+    # Create timestamp for unique filename
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"active_listings_{timestamp}.csv"
+    filepath = os.path.join(debug_dir, filename)
+
+    # Define CSV headers based on the CompItem model
+    headers = list(CompItem.model_fields.keys())
+
+    try:
+        with open(filepath, "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=headers)
+            writer.writeheader()
+            for item in items:
+                writer.writerow(item.model_dump())
+        print(f"[DEBUG] Active listings saved to {filepath} ({len(items)} items)")
+    except IOError as e:
+        print(f"[DEBUG] Failed to write debug CSV file: {e}")
+
+
 @app.get("/active", response_model=CompsResponse)
 def get_active_listings(
     query: str = Query(
@@ -787,6 +816,9 @@ def get_active_listings(
     min_price = min(prices) if prices else None
     max_price = max(prices) if prices else None
     avg_price = sum(prices) / len(prices) if prices else None
+
+    # Write debug CSV for active listings
+    write_active_listings_debug(query, comp_items)
 
     return CompsResponse(
         query=query,
