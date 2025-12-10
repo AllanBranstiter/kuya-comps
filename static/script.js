@@ -3,6 +3,7 @@ let lastData = null;
 // globals for expected sale band so we can draw it on the beeswarm
 let expectLowGlobal = null;
 let expectHighGlobal = null;
+let marketValueGlobal = null;
 
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
@@ -1339,11 +1340,12 @@ async function updateFmv(data) {
     // store for beeswarm chart
     expectLowGlobal = fmvData.expected_low;
     expectHighGlobal = fmvData.expected_high;
+    marketValueGlobal = fmvData.market_value || fmvData.expected_high;
 
     const listPrice = toNinetyNine(fmvData.expected_high);
 
     // Use new volume-weighted values with fallbacks
-    const marketValue = fmvData.market_value || fmvData.expected_high;
+    const marketValue = marketValueGlobal;
     const quickSale = fmvData.quick_sale || fmvData.expected_low;
     const patientSale = fmvData.patient_sale || fmvData.expected_high;
 
@@ -1634,18 +1636,19 @@ function drawBeeswarm(prices) {
     // Max
     ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 20);
     
-    // Avg
-    const avgPrice = filteredPrices.reduce((a, b) => a + b, 0) / filteredPrices.length;
-    const avgX = xScale(avgPrice);
-    ctx.fillText("Avg: " + formatMoney(avgPrice), avgX, height - margin.bottom + 35);
-    
-    // Draw line for avg
-    ctx.beginPath();
-    ctx.moveTo(avgX, height - margin.bottom);
-    ctx.lineTo(avgX, height - margin.bottom + 5);
-    ctx.strokeStyle = "#d92a2a";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // FMV marker instead of Avg
+    if (marketValueGlobal !== null && marketValueGlobal >= minPrice && marketValueGlobal <= maxPrice) {
+      const fmvX = xScale(marketValueGlobal);
+      ctx.fillText("FMV: " + formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 35);
+      
+      // Draw line for FMV
+      ctx.beginPath();
+      ctx.moveTo(fmvX, height - margin.bottom);
+      ctx.lineTo(fmvX, height - margin.bottom + 5);
+      ctx.strokeStyle = "#d92a2a";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
   } else {
     // All prices are the same
     ctx.fillText(formatMoney(minPrice), width / 2, height - margin.bottom + 20);
