@@ -951,7 +951,9 @@ function getSearchQueryWithExclusions(baseQuery) {
             '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
             '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
             '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
-            '-"buy-back"', '-buyback'
+            '-"buy-back"', '-buyback',
+            '-SP', '-sp', '-"short print"', '-"Short Print"', '-ssp', '-SSP',
+            '-"super short print"', '-"Super Short Print"'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
     }
