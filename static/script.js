@@ -558,11 +558,12 @@ function resizeCanvas() {
     canvas.style.height = '200px';
 }
 
-async function renderData(data) {
+async function renderData(data, secondData = null) {
     const resultsDiv = document.getElementById("results");
     
-    // Create a container for the table with fixed height and scrolling
+    // Create first table
     let html = `
+      <h3 style="margin-bottom: 1rem; color: var(--text-color);">Search Results #1</h3>
       <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
         <table>
           <tr>
@@ -580,6 +581,29 @@ async function renderData(data) {
         </table>
       </div>
     `;
+    
+    // Add second table if second data exists
+    if (secondData && secondData.items) {
+        html += `
+          <h3 style="margin-bottom: 1rem; margin-top: 2rem; color: var(--text-color);">Search Results #2</h3>
+          <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
+            <table>
+              <tr>
+                <th>Title</th>
+                <th>Price</th>
+                <th>Item ID</th>
+              </tr>
+              ${secondData.items.map(item => `
+                <tr>
+                  <td>${item.title}</td>
+                  <td>${formatMoney(item.total_price)}</td>
+                  <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+                </tr>
+              `).join('')}
+            </table>
+          </div>
+        `;
+    }
     
     resultsDiv.innerHTML = html;
 
@@ -1032,8 +1056,19 @@ async function runSearchInternal() {
 
     lastData = data;
 
-    await renderData(data);
-    // Store prices for resize handling
+    // Perform second identical search
+    console.log('[DEBUG] Performing second identical search...');
+    const secondResp = await fetch(url, { signal: controller.signal });
+    const secondData = await secondResp.json();
+    
+    if (secondData.detail) {
+        console.error('[DEBUG] Second search error:', secondData.detail);
+    }
+    
+    console.log('[DEBUG] Second search completed:', secondData.items ? secondData.items.length : 0, 'items');
+
+    await renderData(data, secondData);
+    // Store prices for resize handling (using first search results)
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
     } catch (err) {
