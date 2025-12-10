@@ -706,9 +706,10 @@ function validateSearchQuery(query) {
     // Check for year (1800-2099) - supports vintage, modern, and future cards
     const hasYear = /(1[8-9][0-9]{2}|20[0-9]{2})/.test(query);
     
-    // Check for card details (at least 3 words)
-    const words = query.split(/\s+/).filter(word => word.length > 1);
-    const hasDetails = words.length >= 3;
+    // Check for meaningful content (at least 2 non-quote, non-whitespace segments)
+    const cleanQuery = query.replace(/["']/g, '').trim();
+    const words = cleanQuery.split(/\s+/).filter(word => word.length > 1);
+    const hasDetails = words.length >= 2;
     
     return hasYear && hasDetails;
 }
