@@ -809,6 +809,7 @@ def get_fmv(items: List[CompItem]):
     """
     Calculates the Fair Market Value (FMV) using volume weighting.
     Auctions with more bids get higher weight (more market validation).
+    Outliers are filtered using IQR method before calculation.
     """
     try:
         # Prepare data for volume weighting
@@ -826,8 +827,32 @@ def get_fmv(items: List[CompItem]):
             return FmvResponse(count=len(price_weight_pairs))
 
         # Extract prices and weights
-        prices = np.array([pair[0] for pair in price_weight_pairs])
-        weights = np.array([pair[1] for pair in price_weight_pairs])
+        all_prices = np.array([pair[0] for pair in price_weight_pairs])
+        all_weights = np.array([pair[1] for pair in price_weight_pairs])
+        
+        # Filter outliers using IQR method (need at least 4 data points)
+        if len(all_prices) >= 4:
+            # Calculate quartiles
+            q1 = np.percentile(all_prices, 25)
+            q3 = np.percentile(all_prices, 75)
+            iqr = q3 - q1
+            
+            # Define outlier bounds (1.5 * IQR is standard)
+            lower_bound = q1 - 1.5 * iqr
+            upper_bound = q3 + 1.5 * iqr
+            
+            # Filter out outliers
+            mask = (all_prices >= lower_bound) & (all_prices <= upper_bound)
+            prices = all_prices[mask]
+            weights = all_weights[mask]
+            
+            outliers_removed = len(all_prices) - len(prices)
+            print(f"[FMV] Removed {outliers_removed} outliers using IQR method (bounds: ${lower_bound:.2f} - ${upper_bound:.2f})")
+        else:
+            # Not enough data for outlier detection
+            prices = all_prices
+            weights = all_weights
+            print(f"[FMV] Skipping outlier detection (need 4+ items, have {len(all_prices)})")
         
         # Calculate volume-weighted statistics
         weighted_mean = np.average(prices, weights=weights)
