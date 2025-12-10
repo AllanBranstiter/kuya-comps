@@ -338,23 +338,28 @@ function updateFindCardButton() {
 
 // Intelligence Search Function - Multiple PSA Grade Searches
 async function runIntelligenceSearch() {
-    const query = document.getElementById("intelligence-query").value;
-    const selectedGrades = [];
-    
-    document.querySelectorAll('.psa-grade:checked').forEach(checkbox => {
-        const gradeNumber = checkbox.id.replace('psa', '');
-        selectedGrades.push(gradeNumber);
-    });
-    
-    if (!query.trim()) {
-        alert("Please enter a card search query.");
-        return;
-    }
-    
-    if (selectedGrades.length === 0) {
-        alert("Please select at least one PSA grade.");
-        return;
-    }
+    try {
+        const query = document.getElementById("intelligence-query").value.trim();
+        const selectedGrades = [];
+        
+        document.querySelectorAll('.psa-grade:checked').forEach(checkbox => {
+            const gradeNumber = checkbox.id.replace('psa', '');
+            selectedGrades.push(gradeNumber);
+        });
+        
+        // Validation
+        if (!query) {
+            throw new Error("Please enter a card search query");
+        }
+        
+        if (selectedGrades.length === 0) {
+            throw new Error("Please select at least one PSA grade");
+        }
+
+        // Validate query format
+        if (!validateSearchQuery(query)) {
+            throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
+        }
     
     // API key is handled on backend
     const apiKey = "backend-handled";
@@ -711,8 +716,129 @@ async function runCompsAndDeals() {
 }
 
 async function runSearch() {
-    await runSearchInternal(true); // Show Find Deals button for normal search
+    try {
+        const query = document.getElementById("query").value.trim();
+        if (!query) {
+            throw new Error("Please enter a search query");
+        }
+        
+        if (!validateSearchQuery(query)) {
+            throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
+        }
+        
+        await runSearchInternal(true); // Show Find Deals button for normal search
+    } catch (error) {
+        showError(error.message);
+    }
 }
+
+// Helper function to validate search query format
+function validateSearchQuery(query) {
+    // Check for year (2000-2025)
+    const hasYear = /20(0[0-9]|1[0-9]|2[0-5])/.test(query);
+    
+    // Check for card details (at least 3 words)
+    const words = query.split(/\s+/).filter(word => word.length > 1);
+    const hasDetails = words.length >= 3;
+    
+    return hasYear && hasDetails;
+}
+
+// Helper function to show errors
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.style.cssText = `
+        background: #ffebee;
+        color: #c62828;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 8px;
+        border: 1px solid #ef9a9a;
+        font-size: 0.9rem;
+        text-align: center;
+        animation: fadeIn 0.3s ease;
+    `;
+    errorDiv.textContent = message;
+    
+    // Remove any existing error messages
+    document.querySelectorAll('.error-message').forEach(el => el.remove());
+    
+    // Insert error message before the results container
+    const resultsContainer = document.getElementById('results');
+    resultsContainer.parentNode.insertBefore(errorDiv, resultsContainer);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        errorDiv.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => errorDiv.remove(), 300);
+    }, 5000);
+}
+
+// Add CSS for animations and loading states
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-10px); }
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .loading-container {
+        padding: 2rem;
+        background: var(--background-color);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+    .loading-stage {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 6px;
+        background: var(--card-background);
+        opacity: 0.5;
+        transition: all 0.3s ease;
+    }
+    .loading-stage.active {
+        opacity: 1;
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .loading-spinner {
+        width: 24px;
+        height: 24px;
+        border: 3px solid var(--border-color);
+        border-top-color: var(--primary-blue);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    .loading-text {
+        flex: 1;
+    }
+    .loading-text h4 {
+        margin: 0;
+        color: var(--text-color);
+    }
+    .loading-text p {
+        margin: 0.25rem 0 0;
+        color: var(--subtle-text-color);
+        font-size: 0.9rem;
+    }
+    .progress-info {
+        text-align: center;
+        margin-top: 1rem;
+        color: var(--subtle-text-color);
+        font-size: 0.9rem;
+    }
+`;
+document.head.appendChild(style);
 
 // Helper function to construct the search query with all selected exclusions
 function getSearchQueryWithExclusions(baseQuery) {
@@ -784,58 +910,267 @@ function getSearchQueryWithExclusions(baseQuery) {
 }
 
 async function runSearchInternal(showFindDealsButton = true) {
-  let baseQuery = document.getElementById("query").value;
-  const delay = 2; // Fixed at 2 seconds
-  const pages = 1; // Fixed at 1 page
-  const ungradedOnly = document.getElementById("ungraded_only").checked; // Still needed for backend param
-  const apiKey = "backend-handled"; // Always use production mode
+  try {
+    const startTime = Date.now();
+    let baseQuery = document.getElementById("query").value;
+    const delay = 2;
+    const pages = 1;
+    const ungradedOnly = document.getElementById("ungraded_only").checked;
+    const apiKey = "backend-handled";
 
-  console.log('[DEBUG] Raw Only checkbox checked:', ungradedOnly);
-  console.log('[DEBUG] Base Only checkbox checked:', document.getElementById("base_only").checked);
-  console.log('[DEBUG] Exclude Autographs checkbox checked:', document.getElementById("exclude_autos").checked);
+    if (!baseQuery) {
+      throw new Error("Please enter a search query");
+    }
 
-  if (!baseQuery) {
-    alert("Please enter a search query.");
-    return;
-  }
+    let query = getSearchQueryWithExclusions(baseQuery);
 
-  let query = getSearchQueryWithExclusions(baseQuery);
+    // Add loading styles if not present
+    if (!document.getElementById('loading-styles')) {
+      const style = document.createElement('style');
+      style.id = 'loading-styles';
+      style.textContent = `
+        .loading-container {
+          padding: 2rem;
+          background: var(--background-color);
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+        }
+        .loading-stage {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem;
+          margin-bottom: 1rem;
+          border-radius: 6px;
+          background: var(--card-background);
+          opacity: 0.5;
+          transition: all 0.3s ease;
+        }
+        .loading-stage.active {
+          opacity: 1;
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .loading-spinner {
+          width: 24px;
+          height: 24px;
+          border: 3px solid var(--border-color);
+          border-top-color: var(--primary-blue);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        .loading-text {
+          flex: 1;
+        }
+        .loading-text h4 {
+          margin: 0;
+          color: var(--text-color);
+        }
+        .loading-text p {
+          margin: 0.25rem 0 0;
+          color: var(--subtle-text-color);
+          font-size: 0.9rem;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
-  const params = new URLSearchParams({
-    query: query,
-    pages: pages,
-    delay: delay,
-    ungraded_only: ungradedOnly,
-    api_key: apiKey
-  });
-const url = `/comps?${params.toString()}`;
-console.log('[DEBUG] Request URL:', url);
+    // Show detailed loading state
+    const resultsDiv = document.getElementById("results");
+    const statsContainer = document.getElementById("stats-container");
+    
+    resultsDiv.innerHTML = `
+      <div class="loading-container">
+        <div class="loading-stage active" id="search-stage">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <h4>Searching eBay listings...</h4>
+            <p>Fetching recent sales data</p>
+          </div>
+        </div>
+        <div class="loading-stage" id="analysis-stage">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <h4>Analyzing Results...</h4>
+            <p>Calculating market values and statistics</p>
+          </div>
+        </div>
+        <div class="loading-stage" id="render-stage">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <h4>Preparing Display...</h4>
+            <p>Generating visualizations and insights</p>
+          </div>
+        </div>
+        <div class="progress-info" style="text-align: center; margin-top: 1rem; color: var(--subtle-text-color);">
+          <p>Estimated time remaining: ~15 seconds</p>
+        </div>
+      </div>
+    `;
 
-// Enhanced loading states
-document.getElementById("results").innerHTML = '<div class="loading">Fetching comp data...</div>';
-document.getElementById("stats-container").innerHTML = '<div class="loading">Loading analytics...</div>';
-clearBeeswarm();
+    statsContainer.innerHTML = '<div class="loading">Preparing analytics...</div>';
+    clearBeeswarm();
 
-// Add loading animation to button
-const searchButton = document.querySelector('button[onclick="runSearch()"]');
-const originalText = searchButton.textContent;
-searchButton.textContent = '⏳ Searching...';
-searchButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-searchButton.disabled = true;
+    const params = new URLSearchParams({
+      query: query,
+      pages: pages,
+      delay: delay,
+      ungraded_only: ungradedOnly,
+      api_key: apiKey
+    });
+    const url = `/comps?${params.toString()}`;
+
+    // Add loading animation to button and styles
+    const searchButton = document.querySelector('button[onclick="runSearch()"]');
+    const originalText = searchButton.textContent;
+    searchButton.innerHTML = '⏳ Searching...';
+    searchButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
+    searchButton.disabled = true;
+
+    // Add CSS for loading stages if not already present
+    if (!document.getElementById('loading-styles')) {
+      const style = document.createElement('style');
+      style.id = 'loading-styles';
+      style.textContent = `
+        .loading-container {
+          padding: 2rem;
+          background: var(--background-color);
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+        }
+        .loading-stage {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1rem;
+          margin-bottom: 1rem;
+          border-radius: 6px;
+          background: var(--card-background);
+          opacity: 0.5;
+          transition: all 0.3s ease;
+        }
+        
+        // Add retry functionality
+        async function retrySearch() {
+          const query = document.getElementById("query").value;
+          if (query) {
+            await runSearchInternal(true);
+          }
+        }
+        
+        // Add error container styles
+        const errorStyles = `
+          .error-container {
+            background: #ffebee;
+            border: 1px solid #ef9a9a;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin: 1rem 0;
+            animation: fadeIn 0.3s ease;
+          }
+          .error-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+          }
+          .error-content h4 {
+            color: #c62828;
+            margin: 0 0 0.5rem;
+          }
+          .error-content p {
+            color: #d32f2f;
+            margin: 0 0 1rem;
+          }
+          .retry-button {
+            background: linear-gradient(135deg, #ff4500, #ff6b35);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+          }
+          .retry-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 69, 0, 0.3);
+          }
+        `;
+        
+        // Add error styles if not already present
+        if (!document.getElementById('error-styles')) {
+          const style = document.createElement('style');
+          style.id = 'error-styles';
+          style.textContent = errorStyles;
+          document.head.appendChild(style);
+        }
+        .loading-stage.active {
+          opacity: 1;
+          transform: scale(1.02);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .loading-spinner {
+          width: 24px;
+          height: 24px;
+          border: 3px solid var(--border-color);
+          border-top-color: var(--primary-blue);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        .loading-text {
+          flex: 1;
+        }
+        .loading-text h4 {
+          margin: 0;
+          color: var(--text-color);
+        }
+        .loading-text p {
+          margin: 0.25rem 0 0;
+          color: var(--subtle-text-color);
+          font-size: 0.9rem;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
   // reset globals
   expectLowGlobal = null;
   expectHighGlobal = null;
 
-  try {
-    const resp = await fetch(url);
-    const data = await resp.json();
+    try {
+      // Set up timeout and abort controller
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-    if (data.detail) {
-      document.getElementById("results").innerHTML = "Error: " + data.detail;
-      lastData = null;
-      return;
-    }
+      const resp = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        throw new Error(`Request failed (${resp.status}): ${errorText}`);
+      }
+
+      // Update loading stage
+      document.getElementById('search-stage').classList.remove('active');
+      document.getElementById('analysis-stage').classList.add('active');
+
+      const data = await resp.json();
+      if (data.detail) {
+        throw new Error(data.detail);
+      }
+
+      // Update progress info
+      const elapsedTime = Math.round((Date.now() - startTime) / 1000);
+      const progressInfo = document.querySelector('.progress-info p');
+      if (progressInfo) {
+        progressInfo.textContent = `Processing time: ${elapsedTime} seconds`;
+      }
     
     // Add query to data object before saving
     data.query = query;
@@ -857,11 +1192,22 @@ searchButton.disabled = true;
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
 } catch (err) {
-    document.getElementById("results").innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-      <strong>Error:</strong> ${err}
-    </div>`;
+    const errorHtml = `
+      <div class="error-container">
+        <div class="error-icon">⚠️</div>
+        <div class="error-content">
+          <h4>Search Failed</h4>
+          <p>${err.message}</p>
+          <button onclick="retrySearch()" class="retry-button">
+            🔄 Try Again
+          </button>
+        </div>
+      </div>
+    `;
+    document.getElementById("results").innerHTML = errorHtml;
     document.getElementById("stats-container").innerHTML = "";
     lastData = null;
+    console.error('[ERROR] Search failed:', err);
   } finally {
     // Restore button state
     searchButton.textContent = originalText;
