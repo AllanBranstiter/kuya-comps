@@ -591,15 +591,27 @@ async function renderData(data, secondData = null) {
               <tr>
                 <th>Title</th>
                 <th>Price</th>
+                <th>Type</th>
                 <th>Item ID</th>
               </tr>
-              ${secondData.items.map(item => `
-                <tr>
-                  <td>${item.title}</td>
-                  <td>${formatMoney(item.total_price)}</td>
-                  <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
-                </tr>
-              `).join('')}
+              ${secondData.items.map(item => {
+                const buyingFormat = item.buying_format || '';
+                let displayType = 'Buy It Now'; // Default
+                if (buyingFormat.toLowerCase().includes('auction')) {
+                  displayType = 'Auction';
+                } else if (buyingFormat.toLowerCase().includes('buy it now')) {
+                  displayType = 'Buy It Now';
+                }
+                
+                return `
+                  <tr>
+                    <td>${item.title}</td>
+                    <td>${formatMoney(item.total_price)}</td>
+                    <td>${displayType}</td>
+                    <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+                  </tr>
+                `;
+              }).join('')}
             </table>
           </div>
         `;
