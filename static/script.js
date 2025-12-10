@@ -437,6 +437,13 @@ async function runIntelligenceSearch() {
         findCardButton.innerHTML = originalFindCardText;
         updateFindCardButton();
     }
+    } catch (error) {
+        console.error('[INTELLIGENCE] Outer error:', error);
+        const insightsContainer = document.getElementById("insights-container");
+        insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
+            <strong>Error:</strong> ${error.message}
+        </div>`;
+    }
 }
 
 function renderPsaComparison(gradeResults) {
@@ -945,61 +952,6 @@ async function runSearchInternal() {
           opacity: 0.5;
           transition: all 0.3s ease;
         }
-        
-        // Add retry functionality
-        async function retrySearch() {
-          const query = document.getElementById("query").value;
-          if (query) {
-            await runSearchInternal(true);
-          }
-        }
-        
-        // Add error container styles
-        const errorStyles = `
-          .error-container {
-            background: #ffebee;
-            border: 1px solid #ef9a9a;
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            margin: 1rem 0;
-            animation: fadeIn 0.3s ease;
-          }
-          .error-icon {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-          }
-          .error-content h4 {
-            color: #c62828;
-            margin: 0 0 0.5rem;
-          }
-          .error-content p {
-            color: #d32f2f;
-            margin: 0 0 1rem;
-          }
-          .retry-button {
-            background: linear-gradient(135deg, #ff4500, #ff6b35);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-          }
-          .retry-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(255, 69, 0, 0.3);
-          }
-        `;
-        
-        // Add error styles if not already present
-        if (!document.getElementById('error-styles')) {
-          const style = document.createElement('style');
-          style.id = 'error-styles';
-          style.textContent = errorStyles;
-          document.head.appendChild(style);
-        }
         .loading-stage.active {
           opacity: 1;
           transform: scale(1.02);
@@ -1084,28 +1036,28 @@ async function runSearchInternal() {
     // Store prices for resize handling
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
-} catch (err) {
-    const errorHtml = `
-      <div class="error-container">
-        <div class="error-icon">⚠️</div>
-        <div class="error-content">
-          <h4>Search Failed</h4>
-          <p>${err.message}</p>
-          <button onclick="retrySearch()" class="retry-button">
-            🔄 Try Again
-          </button>
+    } catch (err) {
+      const errorHtml = `
+        <div class="error-container">
+          <div class="error-icon">⚠️</div>
+          <div class="error-content">
+            <h4>Search Failed</h4>
+            <p>${err.message}</p>
+          </div>
         </div>
-      </div>
-    `;
-    document.getElementById("results").innerHTML = errorHtml;
-    document.getElementById("stats-container").innerHTML = "";
-    lastData = null;
-    console.error('[ERROR] Search failed:', err);
-  } finally {
-    // Restore button state
-    searchButton.textContent = originalText;
-    searchButton.style.background = 'var(--gradient-primary)';
-    searchButton.disabled = false;
+      `;
+      document.getElementById("results").innerHTML = errorHtml;
+      document.getElementById("stats-container").innerHTML = "";
+      lastData = null;
+      console.error('[ERROR] Search failed:', err);
+    } finally {
+      // Restore button state
+      searchButton.textContent = originalText;
+      searchButton.style.background = 'var(--gradient-primary)';
+      searchButton.disabled = false;
+    }
+  } catch (error) {
+    showError(error.message);
   }
 }
 
