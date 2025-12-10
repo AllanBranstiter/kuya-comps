@@ -7,6 +7,10 @@ let expectHighGlobal = null;
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
 
+// Store active listings data for filtering
+let activeListingsData = null;
+let currentMarketValue = null;
+
 // Password Protection
 const CORRECT_PASSWORD = 'BreakersOnBudget25!';
 const MAX_LOGIN_ATTEMPTS = 3;
@@ -563,7 +567,7 @@ async function renderData(data, secondData = null, marketValue = null) {
     
     // Create first table
     let html = `
-      <h3 style="margin-bottom: 1rem; color: var(--text-color);">📊 Sold Listings (Completed Sales)</h3>
+      <h3 style="margin-bottom: 1rem; color: var(--text-color);">Recently Sold Listings</h3>
       <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
         <table>
           <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -601,9 +605,19 @@ async function renderData(data, secondData = null, marketValue = null) {
             return priceA - priceB;
         });
         
+        // Store data for filtering
+        activeListingsData = filteredItems;
+        currentMarketValue = marketValue;
+        
         html += `
-          <h3 style="margin-bottom: 1rem; margin-top: 2rem; color: var(--text-color);">🛒 Active Listings Below FMV (${formatMoney(marketValue)})</h3>
-          <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; margin-top: 2rem;">
+            <h3 style="margin: 0; color: var(--text-color);">Active Listings Below Fair Market Value</h3>
+            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 500; cursor: pointer;">
+              <input type="checkbox" id="buy-it-now-only" onchange="filterActiveListings()" style="transform: scale(1.3); cursor: pointer;">
+              Buy It Now Only
+            </label>
+          </div>
+          <div id="active-listings-table" class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
               <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <tr>
@@ -685,6 +699,80 @@ async function renderData(data, secondData = null, marketValue = null) {
     chartContainer.style.opacity = '0';
     await new Promise(resolve => setTimeout(resolve, 100));
     chartContainer.style.opacity = '1';
+}
+
+//Function to filter active listings based on Buy It Now Only checkbox
+function filterActiveListings() {
+    if (!activeListingsData || !currentMarketValue) return;
+    
+    const buyItNowOnly = document.getElementById('buy-it-now-only')?.checked || false;
+    const container = document.getElementById('active-listings-table');
+    
+    if (!container) return;
+    
+    // Filter items based on checkbox
+    let itemsToDisplay = activeListingsData;
+    if (buyItNowOnly) {
+        itemsToDisplay = activeListingsData.filter(item => {
+            const buyingFormat = (item.buying_format || '').toLowerCase();
+            const isAuction = buyingFormat.includes('bid') ||
+                            buyingFormat.includes('bids') ||
+                            buyingFormat.includes('auction');
+            return !isAuction; // Only show non-auction items
+        });
+    }
+    
+    // Render the filtered table
+    const tableHtml = `
+        <table>
+          <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <tr>
+              <th>Title</th>
+              <th>Price</th>
+              <th>Discount</th>
+              <th>Type</th>
+              <th>Item ID</th>
+            </tr>
+          </thead>
+          <tbody>
+          ${itemsToDisplay.length > 0 ? itemsToDisplay.map(item => {
+            const buyingFormat = (item.buying_format || '').toLowerCase();
+            let displayType = 'Buy It Now'; // Default
+            
+            // Check for auction indicators: bid, bids, or auction
+            if (buyingFormat.includes('bid') ||
+                buyingFormat.includes('bids') ||
+                buyingFormat.includes('auction')) {
+              displayType = 'Auction';
+            } else if (buyingFormat.includes('buy it now')) {
+              displayType = 'Buy It Now';
+            }
+            
+            // Calculate discount percentage
+            const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+            const discount = ((currentMarketValue - itemPrice) / currentMarketValue * 100).toFixed(0);
+            
+            return `
+              <tr>
+                <td>${item.title}</td>
+                <td>${formatMoney(item.total_price)}</td>
+                <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
+                <td>${displayType}</td>
+                <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+              </tr>
+            `;
+          }).join('') : `
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                ${buyItNowOnly ? 'No Buy It Now listings found below Fair Market Value' : 'No active listings found below Fair Market Value'}
+              </td>
+            </tr>
+          `}
+          </tbody>
+        </table>
+    `;
+    
+    container.innerHTML = tableHtml;
 }
 
 

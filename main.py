@@ -21,10 +21,11 @@ from scraper import scrape_sold_comps, scrape_active_listings
 app = FastAPI(
     title="Kuya Comps: Your Personal Card Value Dugout",
     description="Your personal assistant for finding baseball card values and deals.",
-    version="0.2.4",  # Version History:
-                      # 0.2.0 - Initial release
-                      # 0.2.1 - Added filtering for Raw Only, Base Only, and Exclude Autographs
+    version="0.3.0",  # Version History:
+                      # 0.3.0 - Dual-search display with active listings filter
                       # 0.2.4 - Improved auction detection using multiple indicators (bids, time left)
+                      # 0.2.1 - Added filtering for Raw Only, Base Only, and Exclude Autographs
+                      # 0.2.0 - Initial release
 )
 
 
