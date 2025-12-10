@@ -551,7 +551,7 @@ function resizeCanvas() {
     canvas.style.height = '200px';
 }
 
-async function renderData(data, showFindDealsButton = true) {
+async function renderData(data) {
     const resultsDiv = document.getElementById("results");
     
     // Create a container for the table with fixed height and scrolling
@@ -574,48 +574,7 @@ async function renderData(data, showFindDealsButton = true) {
       </div>
     `;
     
-    // Calculate market value from the current data being rendered
-    const marketValue = data.items.length > 0 ?
-        data.items.reduce((sum, item) => sum + (item.total_price || 0), 0) / data.items.length : 0;
-    
-    // Conditionally add the Find Deals button section
-    if (showFindDealsButton) {
-        html += `
-          <div style="text-align: center; padding: 1rem; background: var(--background-color); border-radius: 8px; margin-top: 1rem; border: 1px solid var(--border-color);">
-            <h4 style="margin: 0 0 0.5rem 0; color: var(--text-color);">💰 Market Value: ${formatMoney(marketValue)}</h4>
-            <p style="margin: 0 0 1rem 0; color: var(--subtle-text-color); font-size: 0.9rem;">Search for current listings below market value</p>
-            <button id="find-deals-button"
-                    style="background: linear-gradient(135deg, #ff4500, #ff6b35);
-                           box-shadow: 0 4px 12px rgba(255, 69, 0, 0.3);
-                           padding: 12px 24px;
-                           font-size: 1rem;
-                           border: none;
-                           border-radius: 8px;
-                           color: white;
-                           cursor: pointer;
-                           font-weight: 600;">
-              🎯 Find Deals
-            </button>
-          </div>
-        `;
-    }
-      
-    // Deals Results Section (initially empty)
-    html += `<div id="deals-results" style="margin-top: 1.5rem;"></div>`;
-    
     resultsDiv.innerHTML = html;
-    console.log('[DEBUG] renderData - HTML set, resultsDiv content:', resultsDiv.innerHTML.substring(0, 200));
-
-    // Add event listener to Find Deals button (only if it exists in the rendered HTML)
-    if (showFindDealsButton) {
-        const findDealsButton = document.getElementById('find-deals-button');
-        if (findDealsButton) {
-            findDealsButton.addEventListener('click', findDeals);
-            console.log('[DEALS] Event listener added to Find Deals button');
-        } else {
-            console.error('[DEALS] Could not find Find Deals button to add event listener');
-        }
-    }
 
     // Clear old stats and chart with smooth transition
     clearBeeswarm();
@@ -648,72 +607,6 @@ async function renderData(data, showFindDealsButton = true) {
     chartContainer.style.opacity = '1';
 }
 
-// Combined search: Run comps search then immediately find deals
-async function runCompsAndDeals() {
-    const query = document.getElementById("query").value;
-    if (!query) {
-        alert("Please enter a search query.");
-        return;
-    }
-
-    // Add loading state to the Find Deals button
-    const compsAndDealsButton = document.querySelector('button[onclick="runCompsAndDeals()"]');
-    const originalButtonText = compsAndDealsButton.innerHTML;
-    compsAndDealsButton.innerHTML = '⏳ Searching...';
-    compsAndDealsButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-    compsAndDealsButton.disabled = true;
-
-    try {
-        // First, run the regular comps search
-        console.log('[COMPS+DEALS] Starting comps search...');
-        await runSearchInternal(false); // Don't show Find Deals button
-        
-        // Wait for comps search to complete
-        if (!lastData || !lastData.items || lastData.items.length === 0) {
-            alert("No comp data found. Cannot search for deals without market value.");
-            return;
-        }
-
-        // Call the /fmv endpoint to get the volume-weighted market value
-        console.log('[COMPS+DEALS] Calculating FMV...');
-        const fmvResp = await fetch('/fmv', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(lastData.items)
-        });
-        const fmvData = await fmvResp.json();
-
-        if (fmvData.detail) {
-            alert("Error calculating FMV: " + fmvData.detail);
-            return;
-        }
-
-        const marketValue = fmvData.market_value;
-        if (!marketValue || marketValue <= 0) {
-            alert("Could not determine a valid market value for deals. Try a different search query.");
-            return;
-        }
-        console.log('[COMPS+DEALS] Market value from FMV:', marketValue);
-
-        // Now search for deals
-        console.log('[COMPS+DEALS] Starting deals search...');
-        await findDealsInternal(marketValue);
-        
-        console.log('[COMPS+DEALS] Both searches completed successfully');
-        
-    } catch (error) {
-        console.error('[COMPS+DEALS] Error:', error);
-        const resultsDiv = document.getElementById("results");
-        resultsDiv.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-            <strong>Error:</strong> ${error}
-        </div>`;
-    } finally {
-        // Restore button state
-        compsAndDealsButton.innerHTML = originalButtonText;
-        compsAndDealsButton.style.background = 'linear-gradient(135deg, #ff4500, #ff6b35)';
-        compsAndDealsButton.disabled = false;
-    }
-}
 
 async function runSearch() {
     try {
@@ -726,7 +619,7 @@ async function runSearch() {
             throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
         }
         
-        await runSearchInternal(true); // Show Find Deals button for normal search
+        await runSearchInternal();
     } catch (error) {
         showError(error.message);
     }
@@ -909,7 +802,7 @@ function getSearchQueryWithExclusions(baseQuery) {
     return finalQuery;
 }
 
-async function runSearchInternal(showFindDealsButton = true) {
+async function runSearchInternal() {
   try {
     const startTime = Date.now();
     let baseQuery = document.getElementById("query").value;
@@ -1187,7 +1080,7 @@ async function runSearchInternal(showFindDealsButton = true) {
 
     lastData = data;
 
-    await renderData(data, showFindDealsButton);
+    await renderData(data);
     // Store prices for resize handling
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
@@ -1624,259 +1517,3 @@ function drawBeeswarm(prices) {
   }
 }
 
-// Find deals by searching for current listings below market value
-async function findDeals() {
-    console.log('[DEALS] Button clicked, starting findDeals function');
-    
-    if (!lastData || !lastData.items || lastData.items.length === 0) {
-        alert("No data to analyze. Run a search first.");
-        return;
-    }
-
-    // Get the current search query
-    const query = document.getElementById("query").value;
-    if (!query) {
-        alert("Please enter a search query first.");
-        return;
-    }
-
-    // Get market value from FMV data by calling the /fmv endpoint
-    console.log('[DEALS] Calculating FMV for direct call...');
-    const fmvResp = await fetch('/fmv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lastData.items)
-    });
-    const fmvData = await fmvResp.json();
-
-    if (fmvData.detail) {
-        alert("Error calculating FMV: " + fmvData.detail);
-        return;
-    }
-
-    const marketValue = fmvData.market_value;
-    if (!marketValue || marketValue <= 0) {
-        alert("Could not determine a valid market value for deals. Try a different search query.");
-        return;
-    }
-    console.log('[DEALS] Market value calculated from FMV:', marketValue);
-
-    await findDealsInternal(marketValue);
-}
-
-// Internal function to find deals (can be called programmatically)
-async function findDealsInternal(marketValue) {
-    let query = document.getElementById("query").value;
-    console.log('[DEALS] Internal search started with market value:', marketValue);
-
-    // Show loading state in deals results section
-    const dealsResultsDiv = document.getElementById("deals-results");
-    dealsResultsDiv.innerHTML = '<div class="loading">Searching for deals...</div>';
-    console.log('[DEALS] Loading state set in deals section');
-
-    // Handle button state (may not exist in combined search mode)
-    const findDealsButton = document.getElementById('find-deals-button');
-    let originalButtonText = '';
-    if (findDealsButton) {
-        originalButtonText = findDealsButton.innerHTML;
-        findDealsButton.innerHTML = '⏳ Searching...';
-        findDealsButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-        findDealsButton.disabled = true;
-    }
-
-    try {
-        // Get exclusion terms from checkboxes, similar to runSearchInternal
-        const ungradedOnly = document.getElementById("ungraded_only").checked;
-        const baseOnly = document.getElementById("base_only").checked;
-        const excludeAutos = document.getElementById("exclude_autos").checked;
-
-        let allExcludedPhrases = [];
-
-        if (ungradedOnly) {
-            const rawOnlyExclusions = [
-                '-psa', '-"Professional Sports Authenticator"', '-"Professional Authenticator"',
-                '-"Pro Sports Authenticator"', '-"Certified 10"', '-"Certified Gem"', '-"Certified Mint"',
-                '-slabbed', '-"Red Label"', '-lighthouse', '-"Gem Mint 10"', '-"Graded 10"', '-"Mint 10"',
-                '-bgs', '-beckett', '-"Gem 10"', '-"Black Label"', '-"Gold Label"', '-"Silver Label"',
-                '-subgrades', '-subs', '-"Quad 9.5"', '-"True Gem"', '-"True Gem+"', '-"Gem+"', '-bvg',
-                '-sgc', '-"Tuxedo Slab"', '-"Black Slab"', '-"Green Label"', '-"SG LLC"',
-                '-"SG Grading"', '-"Mint+ 9.5"', '-"10 Pristine"',
-                '-csg', '-cgc', '-"Certified Collectibles Group"', '-"CGC Trading Cards"', '-"CSG Gem"',
-                '-"Pristine 10"', '-"Perfect 10"', '-"Green Slab"',
-                '-encapsulated', '-authenticated', '-verified', '-"Slabbed Card"', '-"Third-Party Graded"',
-                '-graded', '-gem', '-"Gem Mint"', '-pristine', '-"Mint+"', '-"NM-MT"',
-                '-"Certified Authentic"', '-"Pro Graded"',
-                '-gma', '-hga', '-ksa', '-fgs', '-pgi', '-pro', '-isa', '-mnt', '-"MNT Grading"',
-                '-rcg', '-"TCG Grading"', '-bccg', '-tag', '-pgs', '-tga', '-ace', '-usg',
-                '-slab', '-"Slabbed up"', '-"In case"', '-holdered', '-encased',
-                '-"Graded Rookie"', '-"Graded RC"', '-"Gem Rookie"', '-"Gem RC"'
-            ];
-            allExcludedPhrases = allExcludedPhrases.concat(rawOnlyExclusions);
-        }
-
-        if (baseOnly) {
-            const baseOnlyExclusions = [
-                '-refractors', '-red', '-aqua', '-blue', '-magenta', '-yellow', '-lot',
-                '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
-                '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
-                '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
-                '-"buy-back"', '-buyback'
-            ];
-            allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
-        }
-
-        if (excludeAutos) {
-            const autoExclusions = [
-                '-auto', '-autos', '-autograph', '-autographs', '-autographes', '-signed'
-            ];
-            allExcludedPhrases = allExcludedPhrases.concat(autoExclusions);
-        }
-
-        // Apply all exclusions to query if any are selected
-        if (allExcludedPhrases.length > 0) {
-            query = `${query} ${allExcludedPhrases.join(' ')}`;
-            console.log('[DEALS] Modified query with exclusions:', query);
-        }
-
-        // Search for active deals using the new /deals endpoint
-        const params = new URLSearchParams({
-            query: query,
-            market_value: marketValue,
-            pages: 1,
-            delay: 2,
-            sort_by: "price_low_to_high",
-            api_key: "backend-handled",
-            raw_only: ungradedOnly,
-            base_only: baseOnly,
-            exclude_autographs: excludeAutos
-        });
-
-        console.log('[DEALS] Fetching deals with params:', params.toString());
-        console.log('[DEALS] Market value threshold:', marketValue);
-        
-        // Add timeout to prevent hanging
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-        
-        console.log('[DEALS] About to fetch URL:', `/deals?${params.toString()}`);
-        
-        const resp = await fetch(`/deals?${params.toString()}`, {
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        
-        console.log('[DEALS] Response status:', resp.status);
-        console.log('[DEALS] Response headers:', resp.headers);
-        
-        if (!resp.ok) {
-            const errorText = await resp.text();
-            console.error('[DEALS] Error response text:', errorText);
-            throw new Error(`HTTP ${resp.status}: ${resp.statusText} - ${errorText}`);
-        }
-        
-        const data = await resp.json();
-        console.log('[DEALS] Response data:', data);
-
-        if (data.detail) {
-            // Assuming 'resultsDiv' is available in this scope or passed
-            // If not, you might need to adjust where this error is displayed
-            const resultsDiv = document.getElementById("results");
-            if (resultsDiv) {
-                resultsDiv.innerHTML = "Error: " + data.detail;
-            } else {
-                console.error("Error: " + data.detail);
-            }
-            return;
-        }
-
-        // All items returned are already filtered to be below market value
-        // Sort deals by Total Price (lowest to highest)
-        const deals = data.items.sort((a, b) => {
-            const priceA = a.total_price || ((a.extracted_price || 0) + (a.extracted_shipping || 0));
-            const priceB = b.total_price || ((b.extracted_price || 0) + (b.extracted_shipping || 0));
-            return priceA - priceB; // Lowest Total Price first
-        });
-
-        // Render deals or no deals message in the dedicated deals section
-        let dealsHtml = `
-            <div style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
-                <div style="text-align: center; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; color: var(--text-color);">🎯 Current Deals</h3>
-                    <p style="color: var(--subtle-text-color); margin: 0.5rem 0;">
-                        Active listings below market value (${formatMoney(marketValue)})
-                    </p>
-                </div>`;
-
-        if (deals.length > 0) {
-            dealsHtml += `
-                <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px;">
-                    <table>
-                        <tr>
-                            <th>Title</th>
-                            <th>Price</th>
-                            <th>Type</th>
-                            <th>Item ID</th>
-                        </tr>
-                        ${deals.map(item => {
-                            const totalPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-                            const listingType = item.listing_type || "Buy It Now";
-                            const discount = ((marketValue - totalPrice) / marketValue * 100).toFixed(1);
-                            return `
-                                <tr>
-                                    <td>${item.title}</td>
-                                    <td>
-                                        ${formatMoney(totalPrice)}
-                                        <span style="color: #ff4500; font-weight: 600; margin-left: 8px;">
-                                            (-${discount}%)
-                                        </span>
-                                    </td>
-                                    <td>${listingType}</td>
-                                    <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </table>
-                </div>
-                <div style="text-align: center; margin-top: 1rem; color: var(--subtle-text-color);">
-                    ✅ Found ${deals.length} deals below market value
-                </div>`;
-        } else {
-            dealsHtml += `
-                <div style="text-align: center; padding: 2rem; color: var(--subtle-text-color); background: var(--background-color); border-radius: 8px;">
-                    <p style="margin: 0; font-size: 1.1rem;">🔍 No deals found at this time</p>
-                    <p style="margin: 0.5rem 0; font-size: 0.9rem;">All current listings are priced at or above market value</p>
-                    <p style="margin: 0.5rem 0; font-size: 0.9rem;">Try searching again later</p>
-                </div>`;
-        }
-
-        dealsHtml += `</div>`;
-
-        // Update only the deals results section
-        const dealsResultsDiv = document.getElementById("deals-results");
-        dealsResultsDiv.innerHTML = dealsHtml;
-
-    } catch (error) {
-        const dealsResultsDiv = document.getElementById("deals-results");
-        dealsResultsDiv.innerHTML = `
-            <div style="background: var(--card-background); border: 1px solid #ff3b30; border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
-                <div style="color: #ff3b30; text-align: center;">
-                    <h3 style="margin: 0; color: #ff3b30;">⚠️ Error Finding Deals</h3>
-                    <p style="margin: 0.5rem 0;"><strong>Error:</strong> ${error}</p>
-                    <p style="margin: 0.5rem 0; font-size: 0.9rem; color: var(--subtle-text-color);">Please try again or check your connection</p>
-                </div>
-            </div>`;
-    } finally {
-        // Restore Find Deals button state (only if button exists)
-        if (findDealsButton) {
-            findDealsButton.innerHTML = originalButtonText;
-            findDealsButton.style.background = 'linear-gradient(135deg, #ff4500, #ff6b35)';
-            findDealsButton.disabled = false;
-        }
-    }
-}
-
-// Clear the deals results
-function closeDeals() {
-    const resultsDiv = document.getElementById("results");
-    resultsDiv.innerHTML = '';
-}
