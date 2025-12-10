@@ -558,7 +558,7 @@ function resizeCanvas() {
     canvas.style.height = '200px';
 }
 
-async function renderData(data, secondData = null) {
+async function renderData(data, secondData = null, marketValue = null) {
     const resultsDiv = document.getElementById("results");
     
     // Create first table
@@ -566,11 +566,14 @@ async function renderData(data, secondData = null) {
       <h3 style="margin-bottom: 1rem; color: var(--text-color);">📊 Sold Listings (Completed Sales)</h3>
       <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
         <table>
-          <tr>
-            <th>Title</th>
-            <th>Price</th>
-            <th>Item ID</th>
-          </tr>
+          <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <tr>
+              <th>Title</th>
+              <th>Price</th>
+              <th>Item ID</th>
+            </tr>
+          </thead>
+          <tbody>
           ${data.items.map(item => `
             <tr>
               <td>${item.title}</td>
@@ -578,23 +581,41 @@ async function renderData(data, secondData = null) {
               <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
             </tr>
           `).join('')}
+          </tbody>
         </table>
       </div>
     `;
     
     // Add second table if second data exists
-    if (secondData && secondData.items) {
+    if (secondData && secondData.items && marketValue) {
+        // Filter active listings to only show items at or below market value
+        const filteredItems = secondData.items.filter(item => {
+            const price = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+            return price > 0 && price <= marketValue;
+        });
+        
+        // Sort by price (lowest to highest)
+        filteredItems.sort((a, b) => {
+            const priceA = a.total_price || ((a.extracted_price || 0) + (a.extracted_shipping || 0));
+            const priceB = b.total_price || ((b.extracted_price || 0) + (b.extracted_shipping || 0));
+            return priceA - priceB;
+        });
+        
         html += `
-          <h3 style="margin-bottom: 1rem; margin-top: 2rem; color: var(--text-color);">🛒 Active Listings (Current Market)</h3>
+          <h3 style="margin-bottom: 1rem; margin-top: 2rem; color: var(--text-color);">🛒 Active Listings Below FMV (${formatMoney(marketValue)})</h3>
           <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
-              <tr>
-                <th>Title</th>
-                <th>Price</th>
-                <th>Type</th>
-                <th>Item ID</th>
-              </tr>
-              ${secondData.items.map(item => {
+              <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <tr>
+                  <th>Title</th>
+                  <th>Price</th>
+                  <th>Discount</th>
+                  <th>Type</th>
+                  <th>Item ID</th>
+                </tr>
+              </thead>
+              <tbody>
+              ${filteredItems.length > 0 ? filteredItems.map(item => {
                 const buyingFormat = item.buying_format || '';
                 let displayType = 'Buy It Now'; // Default
                 if (buyingFormat.toLowerCase().includes('auction')) {
@@ -603,15 +624,27 @@ async function renderData(data, secondData = null) {
                   displayType = 'Buy It Now';
                 }
                 
+                // Calculate discount percentage
+                const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                
                 return `
                   <tr>
                     <td>${item.title}</td>
                     <td>${formatMoney(item.total_price)}</td>
+                    <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${displayType}</td>
                     <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
                   </tr>
                 `;
-              }).join('')}
+              }).join('') : `
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                    No active listings found below Fair Market Value
+                  </td>
+                </tr>
+              `}
+              </tbody>
             </table>
           </div>
         `;
@@ -1068,6 +1101,17 @@ async function runSearchInternal() {
 
     lastData = data;
 
+    // Calculate Fair Market Value first
+    console.log('[DEBUG] Calculating Fair Market Value...');
+    const fmvResp = await fetch('/fmv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data.items)
+    });
+    const fmvData = await fmvResp.json();
+    const marketValue = fmvData.market_value || fmvData.expected_high;
+    console.log('[DEBUG] Calculated Market Value:', formatMoney(marketValue));
+
     // Perform second search for ACTIVE listings (no sold filter)
     console.log('[DEBUG] Performing second search for active listings...');
     const activeUrl = url.replace('/comps?', '/active?');
@@ -1085,7 +1129,7 @@ async function runSearchInternal() {
     
     console.log('[DEBUG] Active listings search completed:', secondData.items ? secondData.items.length : 0, 'items');
 
-    await renderData(data, secondData);
+    await renderData(data, secondData, marketValue);
     // Store prices for resize handling (using first search results)
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
