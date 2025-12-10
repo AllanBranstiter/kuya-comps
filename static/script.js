@@ -563,7 +563,7 @@ async function renderData(data, secondData = null) {
     
     // Create first table
     let html = `
-      <h3 style="margin-bottom: 1rem; color: var(--text-color);">Search Results #1</h3>
+      <h3 style="margin-bottom: 1rem; color: var(--text-color);">📊 Sold Listings (Completed Sales)</h3>
       <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
         <table>
           <tr>
@@ -585,7 +585,7 @@ async function renderData(data, secondData = null) {
     // Add second table if second data exists
     if (secondData && secondData.items) {
         html += `
-          <h3 style="margin-bottom: 1rem; margin-top: 2rem; color: var(--text-color);">Search Results #2</h3>
+          <h3 style="margin-bottom: 1rem; margin-top: 2rem; color: var(--text-color);">🛒 Active Listings (Current Market)</h3>
           <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
               <tr>
@@ -1056,16 +1056,22 @@ async function runSearchInternal() {
 
     lastData = data;
 
-    // Perform second identical search
-    console.log('[DEBUG] Performing second identical search...');
-    const secondResp = await fetch(url, { signal: controller.signal });
+    // Perform second search for ACTIVE listings (no sold filter)
+    console.log('[DEBUG] Performing second search for active listings...');
+    const activeUrl = url.replace('/comps?', '/active?');
+    const activeController = new AbortController();
+    const activeTimeoutId = setTimeout(() => activeController.abort(), 30000);
+    
+    const secondResp = await fetch(activeUrl, { signal: activeController.signal });
+    clearTimeout(activeTimeoutId);
+    
     const secondData = await secondResp.json();
     
     if (secondData.detail) {
         console.error('[DEBUG] Second search error:', secondData.detail);
     }
     
-    console.log('[DEBUG] Second search completed:', secondData.items ? secondData.items.length : 0, 'items');
+    console.log('[DEBUG] Active listings search completed:', secondData.items ? secondData.items.length : 0, 'items');
 
     await renderData(data, secondData);
     // Store prices for resize handling (using first search results)

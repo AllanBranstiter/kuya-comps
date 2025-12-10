@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import numpy as np
 from sklearn.neighbors import KernelDensity
-from scraper import scrape_sold_comps
+from scraper import scrape_sold_comps, scrape_active_listings
 
 
 app = FastAPI(
@@ -660,6 +660,144 @@ def get_comps(
         duplicates_filtered=duplicates_removed,
         zero_price_filtered=zero_price_removed,
         market_intelligence=market_intelligence,
+    )
+
+
+@app.get("/active", response_model=CompsResponse)
+def get_active_listings(
+    query: str = Query(
+        ...,
+        description="Search term, e.g. '2024 topps chrome elly de la cruz auto /25'",
+    ),
+    delay: float = Query(
+        2.0,
+        ge=0.0,
+        le=10.0,
+        description="Delay between page fetches in seconds",
+    ),
+    pages: int = Query(
+        1,
+        ge=1,
+        le=10,
+        description="Number of pages to scrape",
+    ),
+    sort_by: str = Query(
+        "best_match",
+        description="Sort order: best_match, price_low_to_high, price_high_to_low, time_newly_listed, etc.",
+    ),
+    buying_format: Optional[str] = Query(
+        None,
+        description="Filter by buying format: auction, buy_it_now, best_offer",
+    ),
+    condition: Optional[str] = Query(
+        None,
+        description="Filter by condition: new, used, pre_owned_excellent, etc.",
+    ),
+    price_min: Optional[float] = Query(
+        None,
+        ge=0,
+        description="Minimum price filter",
+    ),
+    price_max: Optional[float] = Query(
+        None,
+        ge=0,
+        description="Maximum price filter",
+    ),
+    api_key: str = Query(
+        "backend-handled",
+        description="API key handling",
+    ),
+):
+    """
+    Scrape eBay ACTIVE listings (not sold) for a given query.
+    """
+    try:
+        # Use the backend's default API key for production
+        actual_api_key = DEFAULT_API_KEY
+        
+        raw_items = scrape_active_listings(
+            query=query,
+            max_pages=pages,
+            delay_secs=delay,
+            api_key=actual_api_key,
+            sort_by=sort_by,
+            buying_format=buying_format,
+            condition=condition,
+            price_min=price_min,
+            price_max=price_max,
+        )
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")
+
+    # Remove duplicates and filter
+    print(f"[INFO] Processing {len(raw_items)} raw active listings from scraper")
+    
+    unique_items = []
+    seen_item_ids = set()
+    duplicates_removed = 0
+    zero_price_removed = 0
+    no_item_id_removed = 0
+    
+    for item in raw_items:
+        item_id = item.get('item_id')
+        
+        if not item_id:
+            no_item_id_removed += 1
+            continue
+        
+        if item_id in seen_item_ids:
+            duplicates_removed += 1
+            continue
+            
+        extracted_price = item.get('extracted_price')
+        if extracted_price is None or extracted_price <= 0:
+            zero_price_removed += 1
+            continue
+            
+        unique_items.append(item)
+        seen_item_ids.add(item_id)
+    
+    print(f"[INFO] Active listings filtering results:")
+    print(f"  - Raw items: {len(raw_items)}")
+    print(f"  - Removed {duplicates_removed} duplicates")
+    print(f"  - Removed {zero_price_removed} zero-price items")
+    print(f"  - Removed {no_item_id_removed} items without item_id")
+    print(f"  - Final clean items: {len(unique_items)}")
+    
+    # Convert to CompItems
+    comp_items = []
+    for item in unique_items:
+        buying_format = item.get('buying_format', '').lower()
+        item['is_auction'] = 'auction' in buying_format
+        item['is_buy_it_now'] = 'buy it now' in buying_format
+        item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
+        
+        if item['is_auction']:
+            item['is_buy_it_now'] = False
+            item['is_best_offer'] = False
+        
+        comp_items.append(CompItem(**item))
+
+    # Calculate total_price for each item
+    for item in comp_items:
+        item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
+
+    prices = [item.total_price for item in comp_items if item.total_price is not None]
+    min_price = min(prices) if prices else None
+    max_price = max(prices) if prices else None
+    avg_price = sum(prices) / len(prices) if prices else None
+
+    return CompsResponse(
+        query=query,
+        pages_scraped=pages,
+        items=comp_items,
+        min_price=min_price,
+        max_price=max_price,
+        avg_price=avg_price,
+        raw_items_scraped=len(raw_items),
+        duplicates_filtered=duplicates_removed,
+        zero_price_filtered=zero_price_removed,
     )
 
 
