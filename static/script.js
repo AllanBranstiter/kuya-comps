@@ -616,11 +616,15 @@ async function renderData(data, secondData = null, marketValue = null) {
               </thead>
               <tbody>
               ${filteredItems.length > 0 ? filteredItems.map(item => {
-                const buyingFormat = item.buying_format || '';
+                const buyingFormat = (item.buying_format || '').toLowerCase();
                 let displayType = 'Buy It Now'; // Default
-                if (buyingFormat.toLowerCase().includes('auction')) {
+                
+                // Check for auction indicators: bid, bids, or auction
+                if (buyingFormat.includes('bid') ||
+                    buyingFormat.includes('bids') ||
+                    buyingFormat.includes('auction')) {
                   displayType = 'Auction';
-                } else if (buyingFormat.toLowerCase().includes('buy it now')) {
+                } else if (buyingFormat.includes('buy it now')) {
                   displayType = 'Buy It Now';
                 }
                 
