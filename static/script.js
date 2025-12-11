@@ -910,12 +910,53 @@ document.head.appendChild(style);
 
 // Helper function to construct the search query with all selected exclusions
 function getSearchQueryWithExclusions(baseQuery) {
+    const excludeLots = document.getElementById("exclude_lots").checked;
     const ungradedOnly = document.getElementById("ungraded_only").checked;
     const baseOnly = document.getElementById("base_only").checked;
     const excludeAutos = document.getElementById("exclude_autos").checked;
     const noDigital = document.getElementById("no_digital").checked;
 
     let allExcludedPhrases = [];
+
+    if (excludeLots) {
+        const lotExclusions = [
+            // Lot terms
+            '-lot', '-"team lot"', '-"player lot"', '-"small lot"', '-"huge lot"', '-"mixed lot"',
+            '-"random lot"', '-"mystery lot"', '-"assorted lot"', '-"lot of"', '-"lotof"',
+            '-bulk', '-bundle',
+            
+            // Quantity indicators (parentheses)
+            '-"(2)"', '-"(3)"', '-"(4)"', '-"(5)"', '-"(6)"', '-"(7)"', '-"(8)"', '-"(9)"',
+            '-"(10)"', '-"(12)"', '-"(15)"', '-"(20)"',
+            
+            // Card count terms
+            '-"2 cards"', '-"3 cards"', '-"4 cards"', '-"5 cards"', '-"6 cards"', '-"7 cards"',
+            '-"8 cards"', '-"9 cards"', '-"10 cards"',
+            '-"2 card"', '-"3 card"', '-"4 card"', '-"5 card"',
+            
+            // Multiplier terms
+            '-"2x"', '-"3x"', '-"4x"', '-"5x"', '-"6x"', '-"10x"', '-"x cards"', '-"x card"',
+            '-"count"', '-"ct"', '-"ct."',
+            
+            // Multi/duplicate terms
+            '-multi', '-multiple', '-multiples', '-duplicate', '-duplicates', '-dupe', '-dupes',
+            '-"group of"', '-"set of"',
+            
+            // Set terms
+            '-"complete set"', '-"factory set"', '-"team set"', '-"player set"', '-"starter set"',
+            
+            // Box/case terms
+            '-box', '-"hanger box"', '-"blaster box"', '-"mega box"', '-"sealed box"',
+            '-case', '-"sealed case"',
+            
+            // Pack terms
+            '-pack', '-"wax pack"', '-"fat pack"', '-"value pack"',
+            
+            // Random/variety terms
+            '-random', '-mystery', '-assorted', '-"grab bag"', '-variety', '-sampler'
+        ];
+        allExcludedPhrases = allExcludedPhrases.concat(lotExclusions);
+    }
 
     if (ungradedOnly) {
         const rawOnlyExclusions = [
