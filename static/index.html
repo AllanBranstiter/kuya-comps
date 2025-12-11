@@ -1163,6 +1163,17 @@
    @media (prefers-color-scheme: dark) {
      /* Keep light mode for now, but can be enhanced later */
    }
+
+   /* Clear Button Styling */
+   #clear-button {
+     background: linear-gradient(135deg, #ff3b30, #ff6b6b);
+     box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+   }
+
+   #clear-button:hover {
+     background: linear-gradient(135deg, #ff2d20, #ff5555);
+     box-shadow: 0 8px 20px rgba(255, 59, 48, 0.4);
+   }
  </style>
 </head>
 <body>
@@ -1226,6 +1237,7 @@
       </div>
       <div>
         <button onclick="runSearch()">Get Comps</button>
+        <button id="clear-button" onclick="clearSearch()">Clear</button>
       </div>
     </div>
 
