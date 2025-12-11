@@ -777,6 +777,11 @@ function filterActiveListings() {
 }
 
 
+function clearSearch() {
+    document.getElementById("query").value = "";
+    document.getElementById("query").focus();
+}
+
 async function runSearch() {
     try {
         const query = document.getElementById("query").value.trim();
@@ -905,65 +910,197 @@ document.head.appendChild(style);
 
 // Helper function to construct the search query with all selected exclusions
 function getSearchQueryWithExclusions(baseQuery) {
+    const excludeLots = document.getElementById("exclude_lots").checked;
     const ungradedOnly = document.getElementById("ungraded_only").checked;
     const baseOnly = document.getElementById("base_only").checked;
     const excludeAutos = document.getElementById("exclude_autos").checked;
+    const noDigital = document.getElementById("no_digital").checked;
 
     let allExcludedPhrases = [];
+
+    if (excludeLots) {
+        const lotExclusions = [
+            // Lot terms
+            '-lot', '-"team lot"', '-"player lot"', '-"small lot"', '-"huge lot"', '-"mixed lot"',
+            '-"random lot"', '-"mystery lot"', '-"assorted lot"', '-"lot of"', '-"lotof"',
+            '-bulk', '-bundle',
+            
+            // Quantity indicators (parentheses)
+            '-"(2)"', '-"(3)"', '-"(4)"', '-"(5)"', '-"(6)"', '-"(7)"', '-"(8)"', '-"(9)"',
+            '-"(10)"', '-"(12)"', '-"(15)"', '-"(20)"',
+            
+            // Card count terms
+            '-"2 cards"', '-"3 cards"', '-"4 cards"', '-"5 cards"', '-"6 cards"', '-"7 cards"',
+            '-"8 cards"', '-"9 cards"', '-"10 cards"',
+            '-"2 card"', '-"3 card"', '-"4 card"', '-"5 card"',
+            
+            // Multiplier terms
+            '-"2x"', '-"3x"', '-"4x"', '-"5x"', '-"6x"', '-"10x"', '-"x cards"', '-"x card"',
+            '-"count"', '-"ct"', '-"ct."',
+            
+            // Multi/duplicate terms
+            '-multi', '-multiple', '-multiples', '-duplicate', '-duplicates', '-dupe', '-dupes',
+            '-"group of"', '-"set of"',
+            
+            // Set terms
+            '-"complete set"', '-"factory set"', '-"team set"', '-"player set"', '-"starter set"',
+            
+            // Box/case terms
+            '-box', '-"hanger box"', '-"blaster box"', '-"mega box"', '-"sealed box"',
+            '-case', '-"sealed case"',
+            
+            // Pack terms
+            '-pack', '-"wax pack"', '-"fat pack"', '-"value pack"',
+            
+            // Random/variety terms
+            '-random', '-mystery', '-assorted', '-"grab bag"', '-variety', '-sampler'
+        ];
+        allExcludedPhrases = allExcludedPhrases.concat(lotExclusions);
+    }
 
     if (ungradedOnly) {
         const rawOnlyExclusions = [
             // PSA related
-            '-psa', '-"Professional Sports Authenticator"', '-"Professional Authenticator"',
+            '-psa', '-"psa 10"', '-"psa10"', '-"psa 9"', '-"psa9"', '-"psa graded"', '-"psa slab"',
+            '-"Professional Sports Authenticator"', '-"Professional Authenticator"',
             '-"Pro Sports Authenticator"', '-"Certified 10"', '-"Certified Gem"', '-"Certified Mint"',
-            '-slabbed', '-"Red Label"', '-lighthouse', '-"Gem Mint 10"', '-"Graded 10"', '-"Mint 10"',
+            '-"Red Label"', '-lighthouse', '-"Gem Mint 10"', '-"Graded 10"',
             
             // BGS related
-            '-bgs', '-beckett', '-"Gem 10"', '-"Black Label"', '-"Gold Label"', '-"Silver Label"',
-            '-subgrades', '-subs', '-"Quad 9.5"', '-"True Gem"', '-"True Gem+"', '-"Gem+"', '-bvg',
+            '-bgs', '-"bgs 9"', '-"bgs9"', '-"bgs 9.5"', '-"bgs9.5"', '-beckett', '-"beckett graded"',
+            '-"Gem 10"', '-"Black Label"', '-"Gold Label"', '-"Silver Label"',
+            '-subgrades', '-"sub grades"', '-subs', '-"Quad 9.5"', '-"quad9"', '-"quad 9"',
+            '-"True Gem"', '-"True Gem+"', '-"Gem+"', '-bvg',
             
             // SGC related
-            '-sgc', '-"Tuxedo Slab"', '-"Black Slab"', '-"Green Label"', '-"SG LLC"',
+            '-sgc', '-"sgc 10"', '-"sgc 9"', '-"sgc graded"',
+            '-"Tuxedo Slab"', '-"Black Slab"', '-"Green Label"', '-"SG LLC"',
             '-"SG Grading"', '-"Mint+ 9.5"', '-"10 Pristine"',
             
-            // CGC related
-            '-csg', '-cgc', '-"Certified Collectibles Group"', '-"CGC Trading Cards"', '-"CSG Gem"',
+            // CGC/CSG related
+            '-csg', '-cgc', '-"csg graded"', '-"cgc graded"',
+            '-"Certified Collectibles Group"', '-"CGC Trading Cards"', '-"CSG Gem"',
             '-"Pristine 10"', '-"Perfect 10"', '-"Green Slab"',
             
-            // General grading terms
-            '-encapsulated', '-authenticated', '-verified', '-"Slabbed Card"', '-"Third-Party Graded"',
-            '-graded', '-gem', '-"Gem Mint"', '-pristine', '-"Mint+"', '-"NM-MT"',
-            '-"Certified Authentic"', '-"Pro Graded"',
+            // GMA related
+            '-gma', '-"gma graded"', '-"gma 10"',
+            
+            // HGA related
+            '-hga', '-"hga graded"', '-"hybrid grading"',
+            
+            // KSA related
+            '-ksa', '-"ksa graded"',
+            
+            // PCA/PGSC related
+            '-pca', '-"pca graded"', '-pgsc',
             
             // Other grading companies
-            '-gma', '-hga', '-ksa', '-fgs', '-pgi', '-pro', '-isa', '-mnt', '-"MNT Grading"',
+            '-fgs', '-pgi', '-pro', '-isa', '-mnt', '-"MNT Grading"',
             '-rcg', '-"TCG Grading"', '-bccg', '-tag', '-pgs', '-tga', '-ace', '-usg',
+            '-kmgs', '-egs', '-agc', '-mgs',
             
-            // Slab related
-            '-slab', '-"Slabbed up"', '-"In case"', '-holdered', '-encased',
-            '-"Graded Rookie"', '-"Graded RC"', '-"Gem Rookie"', '-"Gem RC"'
+            // General grading terms
+            '-slab', '-slabbed', '-encased', '-encapsulated', '-holdered',
+            '-graded', '-"grade"', '-authenticated', '-"authentic"', '-"auto grade"', '-verified',
+            '-gem', '-"gem mint"', '-"gem10"', '-"gem 10"', '-"gem-mint"', '-gemmint',
+            '-pristine', '-"Mint 10"', '-"mint10"', '-"Mint 9"', '-"mint9"',
+            '-"mt 10"', '-"10 mt"', '-"Mint+"', '-"NM-MT"',
+            '-"Slabbed Card"', '-"Third-Party Graded"', '-"Certified Authentic"', '-"Pro Graded"',
+            '-"Slabbed up"', '-"In case"',
+            '-"Graded Rookie"', '-"Graded RC"', '-"Gem Rookie"', '-"Gem RC"',
+            
+            // Population and authentication terms
+            '-"population"', '-"pop report"', '-"pop 1"', '-"pop1"',
+            
+            // Card storage/holder terms
+            '-"card saver"', '-cardsaver', '-"semi rigid"', '-"semi-rigid"',
+            '-"one touch"', '-"one-touch"', '-mag', '-"mag case"'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(rawOnlyExclusions);
     }
 
     if (baseOnly) {
         const baseOnlyExclusions = [
+            // Existing exclusions
             '-refractors', '-red', '-aqua', '-blue', '-magenta', '-yellow', '-lot',
             '-x-fractors', '-xfractors', '-helix', '-superfractor', '-x-fractor',
             '-logofractor', '-stars', '-hyper', '-all', '-etch', '-silver', '-variation',
             '-variations', '-refractor', '-prism', '-prizm', '-xfractor', '-gilded',
             '-"buy-back"', '-buyback',
             '-SP', '-sp', '-"short print"', '-"Short Print"', '-ssp', '-SSP',
-            '-"super short print"', '-"Super Short Print"'
+            '-"super short print"', '-"Super Short Print"',
+            
+            // Additional variant/parallel exclusions
+            '-foil', '-shimmer', '-lava', '-wave', '-raywave', '-speckle', '-mojo',
+            '-sapphire', '-ice', '-cracked', '-checker', '-optic', '-paper',
+            
+            // Additional color exclusions
+            '-green', '-orange', '-gold', '-purple', '-pink', '-fuchsia', '-teal',
+            '-sky', '-lime', '-bronze', '-copper', '-black', '-white'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
     }
 
     if (excludeAutos) {
         const autoExclusions = [
-            '-auto', '-autos', '-autograph', '-autographs', '-autographes', '-signed'
+            // Basic auto terms
+            '-auto', '-autos', '-"auto."', '-"auto/"', '-"auto rc"',
+            '-autograph', '-autographs', '-"autographed"', '-autographes', '-"autograph rc"',
+            '-au', '-"au."', '-ato', '-otg',
+            
+            // Signature terms
+            '-signature', '-"signed"', '-"sig"',
+            '-"hand signed"', '-"hand-signed"',
+            
+            // Sticker autos
+            '-"sticker auto"', '-"sticker autograph"', '-"sticker sig"',
+            
+            // Cut signatures
+            '-"cut signature"', '-"cut sig"',
+            
+            // Multi-auto cards
+            '-"dual auto"', '-"triple auto"', '-"quad auto"',
+            
+            // Relic autos
+            '-"relic auto"', '-"patch auto"', '-"jersey auto"', '-"bat auto"',
+            
+            // Rookie autos
+            '-"rc auto"', '-"rookie auto"',
+            
+            // Ink variations
+            '-"ink"', '-"blue ink"', '-"red ink"',
+            
+            // Other autograph terms
+            '-"graph"', '-"in person"',
+            
+            // Certified autos
+            '-certified', '-"certified auto"', '-"cert auto"',
+            '-"certified autograph issue"',
+            
+            // Brand-specific autos
+            '-"topps autograph"', '-"bowman autograph"',
+            '-"leaf auto"', '-"panini auto"',
+            
+            // Signature series
+            '-"signature series"',
+            '-"topps archives signature"',
+            
+            // On-card autos
+            '-"on card"', '-"on-card"'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(autoExclusions);
+    }
+
+    if (noDigital) {
+        const digitalExclusions = [
+            '-nft',
+            '-"digital"',
+            '-"top shot"',
+            '-"blockchain"',
+            '-"Topps Bunt"',
+            '-Bunt'
+        ];
+        allExcludedPhrases = allExcludedPhrases.concat(digitalExclusions);
     }
 
     let finalQuery = baseQuery;
