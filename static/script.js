@@ -777,6 +777,11 @@ function filterActiveListings() {
 }
 
 
+function clearSearch() {
+    document.getElementById("query").value = "";
+    document.getElementById("query").focus();
+}
+
 async function runSearch() {
     try {
         const query = document.getElementById("query").value.trim();
