@@ -649,11 +649,11 @@ function resizeCanvas() {
     
     // Set canvas actual size (in pixels)
     canvas.width = containerWidth;
-    canvas.height = 200;
+    canvas.height = 250;
     
     // Update CSS size to match
     canvas.style.width = containerWidth + 'px';
-    canvas.style.height = '200px';
+    canvas.style.height = '250px';
 }
 
 async function renderData(data, secondData = null, marketValue = null) {
@@ -1629,11 +1629,17 @@ function drawBeeswarm(prices) {
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
-  const margin = { top: 50, right: 40, bottom: 50, left: 40 };
+  const margin = { top: 60, right: 40, bottom: 70, left: 40 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
   ctx.clearRect(0, 0, width, height);
+  
+  // Draw chart title
+  ctx.fillStyle = "#1d1d1f";
+  ctx.font = "bold 16px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  ctx.fillText("Fair Market Value Ranges", width / 2, 25);
 
   // Filter out null/undefined prices and convert to numbers
   const validPrices = prices.filter(p => p != null && !isNaN(p) && p > 0).map(p => parseFloat(p));
@@ -1747,16 +1753,16 @@ function drawBeeswarm(prices) {
     ctx.shadowOffsetY = 0;
     ctx.shadowBlur = 0;
     
-    // Add FMV dollar value labels (horizontal) with solid text
+    // Add FMV dollar value labels (above the bars) with solid text
     ctx.fillStyle = "#34c759";
-    ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+    ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = "center";
     
-    // FMV Low dollar value label
-    ctx.fillText(formatMoney(expectLowGlobal), x1, 35);
+    // FMV Low dollar value label (above bar)
+    ctx.fillText(formatMoney(expectLowGlobal), x1, margin.top - 8);
     
-    // FMV High dollar value label
-    ctx.fillText(formatMoney(expectHighGlobal), x2, 35);
+    // FMV High dollar value label (above bar)
+    ctx.fillText(formatMoney(expectHighGlobal), x2, margin.top - 8);
   }
 
   // --- Draw Points with improved collision detection ---
@@ -1835,29 +1841,46 @@ function drawBeeswarm(prices) {
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // --- Draw Labels ---
+  // --- Draw X-Axis Labels ---
   ctx.fillStyle = "#6e6e73";
-  ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = "center";
 
   if (priceRange > 0) {
-    // Min
-    ctx.fillText(formatMoney(minPrice), margin.left, height - margin.bottom + 20);
-    // Max
-    ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 20);
+    // Min price label
+    ctx.fillText("Min", margin.left, height - margin.bottom + 15);
+    ctx.fillStyle = "#1d1d1f";
+    ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText(formatMoney(minPrice), margin.left, height - margin.bottom + 30);
     
-    // FMV marker instead of Avg
+    // Max price label
+    ctx.fillStyle = "#6e6e73";
+    ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText("Max", width - margin.right, height - margin.bottom + 15);
+    ctx.fillStyle = "#1d1d1f";
+    ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 30);
+    
+    // FMV marker with label
     if (marketValueGlobal !== null && marketValueGlobal >= minPrice && marketValueGlobal <= maxPrice) {
       const fmvX = xScale(marketValueGlobal);
-      ctx.fillText("FMV: " + formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 35);
       
-      // Draw line for FMV
+      // Draw vertical line for FMV
       ctx.beginPath();
       ctx.moveTo(fmvX, height - margin.bottom);
       ctx.lineTo(fmvX, height - margin.bottom + 5);
-      ctx.strokeStyle = "#d92a2a";
+      ctx.strokeStyle = "#ff9500";
       ctx.lineWidth = 2;
       ctx.stroke();
+      
+      // FMV label
+      ctx.fillStyle = "#6e6e73";
+      ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+      ctx.textAlign = "center";
+      ctx.fillText("FMV", fmvX, height - margin.bottom + 15);
+      ctx.fillStyle = "#ff9500";
+      ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+      ctx.fillText(formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 30);
     }
   } else {
     // All prices are the same
