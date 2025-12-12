@@ -79,12 +79,12 @@ async function runIntelligenceSearch() {
         // Collect card selections and validate
         const cardSelections = [];
         for (let i = 1; i <= 3; i++) {
-            const grader = document.getElementById(`card${i}-grader`)?.value;
-            const grade = document.getElementById(`card${i}-grade`)?.value;
+            const grader = document.getElementById(`card${i}-grader`)?.value.trim();
+            const grade = document.getElementById(`card${i}-grade`)?.value.trim();
             
             // Check for incomplete selection (one field filled but not the other)
             if ((grader && !grade) || (!grader && grade)) {
-                throw new Error(`Card ${i}: Please select both Grader and Grade, or leave both empty`);
+                throw new Error(`Card ${i}: Please enter both Grader and Grade, or leave both empty`);
             }
             
             // If both fields are filled, add to selections
@@ -98,9 +98,9 @@ async function runIntelligenceSearch() {
             }
         }
         
-        // Validation - at least one card must be completely selected
+        // Validation - at least one card must be completely filled
         if (cardSelections.length === 0) {
-            throw new Error("Please select at least one complete card (both Grader and Grade)");
+            throw new Error("Please enter at least one complete card (both Grader and Grade)");
         }
     
         // API key is handled on backend
@@ -202,18 +202,17 @@ function clearIntelligenceSearch() {
         queryInput.value = "";
     }
     
-    // Reset all card dropdowns
+    // Reset all card text inputs
     for (let i = 1; i <= 3; i++) {
-        const graderSelect = document.getElementById(`card${i}-grader`);
-        const gradeSelect = document.getElementById(`card${i}-grade`);
+        const graderInput = document.getElementById(`card${i}-grader`);
+        const gradeInput = document.getElementById(`card${i}-grade`);
         
-        if (graderSelect) {
-            graderSelect.value = "";
+        if (graderInput) {
+            graderInput.value = "";
         }
         
-        if (gradeSelect) {
-            gradeSelect.innerHTML = '<option value="">Select Grade</option>';
-            gradeSelect.value = "";
+        if (gradeInput) {
+            gradeInput.value = "";
         }
     }
     
@@ -329,78 +328,10 @@ function toNinetyNine(value) {
   return base - 0.01;
 }
 
-// Grade options for each grading company
-const gradeOptions = {
-    'PSA': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '10'],
-    'BGS': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
-    'SGC': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
-    'CGC': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
-    'HGA': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
-    'ISA': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'GMA': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'KSA': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
-    'PGS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'PGI': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'BCCG': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'AGS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'MAC': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'RCG': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'TCG': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'PCS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'MNT': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
-    'TAG': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'ASA': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'ECS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'VGS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'BAS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-    'JSA': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-};
-
-// Function to update grade dropdown based on selected grader
-function updateGradeOptions(cardNumber) {
-    const graderSelect = document.getElementById(`card${cardNumber}-grader`);
-    const gradeSelect = document.getElementById(`card${cardNumber}-grade`);
-    
-    if (!graderSelect || !gradeSelect) return;
-    
-    const selectedGrader = graderSelect.value;
-    
-    // Save current selected value if any
-    const currentValue = gradeSelect.value;
-    
-    // Build new options in a string for fastest update
-    let optionsHtml = '<option value="">Select Grade</option>';
-    
-    // If a grader is selected, populate grades
-    if (selectedGrader && gradeOptions[selectedGrader]) {
-        gradeOptions[selectedGrader].forEach(grade => {
-            optionsHtml += `<option value="${escapeHtml(grade)}">${escapeHtml(grade)}</option>`;
-        });
-    }
-    
-    // Single atomic update - prevents any layout shift
-    gradeSelect.innerHTML = optionsHtml;
-    
-    // Restore selection if it's still valid
-    if (currentValue && gradeOptions[selectedGrader]?.includes(currentValue)) {
-        gradeSelect.value = currentValue;
-    }
-}
-
-// Setup event listeners for grader dropdowns
-function setupGraderListeners() {
-    for (let i = 1; i <= 3; i++) {
-        const graderSelect = document.getElementById(`card${i}-grader`);
-        if (graderSelect) {
-            graderSelect.addEventListener('change', () => updateGradeOptions(i));
-        }
-    }
-}
 
 // This function is called after authentication
 function initializeApp() {
     setupResponsiveCanvas();
-    setupGraderListeners();
 }
 
 function setupResponsiveCanvas() {

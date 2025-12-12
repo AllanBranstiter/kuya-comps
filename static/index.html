@@ -1049,9 +1049,9 @@
      gap: 1rem;
    }
    
-   /* Prevent layout shift in card comparison dropdowns - height only */
-   select[id^="card"][id$="-grader"],
-   select[id^="card"][id$="-grade"] {
+   /* Card comparison text inputs - stable height */
+   input[id^="card"][id$="-grader"],
+   input[id^="card"][id$="-grade"] {
      height: 40px !important;
      min-height: 40px !important;
      max-height: 40px !important;
@@ -1150,38 +1150,11 @@
             <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
               <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
                 <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <select id="card1-grader" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; overflow: hidden; display: block;">
-                  <option value="">Select</option>
-                  <option value="PSA">PSA</option>
-                  <option value="BGS">BGS</option>
-                  <option value="SGC">SGC</option>
-                  <option value="CGC">CGC</option>
-                  <option value="HGA">HGA</option>
-                  <option value="ISA">ISA</option>
-                  <option value="GMA">GMA</option>
-                  <option value="KSA">KSA</option>
-                  <option value="PGS">PGS</option>
-                  <option value="PGI">PGI</option>
-                  <option value="BCCG">BCCG</option>
-                  <option value="AGS">AGS</option>
-                  <option value="MAC">MAC</option>
-                  <option value="RCG">RCG</option>
-                  <option value="TCG">TCG</option>
-                  <option value="PCS">PCS</option>
-                  <option value="MNT">MNT</option>
-                  <option value="TAG">TAG</option>
-                  <option value="ASA">ASA</option>
-                  <option value="ECS">ECS</option>
-                  <option value="VGS">VGS</option>
-                  <option value="BAS">BAS</option>
-                  <option value="JSA">JSA</option>
-                </select>
+                <input type="text" id="card1-grader" placeholder="PSA" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
               </div>
               <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
                 <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <select id="card1-grade" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; overflow: hidden; display: block;">
-                  <option value="">Select</option>
-                </select>
+                <input type="text" id="card1-grade" placeholder="10" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
               </div>
             </div>
           </div>
@@ -1192,38 +1165,11 @@
             <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
               <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
                 <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <select id="card2-grader" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; overflow: hidden; display: block;">
-                  <option value="">Select</option>
-                  <option value="PSA">PSA</option>
-                  <option value="BGS">BGS</option>
-                  <option value="SGC">SGC</option>
-                  <option value="CGC">CGC</option>
-                  <option value="HGA">HGA</option>
-                  <option value="ISA">ISA</option>
-                  <option value="GMA">GMA</option>
-                  <option value="KSA">KSA</option>
-                  <option value="PGS">PGS</option>
-                  <option value="PGI">PGI</option>
-                  <option value="BCCG">BCCG</option>
-                  <option value="AGS">AGS</option>
-                  <option value="MAC">MAC</option>
-                  <option value="RCG">RCG</option>
-                  <option value="TCG">TCG</option>
-                  <option value="PCS">PCS</option>
-                  <option value="MNT">MNT</option>
-                  <option value="TAG">TAG</option>
-                  <option value="ASA">ASA</option>
-                  <option value="ECS">ECS</option>
-                  <option value="VGS">VGS</option>
-                  <option value="BAS">BAS</option>
-                  <option value="JSA">JSA</option>
-                </select>
+                <input type="text" id="card2-grader" placeholder="BGS" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
               </div>
               <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
                 <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <select id="card2-grade" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; overflow: hidden; display: block;">
-                  <option value="">Select</option>
-                </select>
+                <input type="text" id="card2-grade" placeholder="9.5" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
               </div>
             </div>
           </div>
@@ -1234,38 +1180,11 @@
             <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
               <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
                 <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <select id="card3-grader" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; overflow: hidden; display: block;">
-                  <option value="">Select</option>
-                  <option value="PSA">PSA</option>
-                  <option value="BGS">BGS</option>
-                  <option value="SGC">SGC</option>
-                  <option value="CGC">CGC</option>
-                  <option value="HGA">HGA</option>
-                  <option value="ISA">ISA</option>
-                  <option value="GMA">GMA</option>
-                  <option value="KSA">KSA</option>
-                  <option value="PGS">PGS</option>
-                  <option value="PGI">PGI</option>
-                  <option value="BCCG">BCCG</option>
-                  <option value="AGS">AGS</option>
-                  <option value="MAC">MAC</option>
-                  <option value="RCG">RCG</option>
-                  <option value="TCG">TCG</option>
-                  <option value="PCS">PCS</option>
-                  <option value="MNT">MNT</option>
-                  <option value="TAG">TAG</option>
-                  <option value="ASA">ASA</option>
-                  <option value="ECS">ECS</option>
-                  <option value="VGS">VGS</option>
-                  <option value="BAS">BAS</option>
-                  <option value="JSA">JSA</option>
-                </select>
+                <input type="text" id="card3-grader" placeholder="SGC" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
               </div>
               <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
                 <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <select id="card3-grade" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; overflow: hidden; display: block;">
-                  <option value="">Select</option>
-                </select>
+                <input type="text" id="card3-grade" placeholder="9" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
               </div>
             </div>
           </div>
