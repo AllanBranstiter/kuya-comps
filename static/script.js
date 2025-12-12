@@ -361,9 +361,9 @@ async function runIntelligenceSearch() {
             throw new Error("Please select at least one PSA grade");
         }
 
-        // Validate query format
+        // Validate query is not empty
         if (!validateSearchQuery(query)) {
-            throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
+            throw new Error("Please enter a card search query");
         }
     
     // API key is handled on backend
@@ -790,7 +790,7 @@ async function runSearch() {
         }
         
         if (!validateSearchQuery(query)) {
-            throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
+            throw new Error("Please enter a search query");
         }
         
         await runSearchInternal();
@@ -801,15 +801,8 @@ async function runSearch() {
 
 // Helper function to validate search query format
 function validateSearchQuery(query) {
-    // Check for year (1800-2099) - supports vintage, modern, and future cards
-    const hasYear = /(1[8-9][0-9]{2}|20[0-9]{2})/.test(query);
-    
-    // Check for meaningful content (at least 2 non-quote, non-whitespace segments)
-    const cleanQuery = query.replace(/["']/g, '').trim();
-    const words = cleanQuery.split(/\s+/).filter(word => word.length > 1);
-    const hasDetails = words.length >= 2;
-    
-    return hasYear && hasDetails;
+    // Only check that query is not empty - no year or content requirements
+    return query && query.trim().length > 0;
 }
 
 // Helper function to show errors
@@ -940,20 +933,7 @@ function getSearchQueryWithExclusions(baseQuery) {
             
             // Multi/duplicate terms
             '-multi', '-multiple', '-multiples', '-duplicate', '-duplicates', '-dupe', '-dupes',
-            '-"group of"', '-"set of"',
-            
-            // Set terms
-            '-"complete set"', '-"factory set"', '-"team set"', '-"player set"', '-"starter set"',
-            
-            // Box/case terms
-            '-box', '-"hanger box"', '-"blaster box"', '-"mega box"', '-"sealed box"',
-            '-case', '-"sealed case"',
-            
-            // Pack terms
-            '-pack', '-"wax pack"', '-"fat pack"', '-"value pack"',
-            
-            // Random/variety terms
-            '-random', '-mystery', '-assorted', '-"grab bag"', '-variety', '-sampler'
+            '-"group of"', '-"set of"'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(lotExclusions);
     }
