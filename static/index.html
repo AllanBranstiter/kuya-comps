@@ -1175,18 +1175,11 @@
      box-shadow: 0 8px 20px rgba(255, 59, 48, 0.4);
    }
 
-   /* Card Comparison Grid - Always Horizontal on Desktop */
+   /* Card Comparison Grid - Responsive Layout */
    .card-comparison-grid {
      display: grid;
-     grid-template-columns: repeat(3, 1fr);
+     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
      gap: 1rem;
-   }
-
-   /* Mobile responsiveness for card comparison */
-   @media screen and (max-width: 768px) {
-     .card-comparison-grid {
-       grid-template-columns: 1fr;
-     }
    }
  </style>
 </head>
@@ -1305,6 +1298,29 @@
                 <label style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--subtle-text-color);">Grader:</label>
                 <select id="card1-grader" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white;">
                   <option value="">Select</option>
+                  <option value="PSA">PSA</option>
+                  <option value="BGS">BGS</option>
+                  <option value="SGC">SGC</option>
+                  <option value="CGC">CGC</option>
+                  <option value="HGA">HGA</option>
+                  <option value="ISA">ISA</option>
+                  <option value="GMA">GMA</option>
+                  <option value="KSA">KSA</option>
+                  <option value="PGS">PGS</option>
+                  <option value="PGI">PGI</option>
+                  <option value="BCCG">BCCG</option>
+                  <option value="AGS">AGS</option>
+                  <option value="MAC">MAC</option>
+                  <option value="RCG">RCG</option>
+                  <option value="TCG">TCG</option>
+                  <option value="PCS">PCS</option>
+                  <option value="MNT">MNT</option>
+                  <option value="TAG">TAG</option>
+                  <option value="ASA">ASA</option>
+                  <option value="ECS">ECS</option>
+                  <option value="VGS">VGS</option>
+                  <option value="BAS">BAS</option>
+                  <option value="JSA">JSA</option>
                 </select>
               </div>
               <div>
@@ -1324,6 +1340,29 @@
                 <label style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--subtle-text-color);">Grader:</label>
                 <select id="card2-grader" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white;">
                   <option value="">Select</option>
+                  <option value="PSA">PSA</option>
+                  <option value="BGS">BGS</option>
+                  <option value="SGC">SGC</option>
+                  <option value="CGC">CGC</option>
+                  <option value="HGA">HGA</option>
+                  <option value="ISA">ISA</option>
+                  <option value="GMA">GMA</option>
+                  <option value="KSA">KSA</option>
+                  <option value="PGS">PGS</option>
+                  <option value="PGI">PGI</option>
+                  <option value="BCCG">BCCG</option>
+                  <option value="AGS">AGS</option>
+                  <option value="MAC">MAC</option>
+                  <option value="RCG">RCG</option>
+                  <option value="TCG">TCG</option>
+                  <option value="PCS">PCS</option>
+                  <option value="MNT">MNT</option>
+                  <option value="TAG">TAG</option>
+                  <option value="ASA">ASA</option>
+                  <option value="ECS">ECS</option>
+                  <option value="VGS">VGS</option>
+                  <option value="BAS">BAS</option>
+                  <option value="JSA">JSA</option>
                 </select>
               </div>
               <div>
@@ -1343,6 +1382,29 @@
                 <label style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--subtle-text-color);">Grader:</label>
                 <select id="card3-grader" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white;">
                   <option value="">Select</option>
+                  <option value="PSA">PSA</option>
+                  <option value="BGS">BGS</option>
+                  <option value="SGC">SGC</option>
+                  <option value="CGC">CGC</option>
+                  <option value="HGA">HGA</option>
+                  <option value="ISA">ISA</option>
+                  <option value="GMA">GMA</option>
+                  <option value="KSA">KSA</option>
+                  <option value="PGS">PGS</option>
+                  <option value="PGI">PGI</option>
+                  <option value="BCCG">BCCG</option>
+                  <option value="AGS">AGS</option>
+                  <option value="MAC">MAC</option>
+                  <option value="RCG">RCG</option>
+                  <option value="TCG">TCG</option>
+                  <option value="PCS">PCS</option>
+                  <option value="MNT">MNT</option>
+                  <option value="TAG">TAG</option>
+                  <option value="ASA">ASA</option>
+                  <option value="ECS">ECS</option>
+                  <option value="VGS">VGS</option>
+                  <option value="BAS">BAS</option>
+                  <option value="JSA">JSA</option>
                 </select>
               </div>
               <div>
