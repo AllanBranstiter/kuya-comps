@@ -311,12 +311,18 @@ async function runIntelligenceSearch() {
             throw new Error("Please enter a card search query");
         }
         
-        // Collect card selections
+        // Collect card selections and validate
         const cardSelections = [];
         for (let i = 1; i <= 3; i++) {
             const grader = document.getElementById(`card${i}-grader`)?.value;
             const grade = document.getElementById(`card${i}-grade`)?.value;
             
+            // Check for incomplete selection (one field filled but not the other)
+            if ((grader && !grade) || (!grader && grade)) {
+                throw new Error(`Card ${i}: Please select both Grader and Grade, or leave both empty`);
+            }
+            
+            // If both fields are filled, add to selections
             if (grader && grade) {
                 cardSelections.push({
                     cardNumber: i,
@@ -327,9 +333,9 @@ async function runIntelligenceSearch() {
             }
         }
         
-        // Validation - at least one card must be selected
+        // Validation - at least one card must be completely selected
         if (cardSelections.length === 0) {
-            throw new Error("Please select at least one grader and grade for comparison");
+            throw new Error("Please select at least one complete card (both Grader and Grade)");
         }
     
         // API key is handled on backend
@@ -416,6 +422,42 @@ async function runIntelligenceSearch() {
             <strong>Error:</strong> ${error.message}
         </div>`;
     }
+}
+
+function clearIntelligenceSearch() {
+    // Clear the search query input
+    const queryInput = document.getElementById("intelligence-query");
+    if (queryInput) {
+        queryInput.value = "";
+    }
+    
+    // Reset all card dropdowns
+    for (let i = 1; i <= 3; i++) {
+        const graderSelect = document.getElementById(`card${i}-grader`);
+        const gradeSelect = document.getElementById(`card${i}-grade`);
+        
+        if (graderSelect) {
+            graderSelect.value = "";
+        }
+        
+        if (gradeSelect) {
+            gradeSelect.innerHTML = '<option value="">Select Grade</option>';
+            gradeSelect.value = "";
+        }
+    }
+    
+    // Clear the insights container and show default message
+    const insightsContainer = document.getElementById("insights-container");
+    if (insightsContainer) {
+        insightsContainer.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
+                <h3>🧠 Grading Intelligence</h3>
+                <p>Enter a specific card search above to see advanced analytics and insights</p>
+            </div>
+        `;
+    }
+    
+    console.log('[INTELLIGENCE] Form cleared');
 }
 
 function renderCardComparison(cardResults) {
@@ -1860,25 +1902,29 @@ function drawComparisonBeeswarm(cardResults) {
 
   ctx.clearRect(0, 0, width, height);
   
-  console.log('[CHART] Canvas cleared, drawing chart...');
+  console.log('[CHART] Canvas cleared, drawing FMV ranges...');
 
   // Define colors for each card
   const cardColors = [
-    { fill: 'rgba(0, 122, 255, 0.7)', stroke: 'rgba(0, 122, 255, 0.9)' },      // Blue
-    { fill: 'rgba(255, 59, 48, 0.7)', stroke: 'rgba(255, 59, 48, 0.9)' },      // Red
-    { fill: 'rgba(52, 199, 89, 0.7)', stroke: 'rgba(52, 199, 89, 0.9)' }       // Green
+    { fill: 'rgba(0, 122, 255, 0.3)', stroke: 'rgba(0, 122, 255, 0.9)', solid: 'rgb(0, 122, 255)' },      // Blue
+    { fill: 'rgba(255, 59, 48, 0.3)', stroke: 'rgba(255, 59, 48, 0.9)', solid: 'rgb(255, 59, 48)' },      // Red
+    { fill: 'rgba(52, 199, 89, 0.3)', stroke: 'rgba(52, 199, 89, 0.9)', solid: 'rgb(52, 199, 89)' }       // Green
   ];
 
-  // Collect all prices from all cards
-  let allPrices = [];
+  // Find global min and max from all market values
+  let globalMin = Infinity;
+  let globalMax = -Infinity;
+  
   cardResults.forEach(result => {
-    if (result.data && result.data.items) {
-      const prices = result.data.items.map(item => item.total_price).filter(p => p != null && !isNaN(p) && p > 0);
-      allPrices = allPrices.concat(prices);
+    if (result.data && result.data.min_price != null) {
+      globalMin = Math.min(globalMin, result.data.min_price);
+    }
+    if (result.data && result.data.max_price != null) {
+      globalMax = Math.max(globalMax, result.data.max_price);
     }
   });
 
-  if (allPrices.length === 0) {
+  if (globalMin === Infinity || globalMax === -Infinity) {
     ctx.fillStyle = "#6e6e73";
     ctx.font = "16px " + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = "center";
@@ -1886,16 +1932,13 @@ function drawComparisonBeeswarm(cardResults) {
     return;
   }
 
-  // Find global min and max for consistent scale
-  const minPrice = Math.min(...allPrices);
-  const maxPrice = Math.max(...allPrices);
-  const priceRange = maxPrice - minPrice;
+  const priceRange = globalMax - globalMin;
   
   const xScale = (price) => {
     if (priceRange === 0) {
       return width / 2;
     }
-    return margin.left + ((price - minPrice) / priceRange) * innerWidth;
+    return margin.left + ((price - globalMin) / priceRange) * innerWidth;
   };
 
   // Draw legend
@@ -1905,11 +1948,8 @@ function drawComparisonBeeswarm(cardResults) {
     const label = `Card ${result.cardNumber}: ${result.grader} ${result.grade}`;
     
     // Draw color box
-    ctx.fillStyle = color.fill;
-    ctx.strokeStyle = color.stroke;
-    ctx.lineWidth = 1;
+    ctx.fillStyle = color.solid;
     ctx.fillRect(legendX, margin.top - 40, 12, 12);
-    ctx.strokeRect(legendX, margin.top - 40, 12, 12);
     
     // Draw label
     ctx.fillStyle = "#1d1d1f";
@@ -1922,74 +1962,54 @@ function drawComparisonBeeswarm(cardResults) {
     legendX += labelWidth + 40;
   });
 
-  // Draw all points from all cards
-  const allPoints = [];
-  const centerY = margin.top + innerHeight / 2;
-  const maxYOffset = Math.min(innerHeight / 2 - 10, 80);
+  // Calculate bar height and spacing
+  const barHeight = 30;
+  const spacing = 20;
+  const totalHeight = (cardResults.length * barHeight) + ((cardResults.length - 1) * spacing);
+  const startY = margin.top + (innerHeight - totalHeight) / 2;
 
+  // Draw FMV ranges for each card
   cardResults.forEach((result, cardIndex) => {
-    if (!result.data || !result.data.items) return;
+    if (!result.data || !result.marketValue) return;
     
     const color = cardColors[cardIndex % cardColors.length];
-    const prices = result.data.items
-      .map(item => item.total_price)
-      .filter(p => p != null && !isNaN(p) && p > 0)
-      .map(p => parseFloat(p));
-
-    prices.forEach(price => {
-      let y = centerY;
-      let collided = true;
-      let attempts = 0;
-      let yOffset = 0;
-
-      while (collided && attempts < 200) {
-        collided = false;
-        
-        // Check collision with previously placed points
-        for (const placed of allPoints) {
-          const dx = xScale(price) - placed.x;
-          const dy = y - placed.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const minDistance = 4 + 4 + 1; // radius + radius + gap
-          
-          if (distance < minDistance) {
-            collided = true;
-            break;
-          }
-        }
-        
-        if (collided) {
-          attempts++;
-          yOffset = Math.ceil(attempts / 2) * 9; // point diameter (4*2) + gap
-          const direction = attempts % 2 === 1 ? 1 : -1;
-          y = centerY + (direction * yOffset);
-          
-          // Keep within bounds
-          if (y < margin.top + 4) {
-            y = margin.top + 4;
-          } else if (y > height - margin.bottom - 4) {
-            y = height - margin.bottom - 4;
-          }
-          
-          if (yOffset > maxYOffset) {
-            break;
-          }
-        }
-      }
+    const y = startY + (cardIndex * (barHeight + spacing));
+    
+    // Calculate FMV range (using min and max prices as the range)
+    const minPrice = result.data.min_price;
+    const maxPrice = result.data.max_price;
+    const marketValue = result.marketValue;
+    
+    if (minPrice != null && maxPrice != null) {
+      const x1 = xScale(minPrice);
+      const x2 = xScale(maxPrice);
       
-      allPoints.push({ x: xScale(price), y: y, color: color });
-    });
-  });
-
-  // Draw all points
-  allPoints.forEach(point => {
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = point.color.fill;
-    ctx.fill();
-    ctx.strokeStyle = point.color.stroke;
-    ctx.lineWidth = 1;
-    ctx.stroke();
+      // Draw range bar
+      ctx.fillStyle = color.fill;
+      ctx.fillRect(x1, y, x2 - x1, barHeight);
+      
+      // Draw border
+      ctx.strokeStyle = color.stroke;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x1, y, x2 - x1, barHeight);
+      
+      // Draw market value line
+      if (marketValue != null && marketValue >= minPrice && marketValue <= maxPrice) {
+        const mvX = xScale(marketValue);
+        ctx.strokeStyle = color.solid;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(mvX, y - 5);
+        ctx.lineTo(mvX, y + barHeight + 5);
+        ctx.stroke();
+        
+        // Draw MV label
+        ctx.fillStyle = color.solid;
+        ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+        ctx.textAlign = "center";
+        ctx.fillText(formatMoney(marketValue), mvX, y + barHeight / 2 + 4);
+      }
+    }
   });
 
   // Draw Axis
@@ -2000,22 +2020,18 @@ function drawComparisonBeeswarm(cardResults) {
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Draw Labels
+  // Draw price scale labels
   ctx.fillStyle = "#6e6e73";
   ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = "center";
 
   if (priceRange > 0) {
     // Min
-    ctx.fillText(formatMoney(minPrice), margin.left, height - margin.bottom + 20);
+    ctx.fillText(formatMoney(globalMin), margin.left, height - margin.bottom + 20);
     // Max
-    ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 20);
+    ctx.fillText(formatMoney(globalMax), width - margin.right, height - margin.bottom + 20);
   } else {
-    ctx.fillText(formatMoney(minPrice), width / 2, height - margin.bottom + 20);
+    ctx.fillText(formatMoney(globalMin), width / 2, height - margin.bottom + 20);
   }
-  
-  // Draw total count
-  ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
-  ctx.fillText(`${allPrices.length} total items`, width - 60, margin.top + 15);
 }
 
