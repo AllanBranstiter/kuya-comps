@@ -365,26 +365,26 @@ function updateGradeOptions(cardNumber) {
     
     const selectedGrader = graderSelect.value;
     
-    // Build new options as a document fragment to prevent layout shifts
-    const fragment = document.createDocumentFragment();
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Select Grade';
-    fragment.appendChild(defaultOption);
+    // Save current selected value if any
+    const currentValue = gradeSelect.value;
+    
+    // Build new options in a string for fastest update
+    let optionsHtml = '<option value="">Select Grade</option>';
     
     // If a grader is selected, populate grades
     if (selectedGrader && gradeOptions[selectedGrader]) {
         gradeOptions[selectedGrader].forEach(grade => {
-            const option = document.createElement('option');
-            option.value = grade;
-            option.textContent = grade;
-            fragment.appendChild(option);
+            optionsHtml += `<option value="${escapeHtml(grade)}">${escapeHtml(grade)}</option>`;
         });
     }
     
-    // Replace all options at once to prevent reflow
-    gradeSelect.innerHTML = '';
-    gradeSelect.appendChild(fragment);
+    // Single atomic update - prevents any layout shift
+    gradeSelect.innerHTML = optionsHtml;
+    
+    // Restore selection if it's still valid
+    if (currentValue && gradeOptions[selectedGrader]?.includes(currentValue)) {
+        gradeSelect.value = currentValue;
+    }
 }
 
 // Setup event listeners for grader dropdowns
