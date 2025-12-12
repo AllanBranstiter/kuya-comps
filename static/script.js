@@ -380,6 +380,8 @@ async function runIntelligenceSearch() {
                 
                 // Calculate FMV for this card
                 let marketValue = null;
+                let fmvLow = null;
+                let fmvHigh = null;
                 if (data.items && data.items.length > 0) {
                     const fmvResp = await fetch('/fmv', {
                         method: 'POST',
@@ -388,6 +390,8 @@ async function runIntelligenceSearch() {
                     });
                     const fmvData = await fmvResp.json();
                     marketValue = fmvData.market_value;
+                    fmvLow = fmvData.quick_sale || fmvData.expected_low;
+                    fmvHigh = fmvData.patient_sale || fmvData.expected_high;
                 }
                 
                 cardResults.push({
@@ -395,7 +399,9 @@ async function runIntelligenceSearch() {
                     grader: card.grader,
                     grade: card.grade,
                     data: data,
-                    marketValue: marketValue
+                    marketValue: marketValue,
+                    fmvLow: fmvLow,
+                    fmvHigh: fmvHigh
                 });
                 
                 console.log(`[INTELLIGENCE] Card ${card.cardNumber}: Market Value = ${marketValue ? '$' + marketValue.toFixed(2) : 'N/A'}`);
@@ -1911,16 +1917,16 @@ function drawComparisonBeeswarm(cardResults) {
     { fill: 'rgba(52, 199, 89, 0.3)', stroke: 'rgba(52, 199, 89, 0.9)', solid: 'rgb(52, 199, 89)' }       // Green
   ];
 
-  // Find global min and max from all market values
+  // Find global min and max from all FMV ranges
   let globalMin = Infinity;
   let globalMax = -Infinity;
   
   cardResults.forEach(result => {
-    if (result.data && result.data.min_price != null) {
-      globalMin = Math.min(globalMin, result.data.min_price);
+    if (result.fmvLow != null) {
+      globalMin = Math.min(globalMin, result.fmvLow);
     }
-    if (result.data && result.data.max_price != null) {
-      globalMax = Math.max(globalMax, result.data.max_price);
+    if (result.fmvHigh != null) {
+      globalMax = Math.max(globalMax, result.fmvHigh);
     }
   });
 
@@ -1928,7 +1934,7 @@ function drawComparisonBeeswarm(cardResults) {
     ctx.fillStyle = "#6e6e73";
     ctx.font = "16px " + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = "center";
-    ctx.fillText("No valid price data to display", width / 2, height / 2);
+    ctx.fillText("No valid FMV data to display", width / 2, height / 2);
     return;
   }
 
@@ -1970,19 +1976,19 @@ function drawComparisonBeeswarm(cardResults) {
 
   // Draw FMV ranges for each card
   cardResults.forEach((result, cardIndex) => {
-    if (!result.data || !result.marketValue) return;
+    if (!result.fmvLow || !result.fmvHigh) return;
     
     const color = cardColors[cardIndex % cardColors.length];
     const y = startY + (cardIndex * (barHeight + spacing));
     
-    // Calculate FMV range (using min and max prices as the range)
-    const minPrice = result.data.min_price;
-    const maxPrice = result.data.max_price;
+    // Use FMV range (Quick Sale to Patient Sale)
+    const fmvLow = result.fmvLow;
+    const fmvHigh = result.fmvHigh;
     const marketValue = result.marketValue;
     
-    if (minPrice != null && maxPrice != null) {
-      const x1 = xScale(minPrice);
-      const x2 = xScale(maxPrice);
+    if (fmvLow != null && fmvHigh != null) {
+      const x1 = xScale(fmvLow);
+      const x2 = xScale(fmvHigh);
       
       // Draw range bar
       ctx.fillStyle = color.fill;
@@ -1994,7 +2000,7 @@ function drawComparisonBeeswarm(cardResults) {
       ctx.strokeRect(x1, y, x2 - x1, barHeight);
       
       // Draw market value line
-      if (marketValue != null && marketValue >= minPrice && marketValue <= maxPrice) {
+      if (marketValue != null && marketValue >= fmvLow && marketValue <= fmvHigh) {
         const mvX = xScale(marketValue);
         ctx.strokeStyle = color.solid;
         ctx.lineWidth = 3;
