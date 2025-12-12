@@ -1174,6 +1174,20 @@
      background: linear-gradient(135deg, #ff2d20, #ff5555);
      box-shadow: 0 8px 20px rgba(255, 59, 48, 0.4);
    }
+
+   /* Card Comparison Grid - Always Horizontal on Desktop */
+   .card-comparison-grid {
+     display: grid;
+     grid-template-columns: repeat(3, 1fr);
+     gap: 1rem;
+   }
+
+   /* Mobile responsiveness for card comparison */
+   @media screen and (max-width: 768px) {
+     .card-comparison-grid {
+       grid-template-columns: 1fr;
+     }
+   }
  </style>
 </head>
 <body>
@@ -1282,7 +1296,7 @@
       <div style="margin-top: 2rem; padding: 1.5rem; background: var(--background-color); border-radius: 12px; border: 1px solid var(--border-color);">
         <h3 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">Compare Cards</h3>
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <div class="card-comparison-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
           <!-- Card 1 -->
           <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color);">
             <label style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: var(--text-color); text-align: center;">Card 1</label>
