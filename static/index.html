@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:;">
   <title>Kuya Comps: Your Personal Card Value Dugout</title>
   <link rel="icon" type="image/png" href="KuyaCompsFavicon.png">
   <style>
@@ -702,140 +703,6 @@
      box-shadow: none;
    }
 
-   /* Password Protection Overlay */
-   #password-overlay {
-     position: fixed;
-     top: 0;
-     left: 0;
-     width: 100%;
-     height: 100%;
-     background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-     display: flex;
-     justify-content: center;
-     align-items: center;
-     z-index: 9999;
-     backdrop-filter: blur(10px);
-   }
-
-   #password-container {
-     background: var(--card-background);
-     padding: 3rem;
-     border-radius: 20px;
-     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
-     text-align: center;
-     max-width: 400px;
-     width: 90%;
-     border: 1px solid var(--border-color);
-   }
-
-   #password-container h2 {
-     margin-bottom: 1.5rem;
-     font-size: 2rem;
-     background: var(--gradient-primary);
-     -webkit-background-clip: text;
-     -webkit-text-fill-color: transparent;
-     background-clip: text;
-   }
-
-   .password-input-container {
-     position: relative;
-     margin-bottom: 1.5rem;
-     width: 100%;
-   }
-
-   #password-input {
-     width: 100%;
-     padding: 1rem 3.5rem 1rem 1rem;
-     font-size: 1.1rem;
-     border: 2px solid var(--border-color);
-     border-radius: 12px;
-     text-align: left;
-     background: var(--background-color);
-     transition: all 0.3s ease;
-     box-sizing: border-box;
-   }
-
-   #password-input:focus {
-     outline: none;
-     border-color: var(--primary-blue);
-     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
-   }
-
-   .password-toggle-btn {
-     position: absolute;
-     right: 8px;
-     top: 50%;
-     transform: translateY(-50%);
-     background: rgba(255, 255, 255, 0.9);
-     border: 1px solid var(--border-color);
-     cursor: pointer;
-     padding: 0.5rem;
-     font-size: 1.1rem;
-     color: var(--subtle-text-color);
-     transition: all 0.2s ease;
-     border-radius: 8px;
-     min-width: 40px;
-     min-height: 40px;
-     display: flex;
-     align-items: center;
-     justify-content: center;
-     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-     z-index: 10;
-   }
-
-   .password-toggle-btn:hover {
-     background: var(--primary-blue);
-     color: white;
-     border-color: var(--primary-blue);
-     transform: translateY(-50%) scale(1.05);
-     box-shadow: 0 4px 8px rgba(0, 122, 255, 0.3);
-   }
-
-   .password-toggle-btn:active {
-     transform: translateY(-50%) scale(0.95);
-   }
-
-   .password-toggle-btn::before {
-     display: none !important;
-   }
-
-   .password-toggle-btn::after {
-     display: none !important;
-   }
-
-   #password-submit {
-     width: 100%;
-     padding: 1rem 2rem;
-     font-size: 1.1rem;
-     font-weight: 600;
-     border: none;
-     border-radius: 12px;
-     background: var(--gradient-primary);
-     color: white;
-     cursor: pointer;
-     transition: all 0.3s ease;
-     box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
-   }
-
-   #password-submit:hover {
-     transform: translateY(-2px);
-     box-shadow: 0 8px 25px rgba(0, 122, 255, 0.4);
-   }
-
-   #password-error {
-     color: #ff3b30;
-     margin-top: 1rem;
-     font-weight: 500;
-     display: none;
-   }
-
-   .main-content {
-     display: none;
-   }
-
-   .main-content.authenticated {
-     display: block;
-   }
 
    /* ===== RESPONSIVE DESIGN ===== */
 
@@ -1174,33 +1041,31 @@
      background: linear-gradient(135deg, #ff2d20, #ff5555);
      box-shadow: 0 8px 20px rgba(255, 59, 48, 0.4);
    }
+
+   /* Card Comparison Grid - Responsive Layout */
+   .card-comparison-grid {
+     display: grid;
+     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+     gap: 1rem;
+   }
+   
+   /* Card comparison text inputs - stable height */
+   input[id^="card"][id$="-grader"],
+   input[id^="card"][id$="-grade"] {
+     height: 40px !important;
+     min-height: 40px !important;
+     max-height: 40px !important;
+     line-height: normal !important;
+     padding: 0.5rem !important;
+     margin: 0 !important;
+     vertical-align: top !important;
+   }
  </style>
 </head>
 <body>
 
-<!-- Password Protection Overlay -->
-<div id="password-overlay">
-  <div id="password-container">
-    <h2>🔒 Access Required</h2>
-    <p style="margin-bottom: 2rem; color: var(--subtle-text-color);">Please enter the password to access Kuya Comps</p>
-    <!-- Password Input with Show/Hide Button -->
-    <div class="password-input-container">
-      <input type="password" id="password-input" placeholder="Enter password" />
-      <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility(event)" aria-label="Show password">
-        <span id="password-toggle-icon">👁️</span>
-      </button>
-    </div>
-    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; gap: 0.5rem;">
-      <input type="checkbox" id="remember-me" style="margin: 0;">
-      <label for="remember-me" style="font-size: 0.9rem; color: var(--subtle-text-color); margin: 0; cursor: pointer;">Remember Me</label>
-    </div>
-    <button id="password-submit" onclick="checkPassword()">Access Application</button>
-    <div id="password-error">Incorrect password. Please try again.</div>
-  </div>
-</div>
-
 <!-- Main Application Content -->
-<div class="main-content">
+<div class="main-content authenticated">
 
 <div class="container">
   <div style="text-align: center; margin-bottom: 2rem;">
@@ -1252,7 +1117,7 @@
     <div id="stats-container"></div>
 
     <div id="chart-container" style="width: 100%; position: relative;">
-      <canvas id="beeswarmCanvas" style="width: 100%; height: 200px; display: block;"></canvas>
+      <canvas id="beeswarmCanvas" style="width: 100%; height: 250px; display: block;"></canvas>
     </div>
     
     <div id="results"></div>
@@ -1273,44 +1138,63 @@
         </p>
       </div>
       
-      <div style="margin-bottom: 1.5rem;">
-        <label style="display: block; margin-bottom: 0.75rem; font-weight: 600;">PSA Grades to Include (choose no more than four):</label>
-        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;">
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa1" class="psa-grade" onchange="limitPsaSelection()">PSA 1
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa2" class="psa-grade" onchange="limitPsaSelection()">PSA 2
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa3" class="psa-grade" onchange="limitPsaSelection()">PSA 3
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa4" class="psa-grade" onchange="limitPsaSelection()">PSA 4
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa5" class="psa-grade" onchange="limitPsaSelection()">PSA 5
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa6" class="psa-grade" onchange="limitPsaSelection()">PSA 6
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa7" class="psa-grade" onchange="limitPsaSelection()">PSA 7
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa8" class="psa-grade" onchange="limitPsaSelection()">PSA 8
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa9" class="psa-grade" onchange="limitPsaSelection()" checked>PSA 9
-          </label>
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
-            <input type="checkbox" id="psa10" class="psa-grade" onchange="limitPsaSelection()" checked>PSA 10
-          </label>
-        </div>
-      </div>
       
-      <div>
-        <button onclick="runIntelligenceSearch()" style="background: linear-gradient(135deg, #ff9500, #ff6b35); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);">🔍 Find Card</button>
+      <!-- Card Comparison Fields -->
+      <div style="margin-top: 2rem; padding: 1.5rem; background: var(--background-color); border-radius: 12px; border: 1px solid var(--border-color); min-height: 300px;">
+        <h3 style="margin: 0 0 1rem 0; padding: 0; color: var(--text-color); height: auto;">Compare Cards</h3>
+        
+        <div class="card-comparison-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; align-items: start;">
+          <!-- Card 1 -->
+          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
+            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 1</label>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
+              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
+                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
+                <input type="text" id="card1-grader" placeholder="PSA" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              </div>
+              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
+                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
+                <input type="text" id="card1-grade" placeholder="10" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              </div>
+            </div>
+          </div>
+          
+          <!-- Card 2 -->
+          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
+            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 2</label>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
+              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
+                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
+                <input type="text" id="card2-grader" placeholder="BGS" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              </div>
+              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
+                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
+                <input type="text" id="card2-grade" placeholder="9.5" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              </div>
+            </div>
+          </div>
+          
+          <!-- Card 3 -->
+          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
+            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 3</label>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
+              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
+                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
+                <input type="text" id="card3-grader" placeholder="SGC" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              </div>
+              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
+                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
+                <input type="text" id="card3-grade" placeholder="9" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Find Card and Clear Buttons -->
+        <div style="margin-top: 1.5rem; text-align: center; display: flex; gap: 1rem; justify-content: center;">
+          <button onclick="runIntelligenceSearch()" style="background: linear-gradient(135deg, #ff9500, #ff6b35); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3); min-width: 200px;">Find Card</button>
+          <button onclick="clearIntelligenceSearch()" style="background: linear-gradient(135deg, #ff3b30, #ff6b6b); box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); min-width: 200px;">Clear</button>
+        </div>
       </div>
     </div>
     
