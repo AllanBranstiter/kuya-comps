@@ -743,6 +743,68 @@
        text-align: center;
      }
 
+     /* Mobile Intelligence Search Tip */
+     .intelligence-tip-box {
+       margin-bottom: 1.5rem;
+       padding: 1rem;
+     }
+
+     .intelligence-tip-box p {
+       font-size: 0.9rem !important;
+       line-height: 1.5 !important;
+     }
+
+     .intelligence-tip-box span {
+       display: block !important;
+       margin-top: 0.75rem !important;
+       padding: 0.75rem !important;
+       font-size: 0.8rem !important;
+       word-break: break-word;
+     }
+
+     /* Mobile Card Comparison Grid */
+     .card-comparison-grid {
+       grid-template-columns: 1fr !important;
+       gap: 1rem;
+     }
+
+     .card-comparison-container {
+       padding: 1.25rem !important;
+     }
+
+     .card-comparison-container h3 {
+       font-size: 1.1rem !important;
+       margin-bottom: 1.25rem !important;
+     }
+
+     .card-input-box {
+       padding: 1rem;
+     }
+
+     .card-input-box label:first-child {
+       font-size: 1rem !important;
+       margin-bottom: 0.75rem !important;
+     }
+
+     /* Mobile Intelligence Insights */
+     .intelligence-insights-empty {
+       padding: 2rem 1.5rem !important;
+     }
+
+     .intelligence-insights-empty h3 {
+       font-size: 1.25rem !important;
+     }
+
+     .intelligence-insights-empty p {
+       font-size: 0.95rem !important;
+     }
+
+     /* Mobile Intelligence Query Input */
+     #intelligence-query {
+       font-size: 1rem !important;
+       padding: 0.875rem !important;
+     }
+
      /* Mobile Controls */
      #controls {
        gap: 1rem;
@@ -915,6 +977,15 @@
        padding: 2.5rem;
        max-width: 400px;
      }
+
+     /* Tablet Card Comparison */
+     .card-comparison-grid {
+       grid-template-columns: repeat(2, 1fr) !important;
+     }
+
+     .intelligence-tip-box {
+       padding: 1rem;
+     }
    }
 
    /* Desktop Styles - Large screens */
@@ -939,6 +1010,15 @@
 
      .psa-results-grid {
        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+     }
+
+     /* Desktop Card Comparison */
+     .card-comparison-grid {
+       grid-template-columns: repeat(3, 1fr);
+     }
+
+     .intelligence-tip-box {
+       padding: 1rem;
      }
    }
 
@@ -1043,23 +1123,200 @@
    }
 
    /* Card Comparison Grid - Responsive Layout */
-   .card-comparison-grid {
-     display: grid;
-     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-     gap: 1rem;
-   }
-   
-   /* Card comparison text inputs - stable height */
-   input[id^="card"][id$="-grader"],
-   input[id^="card"][id$="-grade"] {
-     height: 40px !important;
-     min-height: 40px !important;
-     max-height: 40px !important;
-     line-height: normal !important;
-     padding: 0.5rem !important;
-     margin: 0 !important;
-     vertical-align: top !important;
-   }
+    .card-comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      align-items: start;
+      width: 100%;
+    }
+    
+    /* Prevent input overflow on narrow screens */
+    .card-comparison-grid > div {
+      min-width: 0;
+      overflow: hidden;
+    }
+    
+    .card-comparison-grid input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    
+    /* Card Comparison Container */
+    .card-comparison-container {
+      margin-top: 0.5rem;
+      padding: 1.5rem;
+      background: var(--card-background);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    }
+    
+    .card-comparison-container h3 {
+      display: block;
+      width: 100%;
+      margin: 0 0 1.5rem 0;
+      padding: 0;
+      color: var(--text-color);
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    
+    /* Individual Card Box */
+    .card-box {
+      padding: 1rem;
+      background: var(--card-background);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      box-sizing: border-box;
+    }
+    
+    .card-box-title {
+      display: block;
+      margin: 0 0 0.5rem 0;
+      padding: 0;
+      font-weight: 600;
+      color: var(--text-color);
+      text-align: center;
+      height: 24px;
+      line-height: 24px;
+    }
+    
+    .card-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .card-input-wrapper {
+      height: 66px;
+      min-height: 66px;
+      max-height: 66px;
+      overflow: visible;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .card-input-label {
+      display: block;
+      margin: 0 0 0.1rem 0;
+      padding: 0;
+      font-size: 0.85rem;
+      color: var(--subtle-text-color);
+      height: 18px;
+      line-height: 18px;
+    }
+    
+    .card-input {
+      width: 100%;
+      height: 40px;
+      min-height: 40px;
+      max-height: 40px;
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      background: white;
+      box-sizing: border-box;
+      display: block;
+    }
+    
+    /* Card Comparison Buttons */
+    .card-comparison-buttons {
+      margin-top: 1.5rem;
+      text-align: center;
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      width: 100%;
+    }
+    
+    .btn-intelligence {
+      background: linear-gradient(135deg, #ff9500, #ff6b35);
+      box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+      min-width: 200px;
+    }
+    
+    .btn-intelligence:hover {
+      box-shadow: 0 8px 20px rgba(255, 149, 0, 0.4);
+    }
+    
+    .btn-clear-intelligence {
+      background: linear-gradient(135deg, #ff3b30, #ff6b6b);
+      box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+      min-width: 200px;
+    }
+    
+    .btn-clear-intelligence:hover {
+      box-shadow: 0 8px 20px rgba(255, 59, 48, 0.4);
+    }
+    
+    /* Card comparison text inputs - stable height */
+    input[id^="card"][id$="-grader"],
+    input[id^="card"][id$="-grade"] {
+      height: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      line-height: normal !important;
+      padding: 0.5rem !important;
+      margin: 0 !important;
+      vertical-align: top !important;
+    }
+
+    /* Intelligence search tip box */
+    .intelligence-tip-box {
+      background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%);
+      border-radius: 12px;
+      border-left: 4px solid #ff9500;
+      box-shadow: 0 2px 8px rgba(255, 149, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .intelligence-tip-box:hover {
+      box-shadow: 0 4px 12px rgba(255, 149, 0, 0.15);
+      transform: translateY(-1px);
+    }
+
+    /* Card comparison container */
+    .card-comparison-container {
+      background: var(--card-background);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .card-comparison-container:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Individual card input container */
+    .card-input-box {
+      padding: 1rem;
+      background: var(--card-background);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s ease;
+    }
+
+    .card-input-box:hover {
+      border-color: var(--primary-blue);
+      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
+    }
+
+    /* Intelligence insights container */
+    .intelligence-insights-empty {
+      text-align: center;
+      padding: 3rem 2rem;
+      background: var(--card-background);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    }
  </style>
 </head>
 <body>
@@ -1075,8 +1332,8 @@
 
   <!-- Tab Navigation -->
   <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('comps')">📊 Comps & Analysis</button>
-    <button class="tab-btn" onclick="switchTab('intelligence')">🧠 Grading Intelligence</button>
+    <button class="tab-btn active" onclick="switchTab('comps')">Comps & Analysis</button>
+    <button class="tab-btn" onclick="switchTab('intelligence')">Grading Intelligence</button>
   </div>
   
   <!-- Comps & Analysis Tab -->
@@ -1131,77 +1388,80 @@
         <input id="intelligence-query" type="text" placeholder='e.g. "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1'>
       </div>
       
-      <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #ff9500;">
-        <p style="margin: 0; font-size: 0.9rem; color: var(--subtle-text-color);">
-          💡 <strong>Tip:</strong> For best results, format your search as "Year and Set" "Athlete" "Variant" Card#
-          <br><strong>Example:</strong> "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1
+      <div style="margin-bottom: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%); border-radius: 12px; border-left: 4px solid #ff9500; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.1);">
+        <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--text-color);">
+          <strong style="color: #ff9500;">Search Tip:</strong> For best results, format your search as "Year and Set" "Athlete" "Variant" Card#
+          <br>
+          <span style="display: inline-block; margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: white; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.85rem; color: var(--subtle-text-color);">
+            "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1
+          </span>
         </p>
       </div>
       
       
       <!-- Card Comparison Fields -->
-      <div style="margin-top: 2rem; padding: 1.5rem; background: var(--background-color); border-radius: 12px; border: 1px solid var(--border-color); min-height: 300px;">
-        <h3 style="margin: 0 0 1rem 0; padding: 0; color: var(--text-color); height: auto;">Compare Cards</h3>
+      <div class="card-comparison-container">
+        <h3>Compare Cards</h3>
         
-        <div class="card-comparison-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; align-items: start;">
+        <div class="card-comparison-grid">
           <!-- Card 1 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
-            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 1</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <input type="text" id="card1-grader" placeholder="PSA" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+          <div class="card-box">
+            <label class="card-box-title">Card 1</label>
+            <div class="card-inputs">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grader:</label>
+                <input type="text" id="card1-grader" class="card-input" placeholder="PSA" maxlength="5">
               </div>
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <input type="text" id="card1-grade" placeholder="10" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grade:</label>
+                <input type="text" id="card1-grade" class="card-input" placeholder="10" maxlength="5">
               </div>
             </div>
           </div>
           
           <!-- Card 2 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
-            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 2</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <input type="text" id="card2-grader" placeholder="BGS" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+          <div class="card-box">
+            <label class="card-box-title">Card 2</label>
+            <div class="card-inputs">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grader:</label>
+                <input type="text" id="card2-grader" class="card-input" placeholder="BGS" maxlength="5">
               </div>
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <input type="text" id="card2-grade" placeholder="9.5" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grade:</label>
+                <input type="text" id="card2-grade" class="card-input" placeholder="9.5" maxlength="5">
               </div>
             </div>
           </div>
           
           <!-- Card 3 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
-            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 3</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <input type="text" id="card3-grader" placeholder="SGC" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+          <div class="card-box">
+            <label class="card-box-title">Card 3</label>
+            <div class="card-inputs">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grader:</label>
+                <input type="text" id="card3-grader" class="card-input" placeholder="SGC" maxlength="5">
               </div>
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.25rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <input type="text" id="card3-grade" placeholder="9" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grade:</label>
+                <input type="text" id="card3-grade" class="card-input" placeholder="9" maxlength="5">
               </div>
             </div>
           </div>
         </div>
         
         <!-- Find Card and Clear Buttons -->
-        <div style="margin-top: 1.5rem; text-align: center; display: flex; gap: 1rem; justify-content: center;">
-          <button onclick="runIntelligenceSearch()" style="background: linear-gradient(135deg, #ff9500, #ff6b35); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3); min-width: 200px;">Find Card</button>
-          <button onclick="clearIntelligenceSearch()" style="background: linear-gradient(135deg, #ff3b30, #ff6b6b); box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); min-width: 200px;">Clear</button>
+        <div class="card-comparison-buttons">
+          <button onclick="runIntelligenceSearch()" class="btn-intelligence">Find Card</button>
+          <button onclick="clearIntelligenceSearch()" class="btn-clear-intelligence">Clear</button>
         </div>
       </div>
     </div>
     
     <div id="insights-container">
-      <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
-        <h3>🧠 Grading Intelligence</h3>
-        <p>Enter a specific card search above to see advanced analytics and insights</p>
+      <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+        <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">Grading Intelligence</h3>
+        <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Enter a specific card search above to see advanced analytics and insights</p>
       </div>
     </div>
   </div>
