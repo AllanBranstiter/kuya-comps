@@ -491,10 +491,16 @@ function renderCardComparison(cardResults) {
     
     container.innerHTML = comparisonHtml;
     
-    // Draw the comparison beeswarm chart
+    // Draw the comparison beeswarm chart after DOM is updated
     setTimeout(() => {
-        drawComparisonBeeswarm(cardResults);
-    }, 100);
+        const canvas = document.getElementById("comparisonBeeswarmCanvas");
+        if (canvas) {
+            console.log('[CHART] Drawing comparison beeswarm chart with', cardResults.length, 'cards');
+            drawComparisonBeeswarm(cardResults);
+        } else {
+            console.error('[CHART] Canvas element not found');
+        }
+    }, 200);
 }
 
 function formatMoney(value) {
@@ -1741,11 +1747,24 @@ function drawBeeswarm(prices) {
       
       function drawComparisonBeeswarm(cardResults) {
         const canvas = document.getElementById("comparisonBeeswarmCanvas");
-        if (!canvas || !cardResults || cardResults.length === 0) return;
+        if (!canvas) {
+          console.error('[CHART] Canvas not found');
+          return;
+        }
+        
+        if (!cardResults || cardResults.length === 0) {
+          console.error('[CHART] No card results to display');
+          return;
+        }
       
+        console.log('[CHART] Setting up canvas...');
+        
         // Set canvas size
         const container = canvas.parentElement;
         const containerWidth = container.offsetWidth;
+        
+        console.log('[CHART] Container width:', containerWidth);
+        
         canvas.width = containerWidth;
         canvas.height = 250;
         canvas.style.width = containerWidth + 'px';
@@ -1759,6 +1778,8 @@ function drawBeeswarm(prices) {
         const innerHeight = height - margin.top - margin.bottom;
       
         ctx.clearRect(0, 0, width, height);
+        
+        console.log('[CHART] Canvas cleared, drawing chart...');
       
         // Define colors for each card
         const cardColors = [
