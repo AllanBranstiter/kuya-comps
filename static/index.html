@@ -1277,6 +1277,68 @@
       <div>
         <button onclick="runIntelligenceSearch()" style="background: linear-gradient(135deg, #ff9500, #ff6b35); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);">🔍 Find Card</button>
       </div>
+      
+      <!-- Card Comparison Fields -->
+      <div style="margin-top: 2rem; padding: 1.5rem; background: var(--background-color); border-radius: 12px; border: 1px solid var(--border-color);">
+        <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Compare Cards</h3>
+        
+        <!-- Card 1 -->
+        <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--card-background); border-radius: 8px;">
+          <label style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: var(--text-color);">Card 1</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Grader:</label>
+              <select id="card1-grader" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-family: var(--font-family); font-size: 1rem; background: white;">
+                <option value="">Select Grader</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Grade:</label>
+              <select id="card1-grade" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-family: var(--font-family); font-size: 1rem; background: white;">
+                <option value="">Select Grade</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Card 2 -->
+        <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--card-background); border-radius: 8px;">
+          <label style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: var(--text-color);">Card 2</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Grader:</label>
+              <select id="card2-grader" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-family: var(--font-family); font-size: 1rem; background: white;">
+                <option value="">Select Grader</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Grade:</label>
+              <select id="card2-grade" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-family: var(--font-family); font-size: 1rem; background: white;">
+                <option value="">Select Grade</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Card 3 -->
+        <div style="margin-bottom: 0; padding: 1rem; background: var(--card-background); border-radius: 8px;">
+          <label style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: var(--text-color);">Card 3</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Grader:</label>
+              <select id="card3-grader" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-family: var(--font-family); font-size: 1rem; background: white;">
+                <option value="">Select Grader</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Grade:</label>
+              <select id="card3-grade" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 8px; font-family: var(--font-family); font-size: 1rem; background: white;">
+                <option value="">Select Grade</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     
     <div id="insights-container">
