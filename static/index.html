@@ -1125,8 +1125,134 @@
    /* Card Comparison Grid - Responsive Layout */
     .card-comparison-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1rem;
+      align-items: start;
+      width: 100%;
+    }
+    
+    /* Prevent input overflow on narrow screens */
+    .card-comparison-grid > div {
+      min-width: 0;
+      overflow: hidden;
+    }
+    
+    .card-comparison-grid input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    
+    /* Card Comparison Container */
+    .card-comparison-container {
+      margin-top: 0.5rem;
+      padding: 1.5rem;
+      background: var(--card-background);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    }
+    
+    .card-comparison-container h3 {
+      display: block;
+      width: 100%;
+      margin: 0 0 1.5rem 0;
+      padding: 0;
+      color: var(--text-color);
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    
+    /* Individual Card Box */
+    .card-box {
+      padding: 1rem;
+      background: var(--card-background);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      box-sizing: border-box;
+    }
+    
+    .card-box-title {
+      display: block;
+      margin: 0 0 0.5rem 0;
+      padding: 0;
+      font-weight: 600;
+      color: var(--text-color);
+      text-align: center;
+      height: 24px;
+      line-height: 24px;
+    }
+    
+    .card-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .card-input-wrapper {
+      height: 66px;
+      min-height: 66px;
+      max-height: 66px;
+      overflow: visible;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .card-input-label {
+      display: block;
+      margin: 0 0 0.1rem 0;
+      padding: 0;
+      font-size: 0.85rem;
+      color: var(--subtle-text-color);
+      height: 18px;
+      line-height: 18px;
+    }
+    
+    .card-input {
+      width: 100%;
+      height: 40px;
+      min-height: 40px;
+      max-height: 40px;
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: var(--font-family);
+      font-size: 0.9rem;
+      background: white;
+      box-sizing: border-box;
+      display: block;
+    }
+    
+    /* Card Comparison Buttons */
+    .card-comparison-buttons {
+      margin-top: 1.5rem;
+      text-align: center;
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      width: 100%;
+    }
+    
+    .btn-intelligence {
+      background: linear-gradient(135deg, #ff9500, #ff6b35);
+      box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+      min-width: 200px;
+    }
+    
+    .btn-intelligence:hover {
+      box-shadow: 0 8px 20px rgba(255, 149, 0, 0.4);
+    }
+    
+    .btn-clear-intelligence {
+      background: linear-gradient(135deg, #ff3b30, #ff6b6b);
+      box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+      min-width: 200px;
+    }
+    
+    .btn-clear-intelligence:hover {
+      box-shadow: 0 8px 20px rgba(255, 59, 48, 0.4);
     }
     
     /* Card comparison text inputs - stable height */
@@ -1274,60 +1400,60 @@
       
       
       <!-- Card Comparison Fields -->
-      <div style="margin-top: 2rem; padding: 1.5rem; background: var(--card-background); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);">
-        <h3 style="display: block; width: 100%; margin: 0 0 1.5rem 0; padding: 0; color: var(--text-color); font-size: 1.2rem; font-weight: 600; clear: both; grid-column: 1 / -1;">Compare Cards</h3>
+      <div class="card-comparison-container">
+        <h3>Compare Cards</h3>
         
-        <div class="card-comparison-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: start; width: 100%;">
+        <div class="card-comparison-grid">
           <!-- Card 1 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
-            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 1</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.1rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <input type="text" id="card1-grader" placeholder="PSA" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+          <div class="card-box">
+            <label class="card-box-title">Card 1</label>
+            <div class="card-inputs">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grader:</label>
+                <input type="text" id="card1-grader" class="card-input" placeholder="PSA" maxlength="5">
               </div>
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.1rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <input type="text" id="card1-grade" placeholder="10" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grade:</label>
+                <input type="text" id="card1-grade" class="card-input" placeholder="10" maxlength="5">
               </div>
             </div>
           </div>
           
           <!-- Card 2 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
-            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 2</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.1rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <input type="text" id="card2-grader" placeholder="BGS" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+          <div class="card-box">
+            <label class="card-box-title">Card 2</label>
+            <div class="card-inputs">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grader:</label>
+                <input type="text" id="card2-grader" class="card-input" placeholder="BGS" maxlength="5">
               </div>
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.1rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <input type="text" id="card2-grade" placeholder="9.5" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grade:</label>
+                <input type="text" id="card2-grade" class="card-input" placeholder="9.5" maxlength="5">
               </div>
             </div>
           </div>
           
           <!-- Card 3 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
-            <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 3</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0;">
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.1rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grader:</label>
-                <input type="text" id="card3-grader" placeholder="SGC" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+          <div class="card-box">
+            <label class="card-box-title">Card 3</label>
+            <div class="card-inputs">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grader:</label>
+                <input type="text" id="card3-grader" class="card-input" placeholder="SGC" maxlength="5">
               </div>
-              <div style="height: 66px; min-height: 66px; max-height: 66px; overflow: visible; margin: 0; padding: 0;">
-                <label style="display: block; margin: 0 0 0.1rem 0; padding: 0; font-size: 0.85rem; color: var(--subtle-text-color); height: 18px; line-height: 18px;">Grade:</label>
-                <input type="text" id="card3-grade" placeholder="9" maxlength="5" style="width: 100%; height: 40px; min-height: 40px; max-height: 40px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box; display: block;">
+              <div class="card-input-wrapper">
+                <label class="card-input-label">Grade:</label>
+                <input type="text" id="card3-grade" class="card-input" placeholder="9" maxlength="5">
               </div>
             </div>
           </div>
         </div>
         
         <!-- Find Card and Clear Buttons -->
-        <div style="margin-top: 1.5rem; text-align: center; display: flex; gap: 1rem; justify-content: center; width: 100%; clear: both; grid-column: 1 / -1;">
-          <button onclick="runIntelligenceSearch()" style="background: linear-gradient(135deg, #ff9500, #ff6b35); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3); min-width: 200px;">Find Card</button>
-          <button onclick="clearIntelligenceSearch()" style="background: linear-gradient(135deg, #ff3b30, #ff6b6b); box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); min-width: 200px;">Clear</button>
+        <div class="card-comparison-buttons">
+          <button onclick="runIntelligenceSearch()" class="btn-intelligence">Find Card</button>
+          <button onclick="clearIntelligenceSearch()" class="btn-clear-intelligence">Clear</button>
         </div>
       </div>
     </div>
