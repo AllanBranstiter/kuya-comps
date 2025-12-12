@@ -1287,9 +1287,9 @@
         
         <div class="card-comparison-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
           <!-- Card 1 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); min-height: 180px;">
             <label style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: var(--text-color); text-align: center;">Card 1</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; height: calc(100% - 2rem);">
               <div>
                 <label style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--subtle-text-color);">Grader:</label>
                 <select id="card1-grader" style="width: 100%; min-width: 100px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box;">
@@ -1329,9 +1329,9 @@
           </div>
           
           <!-- Card 2 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); min-height: 180px;">
             <label style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: var(--text-color); text-align: center;">Card 2</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; height: calc(100% - 2rem);">
               <div>
                 <label style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--subtle-text-color);">Grader:</label>
                 <select id="card2-grader" style="width: 100%; min-width: 100px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box;">
@@ -1371,9 +1371,9 @@
           </div>
           
           <!-- Card 3 -->
-          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); min-height: 180px;">
             <label style="display: block; margin-bottom: 0.75rem; font-weight: 600; color: var(--text-color); text-align: center;">Card 3</label>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; height: calc(100% - 2rem);">
               <div>
                 <label style="display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--subtle-text-color);">Grader:</label>
                 <select id="card3-grader" style="width: 100%; min-width: 100px; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; font-family: var(--font-family); font-size: 0.9rem; background: white; box-sizing: border-box;">
@@ -1415,8 +1415,8 @@
         
         <!-- Find Card and Clear Buttons -->
         <div style="margin-top: 1.5rem; text-align: center; display: flex; gap: 1rem; justify-content: center;">
-          <button onclick="runIntelligenceSearch()" style="background: linear-gradient(135deg, #ff9500, #ff6b35); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3); min-width: 200px;">🔍 Find Card</button>
-          <button onclick="clearIntelligenceSearch()" style="background: linear-gradient(135deg, #ff3b30, #ff6b6b); box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); min-width: 200px;">🗑️ Clear</button>
+          <button onclick="runIntelligenceSearch()" style="background: linear-gradient(135deg, #ff9500, #ff6b35); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3); min-width: 200px;">Find Card</button>
+          <button onclick="clearIntelligenceSearch()" style="background: linear-gradient(135deg, #ff3b30, #ff6b6b); box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); min-width: 200px;">Clear</button>
         </div>
       </div>
     </div>
