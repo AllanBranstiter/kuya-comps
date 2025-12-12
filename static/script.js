@@ -5,6 +5,17 @@ let expectLowGlobal = null;
 let expectHighGlobal = null;
 let marketValueGlobal = null;
 
+// Security: HTML sanitization function to prevent XSS attacks
+function escapeHtml(unsafe) {
+  if (unsafe == null) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
 
@@ -12,258 +23,12 @@ let currentBeeswarmPrices = [];
 let activeListingsData = null;
 let currentMarketValue = null;
 
-// Password Protection
-const CORRECT_PASSWORD = 'BreakersOnBudget25!';
-const MAX_LOGIN_ATTEMPTS = 3;
-const COOLDOWN_PERIOD = 15 * 60 * 1000; // 15 minutes in milliseconds
-
 // API key is now handled securely on the backend
 const DEFAULT_API_KEY = 'backend-handled';
 
-// Check if user is currently in cooldown
-function isInCooldown() {
-    const cooldownData = localStorage.getItem('kuya-comps-cooldown');
-    if (!cooldownData) return false;
-    
-    const { endTime } = JSON.parse(cooldownData);
-    return Date.now() < endTime;
-}
-
-// Get remaining cooldown time in seconds
-function getRemainingCooldownTime() {
-    const cooldownData = localStorage.getItem('kuya-comps-cooldown');
-    if (!cooldownData) return 0;
-    
-    const { endTime } = JSON.parse(cooldownData);
-    const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
-    return remaining;
-}
-
-// Get current failed attempt count
-function getFailedAttempts() {
-    const attemptData = localStorage.getItem('kuya-comps-attempts');
-    if (!attemptData) return 0;
-    
-    const { count, lastAttempt } = JSON.parse(attemptData);
-    
-    // Reset attempts if it's been more than 1 hour since last attempt
-    if (Date.now() - lastAttempt > 60 * 60 * 1000) {
-        localStorage.removeItem('kuya-comps-attempts');
-        return 0;
-    }
-    
-    return count;
-}
-
-// Increment failed attempts
-function incrementFailedAttempts() {
-    const currentAttempts = getFailedAttempts();
-    const newCount = currentAttempts + 1;
-    
-    localStorage.setItem('kuya-comps-attempts', JSON.stringify({
-        count: newCount,
-        lastAttempt: Date.now()
-    }));
-    
-    return newCount;
-}
-
-// Start cooldown period
-function startCooldown() {
-    const endTime = Date.now() + COOLDOWN_PERIOD;
-    localStorage.setItem('kuya-comps-cooldown', JSON.stringify({ endTime }));
-    updateCooldownDisplay();
-}
-
-// Clear all attempt tracking
-function clearAttemptTracking() {
-    localStorage.removeItem('kuya-comps-attempts');
-    localStorage.removeItem('kuya-comps-cooldown');
-}
-
-// Update cooldown display
-function updateCooldownDisplay() {
-    const passwordError = document.getElementById('password-error');
-    const passwordSubmit = document.getElementById('password-submit');
-    const passwordInput = document.getElementById('password-input');
-    const toggleBtn = document.querySelector('.password-toggle-btn');
-    
-    if (isInCooldown()) {
-        const remainingTime = getRemainingCooldownTime();
-        const minutes = Math.floor(remainingTime / 60);
-        const seconds = remainingTime % 60;
-        
-        passwordError.innerHTML = `🔒 <strong>Account locked.</strong><br>Too many failed attempts.<br>Try again in ${minutes}:${seconds.toString().padStart(2, '0')}.`;
-        passwordError.style.display = 'block';
-        passwordSubmit.disabled = true;
-        passwordInput.disabled = true;
-        if (toggleBtn) toggleBtn.style.display = 'none';
-        
-        passwordSubmit.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-        passwordSubmit.style.cursor = 'not-allowed';
-        
-        // Update every second
-        setTimeout(updateCooldownDisplay, 1000);
-    } else {
-        // Cooldown expired, re-enable login
-        passwordError.style.display = 'none';
-        passwordSubmit.disabled = false;
-        passwordInput.disabled = false;
-        if (toggleBtn) toggleBtn.style.display = 'flex';
-        
-        passwordSubmit.style.background = 'var(--gradient-primary)';
-        passwordSubmit.style.cursor = 'pointer';
-        
-        // Clear cooldown data if expired
-        localStorage.removeItem('kuya-comps-cooldown');
-    }
-}
-
-function checkPassword() {
-    // Check if in cooldown period
-    if (isInCooldown()) {
-        updateCooldownDisplay();
-        return;
-    }
-    const passwordInput = document.getElementById('password-input');
-    const passwordError = document.getElementById('password-error');
-    const passwordOverlay = document.getElementById('password-overlay');
-    const mainContent = document.querySelector('.main-content');
-    const rememberMe = document.getElementById('remember-me');
-    
-    if (passwordInput.value === CORRECT_PASSWORD) {
-        // Correct password - clear all attempt tracking and grant access
-        clearAttemptTracking();
-        
-        passwordOverlay.style.display = 'none';
-        mainContent.classList.add('authenticated');
-        mainContent.style.display = 'block';
-        
-        // Store authentication based on remember me checkbox
-        if (rememberMe.checked) {
-            localStorage.setItem('kuya-comps-authenticated', 'true');
-            localStorage.setItem('kuya-comps-remember', 'true');
-        } else {
-            sessionStorage.setItem('kuya-comps-authenticated', 'true');
-        }
-        
-        // Clear the password field and uncheck remember me
-        passwordInput.value = '';
-        rememberMe.checked = false;
-        
-        // Initialize the application
-        initializeApp();
-    } else {
-        // Incorrect password - increment attempts
-        const currentAttempts = incrementFailedAttempts();
-        const remainingAttempts = MAX_LOGIN_ATTEMPTS - currentAttempts;
-        
-        passwordInput.value = '';
-        passwordInput.focus();
-        
-        if (currentAttempts >= MAX_LOGIN_ATTEMPTS) {
-            // Max attempts reached - start cooldown
-            startCooldown();
-        } else {
-            // Show attempt warning
-            passwordError.innerHTML = `❌ <strong>Incorrect password</strong><br>${remainingAttempts} ${remainingAttempts === 1 ? 'attempt' : 'attempts'} remaining before lockout.`;
-            passwordError.style.display = 'block';
-            
-            // Hide error after 5 seconds
-            setTimeout(() => {
-                if (!isInCooldown()) {
-                    passwordError.style.display = 'none';
-                }
-            }, 5000);
-        }
-    }
-}
-
-// Check if user is already authenticated on page load
-function checkAuthentication() {
-    // Check both localStorage (remember me) and sessionStorage (single session)
-    const isRemembered = localStorage.getItem('kuya-comps-authenticated') === 'true';
-    const isSessionAuth = sessionStorage.getItem('kuya-comps-authenticated') === 'true';
-    
-    if (isRemembered || isSessionAuth) {
-        document.getElementById('password-overlay').style.display = 'none';
-        document.querySelector('.main-content').classList.add('authenticated');
-        document.querySelector('.main-content').style.display = 'block';
-        initializeApp();
-    } else {
-        // Ensure content is hidden and overlay is shown
-        document.getElementById('password-overlay').style.display = 'flex';
-        document.querySelector('.main-content').classList.remove('authenticated');
-        document.querySelector('.main-content').style.display = 'none';
-    }
-}
-
-// Function to logout (clear all authentication)
-function logout() {
-    localStorage.removeItem('kuya-comps-authenticated');
-    localStorage.removeItem('kuya-comps-remember');
-    sessionStorage.removeItem('kuya-comps-authenticated');
-    location.reload(); // Refresh page to show login screen
-}
-
-// Toggle password visibility
-function togglePasswordVisibility(event) {
-    // Prevent default button behavior
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    
-    const passwordInput = document.getElementById('password-input');
-    const toggleIcon = document.getElementById('password-toggle-icon');
-    const toggleBtn = document.querySelector('.password-toggle-btn');
-    
-    if (!passwordInput || !toggleIcon || !toggleBtn) {
-        console.error('Password toggle elements not found');
-        return;
-    }
-    
-    console.log('Toggle clicked - current input type:', passwordInput.type);
-    
-    if (passwordInput.type === 'password') {
-        // Show password
-        passwordInput.type = 'text';
-        toggleIcon.textContent = '🙈';
-        toggleBtn.setAttribute('aria-label', 'Hide password');
-        toggleBtn.title = 'Hide password';
-        console.log('Password visibility: SHOWN');
-    } else {
-        // Hide password
-        passwordInput.type = 'password';
-        toggleIcon.textContent = '👁️';
-        toggleBtn.setAttribute('aria-label', 'Show password');
-        toggleBtn.title = 'Show password';
-        console.log('Password visibility: HIDDEN');
-    }
-    
-    // Keep focus on password input to continue typing
-    passwordInput.focus();
-    
-    return false;
-}
-
-// Allow Enter key to submit password
+// Initialize the application on page load
 document.addEventListener('DOMContentLoaded', () => {
-    checkAuthentication();
-    
-    // Check for cooldown status on page load
-    if (isInCooldown()) {
-        updateCooldownDisplay();
-    }
-    
-    const passwordInput = document.getElementById('password-input');
-    if (passwordInput) {
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !isInCooldown()) {
-                checkPassword();
-            }
-        });
-    }
+    initializeApp();
 });
 
 // Tab management
@@ -413,7 +178,7 @@ async function runIntelligenceSearch() {
         } catch (error) {
             console.error('[INTELLIGENCE] Search error:', error);
             insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-                <strong>Error:</strong> ${error}
+                <strong>Error:</strong> ${escapeHtml(error)}
             </div>`;
         } finally {
             // Restore button state
@@ -425,7 +190,7 @@ async function runIntelligenceSearch() {
         console.error('[INTELLIGENCE] Outer error:', error);
         const insightsContainer = document.getElementById("insights-container");
         insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-            <strong>Error:</strong> ${error.message}
+            <strong>Error:</strong> ${escapeHtml(error.message)}
         </div>`;
     }
 }
@@ -497,7 +262,7 @@ function renderCardComparison(cardResults) {
     // Create a card for each search result
     cardResults.forEach(result => {
         const data = result.data;
-        const cardLabel = `Card ${result.cardNumber}: ${result.grader} ${result.grade}`;
+        const cardLabel = `Card ${result.cardNumber}: ${escapeHtml(result.grader)} ${escapeHtml(result.grade)}`;
         const marketValue = result.marketValue;
         
         if (data.items.length === 0) {
@@ -600,8 +365,12 @@ function updateGradeOptions(cardNumber) {
     
     const selectedGrader = graderSelect.value;
     
-    // Clear existing options
-    gradeSelect.innerHTML = '<option value="">Select Grade</option>';
+    // Build new options as a document fragment to prevent layout shifts
+    const fragment = document.createDocumentFragment();
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Select Grade';
+    fragment.appendChild(defaultOption);
     
     // If a grader is selected, populate grades
     if (selectedGrader && gradeOptions[selectedGrader]) {
@@ -609,9 +378,13 @@ function updateGradeOptions(cardNumber) {
             const option = document.createElement('option');
             option.value = grade;
             option.textContent = grade;
-            gradeSelect.appendChild(option);
+            fragment.appendChild(option);
         });
     }
+    
+    // Replace all options at once to prevent reflow
+    gradeSelect.innerHTML = '';
+    gradeSelect.appendChild(fragment);
 }
 
 // Setup event listeners for grader dropdowns
@@ -674,9 +447,9 @@ async function renderData(data, secondData = null, marketValue = null) {
           <tbody>
           ${data.items.map(item => `
             <tr>
-              <td>${item.title}</td>
+              <td>${escapeHtml(item.title)}</td>
               <td>${formatMoney(item.total_price)}</td>
-              <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+              <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
             </tr>
           `).join('')}
           </tbody>
@@ -742,11 +515,11 @@ async function renderData(data, secondData = null, marketValue = null) {
                 
                 return `
                   <tr>
-                    <td>${item.title}</td>
+                    <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
-                    <td>${displayType}</td>
-                    <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+                    <td>${escapeHtml(displayType)}</td>
+                    <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
                   </tr>
                 `;
               }).join('') : `
@@ -848,11 +621,11 @@ function filterActiveListings() {
             
             return `
               <tr>
-                <td>${item.title}</td>
+                <td>${escapeHtml(item.title)}</td>
                 <td>${formatMoney(item.total_price)}</td>
                 <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
-                <td>${displayType}</td>
-                <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+                <td>${escapeHtml(displayType)}</td>
+                <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
               </tr>
             `;
           }).join('') : `
@@ -1543,7 +1316,7 @@ async function updateFmv(data) {
     const fmvData = await resp.json();
 
     if (fmvData.detail) {
-      container.innerHTML = "Error calculating FMV: " + fmvData.detail;
+      container.innerHTML = "Error calculating FMV: " + escapeHtml(fmvData.detail);
       return;
     }
 
@@ -1585,7 +1358,7 @@ async function updateFmv(data) {
     container.innerHTML += fmvHtml;
 
   } catch (err) {
-    container.innerHTML = "Error calculating FMV: " + err;
+    container.innerHTML = "Error calculating FMV: " + escapeHtml(String(err));
   }
 }
 
@@ -1974,7 +1747,7 @@ function drawComparisonBeeswarm(cardResults) {
   let legendX = margin.left;
   cardResults.forEach((result, index) => {
     const color = cardColors[index % cardColors.length];
-    const label = `Card ${result.cardNumber}: ${result.grader} ${result.grade}`;
+    const label = `Card ${result.cardNumber}: ${escapeHtml(result.grader)} ${escapeHtml(result.grade)}`;
     
     // Draw color box
     ctx.fillStyle = color.solid;
