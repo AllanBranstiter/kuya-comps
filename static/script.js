@@ -310,13 +310,34 @@ async function runIntelligenceSearch() {
         if (!validateSearchQuery(query)) {
             throw new Error("Please enter a card search query");
         }
+        
+        // Collect card selections
+        const cardSelections = [];
+        for (let i = 1; i <= 3; i++) {
+            const grader = document.getElementById(`card${i}-grader`)?.value;
+            const grade = document.getElementById(`card${i}-grade`)?.value;
+            
+            if (grader && grade) {
+                cardSelections.push({
+                    cardNumber: i,
+                    grader: grader,
+                    grade: grade,
+                    searchQuery: `${query} "${grader} ${grade}"`
+                });
+            }
+        }
+        
+        // Validation - at least one card must be selected
+        if (cardSelections.length === 0) {
+            throw new Error("Please select at least one grader and grade for comparison");
+        }
     
         // API key is handled on backend
         const apiKey = "backend-handled";
         
         // Show loading state
         const insightsContainer = document.getElementById("insights-container");
-        insightsContainer.innerHTML = '<div class="loading">Searching...</div>';
+        insightsContainer.innerHTML = '<div class="loading">Searching across selected cards...</div>';
         
         // Add loading state to button
         const findCardButton = document.querySelector('button[onclick="runIntelligenceSearch()"]');
@@ -325,43 +346,57 @@ async function runIntelligenceSearch() {
         findCardButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
         findCardButton.disabled = true;
         
+        const cardResults = [];
+        
         try {
-            console.log(`[INTELLIGENCE] Searching for: ${query}`);
-            
-            const params = new URLSearchParams({
-                query: query,
-                pages: 1,
-                delay: 2,
-                ungraded_only: false,
-                api_key: apiKey
-            });
-            
-            const url = `/comps?${params.toString()}`;
-            const resp = await fetch(url);
-            const data = await resp.json();
-            
-            if (data.detail) {
-                throw new Error(data.detail);
-            }
-            
-            console.log(`[INTELLIGENCE] Search results saved to results_library_complete.csv (${data.items.length} items)`);
-            
-            // Calculate FMV
-            let marketValue = null;
-            if (data.items && data.items.length > 0) {
-                const fmvResp = await fetch('/fmv', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data.items)
+            // Perform search for each selected card
+            for (const card of cardSelections) {
+                console.log(`[INTELLIGENCE] Searching for Card ${card.cardNumber}: ${card.searchQuery}`);
+                
+                const params = new URLSearchParams({
+                    query: card.searchQuery,
+                    pages: 1,
+                    delay: 2,
+                    ungraded_only: false,
+                    api_key: apiKey
                 });
-                const fmvData = await fmvResp.json();
-                marketValue = fmvData.market_value;
+                
+                const url = `/comps?${params.toString()}`;
+                const resp = await fetch(url);
+                const data = await resp.json();
+                
+                if (data.detail) {
+                    console.error(`[INTELLIGENCE] Error for Card ${card.cardNumber}:`, data.detail);
+                    continue;
+                }
+                
+                console.log(`[INTELLIGENCE] Card ${card.cardNumber} (${card.grader} ${card.grade}): Found ${data.items.length} items`);
+                
+                // Calculate FMV for this card
+                let marketValue = null;
+                if (data.items && data.items.length > 0) {
+                    const fmvResp = await fetch('/fmv', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data.items)
+                    });
+                    const fmvData = await fmvResp.json();
+                    marketValue = fmvData.market_value;
+                }
+                
+                cardResults.push({
+                    cardNumber: card.cardNumber,
+                    grader: card.grader,
+                    grade: card.grade,
+                    data: data,
+                    marketValue: marketValue
+                });
+                
+                console.log(`[INTELLIGENCE] Card ${card.cardNumber}: Market Value = ${marketValue ? '$' + marketValue.toFixed(2) : 'N/A'}`);
             }
-            
-            console.log(`[INTELLIGENCE] Found ${data.items.length} items, Market Value: ${marketValue ? '$' + marketValue.toFixed(2) : 'N/A'}`);
             
             // Display results
-            renderIntelligenceResults(data, marketValue);
+            renderCardComparison(cardResults);
             
         } catch (error) {
             console.error('[INTELLIGENCE] Search error:', error);
@@ -383,44 +418,69 @@ async function runIntelligenceSearch() {
     }
 }
 
-function renderIntelligenceResults(data, marketValue) {
+function renderCardComparison(cardResults) {
     const container = document.getElementById("insights-container");
     
-    if (!data || !data.items || data.items.length === 0) {
+    if (!cardResults || cardResults.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
                 <h3>🔍 No Results Found</h3>
-                <p>No data found. Try different search terms.</p>
+                <p>No data found for the selected cards. Try different search terms or card selections.</p>
             </div>
         `;
         return;
     }
     
-    const resultsHtml = `
-        <div id="intelligence-results">
-            <h3>🧠 Search Results</h3>
-            <div class="stat-grid" style="margin-bottom: 2rem;">
-                <div class="stat-item">
-                    <div class="stat-label">Items Found</div>
-                    <div class="stat-value">${data.items.length}</div>
+    let comparisonHtml = `
+        <div id="card-comparison">
+            <h3>💎 Card Comparison Results</h3>
+            <div class="psa-results-grid">
+    `;
+    
+    // Create a card for each search result
+    cardResults.forEach(result => {
+        const data = result.data;
+        const cardLabel = `Card ${result.cardNumber}: ${result.grader} ${result.grade}`;
+        const marketValue = result.marketValue;
+        
+        if (data.items.length === 0) {
+            comparisonHtml += `
+                <div class="psa-result-card">
+                    <h4>${cardLabel}</h4>
+                    <div style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                        <p>No results found</p>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-label">Min Price</div>
-                    <div class="stat-value">${formatMoney(data.min_price)}</div>
+            `;
+        } else {
+            comparisonHtml += `
+                <div class="psa-result-card">
+                    <h4>${cardLabel} <span class="item-count">(${data.items.length} items)</span></h4>
+                    <div class="psa-stats">
+                        <div class="psa-stat">
+                            <span class="psa-stat-label">Min Price:</span>
+                            <span class="psa-stat-value">${formatMoney(data.min_price)}</span>
+                        </div>
+                        <div class="psa-stat">
+                            <span class="psa-stat-label">Max Price:</span>
+                            <span class="psa-stat-value">${formatMoney(data.max_price)}</span>
+                        </div>
+                        <div class="psa-stat">
+                            <span class="psa-stat-label">Market Value:</span>
+                            <span class="psa-stat-value">${formatMoney(marketValue)}</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-label">Max Price</div>
-                    <div class="stat-value">${formatMoney(data.max_price)}</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Market Value</div>
-                    <div class="stat-value">${formatMoney(marketValue)}</div>
-                </div>
+            `;
+        }
+    });
+    
+    comparisonHtml += `
             </div>
         </div>
     `;
     
-    container.innerHTML = resultsHtml;
+    container.innerHTML = comparisonHtml;
 }
 
 function formatMoney(value) {
@@ -436,9 +496,70 @@ function toNinetyNine(value) {
   return base - 0.01;
 }
 
+// Grade options for each grading company
+const gradeOptions = {
+    'PSA': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '10'],
+    'BGS': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
+    'SGC': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
+    'CGC': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
+    'HGA': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
+    'ISA': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'GMA': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'KSA': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
+    'PGS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'PGI': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'BCCG': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'AGS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'MAC': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'RCG': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'TCG': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'PCS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'MNT': ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10'],
+    'TAG': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'ASA': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'ECS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'VGS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'BAS': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+    'JSA': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+};
+
+// Function to update grade dropdown based on selected grader
+function updateGradeOptions(cardNumber) {
+    const graderSelect = document.getElementById(`card${cardNumber}-grader`);
+    const gradeSelect = document.getElementById(`card${cardNumber}-grade`);
+    
+    if (!graderSelect || !gradeSelect) return;
+    
+    const selectedGrader = graderSelect.value;
+    
+    // Clear existing options
+    gradeSelect.innerHTML = '<option value="">Select Grade</option>';
+    
+    // If a grader is selected, populate grades
+    if (selectedGrader && gradeOptions[selectedGrader]) {
+        gradeOptions[selectedGrader].forEach(grade => {
+            const option = document.createElement('option');
+            option.value = grade;
+            option.textContent = grade;
+            gradeSelect.appendChild(option);
+        });
+    }
+}
+
+// Setup event listeners for grader dropdowns
+function setupGraderListeners() {
+    for (let i = 1; i <= 3; i++) {
+        const graderSelect = document.getElementById(`card${i}-grader`);
+        if (graderSelect) {
+            graderSelect.addEventListener('change', () => updateGradeOptions(i));
+        }
+    }
+}
+
 // This function is called after authentication
 function initializeApp() {
     setupResponsiveCanvas();
+    setupGraderListeners();
 }
 
 function setupResponsiveCanvas() {
