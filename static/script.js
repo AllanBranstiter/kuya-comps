@@ -5,6 +5,17 @@ let expectLowGlobal = null;
 let expectHighGlobal = null;
 let marketValueGlobal = null;
 
+// Security: HTML sanitization function to prevent XSS attacks
+function escapeHtml(unsafe) {
+  if (unsafe == null) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
 
@@ -12,258 +23,12 @@ let currentBeeswarmPrices = [];
 let activeListingsData = null;
 let currentMarketValue = null;
 
-// Password Protection
-const CORRECT_PASSWORD = 'BreakersOnBudget25!';
-const MAX_LOGIN_ATTEMPTS = 3;
-const COOLDOWN_PERIOD = 15 * 60 * 1000; // 15 minutes in milliseconds
-
 // API key is now handled securely on the backend
 const DEFAULT_API_KEY = 'backend-handled';
 
-// Check if user is currently in cooldown
-function isInCooldown() {
-    const cooldownData = localStorage.getItem('kuya-comps-cooldown');
-    if (!cooldownData) return false;
-    
-    const { endTime } = JSON.parse(cooldownData);
-    return Date.now() < endTime;
-}
-
-// Get remaining cooldown time in seconds
-function getRemainingCooldownTime() {
-    const cooldownData = localStorage.getItem('kuya-comps-cooldown');
-    if (!cooldownData) return 0;
-    
-    const { endTime } = JSON.parse(cooldownData);
-    const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
-    return remaining;
-}
-
-// Get current failed attempt count
-function getFailedAttempts() {
-    const attemptData = localStorage.getItem('kuya-comps-attempts');
-    if (!attemptData) return 0;
-    
-    const { count, lastAttempt } = JSON.parse(attemptData);
-    
-    // Reset attempts if it's been more than 1 hour since last attempt
-    if (Date.now() - lastAttempt > 60 * 60 * 1000) {
-        localStorage.removeItem('kuya-comps-attempts');
-        return 0;
-    }
-    
-    return count;
-}
-
-// Increment failed attempts
-function incrementFailedAttempts() {
-    const currentAttempts = getFailedAttempts();
-    const newCount = currentAttempts + 1;
-    
-    localStorage.setItem('kuya-comps-attempts', JSON.stringify({
-        count: newCount,
-        lastAttempt: Date.now()
-    }));
-    
-    return newCount;
-}
-
-// Start cooldown period
-function startCooldown() {
-    const endTime = Date.now() + COOLDOWN_PERIOD;
-    localStorage.setItem('kuya-comps-cooldown', JSON.stringify({ endTime }));
-    updateCooldownDisplay();
-}
-
-// Clear all attempt tracking
-function clearAttemptTracking() {
-    localStorage.removeItem('kuya-comps-attempts');
-    localStorage.removeItem('kuya-comps-cooldown');
-}
-
-// Update cooldown display
-function updateCooldownDisplay() {
-    const passwordError = document.getElementById('password-error');
-    const passwordSubmit = document.getElementById('password-submit');
-    const passwordInput = document.getElementById('password-input');
-    const toggleBtn = document.querySelector('.password-toggle-btn');
-    
-    if (isInCooldown()) {
-        const remainingTime = getRemainingCooldownTime();
-        const minutes = Math.floor(remainingTime / 60);
-        const seconds = remainingTime % 60;
-        
-        passwordError.innerHTML = `🔒 <strong>Account locked.</strong><br>Too many failed attempts.<br>Try again in ${minutes}:${seconds.toString().padStart(2, '0')}.`;
-        passwordError.style.display = 'block';
-        passwordSubmit.disabled = true;
-        passwordInput.disabled = true;
-        if (toggleBtn) toggleBtn.style.display = 'none';
-        
-        passwordSubmit.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-        passwordSubmit.style.cursor = 'not-allowed';
-        
-        // Update every second
-        setTimeout(updateCooldownDisplay, 1000);
-    } else {
-        // Cooldown expired, re-enable login
-        passwordError.style.display = 'none';
-        passwordSubmit.disabled = false;
-        passwordInput.disabled = false;
-        if (toggleBtn) toggleBtn.style.display = 'flex';
-        
-        passwordSubmit.style.background = 'var(--gradient-primary)';
-        passwordSubmit.style.cursor = 'pointer';
-        
-        // Clear cooldown data if expired
-        localStorage.removeItem('kuya-comps-cooldown');
-    }
-}
-
-function checkPassword() {
-    // Check if in cooldown period
-    if (isInCooldown()) {
-        updateCooldownDisplay();
-        return;
-    }
-    const passwordInput = document.getElementById('password-input');
-    const passwordError = document.getElementById('password-error');
-    const passwordOverlay = document.getElementById('password-overlay');
-    const mainContent = document.querySelector('.main-content');
-    const rememberMe = document.getElementById('remember-me');
-    
-    if (passwordInput.value === CORRECT_PASSWORD) {
-        // Correct password - clear all attempt tracking and grant access
-        clearAttemptTracking();
-        
-        passwordOverlay.style.display = 'none';
-        mainContent.classList.add('authenticated');
-        mainContent.style.display = 'block';
-        
-        // Store authentication based on remember me checkbox
-        if (rememberMe.checked) {
-            localStorage.setItem('kuya-comps-authenticated', 'true');
-            localStorage.setItem('kuya-comps-remember', 'true');
-        } else {
-            sessionStorage.setItem('kuya-comps-authenticated', 'true');
-        }
-        
-        // Clear the password field and uncheck remember me
-        passwordInput.value = '';
-        rememberMe.checked = false;
-        
-        // Initialize the application
-        initializeApp();
-    } else {
-        // Incorrect password - increment attempts
-        const currentAttempts = incrementFailedAttempts();
-        const remainingAttempts = MAX_LOGIN_ATTEMPTS - currentAttempts;
-        
-        passwordInput.value = '';
-        passwordInput.focus();
-        
-        if (currentAttempts >= MAX_LOGIN_ATTEMPTS) {
-            // Max attempts reached - start cooldown
-            startCooldown();
-        } else {
-            // Show attempt warning
-            passwordError.innerHTML = `❌ <strong>Incorrect password</strong><br>${remainingAttempts} ${remainingAttempts === 1 ? 'attempt' : 'attempts'} remaining before lockout.`;
-            passwordError.style.display = 'block';
-            
-            // Hide error after 5 seconds
-            setTimeout(() => {
-                if (!isInCooldown()) {
-                    passwordError.style.display = 'none';
-                }
-            }, 5000);
-        }
-    }
-}
-
-// Check if user is already authenticated on page load
-function checkAuthentication() {
-    // Check both localStorage (remember me) and sessionStorage (single session)
-    const isRemembered = localStorage.getItem('kuya-comps-authenticated') === 'true';
-    const isSessionAuth = sessionStorage.getItem('kuya-comps-authenticated') === 'true';
-    
-    if (isRemembered || isSessionAuth) {
-        document.getElementById('password-overlay').style.display = 'none';
-        document.querySelector('.main-content').classList.add('authenticated');
-        document.querySelector('.main-content').style.display = 'block';
-        initializeApp();
-    } else {
-        // Ensure content is hidden and overlay is shown
-        document.getElementById('password-overlay').style.display = 'flex';
-        document.querySelector('.main-content').classList.remove('authenticated');
-        document.querySelector('.main-content').style.display = 'none';
-    }
-}
-
-// Function to logout (clear all authentication)
-function logout() {
-    localStorage.removeItem('kuya-comps-authenticated');
-    localStorage.removeItem('kuya-comps-remember');
-    sessionStorage.removeItem('kuya-comps-authenticated');
-    location.reload(); // Refresh page to show login screen
-}
-
-// Toggle password visibility
-function togglePasswordVisibility(event) {
-    // Prevent default button behavior
-    if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-    }
-    
-    const passwordInput = document.getElementById('password-input');
-    const toggleIcon = document.getElementById('password-toggle-icon');
-    const toggleBtn = document.querySelector('.password-toggle-btn');
-    
-    if (!passwordInput || !toggleIcon || !toggleBtn) {
-        console.error('Password toggle elements not found');
-        return;
-    }
-    
-    console.log('Toggle clicked - current input type:', passwordInput.type);
-    
-    if (passwordInput.type === 'password') {
-        // Show password
-        passwordInput.type = 'text';
-        toggleIcon.textContent = '🙈';
-        toggleBtn.setAttribute('aria-label', 'Hide password');
-        toggleBtn.title = 'Hide password';
-        console.log('Password visibility: SHOWN');
-    } else {
-        // Hide password
-        passwordInput.type = 'password';
-        toggleIcon.textContent = '👁️';
-        toggleBtn.setAttribute('aria-label', 'Show password');
-        toggleBtn.title = 'Show password';
-        console.log('Password visibility: HIDDEN');
-    }
-    
-    // Keep focus on password input to continue typing
-    passwordInput.focus();
-    
-    return false;
-}
-
-// Allow Enter key to submit password
+// Initialize the application on page load
 document.addEventListener('DOMContentLoaded', () => {
-    checkAuthentication();
-    
-    // Check for cooldown status on page load
-    if (isInCooldown()) {
-        updateCooldownDisplay();
-    }
-    
-    const passwordInput = document.getElementById('password-input');
-    if (passwordInput) {
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !isInCooldown()) {
-                checkPassword();
-            }
-        });
-    }
+    initializeApp();
 });
 
 // Tab management
@@ -296,191 +61,213 @@ function switchTab(tabName, clickedElement = null) {
     }
 }
 
-// PSA Grade Selection Management
-function limitPsaSelection() {
-    const psaCheckboxes = document.querySelectorAll('.psa-grade');
-    const checkedBoxes = document.querySelectorAll('.psa-grade:checked');
-    
-    if (checkedBoxes.length >= 4) {
-        // Disable unchecked boxes
-        psaCheckboxes.forEach(checkbox => {
-            if (!checkbox.checked) {
-                checkbox.disabled = true;
-            }
-        });
-    } else {
-        // Enable all boxes
-        psaCheckboxes.forEach(checkbox => {
-            checkbox.disabled = false;
-        });
-    }
-    
-    // Update Find Card button availability
-    updateFindCardButton();
-}
-
-// Update Find Card button state based on PSA grade selection
-function updateFindCardButton() {
-    const checkedBoxes = document.querySelectorAll('.psa-grade:checked');
-    const findCardButton = document.querySelector('button[onclick="runIntelligenceSearch()"]');
-    
-    if (checkedBoxes.length === 0) {
-        // No grades selected - disable button
-        findCardButton.disabled = true;
-        findCardButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-        findCardButton.style.color = '#8e8e93';
-        findCardButton.style.cursor = 'not-allowed';
-        findCardButton.innerHTML = '🔍 Find Card';
-    } else {
-        // At least one grade selected - enable button
-        findCardButton.disabled = false;
-        findCardButton.style.background = 'linear-gradient(135deg, #ff9500, #ff6b35)';
-        findCardButton.style.color = 'white';
-        findCardButton.style.cursor = 'pointer';
-        findCardButton.innerHTML = '🔍 Find Card';
-    }
-}
-
-// Intelligence Search Function - Multiple PSA Grade Searches
+// Intelligence Search Function
 async function runIntelligenceSearch() {
     try {
         const query = document.getElementById("intelligence-query").value.trim();
-        const selectedGrades = [];
-        
-        document.querySelectorAll('.psa-grade:checked').forEach(checkbox => {
-            const gradeNumber = checkbox.id.replace('psa', '');
-            selectedGrades.push(gradeNumber);
-        });
         
         // Validation
         if (!query) {
             throw new Error("Please enter a card search query");
         }
-        
-        if (selectedGrades.length === 0) {
-            throw new Error("Please select at least one PSA grade");
-        }
 
-        // Validate query format
+        // Validate query is not empty
         if (!validateSearchQuery(query)) {
-            throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
+            throw new Error("Please enter a card search query");
         }
-    
-    // API key is handled on backend
-    const apiKey = "backend-handled";
-    
-    // Show loading state
-    const insightsContainer = document.getElementById("insights-container");
-    insightsContainer.innerHTML = '<div class="loading">Searching across PSA grades...</div>';
-    
-    // Add loading state to button
-    const findCardButton = document.querySelector('button[onclick="runIntelligenceSearch()"]');
-    const originalFindCardText = findCardButton.innerHTML;
-    findCardButton.innerHTML = '⏳ Searching...';
-    findCardButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-    findCardButton.disabled = true;
-    
-    const gradeResults = [];
-    
-    try {
-        // Perform search for each selected PSA grade
-        for (const grade of selectedGrades) {
-            const psaQuery = `${query} "PSA ${grade}"`;
-            console.log(`[INTELLIGENCE] Searching for: ${psaQuery}`);
+        
+        // Collect card selections and validate
+        const cardSelections = [];
+        for (let i = 1; i <= 3; i++) {
+            const grader = document.getElementById(`card${i}-grader`)?.value.trim();
+            const grade = document.getElementById(`card${i}-grade`)?.value.trim();
             
-            const params = new URLSearchParams({
-                query: psaQuery,
-                pages: 1,
-                delay: 2,
-                ungraded_only: false, // Include graded cards
-                api_key: apiKey
-            });
-            
-            const url = `/comps?${params.toString()}`;
-            const resp = await fetch(url);
-            const data = await resp.json();
-            
-            if (data.detail) {
-                console.error(`[INTELLIGENCE] Error for PSA ${grade}:`, data.detail);
-                continue;
+            // Check for incomplete selection (one field filled but not the other)
+            if ((grader && !grade) || (!grader && grade)) {
+                throw new Error(`Card ${i}: Please enter both Grader and Grade, or leave both empty`);
             }
             
-            // Log that this PSA grade search was saved to CSV
-            console.log(`[INTELLIGENCE] PSA ${grade} results saved to results_library_complete.csv (${data.items.length} items)`);
-            
-            // Calculate FMV for this grade
-            let marketValue = null;
-            if (data.items && data.items.length > 0) {
-                const fmvResp = await fetch('/fmv', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data.items)
+            // If both fields are filled, add to selections
+            if (grader && grade) {
+                cardSelections.push({
+                    cardNumber: i,
+                    grader: grader,
+                    grade: grade,
+                    searchQuery: `${query} "${grader} ${grade}"`
                 });
-                const fmvData = await fmvResp.json();
-                marketValue = fmvData.market_value;
             }
-            
-            gradeResults.push({
-                grade: grade,
-                data: data,
-                marketValue: marketValue
-            });
-            
-            console.log(`[INTELLIGENCE] PSA ${grade}: Found ${data.items.length} items, Market Value: ${marketValue ? '$' + marketValue.toFixed(2) : 'N/A'}`);
         }
         
-        // Display results
-        renderPsaComparison(gradeResults);
+        // Validation - at least one card must be completely filled
+        if (cardSelections.length === 0) {
+            throw new Error("Please enter at least one complete card (both Grader and Grade)");
+        }
+    
+        // API key is handled on backend
+        const apiKey = "backend-handled";
         
-    } catch (error) {
-        console.error('[INTELLIGENCE] Search error:', error);
-        insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-            <strong>Error:</strong> ${error}
-        </div>`;
-    } finally {
-        // Restore button state based on PSA selection
-        findCardButton.innerHTML = originalFindCardText;
-        updateFindCardButton();
-    }
+        // Show loading state
+        const insightsContainer = document.getElementById("insights-container");
+        insightsContainer.innerHTML = '<div class="loading">Searching across selected cards...</div>';
+        
+        // Add loading state to button
+        const findCardButton = document.querySelector('button[onclick="runIntelligenceSearch()"]');
+        const originalFindCardText = findCardButton.innerHTML;
+        findCardButton.innerHTML = '⏳ Searching...';
+        findCardButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
+        findCardButton.disabled = true;
+        
+        const cardResults = [];
+        
+        try {
+            // Perform search for each selected card
+            for (const card of cardSelections) {
+                console.log(`[INTELLIGENCE] Searching for Card ${card.cardNumber}: ${card.searchQuery}`);
+                
+                const params = new URLSearchParams({
+                    query: card.searchQuery,
+                    pages: 1,
+                    delay: 2,
+                    ungraded_only: false,
+                    api_key: apiKey
+                });
+                
+                const url = `/comps?${params.toString()}`;
+                const resp = await fetch(url);
+                const data = await resp.json();
+                
+                if (data.detail) {
+                    console.error(`[INTELLIGENCE] Error for Card ${card.cardNumber}:`, data.detail);
+                    continue;
+                }
+                
+                console.log(`[INTELLIGENCE] Card ${card.cardNumber} (${card.grader} ${card.grade}): Found ${data.items.length} items`);
+                
+                // Calculate FMV for this card
+                let marketValue = null;
+                let fmvLow = null;
+                let fmvHigh = null;
+                if (data.items && data.items.length > 0) {
+                    const fmvResp = await fetch('/fmv', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data.items)
+                    });
+                    const fmvData = await fmvResp.json();
+                    marketValue = fmvData.market_value;
+                    fmvLow = fmvData.quick_sale || fmvData.expected_low;
+                    fmvHigh = fmvData.patient_sale || fmvData.expected_high;
+                }
+                
+                cardResults.push({
+                    cardNumber: card.cardNumber,
+                    grader: card.grader,
+                    grade: card.grade,
+                    data: data,
+                    marketValue: marketValue,
+                    fmvLow: fmvLow,
+                    fmvHigh: fmvHigh
+                });
+                
+                console.log(`[INTELLIGENCE] Card ${card.cardNumber}: Market Value = ${marketValue ? '$' + marketValue.toFixed(2) : 'N/A'}`);
+            }
+            
+            // Display results
+            renderCardComparison(cardResults);
+            
+        } catch (error) {
+            console.error('[INTELLIGENCE] Search error:', error);
+            insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
+                <strong>Error:</strong> ${escapeHtml(error)}
+            </div>`;
+        } finally {
+            // Restore button state
+            findCardButton.innerHTML = originalFindCardText;
+            findCardButton.style.background = 'linear-gradient(135deg, #ff9500, #ff6b35)';
+            findCardButton.disabled = false;
+        }
     } catch (error) {
         console.error('[INTELLIGENCE] Outer error:', error);
         const insightsContainer = document.getElementById("insights-container");
         insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-            <strong>Error:</strong> ${error.message}
+            <strong>Error:</strong> ${escapeHtml(error.message)}
         </div>`;
     }
 }
 
-function renderPsaComparison(gradeResults) {
+function clearIntelligenceSearch() {
+    // Clear the search query input
+    const queryInput = document.getElementById("intelligence-query");
+    if (queryInput) {
+        queryInput.value = "";
+    }
+    
+    // Reset all card text inputs
+    for (let i = 1; i <= 3; i++) {
+        const graderInput = document.getElementById(`card${i}-grader`);
+        const gradeInput = document.getElementById(`card${i}-grade`);
+        
+        if (graderInput) {
+            graderInput.value = "";
+        }
+        
+        if (gradeInput) {
+            gradeInput.value = "";
+        }
+    }
+    
+    // Clear the insights container and show default message
+    const insightsContainer = document.getElementById("insights-container");
+    if (insightsContainer) {
+        insightsContainer.innerHTML = `
+            <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
+                <h3>🧠 Grading Intelligence</h3>
+                <p>Enter a specific card search above to see advanced analytics and insights</p>
+            </div>
+        `;
+    }
+    
+    console.log('[INTELLIGENCE] Form cleared');
+}
+
+function renderCardComparison(cardResults) {
     const container = document.getElementById("insights-container");
     
-    if (!gradeResults || gradeResults.length === 0) {
+    if (!cardResults || cardResults.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
                 <h3>🔍 No Results Found</h3>
-                <p>No data found for the selected PSA grades. Try different grades or search terms.</p>
+                <p>No data found for the selected cards. Try different search terms or card selections.</p>
             </div>
         `;
         return;
     }
     
     let comparisonHtml = `
-        <div id="psa-comparison">
-            <h3>💎 PSA Grade Price Comparison</h3>
+        <div id="card-comparison">
+            <h3>💎 Card Comparison Results</h3>
+            
+            <!-- Beeswarm Chart -->
+            <div style="margin-bottom: 2rem; padding: 1.5rem; background: var(--card-background); border-radius: 12px; border: 1px solid var(--border-color);">
+                <h4 style="margin-top: 0; margin-bottom: 1rem; text-align: center;">Fair Market Value Ranges</h4>
+                <div id="comparison-chart-container" style="width: 100%; position: relative;">
+                    <canvas id="comparisonBeeswarmCanvas" style="width: 100%; height: 250px; display: block;"></canvas>
+                </div>
+            </div>
+            
             <div class="psa-results-grid">
     `;
     
-    // Create a card for each PSA grade
-    gradeResults.forEach(result => {
+    // Create a card for each search result
+    cardResults.forEach(result => {
         const data = result.data;
-        const grade = result.grade;
+        const cardLabel = `Card ${result.cardNumber}: ${escapeHtml(result.grader)} ${escapeHtml(result.grade)}`;
         const marketValue = result.marketValue;
         
         if (data.items.length === 0) {
-            // No results for this grade
             comparisonHtml += `
                 <div class="psa-result-card">
-                    <h4>PSA ${grade}</h4>
+                    <h4>${cardLabel}</h4>
                     <div style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
                         <p>No results found</p>
                     </div>
@@ -489,7 +276,7 @@ function renderPsaComparison(gradeResults) {
         } else {
             comparisonHtml += `
                 <div class="psa-result-card">
-                    <h4>PSA ${grade} <span class="item-count">(${data.items.length} items)</span></h4>
+                    <h4>${cardLabel} <span class="item-count">(${data.items.length} items)</span></h4>
                     <div class="psa-stats">
                         <div class="psa-stat">
                             <span class="psa-stat-label">Min Price:</span>
@@ -500,7 +287,7 @@ function renderPsaComparison(gradeResults) {
                             <span class="psa-stat-value">${formatMoney(data.max_price)}</span>
                         </div>
                         <div class="psa-stat">
-                            <span class="psa-stat-label">Market Value:</span>
+                            <span class="psa-stat-label">Fair Market Value:</span>
                             <span class="psa-stat-value">${formatMoney(marketValue)}</span>
                         </div>
                     </div>
@@ -515,6 +302,17 @@ function renderPsaComparison(gradeResults) {
     `;
     
     container.innerHTML = comparisonHtml;
+    
+    // Draw the comparison beeswarm chart after DOM is updated
+    setTimeout(() => {
+        const canvas = document.getElementById("comparisonBeeswarmCanvas");
+        if (canvas) {
+            console.log('[CHART] Drawing comparison beeswarm chart with', cardResults.length, 'cards');
+            drawComparisonBeeswarm(cardResults);
+        } else {
+            console.error('[CHART] Canvas element not found');
+        }
+    }, 200);
 }
 
 function formatMoney(value) {
@@ -530,11 +328,10 @@ function toNinetyNine(value) {
   return base - 0.01;
 }
 
+
 // This function is called after authentication
 function initializeApp() {
     setupResponsiveCanvas();
-    // Initialize Find Card button state based on default checked PSA grades
-    updateFindCardButton();
 }
 
 function setupResponsiveCanvas() {
@@ -556,11 +353,11 @@ function resizeCanvas() {
     
     // Set canvas actual size (in pixels)
     canvas.width = containerWidth;
-    canvas.height = 200;
+    canvas.height = 250;
     
     // Update CSS size to match
     canvas.style.width = containerWidth + 'px';
-    canvas.style.height = '200px';
+    canvas.style.height = '250px';
 }
 
 async function renderData(data, secondData = null, marketValue = null) {
@@ -581,9 +378,9 @@ async function renderData(data, secondData = null, marketValue = null) {
           <tbody>
           ${data.items.map(item => `
             <tr>
-              <td>${item.title}</td>
+              <td>${escapeHtml(item.title)}</td>
               <td>${formatMoney(item.total_price)}</td>
-              <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+              <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
             </tr>
           `).join('')}
           </tbody>
@@ -649,11 +446,11 @@ async function renderData(data, secondData = null, marketValue = null) {
                 
                 return `
                   <tr>
-                    <td>${item.title}</td>
+                    <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
-                    <td>${displayType}</td>
-                    <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+                    <td>${escapeHtml(displayType)}</td>
+                    <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
                   </tr>
                 `;
               }).join('') : `
@@ -755,11 +552,11 @@ function filterActiveListings() {
             
             return `
               <tr>
-                <td>${item.title}</td>
+                <td>${escapeHtml(item.title)}</td>
                 <td>${formatMoney(item.total_price)}</td>
                 <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
-                <td>${displayType}</td>
-                <td><a href="${item.link}" target="_blank">${item.item_id}</a></td>
+                <td>${escapeHtml(displayType)}</td>
+                <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
               </tr>
             `;
           }).join('') : `
@@ -790,7 +587,7 @@ async function runSearch() {
         }
         
         if (!validateSearchQuery(query)) {
-            throw new Error("Please include both year and card details in your search (e.g., '2024 Topps Chrome Elly De La Cruz')");
+            throw new Error("Please enter a search query");
         }
         
         await runSearchInternal();
@@ -801,15 +598,8 @@ async function runSearch() {
 
 // Helper function to validate search query format
 function validateSearchQuery(query) {
-    // Check for year (1800-2099) - supports vintage, modern, and future cards
-    const hasYear = /(1[8-9][0-9]{2}|20[0-9]{2})/.test(query);
-    
-    // Check for meaningful content (at least 2 non-quote, non-whitespace segments)
-    const cleanQuery = query.replace(/["']/g, '').trim();
-    const words = cleanQuery.split(/\s+/).filter(word => word.length > 1);
-    const hasDetails = words.length >= 2;
-    
-    return hasYear && hasDetails;
+    // Only check that query is not empty - no year or content requirements
+    return query && query.trim().length > 0;
 }
 
 // Helper function to show errors
@@ -940,20 +730,7 @@ function getSearchQueryWithExclusions(baseQuery) {
             
             // Multi/duplicate terms
             '-multi', '-multiple', '-multiples', '-duplicate', '-duplicates', '-dupe', '-dupes',
-            '-"group of"', '-"set of"',
-            
-            // Set terms
-            '-"complete set"', '-"factory set"', '-"team set"', '-"player set"', '-"starter set"',
-            
-            // Box/case terms
-            '-box', '-"hanger box"', '-"blaster box"', '-"mega box"', '-"sealed box"',
-            '-case', '-"sealed case"',
-            
-            // Pack terms
-            '-pack', '-"wax pack"', '-"fat pack"', '-"value pack"',
-            
-            // Random/variety terms
-            '-random', '-mystery', '-assorted', '-"grab bag"', '-variety', '-sampler'
+            '-"group of"', '-"set of"'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(lotExclusions);
     }
@@ -1470,7 +1247,7 @@ async function updateFmv(data) {
     const fmvData = await resp.json();
 
     if (fmvData.detail) {
-      container.innerHTML = "Error calculating FMV: " + fmvData.detail;
+      container.innerHTML = "Error calculating FMV: " + escapeHtml(fmvData.detail);
       return;
     }
 
@@ -1512,7 +1289,7 @@ async function updateFmv(data) {
     container.innerHTML += fmvHtml;
 
   } catch (err) {
-    container.innerHTML = "Error calculating FMV: " + err;
+    container.innerHTML = "Error calculating FMV: " + escapeHtml(String(err));
   }
 }
 
@@ -1556,11 +1333,17 @@ function drawBeeswarm(prices) {
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
-  const margin = { top: 50, right: 40, bottom: 50, left: 40 };
+  const margin = { top: 60, right: 40, bottom: 70, left: 40 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
   ctx.clearRect(0, 0, width, height);
+  
+  // Draw chart title
+  ctx.fillStyle = "#1d1d1f";
+  ctx.font = "bold 16px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  ctx.fillText("Fair Market Value Ranges", width / 2, 25);
 
   // Filter out null/undefined prices and convert to numbers
   const validPrices = prices.filter(p => p != null && !isNaN(p) && p > 0).map(p => parseFloat(p));
@@ -1674,16 +1457,16 @@ function drawBeeswarm(prices) {
     ctx.shadowOffsetY = 0;
     ctx.shadowBlur = 0;
     
-    // Add FMV dollar value labels (horizontal) with solid text
+    // Add FMV dollar value labels (above the bars) with solid text
     ctx.fillStyle = "#34c759";
-    ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+    ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = "center";
     
-    // FMV Low dollar value label
-    ctx.fillText(formatMoney(expectLowGlobal), x1, 35);
+    // FMV Low dollar value label (above bar)
+    ctx.fillText(formatMoney(expectLowGlobal), x1, margin.top - 8);
     
-    // FMV High dollar value label
-    ctx.fillText(formatMoney(expectHighGlobal), x2, 35);
+    // FMV High dollar value label (above bar)
+    ctx.fillText(formatMoney(expectHighGlobal), x2, margin.top - 8);
   }
 
   // --- Draw Points with improved collision detection ---
@@ -1762,29 +1545,46 @@ function drawBeeswarm(prices) {
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // --- Draw Labels ---
+  // --- Draw X-Axis Labels ---
   ctx.fillStyle = "#6e6e73";
-  ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = "center";
 
   if (priceRange > 0) {
-    // Min
-    ctx.fillText(formatMoney(minPrice), margin.left, height - margin.bottom + 20);
-    // Max
-    ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 20);
+    // Min price label
+    ctx.fillText("Min", margin.left, height - margin.bottom + 15);
+    ctx.fillStyle = "#1d1d1f";
+    ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText(formatMoney(minPrice), margin.left, height - margin.bottom + 30);
     
-    // FMV marker instead of Avg
+    // Max price label
+    ctx.fillStyle = "#6e6e73";
+    ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText("Max", width - margin.right, height - margin.bottom + 15);
+    ctx.fillStyle = "#1d1d1f";
+    ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 30);
+    
+    // FMV marker with label
     if (marketValueGlobal !== null && marketValueGlobal >= minPrice && marketValueGlobal <= maxPrice) {
       const fmvX = xScale(marketValueGlobal);
-      ctx.fillText("FMV: " + formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 35);
       
-      // Draw line for FMV
+      // Draw vertical line for FMV
       ctx.beginPath();
       ctx.moveTo(fmvX, height - margin.bottom);
       ctx.lineTo(fmvX, height - margin.bottom + 5);
-      ctx.strokeStyle = "#d92a2a";
+      ctx.strokeStyle = "#ff9500";
       ctx.lineWidth = 2;
       ctx.stroke();
+      
+      // FMV label
+      ctx.fillStyle = "#6e6e73";
+      ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+      ctx.textAlign = "center";
+      ctx.fillText("FMV", fmvX, height - margin.bottom + 15);
+      ctx.fillStyle = "#ff9500";
+      ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+      ctx.fillText(formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 30);
     }
   } else {
     // All prices are the same
@@ -1798,6 +1598,173 @@ function drawBeeswarm(prices) {
     ctx.fillText(`${filteredPrices.length} items (${outliersRemoved} outliers removed)`, width - 120, margin.top + 15);
   } else {
     ctx.fillText(`${filteredPrices.length} items`, width - 60, margin.top + 15);
+  }
+}
+
+function drawComparisonBeeswarm(cardResults) {
+  const canvas = document.getElementById("comparisonBeeswarmCanvas");
+  if (!canvas) {
+    console.error('[CHART] Canvas not found');
+    return;
+  }
+  
+  if (!cardResults || cardResults.length === 0) {
+    console.error('[CHART] No card results to display');
+    return;
+  }
+
+  console.log('[CHART] Setting up canvas...');
+  
+  // Set canvas size
+  const container = canvas.parentElement;
+  const containerWidth = container.offsetWidth;
+  
+  console.log('[CHART] Container width:', containerWidth);
+  
+  canvas.width = containerWidth;
+  canvas.height = 250;
+  canvas.style.width = containerWidth + 'px';
+  canvas.style.height = '250px';
+  
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const margin = { top: 60, right: 40, bottom: 50, left: 40 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  ctx.clearRect(0, 0, width, height);
+  
+  console.log('[CHART] Canvas cleared, drawing FMV ranges...');
+
+  // Define colors for each card
+  const cardColors = [
+    { fill: 'rgba(0, 122, 255, 0.3)', stroke: 'rgba(0, 122, 255, 0.9)', solid: 'rgb(0, 122, 255)' },      // Blue
+    { fill: 'rgba(255, 59, 48, 0.3)', stroke: 'rgba(255, 59, 48, 0.9)', solid: 'rgb(255, 59, 48)' },      // Red
+    { fill: 'rgba(52, 199, 89, 0.3)', stroke: 'rgba(52, 199, 89, 0.9)', solid: 'rgb(52, 199, 89)' }       // Green
+  ];
+
+  // Find global min and max from all FMV ranges
+  let globalMin = Infinity;
+  let globalMax = -Infinity;
+  
+  cardResults.forEach(result => {
+    if (result.fmvLow != null) {
+      globalMin = Math.min(globalMin, result.fmvLow);
+    }
+    if (result.fmvHigh != null) {
+      globalMax = Math.max(globalMax, result.fmvHigh);
+    }
+  });
+
+  if (globalMin === Infinity || globalMax === -Infinity) {
+    ctx.fillStyle = "#6e6e73";
+    ctx.font = "16px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.fillText("No valid FMV data to display", width / 2, height / 2);
+    return;
+  }
+
+  const priceRange = globalMax - globalMin;
+  
+  const xScale = (price) => {
+    if (priceRange === 0) {
+      return width / 2;
+    }
+    return margin.left + ((price - globalMin) / priceRange) * innerWidth;
+  };
+
+  // Draw legend
+  let legendX = margin.left;
+  cardResults.forEach((result, index) => {
+    const color = cardColors[index % cardColors.length];
+    const label = `Card ${result.cardNumber}: ${escapeHtml(result.grader)} ${escapeHtml(result.grade)}`;
+    
+    // Draw color box
+    ctx.fillStyle = color.solid;
+    ctx.fillRect(legendX, margin.top - 40, 12, 12);
+    
+    // Draw label
+    ctx.fillStyle = "#1d1d1f";
+    ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "left";
+    ctx.fillText(label, legendX + 18, margin.top - 30);
+    
+    // Move x position for next legend item
+    const labelWidth = ctx.measureText(label).width;
+    legendX += labelWidth + 40;
+  });
+
+  // Calculate bar height and spacing
+  const barHeight = 30;
+  const spacing = 20;
+  const totalHeight = (cardResults.length * barHeight) + ((cardResults.length - 1) * spacing);
+  const startY = margin.top + (innerHeight - totalHeight) / 2;
+
+  // Draw FMV ranges for each card
+  cardResults.forEach((result, cardIndex) => {
+    if (!result.fmvLow || !result.fmvHigh) return;
+    
+    const color = cardColors[cardIndex % cardColors.length];
+    const y = startY + (cardIndex * (barHeight + spacing));
+    
+    // Use FMV range (Quick Sale to Patient Sale)
+    const fmvLow = result.fmvLow;
+    const fmvHigh = result.fmvHigh;
+    const marketValue = result.marketValue;
+    
+    if (fmvLow != null && fmvHigh != null) {
+      const x1 = xScale(fmvLow);
+      const x2 = xScale(fmvHigh);
+      
+      // Draw range bar
+      ctx.fillStyle = color.fill;
+      ctx.fillRect(x1, y, x2 - x1, barHeight);
+      
+      // Draw border
+      ctx.strokeStyle = color.stroke;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x1, y, x2 - x1, barHeight);
+      
+      // Draw market value line
+      if (marketValue != null && marketValue >= fmvLow && marketValue <= fmvHigh) {
+        const mvX = xScale(marketValue);
+        ctx.strokeStyle = color.solid;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(mvX, y - 5);
+        ctx.lineTo(mvX, y + barHeight + 5);
+        ctx.stroke();
+        
+        // Draw MV label
+        ctx.fillStyle = color.solid;
+        ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+        ctx.textAlign = "center";
+        ctx.fillText(formatMoney(marketValue), mvX, y + barHeight / 2 + 4);
+      }
+    }
+  });
+
+  // Draw Axis
+  ctx.beginPath();
+  ctx.moveTo(margin.left, height - margin.bottom);
+  ctx.lineTo(width - margin.right, height - margin.bottom);
+  ctx.strokeStyle = "#d2d2d7";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Draw price scale labels
+  ctx.fillStyle = "#6e6e73";
+  ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+
+  if (priceRange > 0) {
+    // Min
+    ctx.fillText(formatMoney(globalMin), margin.left, height - margin.bottom + 20);
+    // Max
+    ctx.fillText(formatMoney(globalMax), width - margin.right, height - margin.bottom + 20);
+  } else {
+    ctx.fillText(formatMoney(globalMin), width / 2, height - margin.bottom + 20);
   }
 }
 
