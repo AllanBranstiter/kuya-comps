@@ -1745,199 +1745,6 @@ function drawBeeswarm(prices) {
         }
       }
       
-      function drawComparisonBeeswarm(cardResults) {
-        const canvas = document.getElementById("comparisonBeeswarmCanvas");
-        if (!canvas) {
-          console.error('[CHART] Canvas not found');
-          return;
-        }
-        
-        if (!cardResults || cardResults.length === 0) {
-          console.error('[CHART] No card results to display');
-          return;
-        }
-      
-        console.log('[CHART] Setting up canvas...');
-        
-        // Set canvas size
-        const container = canvas.parentElement;
-        const containerWidth = container.offsetWidth;
-        
-        console.log('[CHART] Container width:', containerWidth);
-        
-        canvas.width = containerWidth;
-        canvas.height = 250;
-        canvas.style.width = containerWidth + 'px';
-        canvas.style.height = '250px';
-        
-        const ctx = canvas.getContext("2d");
-        const width = canvas.width;
-        const height = canvas.height;
-        const margin = { top: 60, right: 40, bottom: 50, left: 40 };
-        const innerWidth = width - margin.left - margin.right;
-        const innerHeight = height - margin.top - margin.bottom;
-      
-        ctx.clearRect(0, 0, width, height);
-        
-        console.log('[CHART] Canvas cleared, drawing chart...');
-      
-        // Define colors for each card
-        const cardColors = [
-          { fill: 'rgba(0, 122, 255, 0.7)', stroke: 'rgba(0, 122, 255, 0.9)' },      // Blue
-          { fill: 'rgba(255, 59, 48, 0.7)', stroke: 'rgba(255, 59, 48, 0.9)' },      // Red
-          { fill: 'rgba(52, 199, 89, 0.7)', stroke: 'rgba(52, 199, 89, 0.9)' }       // Green
-        ];
-      
-        // Collect all prices from all cards
-        let allPrices = [];
-        cardResults.forEach(result => {
-          if (result.data && result.data.items) {
-            const prices = result.data.items.map(item => item.total_price).filter(p => p != null && !isNaN(p) && p > 0);
-            allPrices = allPrices.concat(prices);
-          }
-        });
-      
-        if (allPrices.length === 0) {
-          ctx.fillStyle = "#6e6e73";
-          ctx.font = "16px " + getComputedStyle(document.body).fontFamily;
-          ctx.textAlign = "center";
-          ctx.fillText("No valid price data to display", width / 2, height / 2);
-          return;
-        }
-      
-        // Find global min and max for consistent scale
-        const minPrice = Math.min(...allPrices);
-        const maxPrice = Math.max(...allPrices);
-        const priceRange = maxPrice - minPrice;
-        
-        const xScale = (price) => {
-          if (priceRange === 0) {
-            return width / 2;
-          }
-          return margin.left + ((price - minPrice) / priceRange) * innerWidth;
-        };
-      
-        // Draw legend
-        let legendX = margin.left;
-        cardResults.forEach((result, index) => {
-          const color = cardColors[index % cardColors.length];
-          const label = `Card ${result.cardNumber}: ${result.grader} ${result.grade}`;
-          
-          // Draw color box
-          ctx.fillStyle = color.fill;
-          ctx.strokeStyle = color.stroke;
-          ctx.lineWidth = 1;
-          ctx.fillRect(legendX, margin.top - 40, 12, 12);
-          ctx.strokeRect(legendX, margin.top - 40, 12, 12);
-          
-          // Draw label
-          ctx.fillStyle = "#1d1d1f";
-          ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
-          ctx.textAlign = "left";
-          ctx.fillText(label, legendX + 18, margin.top - 30);
-          
-          // Move x position for next legend item
-          const labelWidth = ctx.measureText(label).width;
-          legendX += labelWidth + 40;
-        });
-      
-        // Draw all points from all cards
-        const allPoints = [];
-        const centerY = margin.top + innerHeight / 2;
-        const maxYOffset = Math.min(innerHeight / 2 - 10, 80);
-      
-        cardResults.forEach((result, cardIndex) => {
-          if (!result.data || !result.data.items) return;
-          
-          const color = cardColors[cardIndex % cardColors.length];
-          const prices = result.data.items
-            .map(item => item.total_price)
-            .filter(p => p != null && !isNaN(p) && p > 0)
-            .map(p => parseFloat(p));
-      
-          prices.forEach(price => {
-            let y = centerY;
-            let collided = true;
-            let attempts = 0;
-            let yOffset = 0;
-      
-            while (collided && attempts < 200) {
-              collided = false;
-              
-              // Check collision with previously placed points
-              for (const placed of allPoints) {
-                const dx = xScale(price) - placed.x;
-                const dy = y - placed.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                const minDistance = 4 + 4 + 1; // radius + radius + gap
-                
-                if (distance < minDistance) {
-                  collided = true;
-                  break;
-                }
-              }
-              
-              if (collided) {
-                attempts++;
-                yOffset = Math.ceil(attempts / 2) * 9; // point diameter (4*2) + gap
-                const direction = attempts % 2 === 1 ? 1 : -1;
-                y = centerY + (direction * yOffset);
-                
-                // Keep within bounds
-                if (y < margin.top + 4) {
-                  y = margin.top + 4;
-                } else if (y > height - margin.bottom - 4) {
-                  y = height - margin.bottom - 4;
-                }
-                
-                if (yOffset > maxYOffset) {
-                  break;
-                }
-              }
-            }
-            
-            allPoints.push({ x: xScale(price), y: y, color: color });
-          });
-        });
-      
-        // Draw all points
-        allPoints.forEach(point => {
-          ctx.beginPath();
-          ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
-          ctx.fillStyle = point.color.fill;
-          ctx.fill();
-          ctx.strokeStyle = point.color.stroke;
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        });
-      
-        // Draw Axis
-        ctx.beginPath();
-        ctx.moveTo(margin.left, height - margin.bottom);
-        ctx.lineTo(width - margin.right, height - margin.bottom);
-        ctx.strokeStyle = "#d2d2d7";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      
-        // Draw Labels
-        ctx.fillStyle = "#6e6e73";
-        ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
-        ctx.textAlign = "center";
-      
-        if (priceRange > 0) {
-          // Min
-          ctx.fillText(formatMoney(minPrice), margin.left, height - margin.bottom + 20);
-          // Max
-          ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 20);
-        } else {
-          ctx.fillText(formatMoney(minPrice), width / 2, height - margin.bottom + 20);
-        }
-        
-        // Draw total count
-        ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
-        ctx.fillText(`${allPrices.length} total items`, width - 60, margin.top + 15);
-      }
-      
       if (collided) {
         attempts++;
         // Use systematic offset instead of random
@@ -2017,5 +1824,198 @@ function drawBeeswarm(prices) {
   } else {
     ctx.fillText(`${filteredPrices.length} items`, width - 60, margin.top + 15);
   }
+}
+
+function drawComparisonBeeswarm(cardResults) {
+  const canvas = document.getElementById("comparisonBeeswarmCanvas");
+  if (!canvas) {
+    console.error('[CHART] Canvas not found');
+    return;
+  }
+  
+  if (!cardResults || cardResults.length === 0) {
+    console.error('[CHART] No card results to display');
+    return;
+  }
+
+  console.log('[CHART] Setting up canvas...');
+  
+  // Set canvas size
+  const container = canvas.parentElement;
+  const containerWidth = container.offsetWidth;
+  
+  console.log('[CHART] Container width:', containerWidth);
+  
+  canvas.width = containerWidth;
+  canvas.height = 250;
+  canvas.style.width = containerWidth + 'px';
+  canvas.style.height = '250px';
+  
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const margin = { top: 60, right: 40, bottom: 50, left: 40 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  ctx.clearRect(0, 0, width, height);
+  
+  console.log('[CHART] Canvas cleared, drawing chart...');
+
+  // Define colors for each card
+  const cardColors = [
+    { fill: 'rgba(0, 122, 255, 0.7)', stroke: 'rgba(0, 122, 255, 0.9)' },      // Blue
+    { fill: 'rgba(255, 59, 48, 0.7)', stroke: 'rgba(255, 59, 48, 0.9)' },      // Red
+    { fill: 'rgba(52, 199, 89, 0.7)', stroke: 'rgba(52, 199, 89, 0.9)' }       // Green
+  ];
+
+  // Collect all prices from all cards
+  let allPrices = [];
+  cardResults.forEach(result => {
+    if (result.data && result.data.items) {
+      const prices = result.data.items.map(item => item.total_price).filter(p => p != null && !isNaN(p) && p > 0);
+      allPrices = allPrices.concat(prices);
+    }
+  });
+
+  if (allPrices.length === 0) {
+    ctx.fillStyle = "#6e6e73";
+    ctx.font = "16px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.fillText("No valid price data to display", width / 2, height / 2);
+    return;
+  }
+
+  // Find global min and max for consistent scale
+  const minPrice = Math.min(...allPrices);
+  const maxPrice = Math.max(...allPrices);
+  const priceRange = maxPrice - minPrice;
+  
+  const xScale = (price) => {
+    if (priceRange === 0) {
+      return width / 2;
+    }
+    return margin.left + ((price - minPrice) / priceRange) * innerWidth;
+  };
+
+  // Draw legend
+  let legendX = margin.left;
+  cardResults.forEach((result, index) => {
+    const color = cardColors[index % cardColors.length];
+    const label = `Card ${result.cardNumber}: ${result.grader} ${result.grade}`;
+    
+    // Draw color box
+    ctx.fillStyle = color.fill;
+    ctx.strokeStyle = color.stroke;
+    ctx.lineWidth = 1;
+    ctx.fillRect(legendX, margin.top - 40, 12, 12);
+    ctx.strokeRect(legendX, margin.top - 40, 12, 12);
+    
+    // Draw label
+    ctx.fillStyle = "#1d1d1f";
+    ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "left";
+    ctx.fillText(label, legendX + 18, margin.top - 30);
+    
+    // Move x position for next legend item
+    const labelWidth = ctx.measureText(label).width;
+    legendX += labelWidth + 40;
+  });
+
+  // Draw all points from all cards
+  const allPoints = [];
+  const centerY = margin.top + innerHeight / 2;
+  const maxYOffset = Math.min(innerHeight / 2 - 10, 80);
+
+  cardResults.forEach((result, cardIndex) => {
+    if (!result.data || !result.data.items) return;
+    
+    const color = cardColors[cardIndex % cardColors.length];
+    const prices = result.data.items
+      .map(item => item.total_price)
+      .filter(p => p != null && !isNaN(p) && p > 0)
+      .map(p => parseFloat(p));
+
+    prices.forEach(price => {
+      let y = centerY;
+      let collided = true;
+      let attempts = 0;
+      let yOffset = 0;
+
+      while (collided && attempts < 200) {
+        collided = false;
+        
+        // Check collision with previously placed points
+        for (const placed of allPoints) {
+          const dx = xScale(price) - placed.x;
+          const dy = y - placed.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const minDistance = 4 + 4 + 1; // radius + radius + gap
+          
+          if (distance < minDistance) {
+            collided = true;
+            break;
+          }
+        }
+        
+        if (collided) {
+          attempts++;
+          yOffset = Math.ceil(attempts / 2) * 9; // point diameter (4*2) + gap
+          const direction = attempts % 2 === 1 ? 1 : -1;
+          y = centerY + (direction * yOffset);
+          
+          // Keep within bounds
+          if (y < margin.top + 4) {
+            y = margin.top + 4;
+          } else if (y > height - margin.bottom - 4) {
+            y = height - margin.bottom - 4;
+          }
+          
+          if (yOffset > maxYOffset) {
+            break;
+          }
+        }
+      }
+      
+      allPoints.push({ x: xScale(price), y: y, color: color });
+    });
+  });
+
+  // Draw all points
+  allPoints.forEach(point => {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
+    ctx.fillStyle = point.color.fill;
+    ctx.fill();
+    ctx.strokeStyle = point.color.stroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Draw Axis
+  ctx.beginPath();
+  ctx.moveTo(margin.left, height - margin.bottom);
+  ctx.lineTo(width - margin.right, height - margin.bottom);
+  ctx.strokeStyle = "#d2d2d7";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Draw Labels
+  ctx.fillStyle = "#6e6e73";
+  ctx.font = "12px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+
+  if (priceRange > 0) {
+    // Min
+    ctx.fillText(formatMoney(minPrice), margin.left, height - margin.bottom + 20);
+    // Max
+    ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 20);
+  } else {
+    ctx.fillText(formatMoney(minPrice), width / 2, height - margin.bottom + 20);
+  }
+  
+  // Draw total count
+  ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
+  ctx.fillText(`${allPrices.length} total items`, width - 60, margin.top + 15);
 }
 
