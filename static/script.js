@@ -485,7 +485,7 @@ function renderCardComparison(cardResults) {
             
             <!-- Beeswarm Chart -->
             <div style="margin-bottom: 2rem; padding: 1.5rem; background: var(--card-background); border-radius: 12px; border: 1px solid var(--border-color);">
-                <h4 style="margin-top: 0; margin-bottom: 1rem; text-align: center;">Price Distribution Comparison</h4>
+                <h4 style="margin-top: 0; margin-bottom: 1rem; text-align: center;">Fair Market Value Ranges</h4>
                 <div id="comparison-chart-container" style="width: 100%; position: relative;">
                     <canvas id="comparisonBeeswarmCanvas" style="width: 100%; height: 250px; display: block;"></canvas>
                 </div>
@@ -523,7 +523,7 @@ function renderCardComparison(cardResults) {
                             <span class="psa-stat-value">${formatMoney(data.max_price)}</span>
                         </div>
                         <div class="psa-stat">
-                            <span class="psa-stat-label">Market Value:</span>
+                            <span class="psa-stat-label">Fair Market Value:</span>
                             <span class="psa-stat-value">${formatMoney(marketValue)}</span>
                         </div>
                     </div>
