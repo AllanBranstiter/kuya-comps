@@ -743,6 +743,68 @@
        text-align: center;
      }
 
+     /* Mobile Intelligence Search Tip */
+     .intelligence-tip-box {
+       margin-bottom: 1.5rem;
+       padding: 1rem;
+     }
+
+     .intelligence-tip-box p {
+       font-size: 0.9rem !important;
+       line-height: 1.5 !important;
+     }
+
+     .intelligence-tip-box span {
+       display: block !important;
+       margin-top: 0.75rem !important;
+       padding: 0.75rem !important;
+       font-size: 0.8rem !important;
+       word-break: break-word;
+     }
+
+     /* Mobile Card Comparison Grid */
+     .card-comparison-grid {
+       grid-template-columns: 1fr !important;
+       gap: 1rem;
+     }
+
+     .card-comparison-container {
+       padding: 1.25rem !important;
+     }
+
+     .card-comparison-container h3 {
+       font-size: 1.1rem !important;
+       margin-bottom: 1.25rem !important;
+     }
+
+     .card-input-box {
+       padding: 1rem;
+     }
+
+     .card-input-box label:first-child {
+       font-size: 1rem !important;
+       margin-bottom: 0.75rem !important;
+     }
+
+     /* Mobile Intelligence Insights */
+     .intelligence-insights-empty {
+       padding: 2rem 1.5rem !important;
+     }
+
+     .intelligence-insights-empty h3 {
+       font-size: 1.25rem !important;
+     }
+
+     .intelligence-insights-empty p {
+       font-size: 0.95rem !important;
+     }
+
+     /* Mobile Intelligence Query Input */
+     #intelligence-query {
+       font-size: 1rem !important;
+       padding: 0.875rem !important;
+     }
+
      /* Mobile Controls */
      #controls {
        gap: 1rem;
@@ -915,6 +977,15 @@
        padding: 2.5rem;
        max-width: 400px;
      }
+
+     /* Tablet Card Comparison */
+     .card-comparison-grid {
+       grid-template-columns: repeat(2, 1fr) !important;
+     }
+
+     .intelligence-tip-box {
+       padding: 1rem;
+     }
    }
 
    /* Desktop Styles - Large screens */
@@ -939,6 +1010,15 @@
 
      .psa-results-grid {
        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+     }
+
+     /* Desktop Card Comparison */
+     .card-comparison-grid {
+       grid-template-columns: repeat(3, 1fr);
+     }
+
+     .intelligence-tip-box {
+       padding: 1rem;
      }
    }
 
@@ -1043,23 +1123,74 @@
    }
 
    /* Card Comparison Grid - Responsive Layout */
-   .card-comparison-grid {
-     display: grid;
-     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-     gap: 1rem;
-   }
-   
-   /* Card comparison text inputs - stable height */
-   input[id^="card"][id$="-grader"],
-   input[id^="card"][id$="-grade"] {
-     height: 40px !important;
-     min-height: 40px !important;
-     max-height: 40px !important;
-     line-height: normal !important;
-     padding: 0.5rem !important;
-     margin: 0 !important;
-     vertical-align: top !important;
-   }
+    .card-comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    
+    /* Card comparison text inputs - stable height */
+    input[id^="card"][id$="-grader"],
+    input[id^="card"][id$="-grade"] {
+      height: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      line-height: normal !important;
+      padding: 0.5rem !important;
+      margin: 0 !important;
+      vertical-align: top !important;
+    }
+
+    /* Intelligence search tip box */
+    .intelligence-tip-box {
+      background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%);
+      border-radius: 12px;
+      border-left: 4px solid #ff9500;
+      box-shadow: 0 2px 8px rgba(255, 149, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .intelligence-tip-box:hover {
+      box-shadow: 0 4px 12px rgba(255, 149, 0, 0.15);
+      transform: translateY(-1px);
+    }
+
+    /* Card comparison container */
+    .card-comparison-container {
+      background: var(--card-background);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .card-comparison-container:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Individual card input container */
+    .card-input-box {
+      padding: 1rem;
+      background: var(--card-background);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s ease;
+    }
+
+    .card-input-box:hover {
+      border-color: var(--primary-blue);
+      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
+    }
+
+    /* Intelligence insights container */
+    .intelligence-insights-empty {
+      text-align: center;
+      padding: 3rem 2rem;
+      background: var(--card-background);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    }
  </style>
 </head>
 <body>
@@ -1075,8 +1206,8 @@
 
   <!-- Tab Navigation -->
   <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('comps')">📊 Comps & Analysis</button>
-    <button class="tab-btn" onclick="switchTab('intelligence')">🧠 Grading Intelligence</button>
+    <button class="tab-btn active" onclick="switchTab('comps')">Comps & Analysis</button>
+    <button class="tab-btn" onclick="switchTab('intelligence')">Grading Intelligence</button>
   </div>
   
   <!-- Comps & Analysis Tab -->
@@ -1131,19 +1262,22 @@
         <input id="intelligence-query" type="text" placeholder='e.g. "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1'>
       </div>
       
-      <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #ff9500;">
-        <p style="margin: 0; font-size: 0.9rem; color: var(--subtle-text-color);">
-          💡 <strong>Tip:</strong> For best results, format your search as "Year and Set" "Athlete" "Variant" Card#
-          <br><strong>Example:</strong> "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1
+      <div style="margin-bottom: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%); border-radius: 12px; border-left: 4px solid #ff9500; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.1);">
+        <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--text-color);">
+          <strong style="color: #ff9500;">Search Tip:</strong> For best results, format your search as "Year and Set" "Athlete" "Variant" Card#
+          <br>
+          <span style="display: inline-block; margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: white; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.85rem; color: var(--subtle-text-color);">
+            "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1
+          </span>
         </p>
       </div>
       
       
       <!-- Card Comparison Fields -->
-      <div style="margin-top: 2rem; padding: 1.5rem; background: var(--background-color); border-radius: 12px; border: 1px solid var(--border-color); min-height: 300px;">
-        <h3 style="margin: 0 0 1rem 0; padding: 0; color: var(--text-color); height: auto;">Compare Cards</h3>
+      <div style="margin-top: 2rem; padding: 1.5rem; background: var(--card-background); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);">
+        <h3 style="margin: 0 0 1.5rem 0; padding: 0; color: var(--text-color); font-size: 1.2rem; font-weight: 600;">Compare Cards</h3>
         
-        <div class="card-comparison-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; align-items: start;">
+        <div class="card-comparison-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: start;">
           <!-- Card 1 -->
           <div style="padding: 1rem; background: var(--card-background); border-radius: 8px; border: 1px solid var(--border-color); box-sizing: border-box;">
             <label style="display: block; margin: 0 0 0.5rem 0; padding: 0; font-weight: 600; color: var(--text-color); text-align: center; height: 24px; line-height: 24px;">Card 1</label>
@@ -1199,9 +1333,9 @@
     </div>
     
     <div id="insights-container">
-      <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
-        <h3>🧠 Grading Intelligence</h3>
-        <p>Enter a specific card search above to see advanced analytics and insights</p>
+      <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+        <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">Grading Intelligence</h3>
+        <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Enter a specific card search above to see advanced analytics and insights</p>
       </div>
     </div>
   </div>
