@@ -296,69 +296,14 @@ function switchTab(tabName, clickedElement = null) {
     }
 }
 
-// PSA Grade Selection Management
-function limitPsaSelection() {
-    const psaCheckboxes = document.querySelectorAll('.psa-grade');
-    const checkedBoxes = document.querySelectorAll('.psa-grade:checked');
-    
-    if (checkedBoxes.length >= 4) {
-        // Disable unchecked boxes
-        psaCheckboxes.forEach(checkbox => {
-            if (!checkbox.checked) {
-                checkbox.disabled = true;
-            }
-        });
-    } else {
-        // Enable all boxes
-        psaCheckboxes.forEach(checkbox => {
-            checkbox.disabled = false;
-        });
-    }
-    
-    // Update Find Card button availability
-    updateFindCardButton();
-}
-
-// Update Find Card button state based on PSA grade selection
-function updateFindCardButton() {
-    const checkedBoxes = document.querySelectorAll('.psa-grade:checked');
-    const findCardButton = document.querySelector('button[onclick="runIntelligenceSearch()"]');
-    
-    if (checkedBoxes.length === 0) {
-        // No grades selected - disable button
-        findCardButton.disabled = true;
-        findCardButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-        findCardButton.style.color = '#8e8e93';
-        findCardButton.style.cursor = 'not-allowed';
-        findCardButton.innerHTML = '🔍 Find Card';
-    } else {
-        // At least one grade selected - enable button
-        findCardButton.disabled = false;
-        findCardButton.style.background = 'linear-gradient(135deg, #ff9500, #ff6b35)';
-        findCardButton.style.color = 'white';
-        findCardButton.style.cursor = 'pointer';
-        findCardButton.innerHTML = '🔍 Find Card';
-    }
-}
-
-// Intelligence Search Function - Multiple PSA Grade Searches
+// Intelligence Search Function
 async function runIntelligenceSearch() {
     try {
         const query = document.getElementById("intelligence-query").value.trim();
-        const selectedGrades = [];
-        
-        document.querySelectorAll('.psa-grade:checked').forEach(checkbox => {
-            const gradeNumber = checkbox.id.replace('psa', '');
-            selectedGrades.push(gradeNumber);
-        });
         
         // Validation
         if (!query) {
             throw new Error("Please enter a card search query");
-        }
-        
-        if (selectedGrades.length === 0) {
-            throw new Error("Please select at least one PSA grade");
         }
 
         // Validate query is not empty
@@ -366,33 +311,28 @@ async function runIntelligenceSearch() {
             throw new Error("Please enter a card search query");
         }
     
-    // API key is handled on backend
-    const apiKey = "backend-handled";
-    
-    // Show loading state
-    const insightsContainer = document.getElementById("insights-container");
-    insightsContainer.innerHTML = '<div class="loading">Searching across PSA grades...</div>';
-    
-    // Add loading state to button
-    const findCardButton = document.querySelector('button[onclick="runIntelligenceSearch()"]');
-    const originalFindCardText = findCardButton.innerHTML;
-    findCardButton.innerHTML = '⏳ Searching...';
-    findCardButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-    findCardButton.disabled = true;
-    
-    const gradeResults = [];
-    
-    try {
-        // Perform search for each selected PSA grade
-        for (const grade of selectedGrades) {
-            const psaQuery = `${query} "PSA ${grade}"`;
-            console.log(`[INTELLIGENCE] Searching for: ${psaQuery}`);
+        // API key is handled on backend
+        const apiKey = "backend-handled";
+        
+        // Show loading state
+        const insightsContainer = document.getElementById("insights-container");
+        insightsContainer.innerHTML = '<div class="loading">Searching...</div>';
+        
+        // Add loading state to button
+        const findCardButton = document.querySelector('button[onclick="runIntelligenceSearch()"]');
+        const originalFindCardText = findCardButton.innerHTML;
+        findCardButton.innerHTML = '⏳ Searching...';
+        findCardButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
+        findCardButton.disabled = true;
+        
+        try {
+            console.log(`[INTELLIGENCE] Searching for: ${query}`);
             
             const params = new URLSearchParams({
-                query: psaQuery,
+                query: query,
                 pages: 1,
                 delay: 2,
-                ungraded_only: false, // Include graded cards
+                ungraded_only: false,
                 api_key: apiKey
             });
             
@@ -401,14 +341,12 @@ async function runIntelligenceSearch() {
             const data = await resp.json();
             
             if (data.detail) {
-                console.error(`[INTELLIGENCE] Error for PSA ${grade}:`, data.detail);
-                continue;
+                throw new Error(data.detail);
             }
             
-            // Log that this PSA grade search was saved to CSV
-            console.log(`[INTELLIGENCE] PSA ${grade} results saved to results_library_complete.csv (${data.items.length} items)`);
+            console.log(`[INTELLIGENCE] Search results saved to results_library_complete.csv (${data.items.length} items)`);
             
-            // Calculate FMV for this grade
+            // Calculate FMV
             let marketValue = null;
             if (data.items && data.items.length > 0) {
                 const fmvResp = await fetch('/fmv', {
@@ -420,28 +358,22 @@ async function runIntelligenceSearch() {
                 marketValue = fmvData.market_value;
             }
             
-            gradeResults.push({
-                grade: grade,
-                data: data,
-                marketValue: marketValue
-            });
+            console.log(`[INTELLIGENCE] Found ${data.items.length} items, Market Value: ${marketValue ? '$' + marketValue.toFixed(2) : 'N/A'}`);
             
-            console.log(`[INTELLIGENCE] PSA ${grade}: Found ${data.items.length} items, Market Value: ${marketValue ? '$' + marketValue.toFixed(2) : 'N/A'}`);
+            // Display results
+            renderIntelligenceResults(data, marketValue);
+            
+        } catch (error) {
+            console.error('[INTELLIGENCE] Search error:', error);
+            insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
+                <strong>Error:</strong> ${error}
+            </div>`;
+        } finally {
+            // Restore button state
+            findCardButton.innerHTML = originalFindCardText;
+            findCardButton.style.background = 'linear-gradient(135deg, #ff9500, #ff6b35)';
+            findCardButton.disabled = false;
         }
-        
-        // Display results
-        renderPsaComparison(gradeResults);
-        
-    } catch (error) {
-        console.error('[INTELLIGENCE] Search error:', error);
-        insightsContainer.innerHTML = `<div style="color: #ff3b30; text-align: center; padding: 2rem;">
-            <strong>Error:</strong> ${error}
-        </div>`;
-    } finally {
-        // Restore button state based on PSA selection
-        findCardButton.innerHTML = originalFindCardText;
-        updateFindCardButton();
-    }
     } catch (error) {
         console.error('[INTELLIGENCE] Outer error:', error);
         const insightsContainer = document.getElementById("insights-container");
@@ -451,70 +383,44 @@ async function runIntelligenceSearch() {
     }
 }
 
-function renderPsaComparison(gradeResults) {
+function renderIntelligenceResults(data, marketValue) {
     const container = document.getElementById("insights-container");
     
-    if (!gradeResults || gradeResults.length === 0) {
+    if (!data || !data.items || data.items.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 3rem; color: var(--subtle-text-color);">
                 <h3>🔍 No Results Found</h3>
-                <p>No data found for the selected PSA grades. Try different grades or search terms.</p>
+                <p>No data found. Try different search terms.</p>
             </div>
         `;
         return;
     }
     
-    let comparisonHtml = `
-        <div id="psa-comparison">
-            <h3>💎 PSA Grade Price Comparison</h3>
-            <div class="psa-results-grid">
-    `;
-    
-    // Create a card for each PSA grade
-    gradeResults.forEach(result => {
-        const data = result.data;
-        const grade = result.grade;
-        const marketValue = result.marketValue;
-        
-        if (data.items.length === 0) {
-            // No results for this grade
-            comparisonHtml += `
-                <div class="psa-result-card">
-                    <h4>PSA ${grade}</h4>
-                    <div style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
-                        <p>No results found</p>
-                    </div>
+    const resultsHtml = `
+        <div id="intelligence-results">
+            <h3>🧠 Search Results</h3>
+            <div class="stat-grid" style="margin-bottom: 2rem;">
+                <div class="stat-item">
+                    <div class="stat-label">Items Found</div>
+                    <div class="stat-value">${data.items.length}</div>
                 </div>
-            `;
-        } else {
-            comparisonHtml += `
-                <div class="psa-result-card">
-                    <h4>PSA ${grade} <span class="item-count">(${data.items.length} items)</span></h4>
-                    <div class="psa-stats">
-                        <div class="psa-stat">
-                            <span class="psa-stat-label">Min Price:</span>
-                            <span class="psa-stat-value">${formatMoney(data.min_price)}</span>
-                        </div>
-                        <div class="psa-stat">
-                            <span class="psa-stat-label">Max Price:</span>
-                            <span class="psa-stat-value">${formatMoney(data.max_price)}</span>
-                        </div>
-                        <div class="psa-stat">
-                            <span class="psa-stat-label">Market Value:</span>
-                            <span class="psa-stat-value">${formatMoney(marketValue)}</span>
-                        </div>
-                    </div>
+                <div class="stat-item">
+                    <div class="stat-label">Min Price</div>
+                    <div class="stat-value">${formatMoney(data.min_price)}</div>
                 </div>
-            `;
-        }
-    });
-    
-    comparisonHtml += `
+                <div class="stat-item">
+                    <div class="stat-label">Max Price</div>
+                    <div class="stat-value">${formatMoney(data.max_price)}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Market Value</div>
+                    <div class="stat-value">${formatMoney(marketValue)}</div>
+                </div>
             </div>
         </div>
     `;
     
-    container.innerHTML = comparisonHtml;
+    container.innerHTML = resultsHtml;
 }
 
 function formatMoney(value) {
@@ -533,8 +439,6 @@ function toNinetyNine(value) {
 // This function is called after authentication
 function initializeApp() {
     setupResponsiveCanvas();
-    // Initialize Find Card button state based on default checked PSA grades
-    updateFindCardButton();
 }
 
 function setupResponsiveCanvas() {
