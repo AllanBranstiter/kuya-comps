@@ -737,6 +737,11 @@ def get_active_listings(
     # Remove duplicates and filter
     print(f"[INFO] Processing {len(raw_items)} raw active listings from scraper")
     
+    # Debug: Show sample of first few items
+    if raw_items and len(raw_items) > 0:
+        print(f"[DEBUG] Sample item keys from Browse API: {list(raw_items[0].keys())[:10]}")
+        print(f"[DEBUG] Sample price data: extracted_price={raw_items[0].get('extracted_price')}, price={raw_items[0].get('price')}")
+    
     unique_items = []
     seen_item_ids = set()
     duplicates_removed = 0
@@ -748,6 +753,7 @@ def get_active_listings(
         
         if not item_id:
             no_item_id_removed += 1
+            print(f"[DEBUG] Filtered item without item_id: title={item.get('title', 'N/A')[:50]}")
             continue
         
         if item_id in seen_item_ids:
@@ -757,6 +763,7 @@ def get_active_listings(
         extracted_price = item.get('extracted_price')
         if extracted_price is None or extracted_price <= 0:
             zero_price_removed += 1
+            print(f"[DEBUG] Filtered zero-price item: {item_id}, price={extracted_price}, title={item.get('title', 'N/A')[:50]}")
             continue
             
         unique_items.append(item)
