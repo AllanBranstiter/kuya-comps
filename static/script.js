@@ -446,6 +446,9 @@ async function renderData(data, secondData = null, marketValue = null) {
               Buy It Now Only
             </label>
           </div>
+          <p style="font-size: 0.75rem; color: #999; margin-top: -0.5rem; margin-bottom: 0.75rem;">
+            We use affiliate links. Purchases may earn us a commission at no extra cost to you.
+          </p>
           <div id="active-listings-table" class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
               <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
