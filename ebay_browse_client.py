@@ -261,8 +261,12 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     Returns:
         Dict: Normalized item in Kuya Comps format
     """
+    # Extract item ID for logging
+    item_id = ebay_item.get('itemId', 'unknown')
+    
     # Extract nested values safely
     price_obj = ebay_item.get('price', {})
+    
     seller_obj = ebay_item.get('seller', {})
     image_obj = ebay_item.get('image', {})
     location_obj = ebay_item.get('itemLocation', {})
@@ -283,14 +287,19 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
             shipping_cost = 0.0
     
     # Extract price - Browse API returns price.value as a string
+    # According to eBay docs: price is an object with 'value' (string) and 'currency' (string)
     extracted_price = 0.0
-    try:
-        price_value = price_obj.get('value')
-        if price_value is not None:
-            # Convert to float, handling both string and numeric types
-            extracted_price = float(price_value)
-    except (ValueError, TypeError) as e:
-        print(f"[Browse API] Warning: Could not parse price value '{price_obj.get('value')}' for item {ebay_item.get('itemId')}: {e}")
+    if price_obj and 'value' in price_obj:
+        try:
+            price_value = price_obj.get('value')
+            if price_value is not None and price_value != '':
+                # Convert to float, handling both string and numeric types
+                extracted_price = float(price_value)
+        except (ValueError, TypeError) as e:
+            print(f"[Browse API] ERROR: Could not parse price '{price_obj.get('value')}' for item {item_id}: {e}")
+            extracted_price = 0.0
+    else:
+        print(f"[Browse API] WARNING: Item {item_id} missing price object")
         extracted_price = 0.0
     
     # Determine buying format - Browse API uses buyingOptions array
@@ -317,12 +326,18 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     # itemAffiliateWebUrl is returned when X-EBAY-C-ENDUSERCTX header includes affiliateCampaignId
     item_link = ebay_item.get('itemAffiliateWebUrl') or ebay_item.get('itemWebUrl')
     
-    return {
-        # Core identification
-        'item_id': ebay_item.get('itemId'),
+    # Get itemId and log if missing
+    item_id_value = ebay_item.get('itemId')
+    if not item_id_value:
+        print(f"[Browse API] ERROR: Item missing itemId! Title: {ebay_item.get('title', 'N/A')[:50]}")
+    
+    result = {
+        # Core identification - Browse API uses 'itemId' not 'item_id'
+        'item_id': item_id_value,
         'title': ebay_item.get('title'),
         'subtitle': ebay_item.get('subtitle'),
         'link': item_link,  # Affiliate link if available, regular link otherwise
+        'url': item_link,  # Alias for compatibility
         'itemAffiliateWebUrl': ebay_item.get('itemAffiliateWebUrl'),  # Preserve affiliate URL
         'itemWebUrl': ebay_item.get('itemWebUrl'),  # Preserve regular URL
         'thumbnail': image_obj.get('imageUrl'),
@@ -379,6 +394,17 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         # Short description if available (EXTENDED fieldgroup)
         'shortDescription': ebay_item.get('shortDescription'),
     }
+    
+    # Calculate total price for compatibility
+    result['total_price'] = result.get('extracted_price', 0.0) + result.get('extracted_shipping', 0.0)
+    
+    # Validation: Log items that will be filtered out
+    if not result.get('item_id'):
+        print(f"[Browse API] ERROR: Item has no itemId - will be filtered. Title: {result.get('title', 'N/A')[:50]}")
+    elif not result.get('extracted_price') or result.get('extracted_price') <= 0:
+        print(f"[Browse API] ERROR: Item {result.get('item_id')} has zero/invalid price - will be filtered. Price obj: {price_obj}")
+    
+    return result
 
 
 # Test function
