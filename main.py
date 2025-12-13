@@ -15,10 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import numpy as np
 from sklearn.neighbors import KernelDensity
-from scraper import scrape_sold_comps, scrape_active_listings
-
-# Check if eBay API should be used
-USE_EBAY_API = os.getenv('USE_EBAY_API', 'false').lower() == 'true'
+from scraper import scrape_sold_comps, scrape_active_listings_ebay_api
 
 
 app = FastAPI(
@@ -505,10 +502,13 @@ def get_comps(
     ),
 ):
     """
-    Scrape eBay sold listings for a given query and return:
+    Scrape eBay SOLD/COMPLETED listings for a given query and return:
       - Basic stats on item price (no shipping)
       - FMV metrics based on total price (item + shipping)
       - Full list of items
+    
+    Note: Uses SearchAPI.io because the official eBay Browse API does NOT support
+    searching sold/completed listings - it only returns active listings.
     """
     try:
         if test_mode or (api_key and api_key.lower() == "test"):
@@ -714,40 +714,22 @@ def get_active_listings(
 ):
     """
     Scrape eBay ACTIVE listings (not sold) for a given query.
-    Uses either SearchAPI.io or official eBay Browse API based on USE_EBAY_API env variable.
+    Uses official eBay Browse API for all active listing searches.
     """
     try:
-        if USE_EBAY_API:
-            # Use official eBay Browse API
-            print("[INFO] Using official eBay Browse API for active listings")
-            from scraper import scrape_active_listings_ebay_api
-            
-            raw_items = scrape_active_listings_ebay_api(
-                query=query,
-                max_pages=pages,
-                delay_secs=delay,
-                sort_by=sort_by,
-                buying_format=buying_format,
-                condition=condition,
-                price_min=price_min,
-                price_max=price_max,
-            )
-        else:
-            # Use SearchAPI.io (original method)
-            print("[INFO] Using SearchAPI.io for active listings")
-            actual_api_key = DEFAULT_API_KEY
-            
-            raw_items = scrape_active_listings(
-                query=query,
-                max_pages=pages,
-                delay_secs=delay,
-                api_key=actual_api_key,
-                sort_by=sort_by,
-                buying_format=buying_format,
-                condition=condition,
-                price_min=price_min,
-                price_max=price_max,
-            )
+        # Always use official eBay Browse API for active listings
+        print("[INFO] Using official eBay Browse API for active listings")
+        
+        raw_items = scrape_active_listings_ebay_api(
+            query=query,
+            max_pages=pages,
+            delay_secs=delay,
+            sort_by=sort_by,
+            buying_format=buying_format,
+            condition=condition,
+            price_min=price_min,
+            price_max=price_max,
+        )
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")

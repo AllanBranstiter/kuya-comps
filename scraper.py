@@ -34,7 +34,10 @@ def scrape_sold_comps(
     price_max: Optional[float] = None,
 ) -> List[Dict]:
     """
-    Use SearchAPI.io's eBay Search engine to fetch SOLD listings and normalize them.
+    Use SearchAPI.io's eBay Search engine to fetch SOLD/COMPLETED listings.
+    
+    NOTE: Uses SearchAPI.io because the official eBay Browse API does NOT support
+    searching sold/completed listings - it only returns active listings.
 
     - query: search query
     - api_key: SearchAPI.io API key
@@ -145,7 +148,10 @@ def scrape_active_listings(
     price_max: Optional[float] = None,
 ) -> List[Dict]:
     """
-    Use SearchAPI.io's eBay Search engine to fetch ACTIVE listings (not sold).
+    [DEPRECATED] Use SearchAPI.io's eBay Search engine to fetch ACTIVE listings.
+    
+    This function is deprecated. Use scrape_active_listings_ebay_api() instead,
+    which uses the official eBay Browse API.
     
     - query: search query
     - api_key: SearchAPI.io API key
