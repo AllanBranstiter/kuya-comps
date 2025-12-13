@@ -270,23 +270,33 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     # Extract shipping info (first shipping option if available)
     shipping_options = ebay_item.get('shippingOptions', [])
     shipping_cost = 0.0
+    shipping_free = False
     if shipping_options and len(shipping_options) > 0:
         shipping_obj = shipping_options[0].get('shippingCost', {})
         try:
             shipping_cost = float(shipping_obj.get('value', 0))
         except (ValueError, TypeError):
             shipping_cost = 0.0
+        # Check for free shipping indicator
+        if shipping_options[0].get('shippingCostType') == 'FREE':
+            shipping_free = True
+            shipping_cost = 0.0
     
-    # Extract price
+    # Extract price - Browse API returns price.value as a string
+    extracted_price = 0.0
     try:
-        extracted_price = float(price_obj.get('value', 0))
-    except (ValueError, TypeError):
+        price_value = price_obj.get('value')
+        if price_value is not None:
+            # Convert to float, handling both string and numeric types
+            extracted_price = float(price_value)
+    except (ValueError, TypeError) as e:
+        print(f"[Browse API] Warning: Could not parse price value '{price_obj.get('value')}' for item {ebay_item.get('itemId')}: {e}")
         extracted_price = 0.0
     
-    # Determine buying format
+    # Determine buying format - Browse API uses buyingOptions array
     buying_options = ebay_item.get('buyingOptions', [])
     is_auction = 'AUCTION' in buying_options
-    is_buy_it_now = 'FIXED_PRICE' in buying_options
+    is_buy_it_now = 'FIXED_PRICE' in buying_options or 'BUY_IT_NOW' in buying_options
     is_best_offer = 'BEST_OFFER' in buying_options
     
     # Create buying format string for display
@@ -298,6 +308,10 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     if is_best_offer:
         buying_format_parts.append('Best Offer')
     buying_format = ', '.join(buying_format_parts) if buying_format_parts else 'Buy It Now'
+    
+    # Debug logging for items with no price
+    if extracted_price <= 0:
+        print(f"[Browse API] Warning: Item {ebay_item.get('itemId')} has zero/invalid price. Price object: {price_obj}")
     
     # Use affiliate link if available (for ePN commissions), otherwise use regular link
     # itemAffiliateWebUrl is returned when X-EBAY-C-ENDUSERCTX header includes affiliateCampaignId
@@ -318,8 +332,9 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         'price': f"${extracted_price:.2f}",
         'extracted_price': extracted_price,
         'currency': price_obj.get('currency', 'USD'),
-        'shipping': f"${shipping_cost:.2f}" if shipping_cost > 0 else 'Free',
+        'shipping': 'Free' if shipping_free or shipping_cost == 0 else f"${shipping_cost:.2f}",
         'extracted_shipping': shipping_cost,
+        'shipping_free': shipping_free,
         
         # Buying format
         'buying_format': buying_format,
@@ -343,15 +358,19 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         
         # Special features
         'authenticity_guarantee': ebay_item.get('authenticityGuarantee') is not None,
+        'authenticity': 'Authenticity Guarantee' if ebay_item.get('authenticityGuarantee') else None,
         'top_rated': ebay_item.get('topRatedBuyingExperience', False),
         'is_in_psa_vault': False,  # Not available in Browse API item summary
         
         # Additional metadata
         'bid_count': ebay_item.get('bidCount', 0),
         'bids': ebay_item.get('bidCount', 0),
+        'total_bids': ebay_item.get('bidCount', 0),
         'watching': ebay_item.get('watchCount'),
+        'extracted_watching': ebay_item.get('watchCount'),
         'itemCreationDate': ebay_item.get('itemCreationDate'),
         'itemEndDate': ebay_item.get('itemEndDate'),
+        'time_left': ebay_item.get('itemEndDate'),  # Map end date to time_left for compatibility
         
         # Categories
         'categories': ebay_item.get('categories', []),
