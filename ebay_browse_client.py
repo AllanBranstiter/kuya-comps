@@ -346,7 +346,9 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         'itemAffiliateWebUrl': ebay_item.get('itemAffiliateWebUrl'),  # Preserve affiliate URL
         'itemWebUrl': ebay_item.get('itemWebUrl'),  # Preserve regular URL
         'thumbnail': image_obj.get('imageUrl'),
-        'images': ebay_item.get('additionalImages', []),
+        # Browse API returns additionalImages as array of objects with 'imageUrl' property
+        # Extract just the URLs for compatibility
+        'images': [img.get('imageUrl') for img in ebay_item.get('additionalImages', []) if isinstance(img, dict) and img.get('imageUrl')],
         
         # Pricing
         'price': f"${extracted_price:.2f}",
