@@ -29,6 +29,10 @@ class eBayBrowseClient:
         self.cert_id = os.getenv('EBAY_CERT_ID')
         self.environment = os.getenv('EBAY_ENVIRONMENT', 'production')
         
+        # eBay Partner Network (ePN) affiliate configuration
+        self.campaign_id = os.getenv('EBAY_CAMPAIGN_ID')
+        self.enable_affiliate = os.getenv('EBAY_ENABLE_AFFILIATE', 'false').lower() == 'true'
+        
         if not all([self.app_id, self.cert_id]):
             raise ValueError("eBay credentials not found. Please set EBAY_APP_ID and EBAY_CERT_ID in .env")
         
@@ -146,6 +150,12 @@ class eBayBrowseClient:
             'Accept': 'application/json'
         }
         
+        # Add eBay Partner Network (ePN) affiliate tracking header
+        # This enables the API to return itemAffiliateWebUrl for commission tracking
+        if self.enable_affiliate and self.campaign_id:
+            headers['X-EBAY-C-ENDUSERCTX'] = f'affiliateCampaignId={self.campaign_id}'
+            print(f"[eBay API] Affiliate tracking enabled (Campaign: {self.campaign_id})")
+        
         params = {
             'q': query,
             'limit': min(limit, 200),  # eBay API max is 200
@@ -213,6 +223,10 @@ class eBayBrowseClient:
             'X-EBAY-C-MARKETPLACE-ID': marketplace_id,
             'Accept': 'application/json'
         }
+        
+        # Add eBay Partner Network (ePN) affiliate tracking header
+        if self.enable_affiliate and self.campaign_id:
+            headers['X-EBAY-C-ENDUSERCTX'] = f'affiliateCampaignId={self.campaign_id}'
         
         params = {}
         if fieldgroups:
@@ -285,12 +299,18 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         buying_format_parts.append('Best Offer')
     buying_format = ', '.join(buying_format_parts) if buying_format_parts else 'Buy It Now'
     
+    # Use affiliate link if available (for ePN commissions), otherwise use regular link
+    # itemAffiliateWebUrl is returned when X-EBAY-C-ENDUSERCTX header includes affiliateCampaignId
+    item_link = ebay_item.get('itemAffiliateWebUrl') or ebay_item.get('itemWebUrl')
+    
     return {
         # Core identification
         'item_id': ebay_item.get('itemId'),
         'title': ebay_item.get('title'),
         'subtitle': ebay_item.get('subtitle'),
-        'link': ebay_item.get('itemWebUrl'),
+        'link': item_link,  # Affiliate link if available, regular link otherwise
+        'itemAffiliateWebUrl': ebay_item.get('itemAffiliateWebUrl'),  # Preserve affiliate URL
+        'itemWebUrl': ebay_item.get('itemWebUrl'),  # Preserve regular URL
         'thumbnail': image_obj.get('imageUrl'),
         'images': ebay_item.get('additionalImages', []),
         
