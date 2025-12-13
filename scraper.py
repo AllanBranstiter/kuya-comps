@@ -298,13 +298,25 @@ def scrape_active_listings_ebay_api(
     Returns:
         List of normalized item dictionaries
     """
+    print(f"[scrape_active_listings_ebay_api] Called with query='{query}', max_pages={max_pages}")
+    print(f"[scrape_active_listings_ebay_api] EBAY_API_AVAILABLE={EBAY_API_AVAILABLE}")
+    
     if not EBAY_API_AVAILABLE:
         raise RuntimeError(
             "eBay Browse API client not available. "
             "Make sure ebay_browse_client.py is in the same directory and credentials are set."
         )
     
-    client = eBayBrowseClient()
+    print("[scrape_active_listings_ebay_api] Creating eBayBrowseClient...")
+    try:
+        client = eBayBrowseClient()
+        print(f"[scrape_active_listings_ebay_api] Client created successfully. Environment: {client.environment}")
+    except Exception as e:
+        print(f"[scrape_active_listings_ebay_api] FAILED to create client: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+    
     all_items = []
     
     limit = 200  # Max per page per eBay API spec
