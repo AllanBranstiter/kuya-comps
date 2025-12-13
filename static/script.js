@@ -1170,7 +1170,20 @@ async function runSearchInternal() {
         if (!secondResp.ok) {
             const errorText = await secondResp.text();
             console.error('[DEBUG] Active listings request failed:', secondResp.status, errorText);
-            throw new Error(`Active listings request failed: ${secondResp.status}`);
+            
+            // Try to parse error as JSON to get detail
+            let errorDetail = errorText;
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.detail) {
+                    errorDetail = errorJson.detail;
+                }
+            } catch (e) {
+                // Not JSON, use raw text
+            }
+            
+            console.error('[DEBUG] Error detail:', errorDetail);
+            throw new Error(`Active listings failed: ${errorDetail}`);
         }
         
         const secondData = await secondResp.json();

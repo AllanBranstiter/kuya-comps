@@ -440,6 +440,47 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.get("/test-ebay-api")
+def test_ebay_api():
+    """Test eBay Browse API connectivity and credentials"""
+    try:
+        from ebay_browse_client import eBayBrowseClient
+        
+        print("[TEST] Initializing eBay Browse API client...")
+        client = eBayBrowseClient()
+        
+        print("[TEST] Testing authentication...")
+        token = client.get_access_token()
+        
+        print("[TEST] Testing search...")
+        results = client.search_items(
+            query="baseball card",
+            limit=5
+        )
+        
+        items_count = len(results.get('itemSummaries', []))
+        
+        return {
+            "status": "success",
+            "message": "eBay Browse API is working correctly",
+            "items_found": items_count,
+            "total_matches": results.get('total', 0),
+            "environment": client.environment
+        }
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[TEST] eBay API test failed: {e}")
+        print(f"[TEST] Traceback: {error_trace}")
+        
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": error_trace
+        }
+
+
 @app.get("/comps", response_model=CompsResponse)
 def get_comps(
     query: str = Query(
@@ -719,6 +760,8 @@ def get_active_listings(
     try:
         # Always use official eBay Browse API for active listings
         print("[INFO] Using official eBay Browse API for active listings")
+        print(f"[INFO] Query: {query}")
+        print(f"[INFO] Sort: {sort_by}, Pages: {pages}")
         
         raw_items = scrape_active_listings_ebay_api(
             query=query,
@@ -730,9 +773,15 @@ def get_active_listings(
             price_min=price_min,
             price_max=price_max,
         )
+        
+        print(f"[INFO] Browse API returned {len(raw_items)} raw items")
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"[ERROR] Active listings failed: {e}")
+        print(f"[ERROR] Traceback: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Scrape failed: {str(e)}")
 
     # Remove duplicates and filter
     print(f"[INFO] Processing {len(raw_items)} raw active listings from scraper")
