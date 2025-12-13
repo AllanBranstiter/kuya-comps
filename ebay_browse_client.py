@@ -152,9 +152,13 @@ class eBayBrowseClient:
         
         # Add eBay Partner Network (ePN) affiliate tracking header
         # This enables the API to return itemAffiliateWebUrl for commission tracking
-        if self.enable_affiliate and self.campaign_id:
+        # Only add if both enabled AND campaign_id is valid (not a placeholder)
+        if self.enable_affiliate and self.campaign_id and self.campaign_id.isdigit():
             headers['X-EBAY-C-ENDUSERCTX'] = f'affiliateCampaignId={self.campaign_id}'
             print(f"[eBay API] Affiliate tracking enabled (Campaign: {self.campaign_id})")
+        else:
+            if self.enable_affiliate:
+                print(f"[eBay API] Affiliate disabled - invalid or missing campaign ID: {self.campaign_id}")
         
         params = {
             'q': query,
@@ -225,7 +229,8 @@ class eBayBrowseClient:
         }
         
         # Add eBay Partner Network (ePN) affiliate tracking header
-        if self.enable_affiliate and self.campaign_id:
+        # Only add if both enabled AND campaign_id is valid (not a placeholder)
+        if self.enable_affiliate and self.campaign_id and self.campaign_id.isdigit():
             headers['X-EBAY-C-ENDUSERCTX'] = f'affiliateCampaignId={self.campaign_id}'
         
         params = {}
