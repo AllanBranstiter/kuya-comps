@@ -17,6 +17,9 @@ import numpy as np
 from sklearn.neighbors import KernelDensity
 from scraper import scrape_sold_comps, scrape_active_listings
 
+# Check if eBay API should be used
+USE_EBAY_API = os.getenv('USE_EBAY_API', 'false').lower() == 'true'
+
 
 app = FastAPI(
     title="Kuya Comps: Your Personal Card Value Dugout",
@@ -711,22 +714,40 @@ def get_active_listings(
 ):
     """
     Scrape eBay ACTIVE listings (not sold) for a given query.
+    Uses either SearchAPI.io or official eBay Browse API based on USE_EBAY_API env variable.
     """
     try:
-        # Use the backend's default API key for production
-        actual_api_key = DEFAULT_API_KEY
-        
-        raw_items = scrape_active_listings(
-            query=query,
-            max_pages=pages,
-            delay_secs=delay,
-            api_key=actual_api_key,
-            sort_by=sort_by,
-            buying_format=buying_format,
-            condition=condition,
-            price_min=price_min,
-            price_max=price_max,
-        )
+        if USE_EBAY_API:
+            # Use official eBay Browse API
+            print("[INFO] Using official eBay Browse API for active listings")
+            from scraper import scrape_active_listings_ebay_api
+            
+            raw_items = scrape_active_listings_ebay_api(
+                query=query,
+                max_pages=pages,
+                delay_secs=delay,
+                sort_by=sort_by,
+                buying_format=buying_format,
+                condition=condition,
+                price_min=price_min,
+                price_max=price_max,
+            )
+        else:
+            # Use SearchAPI.io (original method)
+            print("[INFO] Using SearchAPI.io for active listings")
+            actual_api_key = DEFAULT_API_KEY
+            
+            raw_items = scrape_active_listings(
+                query=query,
+                max_pages=pages,
+                delay_secs=delay,
+                api_key=actual_api_key,
+                sort_by=sort_by,
+                buying_format=buying_format,
+                condition=condition,
+                price_min=price_min,
+                price_max=price_max,
+            )
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")
