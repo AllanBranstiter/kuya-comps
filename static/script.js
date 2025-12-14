@@ -389,11 +389,42 @@ async function renderData(data, secondData = null, marketValue = null) {
     `;
     
     // Add second table if second data exists
+    console.log('[DEBUG renderData] Checking active listings:', {
+        hasSecondData: !!secondData,
+        hasItems: secondData?.items ? true : false,
+        itemsCount: secondData?.items?.length || 0,
+        hasMarketValue: !!marketValue,
+        marketValue: marketValue
+    });
+    
     if (secondData && secondData.items && marketValue) {
+        console.log('[DEBUG renderData] Starting to filter active listings. Total items:', secondData.items.length);
+        
         // Filter active listings to only show items at or below market value
         const filteredItems = secondData.items.filter(item => {
             const price = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-            return price > 0 && price <= marketValue;
+            const passes = price > 0 && price <= marketValue;
+            
+            if (!passes) {
+                console.log('[DEBUG renderData] Filtered out item:', {
+                    item_id: item.item_id,
+                    title: item.title?.substring(0, 40),
+                    total_price: item.total_price,
+                    extracted_price: item.extracted_price,
+                    extracted_shipping: item.extracted_shipping,
+                    calculated_price: price,
+                    marketValue: marketValue,
+                    reason: price <= 0 ? 'zero/negative price' : 'above market value'
+                });
+            }
+            
+            return passes;
+        });
+        
+        console.log('[DEBUG renderData] After filtering:', {
+            original: secondData.items.length,
+            filtered: filteredItems.length,
+            marketValue: marketValue
         });
         
         // Sort by price (lowest to highest)
@@ -415,6 +446,9 @@ async function renderData(data, secondData = null, marketValue = null) {
               Buy It Now Only
             </label>
           </div>
+          <p style="font-size: 0.75rem; color: #999; margin-top: -0.5rem; margin-bottom: 0.75rem;">
+            This website is supported by affiliate links. Purchases may earn us a commission at no extra cost to you.
+          </p>
           <div id="active-listings-table" class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
               <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -450,7 +484,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
-                    <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
+                    <td><a href="${escapeHtml(item.link)}" target="_blank">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
@@ -556,7 +590,7 @@ function filterActiveListings() {
                 <td>${formatMoney(item.total_price)}</td>
                 <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                 <td>${escapeHtml(displayType)}</td>
-                <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
+                <td><a href="${escapeHtml(item.link)}" target="_blank">See Listing</a></td>
               </tr>
             `;
           }).join('') : `
@@ -1125,21 +1159,62 @@ async function runSearchInternal() {
     // Perform second search for ACTIVE listings (no sold filter)
     console.log('[DEBUG] Performing second search for active listings...');
     const activeUrl = url.replace('/comps?', '/active?');
+    console.log('[DEBUG] Active listings URL:', activeUrl);
+    
     const activeController = new AbortController();
     const activeTimeoutId = setTimeout(() => activeController.abort(), 30000);
     
-    const secondResp = await fetch(activeUrl, { signal: activeController.signal });
-    clearTimeout(activeTimeoutId);
-    
-    const secondData = await secondResp.json();
-    
-    if (secondData.detail) {
-        console.error('[DEBUG] Second search error:', secondData.detail);
-    }
-    
-    console.log('[DEBUG] Active listings search completed:', secondData.items ? secondData.items.length : 0, 'items');
+    try {
+        const secondResp = await fetch(activeUrl, { signal: activeController.signal });
+        clearTimeout(activeTimeoutId);
+        
+        console.log('[DEBUG] Active listings response status:', secondResp.status);
+        
+        if (!secondResp.ok) {
+            const errorText = await secondResp.text();
+            console.error('[DEBUG] Active listings request failed:', secondResp.status, errorText);
+            
+            // Try to parse error as JSON to get detail
+            let errorDetail = errorText;
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.detail) {
+                    errorDetail = errorJson.detail;
+                }
+            } catch (e) {
+                // Not JSON, use raw text
+            }
+            
+            console.error('[DEBUG] Error detail:', errorDetail);
+            throw new Error(`Active listings failed: ${errorDetail}`);
+        }
+        
+        const secondData = await secondResp.json();
+        
+        console.log('[DEBUG] Active listings response:', {
+            items_count: secondData.items ? secondData.items.length : 0,
+            has_items: !!secondData.items,
+            has_detail: !!secondData.detail,
+            first_item_sample: secondData.items && secondData.items[0] ? {
+                item_id: secondData.items[0].item_id,
+                title: secondData.items[0].title?.substring(0, 50),
+                extracted_price: secondData.items[0].extracted_price,
+                total_price: secondData.items[0].total_price
+            } : null
+        });
+        
+        if (secondData.detail) {
+            console.error('[DEBUG] Second search error:', secondData.detail);
+        }
+        
+        console.log('[DEBUG] Passing to renderData - marketValue:', formatMoney(marketValue), 'active items:', secondData.items ? secondData.items.length : 0);
 
-    await renderData(data, secondData, marketValue);
+        await renderData(data, secondData, marketValue);
+    } catch (error) {
+        console.error('[DEBUG] Active listings fetch failed:', error);
+        // Still render the sold data even if active listings fail
+        await renderData(data, null, marketValue);
+    }
     // Store prices for resize handling (using first search results)
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
