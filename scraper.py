@@ -7,6 +7,14 @@ import requests
 
 SEARCHAPI_BASE_URL = "https://www.searchapi.io/api/v1/search"
 
+# Try to import eBay Browse API client
+try:
+    from ebay_browse_client import eBayBrowseClient, normalize_ebay_browse_item
+    EBAY_API_AVAILABLE = True
+except ImportError:
+    EBAY_API_AVAILABLE = False
+    print("[WARNING] eBay Browse API client not available. Install required dependencies.")
+
 
 
 
@@ -26,7 +34,10 @@ def scrape_sold_comps(
     price_max: Optional[float] = None,
 ) -> List[Dict]:
     """
-    Use SearchAPI.io's eBay Search engine to fetch SOLD listings and normalize them.
+    Use SearchAPI.io's eBay Search engine to fetch SOLD/COMPLETED listings.
+    
+    NOTE: Uses SearchAPI.io because the official eBay Browse API does NOT support
+    searching sold/completed listings - it only returns active listings.
 
     - query: search query
     - api_key: SearchAPI.io API key
@@ -137,7 +148,10 @@ def scrape_active_listings(
     price_max: Optional[float] = None,
 ) -> List[Dict]:
     """
-    Use SearchAPI.io's eBay Search engine to fetch ACTIVE listings (not sold).
+    [DEPRECATED] Use SearchAPI.io's eBay Search engine to fetch ACTIVE listings.
+    
+    This function is deprecated. Use scrape_active_listings_ebay_api() instead,
+    which uses the official eBay Browse API.
     
     - query: search query
     - api_key: SearchAPI.io API key
@@ -252,6 +266,129 @@ def scrape_active_listings(
             time.sleep(delay_secs)
 
     print(f"[scraper] Completed scraping active listings. Final total: {len(all_items)} items across {page} pages")
+    return all_items
+
+
+def scrape_active_listings_ebay_api(
+    query: str,
+    max_pages: int = 1,
+    delay_secs: float = 1.0,
+    sort_by: str = "price",
+    buying_format: Optional[str] = None,
+    condition: Optional[str] = None,
+    price_min: Optional[float] = None,
+    price_max: Optional[float] = None,
+) -> List[Dict]:
+    """
+    Fetch ACTIVE listings using official eBay Browse API.
+    
+    This function uses the official eBay Browse API instead of SearchAPI.io.
+    Note: The Browse API only returns active listings, not sold/completed items.
+    
+    Args:
+        query: Search query string
+        max_pages: Number of pages to fetch (200 items per page max)
+        delay_secs: Delay between page requests
+        sort_by: Sort order - "price", "newlyListed", "endingSoonest", "-price" (desc)
+        buying_format: Filter - "auction", "buy_it_now", "best_offer"
+        condition: Filter - condition name
+        price_min: Minimum price filter
+        price_max: Maximum price filter
+    
+    Returns:
+        List of normalized item dictionaries
+    """
+    print(f"[scrape_active_listings_ebay_api] Called with query='{query}', max_pages={max_pages}")
+    print(f"[scrape_active_listings_ebay_api] EBAY_API_AVAILABLE={EBAY_API_AVAILABLE}")
+    
+    if not EBAY_API_AVAILABLE:
+        raise RuntimeError(
+            "eBay Browse API client not available. "
+            "Make sure ebay_browse_client.py is in the same directory and credentials are set."
+        )
+    
+    print("[scrape_active_listings_ebay_api] Creating eBayBrowseClient...")
+    try:
+        client = eBayBrowseClient()
+        print(f"[scrape_active_listings_ebay_api] Client created successfully. Environment: {client.environment}")
+    except Exception as e:
+        print(f"[scrape_active_listings_ebay_api] FAILED to create client: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+    
+    all_items = []
+    
+    limit = 200  # Max per page per eBay API spec
+    
+    for page in range(max_pages):
+        offset = page * limit
+        
+        # Build filters dictionary
+        filters = {}
+        
+        # Buying format mapping (SearchAPI format -> eBay API format)
+        if buying_format:
+            format_map = {
+                'auction': 'AUCTION',
+                'buy_it_now': 'FIXED_PRICE',
+                'best_offer': 'BEST_OFFER'
+            }
+            ebay_format = format_map.get(buying_format.lower(), 'FIXED_PRICE')
+            filters['buyingOptions'] = ebay_format
+        
+        # Price range filter
+        if price_min is not None and price_max is not None:
+            filters['price'] = f'[{price_min}..{price_max}]'
+        elif price_min is not None:
+            filters['price'] = f'[{price_min}..]'
+        elif price_max is not None:
+            filters['price'] = f'[..{price_max}]'
+        
+        # Condition filter
+        # eBay API uses condition values like "NEW", "USED", etc.
+        if condition:
+            filters['conditions'] = condition.upper()
+        
+        # Always filter to US items
+        filters['itemLocationCountry'] = 'US'
+        
+        try:
+            response = client.search_items(
+                query=query,
+                limit=limit,
+                offset=offset,
+                sort=sort_by,
+                filter_params=filters,
+                fieldgroups='EXTENDED'  # Get additional details
+            )
+            
+            items = response.get('itemSummaries', [])
+            if not items:
+                print(f"[eBay API] No more items on page {page+1}")
+                break
+            
+            # Normalize to Kuya Comps format
+            for item in items:
+                normalized = normalize_ebay_browse_item(item)
+                all_items.append(normalized)
+            
+            print(f"[eBay API] Page {page+1}: Added {len(items)} items. Total: {len(all_items)}")
+            
+            # Check if there are more pages available
+            if not response.get('next'):
+                print(f"[eBay API] No more pages available")
+                break
+            
+            # Delay before next request (except after last page)
+            if page < max_pages - 1:
+                time.sleep(delay_secs)
+            
+        except Exception as e:
+            print(f"[eBay API] Error on page {page+1}: {e}")
+            break
+    
+    print(f"[eBay API] Completed: {len(all_items)} items across {page+1} pages")
     return all_items
 
 
