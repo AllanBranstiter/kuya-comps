@@ -1,0 +1,16 @@
+# Git Attributes Configuration
+# Prevents accidental commits of sensitive files
+
+# Mark .env files as "binary" to prevent diffs from showing secrets in logs
+.env filter=git-crypt diff=git-crypt
+.env.* filter=git-crypt diff=git-crypt
+
+# Additional protection for environment files
+*.env filter=git-crypt diff=git-crypt
+*.env.local filter=git-crypt diff=git-crypt
+*.env.production filter=git-crypt diff=git-crypt
+*.env.development filter=git-crypt diff=git-crypt
+
+# Prevent line-ending changes that might break env files
+.env text eol=lf
+.env.* text eol=lf
