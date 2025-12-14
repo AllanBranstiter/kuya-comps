@@ -484,7 +484,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
-                    <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
+                    <td><a href="${escapeHtml(item.link)}" target="_blank">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
@@ -590,7 +590,7 @@ function filterActiveListings() {
                 <td>${formatMoney(item.total_price)}</td>
                 <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                 <td>${escapeHtml(displayType)}</td>
-                <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
+                <td><a href="${escapeHtml(item.link)}" target="_blank">See Listing</a></td>
               </tr>
             `;
           }).join('') : `
