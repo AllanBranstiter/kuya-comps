@@ -1511,27 +1511,6 @@ function drawBeeswarm(prices) {
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     
-    // Add modern "FMV Range" label with solid text
-    const centerX = (x1 + x2) / 2;
-    
-    ctx.fillStyle = "#1d1d1f";
-    ctx.font = "bold 14px " + getComputedStyle(document.body).fontFamily;
-    ctx.textAlign = "center";
-    
-    // Add text shadow for depth
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 1;
-    ctx.shadowBlur = 2;
-    
-    ctx.fillText("🎯 FMV Range", centerX, 15);
-    
-    // Reset text shadow
-    ctx.shadowColor = 'transparent';
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.shadowBlur = 0;
-    
     // Add FMV dollar value labels (above the bars) with solid text
     ctx.fillStyle = "#34c759";
     ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
@@ -1667,13 +1646,36 @@ function drawBeeswarm(prices) {
     ctx.fillText("(All prices identical)", width / 2, height - margin.bottom + 35);
   }
   
-  // Draw count with outlier information
-  ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
-  if (outliersRemoved > 0) {
-    ctx.fillText(`${filteredPrices.length} items (${outliersRemoved} outliers removed)`, width - 120, margin.top + 15);
-  } else {
-    ctx.fillText(`${filteredPrices.length} items`, width - 60, margin.top + 15);
-  }
+  // Draw legend at bottom (centered)
+  const legendY = height - 15;
+  const legendText = "FMV Range";
+  
+  // Measure text to calculate total width
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  const textWidth = ctx.measureText(legendText).width;
+  const rectWidth = 30;
+  const spacing = 5;
+  const totalLegendWidth = rectWidth + spacing + textWidth;
+  
+  // Center the legend
+  const legendX = (width - totalLegendWidth) / 2;
+  
+  // Draw green rectangle
+  const gradient = ctx.createLinearGradient(legendX, legendY - 8, legendX + rectWidth, legendY - 8);
+  gradient.addColorStop(0, 'rgba(52, 199, 89, 0.3)');
+  gradient.addColorStop(1, 'rgba(52, 199, 89, 0.5)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(legendX, legendY - 12, rectWidth, 12);
+  
+  // Draw border around rectangle
+  ctx.strokeStyle = 'rgba(52, 199, 89, 0.8)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(legendX, legendY - 12, rectWidth, 12);
+  
+  // Draw legend text
+  ctx.fillStyle = "#1d1d1f";
+  ctx.textAlign = "left";
+  ctx.fillText(legendText, legendX + rectWidth + spacing, legendY - 3);
 }
 
 function drawComparisonBeeswarm(cardResults) {
