@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import numpy as np
 from sklearn.neighbors import KernelDensity
-from scraper import scrape_sold_comps, scrape_active_listings
+from scraper import scrape_sold_comps, scrape_active_listings_ebay_api
 
 
 app = FastAPI(
@@ -440,6 +440,47 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.get("/test-ebay-api")
+def test_ebay_api():
+    """Test eBay Browse API connectivity and credentials"""
+    try:
+        from ebay_browse_client import eBayBrowseClient
+        
+        print("[TEST] Initializing eBay Browse API client...")
+        client = eBayBrowseClient()
+        
+        print("[TEST] Testing authentication...")
+        token = client.get_access_token()
+        
+        print("[TEST] Testing search...")
+        results = client.search_items(
+            query="baseball card",
+            limit=5
+        )
+        
+        items_count = len(results.get('itemSummaries', []))
+        
+        return {
+            "status": "success",
+            "message": "eBay Browse API is working correctly",
+            "items_found": items_count,
+            "total_matches": results.get('total', 0),
+            "environment": client.environment
+        }
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[TEST] eBay API test failed: {e}")
+        print(f"[TEST] Traceback: {error_trace}")
+        
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": error_trace
+        }
+
+
 @app.get("/comps", response_model=CompsResponse)
 def get_comps(
     query: str = Query(
@@ -502,10 +543,13 @@ def get_comps(
     ),
 ):
     """
-    Scrape eBay sold listings for a given query and return:
+    Scrape eBay SOLD/COMPLETED listings for a given query and return:
       - Basic stats on item price (no shipping)
       - FMV metrics based on total price (item + shipping)
       - Full list of items
+    
+    Note: Uses SearchAPI.io because the official eBay Browse API does NOT support
+    searching sold/completed listings - it only returns active listings.
     """
     try:
         if test_mode or (api_key and api_key.lower() == "test"):
@@ -711,28 +755,41 @@ def get_active_listings(
 ):
     """
     Scrape eBay ACTIVE listings (not sold) for a given query.
+    Uses official eBay Browse API for all active listing searches.
     """
     try:
-        # Use the backend's default API key for production
-        actual_api_key = DEFAULT_API_KEY
+        # Always use official eBay Browse API for active listings
+        print("[INFO] Using official eBay Browse API for active listings")
+        print(f"[INFO] Query: {query}")
+        print(f"[INFO] Sort: {sort_by}, Pages: {pages}")
         
-        raw_items = scrape_active_listings(
+        raw_items = scrape_active_listings_ebay_api(
             query=query,
             max_pages=pages,
             delay_secs=delay,
-            api_key=actual_api_key,
             sort_by=sort_by,
             buying_format=buying_format,
             condition=condition,
             price_min=price_min,
             price_max=price_max,
         )
+        
+        print(f"[INFO] Browse API returned {len(raw_items)} raw items")
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Scrape failed: {e}")
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"[ERROR] Active listings failed: {e}")
+        print(f"[ERROR] Traceback: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Scrape failed: {str(e)}")
 
     # Remove duplicates and filter
     print(f"[INFO] Processing {len(raw_items)} raw active listings from scraper")
+    
+    # Debug: Show sample of first few items
+    if raw_items and len(raw_items) > 0:
+        print(f"[DEBUG] Sample item keys from Browse API: {list(raw_items[0].keys())[:10]}")
+        print(f"[DEBUG] Sample price data: extracted_price={raw_items[0].get('extracted_price')}, price={raw_items[0].get('price')}")
     
     unique_items = []
     seen_item_ids = set()
@@ -745,6 +802,7 @@ def get_active_listings(
         
         if not item_id:
             no_item_id_removed += 1
+            print(f"[DEBUG] Filtered item without item_id: title={item.get('title', 'N/A')[:50]}")
             continue
         
         if item_id in seen_item_ids:
@@ -754,6 +812,7 @@ def get_active_listings(
         extracted_price = item.get('extracted_price')
         if extracted_price is None or extracted_price <= 0:
             zero_price_removed += 1
+            print(f"[DEBUG] Filtered zero-price item: {item_id}, price={extracted_price}, title={item.get('title', 'N/A')[:50]}")
             continue
             
         unique_items.append(item)
