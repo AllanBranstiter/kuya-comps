@@ -1341,6 +1341,9 @@ async function updateFmv(data) {
     const fmvHtml = `
       <div id="fmv">
         <h3>📈 Fair Market Value</h3>
+        <p style="font-size: 0.75rem; text-align: center; color: var(--subtle-text-color); margin-top: 0.5rem; margin-bottom: 1.5rem; font-style: italic;">
+          FMV estimates work best when there are plenty of recent sales to sample and your search terms are tight and accurate.
+        </p>
         <div class="stat-grid">
           <div class="stat-item">
             <div class="stat-label">🏃‍♂️ Quick Sale</div>

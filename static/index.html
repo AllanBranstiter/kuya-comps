@@ -1360,7 +1360,149 @@
       border: 1px solid var(--border-color);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     }
- </style>
+
+    /* eBay Search Tips Styling */
+    .ebay-tips {
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: linear-gradient(135deg, #f8fafd 0%, #ffffff 100%);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+    }
+
+    .ebay-tips summary {
+      padding: 0.5rem 0.75rem;
+      font-weight: 500;
+      font-size: 0.85rem;
+      color: var(--primary-blue);
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      transition: all 0.3s ease;
+      background: var(--card-background);
+      border-bottom: 1px solid transparent;
+    }
+
+    .ebay-tips summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .ebay-tips summary::before {
+      content: '▶';
+      display: inline-block;
+      margin-right: 0.35rem;
+      transition: transform 0.3s ease;
+      color: var(--primary-blue);
+      font-size: 0.7rem;
+    }
+
+    .ebay-tips[open] summary::before {
+      transform: rotate(90deg);
+    }
+
+    .ebay-tips[open] summary {
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+    }
+
+    .ebay-tips summary:hover {
+      background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+      color: var(--primary-blue-hover);
+    }
+
+    .ebay-tips ul {
+      list-style: none;
+      padding: 0.75rem;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .ebay-tips li {
+      margin: 0;
+      padding: 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: linear-gradient(135deg, #ffffff 0%, #fafbff 100%);
+      box-shadow: 0 2px 6px rgba(0, 122, 255, 0.08);
+      transition: all 0.3s ease;
+    }
+
+    .ebay-tips li:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.12);
+      border-color: var(--primary-blue);
+    }
+
+    .ebay-tips li:last-child {
+      margin: 0;
+    }
+
+    .ebay-tips strong {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 0.35rem;
+    }
+
+    .ebay-tips li > div {
+      font-size: 0.75rem;
+      color: var(--subtle-text-color);
+      margin-top: 0.35rem;
+      margin-bottom: 0.2rem;
+      font-weight: 500;
+    }
+
+    .ebay-tips pre {
+      margin: 0.2rem 0 0 0;
+      padding: 0.4rem 0.6rem;
+      background: linear-gradient(135deg, #f5f8ff 0%, #f0f5ff 100%);
+      border-left: 2px solid var(--primary-blue);
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+
+    .ebay-tips code {
+      font-family: 'Courier New', Consolas, Monaco, monospace;
+      font-size: 0.75rem;
+      color: var(--text-color);
+      font-weight: 500;
+    }
+
+    /* Mobile responsive adjustments for tips */
+    @media screen and (max-width: 768px) {
+      .ebay-tips {
+        margin-top: 0.5rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .ebay-tips summary {
+        padding: 0.5rem 0.65rem;
+        font-size: 0.8rem;
+      }
+
+      .ebay-tips ul {
+        padding: 0.65rem;
+      }
+
+      .ebay-tips li {
+        margin-bottom: 0.65rem;
+        padding-bottom: 0.65rem;
+      }
+
+      .ebay-tips pre {
+        padding: 0.35rem 0.5rem;
+      }
+
+      .ebay-tips code {
+        font-size: 0.7rem;
+      }
+    }
+  </style>
 </head>
 <body>
 
@@ -1387,6 +1529,60 @@
         <label for="query">Search:</label>
         <input id="query" type="text" placeholder="e.g. 2024 topps chrome elly de la cruz">
       </div>
+
+      <!-- Expandable Search Tips (novice-friendly) -->
+      <details class="ebay-tips">
+        <summary>Search Tips</summary>
+
+        <ul>
+          <li>
+            <strong>Use quotes to search for exact phrases (this is very useful if a phrase contains spaces)</strong>
+            <div>Example:</div>
+            <pre><code>"2024 Topps Chrome" "Elly De La Cruz" refractor</code></pre>
+          </li>
+
+          <li>
+            <strong>Exclude unwanted results with a minus sign</strong>
+            <div>For example, this will exclude results containing the word "graded":</div>
+            <pre><code>"Elly De La Cruz" -graded</code></pre>
+          </li>
+
+          <li>
+            <strong>You can remove more than one thing at the same time</strong>
+            <div>Example:</div>
+            <pre><code>"Elly De La Cruz" -graded -auto -lot</code></pre>
+          </li>
+
+          <li>
+            <strong>Avoid removing very short words (they can hide good results)</strong>
+            <div>Instead of this:</div>
+            <pre><code>-you -pick</code></pre>
+            <div>Do this:</div>
+            <pre><code>-"you pick"</code></pre>
+          </li>
+
+          <li>
+            <strong>Card numbers give the cleanest results</strong>
+            <div>Example:</div>
+            <pre><code>"Topps Chrome" "USC159"</code></pre>
+          </li>
+
+          <li>
+            <strong>You can search for spelling variations by listing all of the spelling variations</strong>
+            <div>Example:</div>
+            <pre><code>"Topps Chrome" xfractor x-fractor retrofractor</code></pre>
+          </li>
+
+          <li>
+            <strong>Start simple, then add filters if needed</strong>
+            <div>Start with:</div>
+            <pre><code>"Topps Chrome" "Elly De La Cruz"</code></pre>
+            <div>Then refine to:</div>
+            <pre><code>"Topps Chrome" "Elly De La Cruz" "USC159" -graded -auto</code></pre>
+          </li>
+        </ul>
+      </details>
+
       <div>
         <label style="font-size: 1.1rem; font-weight: 600;">
           <input type="checkbox" id="exclude_lots" style="transform: scale(1.5); margin-right: 0.5rem;">
@@ -1431,6 +1627,59 @@
         <label for="intelligence-query">Search Specific Card:</label>
         <input id="intelligence-query" type="text" placeholder='e.g. "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1'>
       </div>
+
+      <!-- Expandable Search Tips (novice-friendly) -->
+      <details class="ebay-tips">
+        <summary>Search Tips</summary>
+
+        <ul>
+          <li>
+            <strong>Use quotes to keep words together</strong>
+            <div>Example:</div>
+            <pre><code>"2024 Topps Chrome" "Elly De La Cruz"</code></pre>
+          </li>
+
+          <li>
+            <strong>Use a minus sign to remove unwanted results</strong>
+            <div>Example:</div>
+            <pre><code>"Elly De La Cruz" -graded</code></pre>
+          </li>
+
+          <li>
+            <strong>You can remove more than one thing at the same time</strong>
+            <div>Example:</div>
+            <pre><code>"Elly De La Cruz" -graded -auto -lot</code></pre>
+          </li>
+
+          <li>
+            <strong>Avoid removing very short words (they can hide good results)</strong>
+            <div>Instead of this:</div>
+            <pre><code>-El</code></pre>
+            <div>Do this:</div>
+            <pre><code>-"you pick"</code></pre>
+          </li>
+
+          <li>
+            <strong>Card numbers give the cleanest results</strong>
+            <div>Example:</div>
+            <pre><code>"Topps Chrome" "USC159"</code></pre>
+          </li>
+
+          <li>
+            <strong>Some variations use different spellings — remove all versions</strong>
+            <div>Example:</div>
+            <pre><code>"Topps Chrome" -xfractor -x-fractor -retrofractor</code></pre>
+          </li>
+
+          <li>
+            <strong>Start simple, then add filters if needed</strong>
+            <div>Start with:</div>
+            <pre><code>"Topps Chrome" "Elly De La Cruz"</code></pre>
+            <div>Then refine to:</div>
+            <pre><code>"Topps Chrome" "Elly De La Cruz" "USC159" -graded -auto</code></pre>
+          </li>
+        </ul>
+      </details>
       
       <div style="margin-bottom: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%); border-radius: 12px; border-left: 4px solid #ff9500; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.1);">
         <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--text-color);">
@@ -1553,23 +1802,13 @@
     </div>
     
     <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">What's the difference between PSA, BGS, and SGC grading?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">PSA (Professional Sports Authenticator), BGS (Beckett Grading Services), and SGC (Sportscard Guaranty) are the three major card grading companies. Each uses a 10-point scale, but market values can vary between graders. Use our Grading Intelligence feature to compare prices across all three.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">Does grading increase baseball card value?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Yes, grading typically increases card value, especially for high grades (PSA 9-10, BGS 9.5-10). Our market intelligence shows the premium between raw and graded cards. For modern cards in gem mint condition, grading often provides 2-5x value increase.</p>
-    </div>
-    
-    <div>
       <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">Is this tool free to use?</h3>
       <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Yes! Kuya Comps is completely free for baseball card collectors and dealers. Search unlimited cards, analyze market trends, and compare graded card values at no cost.</p>
     </div>
     
     <div>
       <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">How accurate are the Fair Market Values?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Our FMV calculations use volume-weighted analysis, giving more importance to competitive auctions with multiple bids. We filter outliers and provide ranges for quick sales and patient sales. The more recent sales data available, the more accurate the valuation.</p>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Our FMV calculations use volume-weighted analysis, giving more importance to competitive auctions with multiple bids. We filter outliers and provide ranges for quick sales and patient sales. <strong>In general, FMV estimates work best when there are plenty of recent sales to sample and your search terms are tight and accurate.</strong></p>
     </div>
   </div>
 </section>

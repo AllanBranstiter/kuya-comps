@@ -32,6 +32,7 @@ Thumbs.db
 results_library_complete.csv
 testing/comps.csv
 *.log
+AI_CONTEXT.md
 
 # Temporary files
 *.tmp
