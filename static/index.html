@@ -1360,7 +1360,137 @@
       border: 1px solid var(--border-color);
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
     }
- </style>
+
+    /* eBay Search Tips Styling */
+    .ebay-tips {
+      margin-top: 1rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f8fafd 0%, #ffffff 100%);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+    }
+
+    .ebay-tips summary {
+      padding: 1rem 1.25rem;
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--primary-blue);
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      transition: all 0.3s ease;
+      background: var(--card-background);
+      border-bottom: 1px solid transparent;
+    }
+
+    .ebay-tips summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .ebay-tips summary::before {
+      content: '▶';
+      display: inline-block;
+      margin-right: 0.5rem;
+      transition: transform 0.3s ease;
+      color: var(--primary-blue);
+    }
+
+    .ebay-tips[open] summary::before {
+      transform: rotate(90deg);
+    }
+
+    .ebay-tips[open] summary {
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+    }
+
+    .ebay-tips summary:hover {
+      background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+      color: var(--primary-blue-hover);
+    }
+
+    .ebay-tips ul {
+      list-style: none;
+      padding: 1.5rem 1.25rem;
+      margin: 0;
+    }
+
+    .ebay-tips li {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .ebay-tips li:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .ebay-tips strong {
+      display: block;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .ebay-tips li > div {
+      font-size: 0.85rem;
+      color: var(--subtle-text-color);
+      margin-top: 0.5rem;
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+    }
+
+    .ebay-tips pre {
+      margin: 0.25rem 0 0 0;
+      padding: 0.75rem 1rem;
+      background: linear-gradient(135deg, #f8fafd 0%, #ebf3ff 100%);
+      border-left: 3px solid var(--primary-blue);
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    .ebay-tips code {
+      font-family: 'Courier New', Consolas, Monaco, monospace;
+      font-size: 0.9rem;
+      color: var(--text-color);
+      font-weight: 500;
+    }
+
+    /* Mobile responsive adjustments for tips */
+    @media screen and (max-width: 768px) {
+      .ebay-tips {
+        margin-top: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .ebay-tips summary {
+        padding: 0.875rem 1rem;
+        font-size: 0.95rem;
+      }
+
+      .ebay-tips ul {
+        padding: 1rem;
+      }
+
+      .ebay-tips li {
+        margin-bottom: 1.25rem;
+        padding-bottom: 1.25rem;
+      }
+
+      .ebay-tips pre {
+        padding: 0.65rem 0.875rem;
+      }
+
+      .ebay-tips code {
+        font-size: 0.85rem;
+      }
+    }
+  </style>
 </head>
 <body>
 
@@ -1414,6 +1544,59 @@
         <button id="clear-button" onclick="clearSearch()">Clear</button>
       </div>
     </div>
+
+    <!-- Expandable Search Tips (novice-friendly) -->
+    <details class="ebay-tips">
+      <summary>eBay Search Tips</summary>
+
+      <ul>
+        <li>
+          <strong>Use quotes to keep words together</strong>
+          <div>Example:</div>
+          <pre><code>"2024 Topps Chrome" "Elly De La Cruz"</code></pre>
+        </li>
+
+        <li>
+          <strong>Use a minus sign to remove unwanted results</strong>
+          <div>Example:</div>
+          <pre><code>"Elly De La Cruz" -graded</code></pre>
+        </li>
+
+        <li>
+          <strong>You can remove more than one thing at the same time</strong>
+          <div>Example:</div>
+          <pre><code>"Elly De La Cruz" -graded -auto -lot</code></pre>
+        </li>
+
+        <li>
+          <strong>Avoid removing very short words (they can hide good results)</strong>
+          <div>Instead of this:</div>
+          <pre><code>-El</code></pre>
+          <div>Do this:</div>
+          <pre><code>-"you pick"</code></pre>
+        </li>
+
+        <li>
+          <strong>Card numbers give the cleanest results</strong>
+          <div>Example:</div>
+          <pre><code>"Topps Chrome" "USC159"</code></pre>
+        </li>
+
+        <li>
+          <strong>Some variations use different spellings — remove all versions</strong>
+          <div>Example:</div>
+          <pre><code>"Topps Chrome" -xfractor -x-fractor -retrofractor</code></pre>
+        </li>
+
+        <li>
+          <strong>Start simple, then add filters if needed</strong>
+          <div>Start with:</div>
+          <pre><code>"Topps Chrome" "Elly De La Cruz"</code></pre>
+          <div>Then refine to:</div>
+          <pre><code>"Topps Chrome" "Elly De La Cruz" "USC159" -graded -auto</code></pre>
+        </li>
+      </ul>
+    </details>
 
     <div id="stats-container"></div>
 
@@ -1501,6 +1684,59 @@
         </div>
       </div>
     </div>
+
+    <!-- Expandable Search Tips (novice-friendly) -->
+    <details class="ebay-tips">
+      <summary>eBay Search Tips</summary>
+
+      <ul>
+        <li>
+          <strong>Use quotes to keep words together</strong>
+          <div>Example:</div>
+          <pre><code>"2024 Topps Chrome" "Elly De La Cruz"</code></pre>
+        </li>
+
+        <li>
+          <strong>Use a minus sign to remove unwanted results</strong>
+          <div>Example:</div>
+          <pre><code>"Elly De La Cruz" -graded</code></pre>
+        </li>
+
+        <li>
+          <strong>You can remove more than one thing at the same time</strong>
+          <div>Example:</div>
+          <pre><code>"Elly De La Cruz" -graded -auto -lot</code></pre>
+        </li>
+
+        <li>
+          <strong>Avoid removing very short words (they can hide good results)</strong>
+          <div>Instead of this:</div>
+          <pre><code>-El</code></pre>
+          <div>Do this:</div>
+          <pre><code>-"you pick"</code></pre>
+        </li>
+
+        <li>
+          <strong>Card numbers give the cleanest results</strong>
+          <div>Example:</div>
+          <pre><code>"Topps Chrome" "USC159"</code></pre>
+        </li>
+
+        <li>
+          <strong>Some variations use different spellings — remove all versions</strong>
+          <div>Example:</div>
+          <pre><code>"Topps Chrome" -xfractor -x-fractor -retrofractor</code></pre>
+        </li>
+
+        <li>
+          <strong>Start simple, then add filters if needed</strong>
+          <div>Start with:</div>
+          <pre><code>"Topps Chrome" "Elly De La Cruz"</code></pre>
+          <div>Then refine to:</div>
+          <pre><code>"Topps Chrome" "Elly De La Cruz" "USC159" -graded -auto</code></pre>
+        </li>
+      </ul>
+    </details>
     
     <div id="insights-container">
       <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
