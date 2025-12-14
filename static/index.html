@@ -1449,7 +1449,7 @@
     .ebay-tips pre {
       margin: 0.2rem 0 0 0;
       padding: 0.4rem 0.6rem;
-      background: linear-gradient(135deg, #f8fafd 0%, #ebf3ff 100%);
+      background: linear-gradient(135deg, #e3eeff 0%, #d4e7ff 100%);
       border-left: 2px solid var(--primary-blue);
       border-radius: 4px;
       overflow-x: auto;
@@ -1525,14 +1525,14 @@
 
         <ul>
           <li>
-            <strong>Use quotes to keep words together</strong>
+            <strong>Use quotes to search for exact phrases (this is very useful if a phrase contains spaces)</strong>
             <div>Example:</div>
-            <pre><code>"2024 Topps Chrome" "Elly De La Cruz"</code></pre>
+            <pre><code>"2024 Topps Chrome" "Elly De La Cruz" refractor</code></pre>
           </li>
 
           <li>
-            <strong>Use a minus sign to remove unwanted results</strong>
-            <div>Example:</div>
+            <strong>Exclude unwanted results with a minus sign</strong>
+            <div>For example, this will exclude results containing the word "graded":</div>
             <pre><code>"Elly De La Cruz" -graded</code></pre>
           </li>
 
@@ -1545,7 +1545,7 @@
           <li>
             <strong>Avoid removing very short words (they can hide good results)</strong>
             <div>Instead of this:</div>
-            <pre><code>-El</code></pre>
+            <pre><code>-you -pick</code></pre>
             <div>Do this:</div>
             <pre><code>-"you pick"</code></pre>
           </li>
@@ -1557,9 +1557,9 @@
           </li>
 
           <li>
-            <strong>Some variations use different spellings — remove all versions</strong>
+            <strong>You can search for spelling variations by listing all of the spelling variations</strong>
             <div>Example:</div>
-            <pre><code>"Topps Chrome" -xfractor -x-fractor -retrofractor</code></pre>
+            <pre><code>"Topps Chrome" xfractor x-fractor retrofractor</code></pre>
           </li>
 
           <li>
