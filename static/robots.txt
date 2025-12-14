@@ -1,0 +1,17 @@
+# robots.txt for Kuya Comps
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://kuyacomps.com/sitemap.xml
+
+# Block access to API endpoints (not meant for crawling)
+Disallow: /comps
+Disallow: /active
+Disallow: /fmv
+Disallow: /test-ebay-api
+
+# Allow all static assets
+Allow: /KuyaKompsLogo.png
+Allow: /KuyaCompsFavicon.png
+Allow: /script.js
