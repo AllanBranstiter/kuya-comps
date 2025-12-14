@@ -1646,27 +1646,36 @@ function drawBeeswarm(prices) {
     ctx.fillText("(All prices identical)", width / 2, height - margin.bottom + 35);
   }
   
-  // Draw legend at bottom
+  // Draw legend at bottom (centered)
   const legendY = height - 15;
-  const legendX = margin.left + 10;
+  const legendText = "FMV Range";
+  
+  // Measure text to calculate total width
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  const textWidth = ctx.measureText(legendText).width;
+  const rectWidth = 30;
+  const spacing = 5;
+  const totalLegendWidth = rectWidth + spacing + textWidth;
+  
+  // Center the legend
+  const legendX = (width - totalLegendWidth) / 2;
   
   // Draw green rectangle
-  const gradient = ctx.createLinearGradient(legendX, legendY - 8, legendX + 30, legendY - 8);
+  const gradient = ctx.createLinearGradient(legendX, legendY - 8, legendX + rectWidth, legendY - 8);
   gradient.addColorStop(0, 'rgba(52, 199, 89, 0.3)');
   gradient.addColorStop(1, 'rgba(52, 199, 89, 0.5)');
   ctx.fillStyle = gradient;
-  ctx.fillRect(legendX, legendY - 12, 30, 12);
+  ctx.fillRect(legendX, legendY - 12, rectWidth, 12);
   
   // Draw border around rectangle
   ctx.strokeStyle = 'rgba(52, 199, 89, 0.8)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(legendX, legendY - 12, 30, 12);
+  ctx.strokeRect(legendX, legendY - 12, rectWidth, 12);
   
   // Draw legend text
   ctx.fillStyle = "#1d1d1f";
-  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = "left";
-  ctx.fillText("FMV Range", legendX + 35, legendY - 3);
+  ctx.fillText(legendText, legendX + rectWidth + spacing, legendY - 3);
 }
 
 function drawComparisonBeeswarm(cardResults) {
