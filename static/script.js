@@ -1524,7 +1524,7 @@ function drawBeeswarm(prices) {
     ctx.shadowOffsetY = 1;
     ctx.shadowBlur = 2;
     
-    ctx.fillText("🎯 FMV Range", centerX, 15);
+    ctx.fillText("FMV Range", centerX, 45);
     
     // Reset text shadow
     ctx.shadowColor = 'transparent';
@@ -1665,14 +1665,6 @@ function drawBeeswarm(prices) {
     // All prices are the same
     ctx.fillText(formatMoney(minPrice), width / 2, height - margin.bottom + 20);
     ctx.fillText("(All prices identical)", width / 2, height - margin.bottom + 35);
-  }
-  
-  // Draw count with outlier information
-  ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
-  if (outliersRemoved > 0) {
-    ctx.fillText(`${filteredPrices.length} items (${outliersRemoved} outliers removed)`, width - 120, margin.top + 15);
-  } else {
-    ctx.fillText(`${filteredPrices.length} items`, width - 60, margin.top + 15);
   }
 }
 
