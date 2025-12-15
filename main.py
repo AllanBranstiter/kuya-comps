@@ -156,17 +156,31 @@ def generate_ebay_deep_link(item_id: str, marketplace: str = "com") -> str:
     Returns:
         Full deep link URL with tracking parameters
     """
+    from urllib.parse import quote
+    
     rotation_ids = {
         "com": "711-53200-19255-0",  # US
         "de": "707-53477-19255-0",   # Germany
         "co.uk": "710-53481-19255-0" # UK
     }
     
-    base_url = f"https://www.ebay.{marketplace}/itm/{item_id}"
+    # URL-encode the item_id to handle any special characters
+    encoded_item_id = quote(str(item_id), safe='')
+    
+    base_url = f"https://www.ebay.{marketplace}/itm/{encoded_item_id}"
     mkrid = rotation_ids.get(marketplace, rotation_ids["com"])
     params = f"?mkevt=1&mkcid=1&mkrid={mkrid}&customid=kuyacomps"
     
-    return base_url + params
+    deep_link = base_url + params
+    
+    # Diagnostic logging
+    print(f"[DEEPLINK DEBUG] Generating deep link for item_id: {item_id}")
+    print(f"[DEEPLINK DEBUG] Encoded item_id: {encoded_item_id}")
+    print(f"[DEEPLINK DEBUG] Marketplace: {marketplace}")
+    print(f"[DEEPLINK DEBUG] MKRID: {mkrid}")
+    print(f"[DEEPLINK DEBUG] Generated URL: {deep_link}")
+    
+    return deep_link
 
 
 def write_results_to_csv(query: str, items: List[CompItem]):
@@ -704,7 +718,13 @@ def get_comps(
             item['is_best_offer'] = False
         
         # Generate deep link for mobile app navigation
-        item['deep_link'] = generate_ebay_deep_link(item['item_id']) if item.get('item_id') else None
+        item_id = item.get('item_id')
+        if item_id:
+            print(f"[SOLD LISTING] Processing item_id: {item_id} (type: {type(item_id).__name__})")
+            item['deep_link'] = generate_ebay_deep_link(item_id)
+        else:
+            print(f"[SOLD LISTING] WARNING: No item_id for item: {item.get('title', 'N/A')[:50]}")
+            item['deep_link'] = None
         
         comp_items.append(CompItem(**item))
 
@@ -867,7 +887,13 @@ def get_active_listings(
             item['is_best_offer'] = False
         
         # Generate deep link for mobile app navigation
-        item['deep_link'] = generate_ebay_deep_link(item['item_id']) if item.get('item_id') else None
+        item_id = item.get('item_id')
+        if item_id:
+            print(f"[ACTIVE LISTING] Processing item_id: {item_id} (type: {type(item_id).__name__})")
+            item['deep_link'] = generate_ebay_deep_link(item_id)
+        else:
+            print(f"[ACTIVE LISTING] WARNING: No item_id for item: {item.get('title', 'N/A')[:50]}")
+            item['deep_link'] = None
         
         comp_items.append(CompItem(**item))
 

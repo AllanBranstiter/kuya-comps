@@ -408,6 +408,18 @@ async function renderData(data, secondData = null, marketValue = null) {
           ${data.items.map(item => {
             // Use deep link on mobile devices, standard link otherwise
             const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
+            
+            // Debug logging for sold listings
+            if (isMobileDevice) {
+              console.log('[SOLD LISTING LINK DEBUG]', {
+                item_id: item.item_id,
+                has_deep_link: !!item.deep_link,
+                deep_link: item.deep_link,
+                regular_link: item.link,
+                using: linkUrl
+              });
+            }
+            
             return `
             <tr>
               <td>${escapeHtml(item.title)}</td>
@@ -502,6 +514,18 @@ async function renderData(data, secondData = null, marketValue = null) {
                 
                 // Use deep link on mobile devices, standard link otherwise
                 const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
+                
+                // Debug logging for active listings
+                if (isMobileDevice) {
+                  console.log('[ACTIVE LISTING LINK DEBUG]', {
+                    item_id: item.item_id,
+                    has_deep_link: !!item.deep_link,
+                    deep_link: item.deep_link,
+                    regular_link: item.link,
+                    using: linkUrl,
+                    title: item.title?.substring(0, 50)
+                  });
+                }
                 
                 return `
                   <tr>
