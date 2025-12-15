@@ -60,6 +60,36 @@ function switchTab(tabName, clickedElement = null) {
     }
 }
 
+// Sub-tab management
+function switchSubTab(subTabName) {
+    // Update sub-tab buttons
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Activate clicked button
+    const clickedButton = window.event && window.event.target;
+    if (clickedButton) {
+        clickedButton.classList.add('active');
+    } else {
+        // Fallback: find and activate the correct sub-tab button
+        document.querySelector(`button[onclick="switchSubTab('${subTabName}')"]`)?.classList.add('active');
+    }
+    
+    // Update sub-tab content
+    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+    const subTabContent = document.getElementById(subTabName + '-subtab');
+    if (subTabContent) {
+        subTabContent.classList.add('active');
+    }
+    
+    // Redraw chart if switching to comps sub-tab and we have data
+    if (subTabName === 'comps' && currentBeeswarmPrices.length > 0) {
+        setTimeout(() => {
+            resizeCanvas();
+            drawBeeswarm(currentBeeswarmPrices);
+        }, 100);
+    }
+}
+
 // Intelligence Search Function
 async function runIntelligenceSearch() {
     try {
@@ -1225,9 +1255,12 @@ function renderMarketIntelligence(intelligence) {
 }
 
 async function updateFmv(data) {
-  const container = document.getElementById("stats-container");
+  const statsContainer = document.getElementById("stats-container");
+  const fmvContainer = document.getElementById("fmv-container");
+  
   if (!data || !data.items || data.items.length === 0) {
-    container.innerHTML = "";
+    if (statsContainer) statsContainer.innerHTML = "";
+    if (fmvContainer) fmvContainer.innerHTML = "";
     return;
   }
 
@@ -1242,7 +1275,9 @@ async function updateFmv(data) {
     const fmvData = await resp.json();
 
     if (fmvData.detail) {
-      container.innerHTML = "Error calculating FMV: " + escapeHtml(fmvData.detail);
+      if (fmvContainer) {
+        fmvContainer.innerHTML = "Error calculating FMV: " + escapeHtml(fmvData.detail);
+      }
       return;
     }
 
@@ -1284,10 +1319,14 @@ async function updateFmv(data) {
       </div>
     `;
     // Technical details hidden from UI: Auction sales weighted higher than Buy-It-Now • More bids = higher weight
-    container.innerHTML += fmvHtml;
+    if (fmvContainer) {
+      fmvContainer.innerHTML = fmvHtml;
+    }
 
   } catch (err) {
-    container.innerHTML = "Error calculating FMV: " + escapeHtml(String(err));
+    if (fmvContainer) {
+      fmvContainer.innerHTML = "Error calculating FMV: " + escapeHtml(String(err));
+    }
   }
 }
 
