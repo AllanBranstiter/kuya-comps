@@ -149,8 +149,12 @@ def generate_ebay_deep_link(item_id: str, marketplace: str = "com") -> str:
     """
     Generate eBay deep link with EPN tracking parameters for mobile app navigation.
     
+    Handles both formats:
+    - Sold listings (SearchAPI): "187831448152" (numeric only)
+    - Active listings (Browse API): "v1|406480768830|0" (versioned format)
+    
     Args:
-        item_id: eBay item ID
+        item_id: eBay item ID (may be in v1|ID|variant format from Browse API)
         marketplace: Top-level domain (com, de, co.uk, etc.)
     
     Returns:
@@ -162,11 +166,24 @@ def generate_ebay_deep_link(item_id: str, marketplace: str = "com") -> str:
         "co.uk": "710-53481-19255-0" # UK
     }
     
-    base_url = f"https://www.ebay.{marketplace}/itm/{item_id}"
+    # Extract numeric item ID from Browse API format (v1|ITEM_ID|0)
+    # or use as-is for SearchAPI format (numeric only)
+    clean_item_id = str(item_id)
+    if '|' in clean_item_id:
+        # Parse format: v1|406480768830|0
+        parts = clean_item_id.split('|')
+        if len(parts) >= 2:
+            clean_item_id = parts[1]  # Extract the numeric ID (middle part)
+            print(f"[DEEPLINK] Extracted numeric ID '{clean_item_id}' from Browse API format '{item_id}'")
+    
+    base_url = f"https://www.ebay.{marketplace}/itm/{clean_item_id}"
     mkrid = rotation_ids.get(marketplace, rotation_ids["com"])
     params = f"?mkevt=1&mkcid=1&mkrid={mkrid}&customid=kuyacomps"
     
-    return base_url + params
+    deep_link = base_url + params
+    print(f"[DEEPLINK] Generated: {deep_link}")
+    
+    return deep_link
 
 
 def write_results_to_csv(query: str, items: List[CompItem]):
@@ -704,7 +721,13 @@ def get_comps(
             item['is_best_offer'] = False
         
         # Generate deep link for mobile app navigation
-        item['deep_link'] = generate_ebay_deep_link(item['item_id']) if item.get('item_id') else None
+        item_id = item.get('item_id')
+        if item_id:
+            print(f"[SOLD LISTING] Processing item_id: {item_id} (type: {type(item_id).__name__})")
+            item['deep_link'] = generate_ebay_deep_link(item_id)
+        else:
+            print(f"[SOLD LISTING] WARNING: No item_id for item: {item.get('title', 'N/A')[:50]}")
+            item['deep_link'] = None
         
         comp_items.append(CompItem(**item))
 
@@ -867,7 +890,13 @@ def get_active_listings(
             item['is_best_offer'] = False
         
         # Generate deep link for mobile app navigation
-        item['deep_link'] = generate_ebay_deep_link(item['item_id']) if item.get('item_id') else None
+        item_id = item.get('item_id')
+        if item_id:
+            print(f"[ACTIVE LISTING] Processing item_id: {item_id} (type: {type(item_id).__name__})")
+            item['deep_link'] = generate_ebay_deep_link(item_id)
+        else:
+            print(f"[ACTIVE LISTING] WARNING: No item_id for item: {item.get('title', 'N/A')[:50]}")
+            item['deep_link'] = None
         
         comp_items.append(CompItem(**item))
 
