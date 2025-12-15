@@ -1,5 +1,8 @@
 let lastData = null;
 
+// Mobile detection for deep link functionality
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 // globals for expected sale band so we can draw it on the beeswarm
 let expectLowGlobal = null;
 let expectHighGlobal = null;
@@ -18,10 +21,6 @@ function escapeHtml(unsafe) {
 
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
-
-// Store active listings data for filtering
-let activeListingsData = null;
-let currentMarketValue = null;
 
 // API key is now handled securely on the backend
 const DEFAULT_API_KEY = 'backend-handled';
@@ -376,13 +375,17 @@ async function renderData(data, secondData = null, marketValue = null) {
             </tr>
           </thead>
           <tbody>
-          ${data.items.map(item => `
+          ${data.items.map(item => {
+            // Use deep link on mobile devices, standard link otherwise
+            const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
+            return `
             <tr>
               <td>${escapeHtml(item.title)}</td>
               <td>${formatMoney(item.total_price)}</td>
-              <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
+              <td><a href="${escapeHtml(linkUrl)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
             </tr>
-          `).join('')}
+            `;
+          }).join('')}
           </tbody>
         </table>
       </div>
@@ -400,10 +403,14 @@ async function renderData(data, secondData = null, marketValue = null) {
     if (secondData && secondData.items && marketValue) {
         console.log('[DEBUG renderData] Starting to filter active listings. Total items:', secondData.items.length);
         
-        // Filter active listings to only show items at or below market value
+        // Filter active listings to only show Buy It Now items at or below market value
         const filteredItems = secondData.items.filter(item => {
             const price = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-            const passes = price > 0 && price <= marketValue;
+            const buyingFormat = (item.buying_format || '').toLowerCase();
+            
+            // Only show items with "buy it now" in the format (excludes pure auctions)
+            const hasBuyItNow = buyingFormat.includes('buy it now');
+            const passes = price > 0 && price <= marketValue && hasBuyItNow;
             
             if (!passes) {
                 console.log('[DEBUG renderData] Filtered out item:', {
@@ -414,7 +421,9 @@ async function renderData(data, secondData = null, marketValue = null) {
                     extracted_shipping: item.extracted_shipping,
                     calculated_price: price,
                     marketValue: marketValue,
-                    reason: price <= 0 ? 'zero/negative price' : 'above market value'
+                    buying_format: item.buying_format,
+                    hasBuyItNow: hasBuyItNow,
+                    reason: !hasBuyItNow ? 'not buy it now' : (price <= 0 ? 'zero/negative price' : 'above market value')
                 });
             }
             
@@ -434,17 +443,9 @@ async function renderData(data, secondData = null, marketValue = null) {
             return priceA - priceB;
         });
         
-        // Store data for filtering
-        activeListingsData = filteredItems;
-        currentMarketValue = marketValue;
-        
         html += `
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; margin-top: 2rem;">
+          <div style="margin-bottom: 1rem; margin-top: 2rem;">
             <h3 style="margin: 0; color: var(--text-color);">Active Listings Below Fair Market Value</h3>
-            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 500; cursor: pointer;">
-              <input type="checkbox" id="buy-it-now-only" onchange="filterActiveListings()" style="transform: scale(1.3); cursor: pointer;">
-              Buy It Now Only
-            </label>
           </div>
           <p style="font-size: 0.75rem; color: #999; margin-top: -0.5rem; margin-bottom: 0.75rem;">
             This website is supported by affiliate links. Purchases may earn us a commission at no extra cost to you.
@@ -462,21 +463,15 @@ async function renderData(data, secondData = null, marketValue = null) {
               </thead>
               <tbody>
               ${filteredItems.length > 0 ? filteredItems.map(item => {
-                const buyingFormat = (item.buying_format || '').toLowerCase();
-                let displayType = 'Buy It Now'; // Default
-                
-                // Check for auction indicators: bid, bids, or auction
-                if (buyingFormat.includes('bid') ||
-                    buyingFormat.includes('bids') ||
-                    buyingFormat.includes('auction')) {
-                  displayType = 'Auction';
-                } else if (buyingFormat.includes('buy it now')) {
-                  displayType = 'Buy It Now';
-                }
+                // All items are "Buy It Now" since we filtered out auctions
+                const displayType = 'Buy It Now';
                 
                 // Calculate discount percentage
                 const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                
+                // Use deep link on mobile devices, standard link otherwise
+                const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
                 
                 return `
                   <tr>
@@ -484,7 +479,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
-                    <td><a href="${escapeHtml(item.link)}" target="_blank">See Listing</a></td>
+                    <td><a href="${escapeHtml(linkUrl)}" target="_blank">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
@@ -532,81 +527,6 @@ async function renderData(data, secondData = null, marketValue = null) {
     await new Promise(resolve => setTimeout(resolve, 100));
     chartContainer.style.opacity = '1';
 }
-
-//Function to filter active listings based on Buy It Now Only checkbox
-function filterActiveListings() {
-    if (!activeListingsData || !currentMarketValue) return;
-    
-    const buyItNowOnly = document.getElementById('buy-it-now-only')?.checked || false;
-    const container = document.getElementById('active-listings-table');
-    
-    if (!container) return;
-    
-    // Filter items based on checkbox
-    let itemsToDisplay = activeListingsData;
-    if (buyItNowOnly) {
-        itemsToDisplay = activeListingsData.filter(item => {
-            const buyingFormat = (item.buying_format || '').toLowerCase();
-            const isAuction = buyingFormat.includes('bid') ||
-                            buyingFormat.includes('bids') ||
-                            buyingFormat.includes('auction');
-            return !isAuction; // Only show non-auction items
-        });
-    }
-    
-    // Render the filtered table
-    const tableHtml = `
-        <table>
-          <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <tr>
-              <th>Title</th>
-              <th>Price</th>
-              <th>Discount</th>
-              <th>Type</th>
-              <th>Item ID</th>
-            </tr>
-          </thead>
-          <tbody>
-          ${itemsToDisplay.length > 0 ? itemsToDisplay.map(item => {
-            const buyingFormat = (item.buying_format || '').toLowerCase();
-            let displayType = 'Buy It Now'; // Default
-            
-            // Check for auction indicators: bid, bids, or auction
-            if (buyingFormat.includes('bid') ||
-                buyingFormat.includes('bids') ||
-                buyingFormat.includes('auction')) {
-              displayType = 'Auction';
-            } else if (buyingFormat.includes('buy it now')) {
-              displayType = 'Buy It Now';
-            }
-            
-            // Calculate discount percentage
-            const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-            const discount = ((currentMarketValue - itemPrice) / currentMarketValue * 100).toFixed(0);
-            
-            return `
-              <tr>
-                <td>${escapeHtml(item.title)}</td>
-                <td>${formatMoney(item.total_price)}</td>
-                <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
-                <td>${escapeHtml(displayType)}</td>
-                <td><a href="${escapeHtml(item.link)}" target="_blank">See Listing</a></td>
-              </tr>
-            `;
-          }).join('') : `
-            <tr>
-              <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
-                ${buyItNowOnly ? 'No Buy It Now listings found below Fair Market Value' : 'No active listings found below Fair Market Value'}
-              </td>
-            </tr>
-          `}
-          </tbody>
-        </table>
-    `;
-    
-    container.innerHTML = tableHtml;
-}
-
 
 function clearSearch() {
     document.getElementById("query").value = "";
