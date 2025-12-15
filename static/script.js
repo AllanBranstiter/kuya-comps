@@ -471,19 +471,32 @@ async function renderData(data, secondData = null, marketValue = null) {
               ${filteredItems.length > 0 ? filteredItems.map(item => {
                 const buyingFormat = (item.buying_format || '').toLowerCase();
                 let displayType = 'Buy It Now'; // Default
+                let priceDisplay = formatMoney(item.total_price);
+                let discountDisplay = '';
                 
-                // Check for auction indicators: bid, bids, or auction
-                if (buyingFormat.includes('bid') ||
-                    buyingFormat.includes('bids') ||
-                    buyingFormat.includes('auction')) {
+                // Determine listing type based on buying_format
+                const hasAuction = buyingFormat.includes('auction');
+                const hasBuyItNow = buyingFormat.includes('buy it now');
+                
+                if (hasAuction && hasBuyItNow) {
+                  // "Auction, Buy It Now" or "Buy It Now, Auction"
+                  displayType = 'Auction w/ BIN';
+                } else if (hasAuction) {
+                  // Pure "Auction" only
                   displayType = 'Auction';
-                } else if (buyingFormat.includes('buy it now')) {
+                  priceDisplay = 'Check Bid';
+                  discountDisplay = '<td style="color: #000000;">---</td>';
+                } else if (hasBuyItNow) {
+                  // "Buy It Now" or "Buy It Now, Best Offer"
                   displayType = 'Buy It Now';
                 }
                 
-                // Calculate discount percentage
-                const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-                const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                // Calculate discount percentage (only if not a pure auction)
+                if (!discountDisplay) {
+                  const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                  const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                  discountDisplay = `<td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>`;
+                }
                 
                 // Use deep link on mobile devices, standard link otherwise
                 const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
@@ -491,8 +504,8 @@ async function renderData(data, secondData = null, marketValue = null) {
                 return `
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
-                    <td>${formatMoney(item.total_price)}</td>
-                    <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
+                    <td>${priceDisplay}</td>
+                    ${discountDisplay}
                     <td>${escapeHtml(displayType)}</td>
                     <td><a href="${escapeHtml(linkUrl)}" target="_blank">See Listing</a></td>
                   </tr>
@@ -557,10 +570,9 @@ function filterActiveListings() {
     if (buyItNowOnly) {
         itemsToDisplay = activeListingsData.filter(item => {
             const buyingFormat = (item.buying_format || '').toLowerCase();
-            const isAuction = buyingFormat.includes('bid') ||
-                            buyingFormat.includes('bids') ||
-                            buyingFormat.includes('auction');
-            return !isAuction; // Only show non-auction items
+            // Only keep items that have "buy it now" in the buying format
+            // This includes "Buy It Now" and "Auction w/ BIN" but excludes pure "Auction"
+            return buyingFormat.includes('buy it now');
         });
     }
     
@@ -580,19 +592,32 @@ function filterActiveListings() {
           ${itemsToDisplay.length > 0 ? itemsToDisplay.map(item => {
             const buyingFormat = (item.buying_format || '').toLowerCase();
             let displayType = 'Buy It Now'; // Default
+            let priceDisplay = formatMoney(item.total_price);
+            let discountDisplay = '';
             
-            // Check for auction indicators: bid, bids, or auction
-            if (buyingFormat.includes('bid') ||
-                buyingFormat.includes('bids') ||
-                buyingFormat.includes('auction')) {
+            // Determine listing type based on buying_format
+            const hasAuction = buyingFormat.includes('auction');
+            const hasBuyItNow = buyingFormat.includes('buy it now');
+            
+            if (hasAuction && hasBuyItNow) {
+              // "Auction, Buy It Now" or "Buy It Now, Auction"
+              displayType = 'Auction w/ BIN';
+            } else if (hasAuction) {
+              // Pure "Auction" only
               displayType = 'Auction';
-            } else if (buyingFormat.includes('buy it now')) {
+              priceDisplay = 'Check Bid';
+              discountDisplay = '<td style="color: #000000;">---</td>';
+            } else if (hasBuyItNow) {
+              // "Buy It Now" or "Buy It Now, Best Offer"
               displayType = 'Buy It Now';
             }
             
-            // Calculate discount percentage
-            const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-            const discount = ((currentMarketValue - itemPrice) / currentMarketValue * 100).toFixed(0);
+            // Calculate discount percentage (only if not a pure auction)
+            if (!discountDisplay) {
+              const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+              const discount = ((currentMarketValue - itemPrice) / currentMarketValue * 100).toFixed(0);
+              discountDisplay = `<td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>`;
+            }
             
             // Use deep link on mobile devices, standard link otherwise
             const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
@@ -600,8 +625,8 @@ function filterActiveListings() {
             return `
               <tr>
                 <td>${escapeHtml(item.title)}</td>
-                <td>${formatMoney(item.total_price)}</td>
-                <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
+                <td>${priceDisplay}</td>
+                ${discountDisplay}
                 <td>${escapeHtml(displayType)}</td>
                 <td><a href="${escapeHtml(linkUrl)}" target="_blank">See Listing</a></td>
               </tr>
