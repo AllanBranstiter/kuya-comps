@@ -105,6 +105,8 @@ class CompItem(BaseModel):
     total_bids: Optional[int] = None
     sold: Optional[bool] = None
     total_price: Optional[float] = None
+    deep_link: Optional[str] = None
+
 class CompsResponse(BaseModel):
     query: str
     pages_scraped: int
@@ -141,6 +143,30 @@ DEFAULT_API_KEY = os.getenv('SEARCH_API_KEY')
 if not DEFAULT_API_KEY:
     print("WARNING: SEARCH_API_KEY environment variable not set. App will only work in test mode.")
     DEFAULT_API_KEY = None
+
+
+def generate_ebay_deep_link(item_id: str, marketplace: str = "com") -> str:
+    """
+    Generate eBay deep link with EPN tracking parameters for mobile app navigation.
+    
+    Args:
+        item_id: eBay item ID
+        marketplace: Top-level domain (com, de, co.uk, etc.)
+    
+    Returns:
+        Full deep link URL with tracking parameters
+    """
+    rotation_ids = {
+        "com": "711-53200-19255-0",  # US
+        "de": "707-53477-19255-0",   # Germany
+        "co.uk": "710-53481-19255-0" # UK
+    }
+    
+    base_url = f"https://www.ebay.{marketplace}/itm/{item_id}"
+    mkrid = rotation_ids.get(marketplace, rotation_ids["com"])
+    params = f"?mkevt=1&mkcid=1&mkrid={mkrid}&customid=kuyacomps"
+    
+    return base_url + params
 
 
 def write_results_to_csv(query: str, items: List[CompItem]):
@@ -677,6 +703,9 @@ def get_comps(
             item['is_buy_it_now'] = False
             item['is_best_offer'] = False
         
+        # Generate deep link for mobile app navigation
+        item['deep_link'] = generate_ebay_deep_link(item['item_id']) if item.get('item_id') else None
+        
         comp_items.append(CompItem(**item))
 
     # Calculate total_price for each item
@@ -837,6 +866,9 @@ def get_active_listings(
             item['is_buy_it_now'] = False
             item['is_best_offer'] = False
         
+        # Generate deep link for mobile app navigation
+        item['deep_link'] = generate_ebay_deep_link(item['item_id']) if item.get('item_id') else None
+        
         comp_items.append(CompItem(**item))
 
     # Calculate total_price for each item
@@ -859,8 +891,6 @@ def get_active_listings(
         duplicates_filtered=duplicates_removed,
         zero_price_filtered=zero_price_removed,
     )
-
-
 
 
 @app.post("/fmv", response_model=FmvResponse)
