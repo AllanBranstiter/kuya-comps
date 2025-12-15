@@ -3,6 +3,35 @@ let lastData = null;
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+// iOS-specific detection for link handling
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Track page visibility for iOS app switching diagnostics
+if (isIOS) {
+    document.addEventListener('visibilitychange', () => {
+        console.log('[iOS VISIBILITY]', document.hidden ? 'Page hidden (switched to app)' : 'Page visible (returned from app)');
+        if (!document.hidden) {
+            console.log('[iOS VISIBILITY] Page became visible - touch events should be restored');
+        }
+    });
+    
+    window.addEventListener('focus', () => {
+        console.log('[iOS FOCUS] Window gained focus');
+    });
+    
+    window.addEventListener('blur', () => {
+        console.log('[iOS FOCUS] Window lost focus (app switch)');
+    });
+    
+    window.addEventListener('pagehide', () => {
+        console.log('[iOS LIFECYCLE] Page hide event');
+    });
+    
+    window.addEventListener('pageshow', (event) => {
+        console.log('[iOS LIFECYCLE] Page show event, persisted:', event.persisted);
+    });
+}
+
 // globals for expected sale band so we can draw it on the beeswarm
 let expectLowGlobal = null;
 let expectHighGlobal = null;
@@ -420,11 +449,14 @@ async function renderData(data, secondData = null, marketValue = null) {
               });
             }
             
+            // For iOS, remove target="_blank" to avoid tab confusion after app switch
+            const targetAttr = isIOS ? '' : ' target="_blank"';
+            
             return `
             <tr>
               <td>${escapeHtml(item.title)}</td>
               <td>${formatMoney(item.total_price)}</td>
-              <td><a href="${escapeHtml(linkUrl)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
+              <td><a href="${escapeHtml(linkUrl)}"${targetAttr} onclick="console.log('[LINK CLICK] Sold listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">${escapeHtml(item.item_id)}</a></td>
             </tr>
             `;
           }).join('')}
@@ -527,13 +559,16 @@ async function renderData(data, secondData = null, marketValue = null) {
                   });
                 }
                 
+                // For iOS, remove target="_blank" to avoid tab confusion after app switch
+                const targetAttr = isIOS ? '' : ' target="_blank"';
+                
                 return `
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
-                    <td><a href="${escapeHtml(linkUrl)}" target="_blank">See Listing</a></td>
+                    <td><a href="${escapeHtml(linkUrl)}"${targetAttr} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
