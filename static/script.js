@@ -1,5 +1,8 @@
 let lastData = null;
 
+// Mobile detection for deep link functionality
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 // globals for expected sale band so we can draw it on the beeswarm
 let expectLowGlobal = null;
 let expectHighGlobal = null;
@@ -376,13 +379,17 @@ async function renderData(data, secondData = null, marketValue = null) {
             </tr>
           </thead>
           <tbody>
-          ${data.items.map(item => `
+          ${data.items.map(item => {
+            // Use deep link on mobile devices, standard link otherwise
+            const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
+            return `
             <tr>
               <td>${escapeHtml(item.title)}</td>
               <td>${formatMoney(item.total_price)}</td>
-              <td><a href="${escapeHtml(item.link)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
+              <td><a href="${escapeHtml(linkUrl)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
             </tr>
-          `).join('')}
+            `;
+          }).join('')}
           </tbody>
         </table>
       </div>
@@ -478,13 +485,16 @@ async function renderData(data, secondData = null, marketValue = null) {
                 const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
                 
+                // Use deep link on mobile devices, standard link otherwise
+                const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
+                
                 return `
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
-                    <td><a href="${escapeHtml(item.link)}" target="_blank">See Listing</a></td>
+                    <td><a href="${escapeHtml(linkUrl)}" target="_blank">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
@@ -584,13 +594,16 @@ function filterActiveListings() {
             const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
             const discount = ((currentMarketValue - itemPrice) / currentMarketValue * 100).toFixed(0);
             
+            // Use deep link on mobile devices, standard link otherwise
+            const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
+            
             return `
               <tr>
                 <td>${escapeHtml(item.title)}</td>
                 <td>${formatMoney(item.total_price)}</td>
                 <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                 <td>${escapeHtml(displayType)}</td>
-                <td><a href="${escapeHtml(item.link)}" target="_blank">See Listing</a></td>
+                <td><a href="${escapeHtml(linkUrl)}" target="_blank">See Listing</a></td>
               </tr>
             `;
           }).join('') : `
