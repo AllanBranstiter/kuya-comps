@@ -3,6 +3,62 @@ let lastData = null;
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
+// iOS-specific detection for link handling
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Track page visibility for iOS app switching diagnostics and fix touch issues
+if (isIOS) {
+    document.addEventListener('visibilitychange', () => {
+        console.log('[iOS VISIBILITY]', document.hidden ? 'Page hidden (switched to app)' : 'Page visible (returned from app)');
+        if (!document.hidden) {
+            console.log('[iOS VISIBILITY] Page became visible - forcing repaint to restore rendering');
+            
+            // Force an aggressive repaint to fix iOS Safari rendering bugs
+            // This fixes both touch lag AND the table column clipping issue
+            
+            // Method 1: Force reflow on body
+            document.body.style.display = 'none';
+            document.body.offsetHeight; // Force reflow
+            document.body.style.display = '';
+            
+            // Method 2: Force repaint on all table containers
+            document.querySelectorAll('.table-container, table').forEach(element => {
+                element.style.transform = 'translateZ(0)';
+                element.offsetHeight; // Force reflow
+                element.style.transform = '';
+            });
+            
+            // Method 3: Re-enable pointer events
+            document.querySelectorAll('a').forEach(link => {
+                link.style.pointerEvents = 'auto';
+            });
+            
+            console.log('[iOS VISIBILITY] Repaint complete');
+        }
+    });
+    
+    window.addEventListener('focus', () => {
+        console.log('[iOS FOCUS] Window gained focus');
+    });
+    
+    window.addEventListener('blur', () => {
+        console.log('[iOS FOCUS] Window lost focus (app switch)');
+    });
+    
+    window.addEventListener('pagehide', () => {
+        console.log('[iOS LIFECYCLE] Page hide event');
+    });
+    
+    window.addEventListener('pageshow', (event) => {
+        console.log('[iOS LIFECYCLE] Page show event, persisted:', event.persisted);
+        if (event.persisted) {
+            // Page was loaded from cache - force reflow
+            console.log('[iOS LIFECYCLE] Page from cache - forcing touch restoration');
+            document.body.offsetHeight; // Force reflow
+        }
+    });
+}
+
 // globals for expected sale band so we can draw it on the beeswarm
 let expectLowGlobal = null;
 let expectHighGlobal = null;
@@ -53,6 +109,36 @@ function switchTab(tabName, clickedElement = null) {
     
     // Redraw chart if switching to comps tab and we have data
     if (tabName === 'comps' && currentBeeswarmPrices.length > 0) {
+        setTimeout(() => {
+            resizeCanvas();
+            drawBeeswarm(currentBeeswarmPrices);
+        }, 100);
+    }
+}
+
+// Sub-tab management
+function switchSubTab(subTabName) {
+    // Update sub-tab buttons
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Activate clicked button
+    const clickedButton = window.event && window.event.target;
+    if (clickedButton) {
+        clickedButton.classList.add('active');
+    } else {
+        // Fallback: find and activate the correct sub-tab button
+        document.querySelector(`button[onclick="switchSubTab('${subTabName}')"]`)?.classList.add('active');
+    }
+    
+    // Update sub-tab content
+    document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+    const subTabContent = document.getElementById(subTabName + '-subtab');
+    if (subTabContent) {
+        subTabContent.classList.add('active');
+    }
+    
+    // Redraw chart if switching to comps sub-tab and we have data
+    if (subTabName === 'comps' && currentBeeswarmPrices.length > 0) {
         setTimeout(() => {
             resizeCanvas();
             drawBeeswarm(currentBeeswarmPrices);
@@ -378,11 +464,29 @@ async function renderData(data, secondData = null, marketValue = null) {
           ${data.items.map(item => {
             // Use deep link on mobile devices, standard link otherwise
             const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
+            
+            // Debug logging for sold listings
+            if (isMobileDevice) {
+              console.log('[SOLD LISTING LINK DEBUG]', {
+                item_id: item.item_id,
+                has_deep_link: !!item.deep_link,
+                deep_link: item.deep_link,
+                regular_link: item.link,
+                using: linkUrl
+              });
+            }
+            
+            // For iOS, remove target="_blank" to avoid tab confusion after app switch
+            const targetAttr = isIOS ? '' : ' target="_blank"';
+            
+            // Add touch-action CSS for better iOS touch handling
+            const touchStyle = isIOS ? ' style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1);"' : '';
+            
             return `
             <tr>
               <td>${escapeHtml(item.title)}</td>
               <td>${formatMoney(item.total_price)}</td>
-              <td><a href="${escapeHtml(linkUrl)}" target="_blank">${escapeHtml(item.item_id)}</a></td>
+              <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Sold listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">${escapeHtml(item.item_id)}</a></td>
             </tr>
             `;
           }).join('')}
@@ -473,13 +577,31 @@ async function renderData(data, secondData = null, marketValue = null) {
                 // Use deep link on mobile devices, standard link otherwise
                 const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
                 
+                // Debug logging for active listings
+                if (isMobileDevice) {
+                  console.log('[ACTIVE LISTING LINK DEBUG]', {
+                    item_id: item.item_id,
+                    has_deep_link: !!item.deep_link,
+                    deep_link: item.deep_link,
+                    regular_link: item.link,
+                    using: linkUrl,
+                    title: item.title?.substring(0, 50)
+                  });
+                }
+                
+                // For iOS, remove target="_blank" to avoid tab confusion after app switch
+                const targetAttr = isIOS ? '' : ' target="_blank"';
+                
+                // Add touch-action CSS for better iOS touch handling
+                const touchStyle = isIOS ? ' style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1);"' : '';
+                
                 return `
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
-                    <td><a href="${escapeHtml(linkUrl)}" target="_blank">See Listing</a></td>
+                    <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
@@ -1225,9 +1347,12 @@ function renderMarketIntelligence(intelligence) {
 }
 
 async function updateFmv(data) {
-  const container = document.getElementById("stats-container");
+  const statsContainer = document.getElementById("stats-container");
+  const fmvContainer = document.getElementById("fmv-container");
+  
   if (!data || !data.items || data.items.length === 0) {
-    container.innerHTML = "";
+    if (statsContainer) statsContainer.innerHTML = "";
+    if (fmvContainer) fmvContainer.innerHTML = "";
     return;
   }
 
@@ -1242,7 +1367,9 @@ async function updateFmv(data) {
     const fmvData = await resp.json();
 
     if (fmvData.detail) {
-      container.innerHTML = "Error calculating FMV: " + escapeHtml(fmvData.detail);
+      if (fmvContainer) {
+        fmvContainer.innerHTML = "Error calculating FMV: " + escapeHtml(fmvData.detail);
+      }
       return;
     }
 
@@ -1284,10 +1411,14 @@ async function updateFmv(data) {
       </div>
     `;
     // Technical details hidden from UI: Auction sales weighted higher than Buy-It-Now • More bids = higher weight
-    container.innerHTML += fmvHtml;
+    if (fmvContainer) {
+      fmvContainer.innerHTML = fmvHtml;
+    }
 
   } catch (err) {
-    container.innerHTML = "Error calculating FMV: " + escapeHtml(String(err));
+    if (fmvContainer) {
+      fmvContainer.innerHTML = "Error calculating FMV: " + escapeHtml(String(err));
+    }
   }
 }
 

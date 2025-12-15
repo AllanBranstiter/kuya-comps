@@ -1149,7 +1149,59 @@
      }
    }
 
-   /* Dark Mode Support */
+  /* Sub-tab Styling */
+  .sub-tab-nav {
+    display: flex;
+    background: var(--background-color);
+    border-radius: 12px;
+    padding: 0.5rem;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    gap: 0.5rem;
+  }
+
+  .sub-tab-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    color: var(--subtle-text-color);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: none;
+  }
+
+  .sub-tab-btn:hover {
+    background: rgba(0, 122, 255, 0.1);
+    color: var(--primary-blue);
+    transform: none;
+    box-shadow: none;
+  }
+
+  .sub-tab-btn.active {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  }
+
+  .sub-tab-btn.active:hover {
+    background: var(--gradient-primary);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  }
+
+  .sub-tab-content {
+    display: none;
+  }
+
+  .sub-tab-content.active {
+    display: block;
+  }
+
+  /* Dark Mode Support */
    @media (prefers-color-scheme: dark) {
      /* Keep light mode for now, but can be enhanced later */
    }
@@ -1611,13 +1663,32 @@
       </div>
     </div>
 
-    <div id="stats-container"></div>
-
-    <div id="chart-container" style="width: 100%; position: relative;">
-      <canvas id="beeswarmCanvas" style="width: 100%; height: 250px; display: block;"></canvas>
+    <!-- Sub-tab Navigation -->
+    <div class="sub-tab-nav">
+      <button class="sub-tab-btn active" onclick="switchSubTab('comps')">Comps</button>
+      <button class="sub-tab-btn" onclick="switchSubTab('analysis')">Analysis</button>
     </div>
-    
-    <div id="results"></div>
+
+    <!-- Comps Sub-tab -->
+    <div id="comps-subtab" class="sub-tab-content active">
+      <div id="stats-container"></div>
+
+      <div id="fmv-container"></div>
+
+      <div id="chart-container" style="width: 100%; position: relative;">
+        <canvas id="beeswarmCanvas" style="width: 100%; height: 250px; display: block;"></canvas>
+      </div>
+      
+      <div id="results"></div>
+    </div>
+
+    <!-- Analysis Sub-tab -->
+    <div id="analysis-subtab" class="sub-tab-content">
+      <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+        <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">Analysis</h3>
+        <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Analysis features coming soon...</p>
+      </div>
+    </div>
   </div>
   
   <!-- Grading Intelligence Tab -->
