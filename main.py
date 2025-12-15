@@ -895,136 +895,136 @@ def get_active_listings(
 
 @app.get("/debug/export-active-listings-csv")
 def export_active_listings_to_csv(
-query: str = Query(
-    ...,
-    description="Search term, e.g. '2024 topps chrome elly de la cruz auto /25'",
-),
-pages: int = Query(
-    1,
-    ge=1,
-    le=10,
-    description="Number of pages to scrape",
-),
-sort_by: str = Query(
-    "best_match",
-    description="Sort order: best_match, price_low_to_high, price_high_to_low, time_newly_listed, etc.",
-),
-buying_format: Optional[str] = Query(
-    None,
-    description="Filter by buying format: auction, buy_it_now, best_offer",
-),
-filename: str = Query(
-    "debug_active_listings.csv",
-    description="Output CSV filename",
-),
+    query: str = Query(
+        ...,
+        description="Search term, e.g. '2024 topps chrome elly de la cruz auto /25'",
+    ),
+    pages: int = Query(
+        1,
+        ge=1,
+        le=10,
+        description="Number of pages to scrape",
+    ),
+    sort_by: str = Query(
+        "best_match",
+        description="Sort order: best_match, price_low_to_high, price_high_to_low, time_newly_listed, etc.",
+    ),
+    buying_format: Optional[str] = Query(
+        None,
+        description="Filter by buying format: auction, buy_it_now, best_offer",
+    ),
+    filename: str = Query(
+        "debug_active_listings.csv",
+        description="Output CSV filename",
+    ),
 ):
-"""
-DEBUG ENDPOINT: Export Active Listings search results to CSV for inspection.
-
-This endpoint performs an active listings search and exports all results
-(including those that would normally be filtered) to a CSV file on the server
-for debugging purposes.
-
-Returns the file path and summary statistics.
-"""
-try:
-    print(f"[DEBUG CSV EXPORT] Searching active listings: query='{query}', pages={pages}")
+    """
+    DEBUG ENDPOINT: Export Active Listings search results to CSV for inspection.
     
-    # Fetch raw items from eBay Browse API
-    raw_items = scrape_active_listings_ebay_api(
-        query=query,
-        max_pages=pages,
-        delay_secs=1.0,
-        sort_by=sort_by,
-        buying_format=buying_format,
-    )
+    This endpoint performs an active listings search and exports all results
+    (including those that would normally be filtered) to a CSV file on the server
+    for debugging purposes.
     
-    print(f"[DEBUG CSV EXPORT] Retrieved {len(raw_items)} raw items")
-    
-    # Convert to CompItems (without filtering)
-    comp_items = []
-    for item in raw_items:
-        buying_format_val = item.get('buying_format', '').lower()
-        item['is_auction'] = 'auction' in buying_format_val
-        item['is_buy_it_now'] = 'buy it now' in buying_format_val
-        item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
-        
-        if item['is_auction']:
-            item['is_buy_it_now'] = False
-            item['is_best_offer'] = False
-        
-        # Generate deep link
-        item['deep_link'] = generate_ebay_deep_link(item['item_id']) if item.get('item_id') else None
-        
-        comp_items.append(CompItem(**item))
-    
-    # Calculate total_price for each item
-    for item in comp_items:
-        item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
-    
-    # Write to CSV with custom filename
-    debug_filepath = os.path.join(RESULTS_DIR, filename)
-    
-    # Create directory if it doesn't exist
-    os.makedirs(RESULTS_DIR, exist_ok=True)
-    
-    # Define CSV headers based on the CompItem model
-    headers = list(CompItem.model_fields.keys())
-    
-    # Write ALL items (no deduplication for debug purposes)
+    Returns the file path and summary statistics.
+    """
     try:
-        with open(debug_filepath, "w", newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=headers)
-            writer.writeheader()
-            for item in comp_items:
-                writer.writerow(item.model_dump())
-        print(f"[DEBUG CSV EXPORT] Successfully wrote {len(comp_items)} items to {debug_filepath}")
-    except IOError as e:
-        print(f"[DEBUG CSV EXPORT] Failed to write CSV file: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to write CSV: {e}")
-    
-    # Calculate statistics
-    total_items = len(comp_items)
-    auction_count = sum(1 for item in comp_items if item.is_auction)
-    buy_it_now_count = sum(1 for item in comp_items if item.is_buy_it_now)
-    best_offer_count = sum(1 for item in comp_items if item.is_best_offer)
-    zero_price_count = sum(1 for item in comp_items if not item.extracted_price or item.extracted_price <= 0)
-    no_item_id_count = sum(1 for item in comp_items if not item.item_id)
-    
-    return {
-        "status": "success",
-        "message": f"Exported {total_items} active listings to CSV",
-        "filepath": debug_filepath,
-        "query": query,
-        "pages_scraped": pages,
-        "statistics": {
-            "total_items": total_items,
-            "auction_count": auction_count,
-            "buy_it_now_count": buy_it_now_count,
-            "best_offer_count": best_offer_count,
-            "zero_price_count": zero_price_count,
-            "no_item_id_count": no_item_id_count,
-        },
-        "sample_items": [
-            {
-                "title": item.title[:100] if item.title else None,
-                "item_id": item.item_id,
-                "price": item.extracted_price,
-                "buying_format": item.buying_format,
-                "is_auction": item.is_auction,
-                "is_buy_it_now": item.is_buy_it_now,
-                "bids": item.bids,
-            }
-            for item in comp_items[:10]
-        ]
-    }
-    
-except Exception as e:
-    import traceback
-    error_details = traceback.format_exc()
-    print(f"[DEBUG CSV EXPORT] Error: {e}")
-    print(f"[DEBUG CSV EXPORT] Traceback: {error_details}")
-    raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        print(f"[DEBUG CSV EXPORT] Searching active listings: query='{query}', pages={pages}")
+        
+        # Fetch raw items from eBay Browse API
+        raw_items = scrape_active_listings_ebay_api(
+            query=query,
+            max_pages=pages,
+            delay_secs=1.0,
+            sort_by=sort_by,
+            buying_format=buying_format,
+        )
+        
+        print(f"[DEBUG CSV EXPORT] Retrieved {len(raw_items)} raw items")
+        
+        # Convert to CompItems (without filtering)
+        comp_items = []
+        for item in raw_items:
+            buying_format_val = item.get('buying_format', '').lower()
+            item['is_auction'] = 'auction' in buying_format_val
+            item['is_buy_it_now'] = 'buy it now' in buying_format_val
+            item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
+            
+            if item['is_auction']:
+                item['is_buy_it_now'] = False
+                item['is_best_offer'] = False
+            
+            # Generate deep link
+            item['deep_link'] = generate_ebay_deep_link(item['item_id']) if item.get('item_id') else None
+            
+            comp_items.append(CompItem(**item))
+        
+        # Calculate total_price for each item
+        for item in comp_items:
+            item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
+        
+        # Write to CSV with custom filename
+        debug_filepath = os.path.join(RESULTS_DIR, filename)
+        
+        # Create directory if it doesn't exist
+        os.makedirs(RESULTS_DIR, exist_ok=True)
+        
+        # Define CSV headers based on the CompItem model
+        headers = list(CompItem.model_fields.keys())
+        
+        # Write ALL items (no deduplication for debug purposes)
+        try:
+            with open(debug_filepath, "w", newline="", encoding="utf-8") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=headers)
+                writer.writeheader()
+                for item in comp_items:
+                    writer.writerow(item.model_dump())
+            print(f"[DEBUG CSV EXPORT] Successfully wrote {len(comp_items)} items to {debug_filepath}")
+        except IOError as e:
+            print(f"[DEBUG CSV EXPORT] Failed to write CSV file: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to write CSV: {e}")
+        
+        # Calculate statistics
+        total_items = len(comp_items)
+        auction_count = sum(1 for item in comp_items if item.is_auction)
+        buy_it_now_count = sum(1 for item in comp_items if item.is_buy_it_now)
+        best_offer_count = sum(1 for item in comp_items if item.is_best_offer)
+        zero_price_count = sum(1 for item in comp_items if not item.extracted_price or item.extracted_price <= 0)
+        no_item_id_count = sum(1 for item in comp_items if not item.item_id)
+        
+        return {
+            "status": "success",
+            "message": f"Exported {total_items} active listings to CSV",
+            "filepath": debug_filepath,
+            "query": query,
+            "pages_scraped": pages,
+            "statistics": {
+                "total_items": total_items,
+                "auction_count": auction_count,
+                "buy_it_now_count": buy_it_now_count,
+                "best_offer_count": best_offer_count,
+                "zero_price_count": zero_price_count,
+                "no_item_id_count": no_item_id_count,
+            },
+            "sample_items": [
+                {
+                    "title": item.title[:100] if item.title else None,
+                    "item_id": item.item_id,
+                    "price": item.extracted_price,
+                    "buying_format": item.buying_format,
+                    "is_auction": item.is_auction,
+                    "is_buy_it_now": item.is_buy_it_now,
+                    "bids": item.bids,
+                }
+                for item in comp_items[:10]
+            ]
+        }
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"[DEBUG CSV EXPORT] Error: {e}")
+        print(f"[DEBUG CSV EXPORT] Traceback: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 @app.post("/fmv", response_model=FmvResponse)
