@@ -6,12 +6,24 @@ const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera
 // iOS-specific detection for link handling
 const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-// Track page visibility for iOS app switching diagnostics
+// Track page visibility for iOS app switching diagnostics and fix touch issues
 if (isIOS) {
     document.addEventListener('visibilitychange', () => {
         console.log('[iOS VISIBILITY]', document.hidden ? 'Page hidden (switched to app)' : 'Page visible (returned from app)');
         if (!document.hidden) {
-            console.log('[iOS VISIBILITY] Page became visible - touch events should be restored');
+            console.log('[iOS VISIBILITY] Page became visible - forcing reflow to restore touch');
+            
+            // Force a reflow/repaint to restore touch event handling
+            // This fixes the iOS Safari bug where touch events are laggy after app switch
+            document.body.style.transform = 'translateZ(0)';
+            setTimeout(() => {
+                document.body.style.transform = '';
+            }, 50);
+            
+            // Re-enable all links (in case they were disabled)
+            document.querySelectorAll('a').forEach(link => {
+                link.style.pointerEvents = 'auto';
+            });
         }
     });
     
@@ -29,6 +41,11 @@ if (isIOS) {
     
     window.addEventListener('pageshow', (event) => {
         console.log('[iOS LIFECYCLE] Page show event, persisted:', event.persisted);
+        if (event.persisted) {
+            // Page was loaded from cache - force reflow
+            console.log('[iOS LIFECYCLE] Page from cache - forcing touch restoration');
+            document.body.offsetHeight; // Force reflow
+        }
     });
 }
 
@@ -452,11 +469,14 @@ async function renderData(data, secondData = null, marketValue = null) {
             // For iOS, remove target="_blank" to avoid tab confusion after app switch
             const targetAttr = isIOS ? '' : ' target="_blank"';
             
+            // Add touch-action CSS for better iOS touch handling
+            const touchStyle = isIOS ? ' style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1);"' : '';
+            
             return `
             <tr>
               <td>${escapeHtml(item.title)}</td>
               <td>${formatMoney(item.total_price)}</td>
-              <td><a href="${escapeHtml(linkUrl)}"${targetAttr} onclick="console.log('[LINK CLICK] Sold listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">${escapeHtml(item.item_id)}</a></td>
+              <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Sold listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">${escapeHtml(item.item_id)}</a></td>
             </tr>
             `;
           }).join('')}
@@ -562,13 +582,16 @@ async function renderData(data, secondData = null, marketValue = null) {
                 // For iOS, remove target="_blank" to avoid tab confusion after app switch
                 const targetAttr = isIOS ? '' : ' target="_blank"';
                 
+                // Add touch-action CSS for better iOS touch handling
+                const touchStyle = isIOS ? ' style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1);"' : '';
+                
                 return `
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(item.total_price)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
-                    <td><a href="${escapeHtml(linkUrl)}"${targetAttr} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
+                    <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
