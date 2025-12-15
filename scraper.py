@@ -328,6 +328,8 @@ def scrape_active_listings_ebay_api(
         filters = {}
         
         # Buying format mapping (SearchAPI format -> eBay API format)
+        # When buying_format is specified, filter to that specific type
+        # When None, don't set filter - eBay API returns all types (AUCTION, FIXED_PRICE, etc.)
         if buying_format:
             format_map = {
                 'auction': 'AUCTION',
@@ -336,9 +338,6 @@ def scrape_active_listings_ebay_api(
             }
             ebay_format = format_map.get(buying_format.lower(), 'FIXED_PRICE')
             filters['buyingOptions'] = ebay_format
-        else:
-            # When no filter specified, explicitly include both auctions and fixed price listings
-            filters['buyingOptions'] = 'AUCTION|FIXED_PRICE'
         
         # Price range filter
         if price_min is not None and price_max is not None:
