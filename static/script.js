@@ -11,29 +11,19 @@ if (isIOS) {
     document.addEventListener('visibilitychange', () => {
         console.log('[iOS VISIBILITY]', document.hidden ? 'Page hidden (switched to app)' : 'Page visible (returned from app)');
         if (!document.hidden) {
-            console.log('[iOS VISIBILITY] Page became visible - forcing repaint to restore rendering');
+            console.log('[iOS VISIBILITY] Page became visible - forcing reflow to restore touch');
             
-            // Force an aggressive repaint to fix iOS Safari rendering bugs
-            // This fixes both touch lag AND the table column clipping issue
+            // Force a reflow/repaint to restore touch event handling
+            // This fixes the iOS Safari bug where touch events are laggy after app switch
+            document.body.style.transform = 'translateZ(0)';
+            setTimeout(() => {
+                document.body.style.transform = '';
+            }, 50);
             
-            // Method 1: Force reflow on body
-            document.body.style.display = 'none';
-            document.body.offsetHeight; // Force reflow
-            document.body.style.display = '';
-            
-            // Method 2: Force repaint on all table containers
-            document.querySelectorAll('.table-container, table').forEach(element => {
-                element.style.transform = 'translateZ(0)';
-                element.offsetHeight; // Force reflow
-                element.style.transform = '';
-            });
-            
-            // Method 3: Re-enable pointer events
+            // Re-enable all links (in case they were disabled)
             document.querySelectorAll('a').forEach(link => {
                 link.style.pointerEvents = 'auto';
             });
-            
-            console.log('[iOS VISIBILITY] Repaint complete');
         }
     });
     
