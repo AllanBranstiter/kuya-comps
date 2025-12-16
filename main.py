@@ -187,57 +187,13 @@ def generate_ebay_deep_link(item_id: str, marketplace: str = "com") -> str:
 
 
 def write_results_to_csv(query: str, items: List[CompItem]):
-    """Saves search results to a CSV file on the server."""
-    if not items:
-        return
-
-    # Create directory if it doesn't exist
-    os.makedirs(RESULTS_DIR, exist_ok=True)
-
-    filepath = os.path.join(RESULTS_DIR, RESULTS_FILE)
-    file_exists = os.path.isfile(filepath)
-    existing_item_ids = set()
-    max_library_id = 0
-
-    if file_exists:
-        try:
-            with open(filepath, "r", newline="", encoding="utf-8") as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
-                    if 'item_id' in row:
-                        existing_item_ids.add(row['item_id'])
-                    if 'library_id' in row and row['library_id']:
-                        try:
-                            max_library_id = max(max_library_id, int(row['library_id']))
-                        except (ValueError, TypeError):
-                            pass # Ignore if library_id is not a valid integer
-        except (IOError, csv.Error) as e:
-            print(f"[ERROR] Failed to read existing CSV file: {e}")
-            # Proceeding will overwrite or create a new file if reading fails
-            pass
-
-    # Define CSV headers based on the CompItem model
-    headers = list(CompItem.model_fields.keys())
-    new_items = [item for item in items if item.item_id not in existing_item_ids]
-
-    if not new_items:
-        print("[INFO] No new items to add to the CSV.")
-        return
-        
-    # Assign library_id to new items
-    for i, item in enumerate(new_items, start=1):
-        item.library_id = max_library_id + i
-
-    try:
-        with open(filepath, "a", newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=headers)
-            if not file_exists or not existing_item_ids:
-                writer.writeheader()
-            for item in new_items:
-                writer.writerow(item.model_dump())
-        print(f"[SUCCESS] {len(new_items)} new results saved to {filepath}")
-    except IOError as e:
-        print(f"[ERROR] Failed to write CSV file: {e}")
+    """
+    DISABLED: CSV saving disabled to comply with eBay Terms of Service.
+    eBay's API terms prohibit storing/caching their data.
+    """
+    # Function disabled - no data is saved
+    print("[INFO] CSV saving disabled per eBay ToS - data not stored")
+    return
 
 
 def load_test_data() -> List[Dict]:
@@ -830,8 +786,9 @@ def get_active_listings(
             sort_by=sort_by,
             buying_format=buying_format,
             condition=condition,
-            price_min=price_min,
-            price_max=price_max,
+            price_min=None,  # Don't filter by price on API side - filter on frontend after getting all data
+            price_max=None,  # This ensures we get complete shipping data for all items
+            enrich_shipping=True,  # Fetch detailed shipping info when missing from search results
         )
         
         print(f"[INFO] Browse API returned {len(raw_items)} raw items")
