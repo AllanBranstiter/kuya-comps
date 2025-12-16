@@ -731,9 +731,10 @@ def get_comps(
         
         comp_items.append(CompItem(**item))
 
-    # Calculate total_price for each item
+    # Use total_price from data if available, otherwise calculate it
     for item in comp_items:
-        item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
+        if item.total_price is None:
+            item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
 
     # Save results to CSV on the server
     write_results_to_csv(query, comp_items)
@@ -900,9 +901,10 @@ def get_active_listings(
         
         comp_items.append(CompItem(**item))
 
-    # Calculate total_price for each item
+    # Use total_price from data if available, otherwise calculate it
     for item in comp_items:
-        item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
+        if item.total_price is None:
+            item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
 
     prices = [item.total_price for item in comp_items if item.total_price is not None]
     min_price = min(prices) if prices else None
