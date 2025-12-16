@@ -514,7 +514,7 @@ async function renderData(data, secondData = null, marketValue = null) {
         
         // Filter active listings to only show Buy It Now items at or below market value
         const filteredItems = secondData.items.filter(item => {
-            const price = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+            const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
             const buyingFormat = (item.buying_format || '').toLowerCase();
             
             // Only show items with "buy it now" in the format (excludes pure auctions)
@@ -547,8 +547,8 @@ async function renderData(data, secondData = null, marketValue = null) {
         
         // Sort by price (lowest to highest)
         filteredItems.sort((a, b) => {
-            const priceA = a.total_price || ((a.extracted_price || 0) + (a.extracted_shipping || 0));
-            const priceB = b.total_price || ((b.extracted_price || 0) + (b.extracted_shipping || 0));
+            const priceA = a.total_price ?? ((a.extracted_price || 0) + (a.extracted_shipping || 0));
+            const priceB = b.total_price ?? ((b.extracted_price || 0) + (b.extracted_shipping || 0));
             return priceA - priceB;
         });
         
@@ -576,7 +576,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                 const displayType = 'Buy It Now';
                 
                 // Calculate price with fallback - use total_price from API if available
-                const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                const itemPrice = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
                 
                 // Debug logging for price calculation
