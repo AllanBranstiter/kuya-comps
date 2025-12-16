@@ -11,29 +11,19 @@ if (isIOS) {
     document.addEventListener('visibilitychange', () => {
         console.log('[iOS VISIBILITY]', document.hidden ? 'Page hidden (switched to app)' : 'Page visible (returned from app)');
         if (!document.hidden) {
-            console.log('[iOS VISIBILITY] Page became visible - forcing repaint to restore rendering');
+            console.log('[iOS VISIBILITY] Page became visible - forcing reflow to restore touch');
             
-            // Force an aggressive repaint to fix iOS Safari rendering bugs
-            // This fixes both touch lag AND the table column clipping issue
+            // Force a reflow/repaint to restore touch event handling
+            // This fixes the iOS Safari bug where touch events are laggy after app switch
+            document.body.style.transform = 'translateZ(0)';
+            setTimeout(() => {
+                document.body.style.transform = '';
+            }, 50);
             
-            // Method 1: Force reflow on body
-            document.body.style.display = 'none';
-            document.body.offsetHeight; // Force reflow
-            document.body.style.display = '';
-            
-            // Method 2: Force repaint on all table containers
-            document.querySelectorAll('.table-container, table').forEach(element => {
-                element.style.transform = 'translateZ(0)';
-                element.offsetHeight; // Force reflow
-                element.style.transform = '';
-            });
-            
-            // Method 3: Re-enable pointer events
+            // Re-enable all links (in case they were disabled)
             document.querySelectorAll('a').forEach(link => {
                 link.style.pointerEvents = 'auto';
             });
-            
-            console.log('[iOS VISIBILITY] Repaint complete');
         }
     });
     
@@ -509,7 +499,7 @@ async function renderData(data, secondData = null, marketValue = null) {
         
         // Filter active listings to only show Buy It Now items at or below market value
         const filteredItems = secondData.items.filter(item => {
-            const price = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+            const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
             const buyingFormat = (item.buying_format || '').toLowerCase();
             
             // Only show items with "buy it now" in the format (excludes pure auctions)
@@ -542,8 +532,8 @@ async function renderData(data, secondData = null, marketValue = null) {
         
         // Sort by price (lowest to highest)
         filteredItems.sort((a, b) => {
-            const priceA = a.total_price || ((a.extracted_price || 0) + (a.extracted_shipping || 0));
-            const priceB = b.total_price || ((b.extracted_price || 0) + (b.extracted_shipping || 0));
+            const priceA = a.total_price ?? ((a.extracted_price || 0) + (a.extracted_shipping || 0));
+            const priceB = b.total_price ?? ((b.extracted_price || 0) + (b.extracted_shipping || 0));
             return priceA - priceB;
         });
         
@@ -570,9 +560,20 @@ async function renderData(data, secondData = null, marketValue = null) {
                 // All items are "Buy It Now" since we filtered out auctions
                 const displayType = 'Buy It Now';
                 
-                // Calculate discount percentage
-                const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                // Calculate price with fallback - use total_price from API if available
+                const itemPrice = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                
+                // Debug logging for price calculation
+                console.log('[ACTIVE LISTING PRICE]', {
+                  item_id: item.item_id,
+                  title: item.title?.substring(0, 40),
+                  total_price: item.total_price,
+                  extracted_price: item.extracted_price,
+                  extracted_shipping: item.extracted_shipping,
+                  calculated_price: itemPrice,
+                  displaying: itemPrice
+                });
                 
                 // Use deep link on mobile devices, standard link otherwise
                 const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
@@ -598,7 +599,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                 return `
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
-                    <td>${formatMoney(item.total_price)}</td>
+                    <td>${formatMoney(itemPrice)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
                     <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>

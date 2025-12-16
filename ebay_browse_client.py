@@ -280,16 +280,24 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     shipping_options = ebay_item.get('shippingOptions', [])
     shipping_cost = 0.0
     shipping_free = False
+    shipping_cost_missing = False
+    
     if shipping_options and len(shipping_options) > 0:
         shipping_obj = shipping_options[0].get('shippingCost', {})
         try:
             shipping_cost = float(shipping_obj.get('value', 0))
         except (ValueError, TypeError):
             shipping_cost = 0.0
+            print(f"[Browse API] WARNING: Item {item_id} has invalid shipping cost value")
         # Check for free shipping indicator
         if shipping_options[0].get('shippingCostType') == 'FREE':
             shipping_free = True
             shipping_cost = 0.0
+    else:
+        # No shipping options available in API response - this is a DATA QUALITY issue
+        shipping_cost_missing = True
+        print(f"[Browse API] WARNING: Item {item_id} MISSING shippingOptions in API response - defaulting to $0.00")
+        print(f"  Title: {ebay_item.get('title', 'N/A')[:60]}")
     
     # Extract price - Browse API returns price.value as a string
     # According to eBay docs: price is an object with 'value' (string) and 'currency' (string)
@@ -403,7 +411,17 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     }
     
     # Calculate total price for compatibility
-    result['total_price'] = result.get('extracted_price', 0.0) + result.get('extracted_shipping', 0.0)
+    total_price_calculated = result.get('extracted_price', 0.0) + result.get('extracted_shipping', 0.0)
+    result['total_price'] = total_price_calculated
+    
+    # Mark if shipping data was missing (vs. being free)
+    result['shipping_data_missing'] = shipping_cost_missing
+    
+    # Log shipping data for debugging
+    if shipping_cost_missing:
+        print(f"[Browse API] SHIPPING MISSING: Item {result.get('item_id')} - total_price=${total_price_calculated:.2f} (no shipping data from eBay API)")
+    elif shipping_cost > 0:
+        print(f"[Browse API] Shipping Found: Item {result.get('item_id')} - price=${extracted_price:.2f} + shipping=${shipping_cost:.2f} = total=${total_price_calculated:.2f}")
     
     # Validation: Log items that will be filtered out
     if not result.get('item_id'):

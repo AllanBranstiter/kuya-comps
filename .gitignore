@@ -34,6 +34,11 @@ testing/comps.csv
 *.log
 AI_CONTEXT.md
 
+# eBay data - DO NOT STORE per eBay Terms of Service
+debug_active_listings.csv
+debug_*.csv
+*_debug.csv
+
 # Temporary files
 *.tmp
 temp/
