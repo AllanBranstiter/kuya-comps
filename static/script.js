@@ -456,6 +456,7 @@ async function renderData(data, secondData = null, marketValue = null) {
           <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <tr>
               <th>Title</th>
+              <th>Condition</th>
               <th>Price</th>
               <th>Item ID</th>
             </tr>
@@ -482,9 +483,13 @@ async function renderData(data, secondData = null, marketValue = null) {
             // Add touch-action CSS for better iOS touch handling
             const touchStyle = isIOS ? ' style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1);"' : '';
             
+            // Map condition to display value
+            const conditionDisplay = (item.condition && item.condition.toLowerCase() === 'graded') ? 'Graded' : 'Raw';
+            
             return `
             <tr>
               <td>${escapeHtml(item.title)}</td>
+              <td>${conditionDisplay}</td>
               <td>${formatMoney(item.total_price)}</td>
               <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Sold listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">${escapeHtml(item.item_id)}</a></td>
             </tr>
@@ -570,9 +575,20 @@ async function renderData(data, secondData = null, marketValue = null) {
                 // All items are "Buy It Now" since we filtered out auctions
                 const displayType = 'Buy It Now';
                 
-                // Calculate discount percentage
+                // Calculate price with fallback - use total_price from API if available
                 const itemPrice = item.total_price || ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                
+                // Debug logging for price calculation
+                console.log('[ACTIVE LISTING PRICE]', {
+                  item_id: item.item_id,
+                  title: item.title?.substring(0, 40),
+                  total_price: item.total_price,
+                  extracted_price: item.extracted_price,
+                  extracted_shipping: item.extracted_shipping,
+                  calculated_price: itemPrice,
+                  displaying: itemPrice
+                });
                 
                 // Use deep link on mobile devices, standard link otherwise
                 const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
@@ -598,7 +614,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                 return `
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
-                    <td>${formatMoney(item.total_price)}</td>
+                    <td>${formatMoney(itemPrice)}</td>
                     <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
                     <td>${escapeHtml(displayType)}</td>
                     <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>

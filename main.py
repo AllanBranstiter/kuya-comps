@@ -629,10 +629,17 @@ def get_comps(
                 
                 # Raw Only filter - check both title and condition/authenticity data
                 if raw_only:
+                    # Filter out items with "Graded" in the condition field
+                    if condition == 'graded':
+                        print(f"[RAW ONLY] Filtered graded item: {item.get('item_id')} - condition={item.get('condition')}")
+                        continue
+                    # Check title for grading terms
                     if any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
                         continue
-                    if 'graded' in condition or 'graded' in authenticity:
+                    # Check authenticity field
+                    if 'graded' in authenticity:
                         continue
+                    # Check PSA vault status
                     if item.get('is_in_psa_vault'):
                         continue
                     
