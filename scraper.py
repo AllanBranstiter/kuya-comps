@@ -376,8 +376,9 @@ def scrape_active_listings_ebay_api(
             for item in items:
                 normalized = normalize_ebay_browse_item(item)
                 
-                # If shipping enrichment is enabled and shipping data is missing, fetch detailed item
-                if enrich_shipping and normalized.get('extracted_shipping', 0) == 0:
+                # If shipping enrichment is enabled and shipping data was MISSING (not free), fetch detailed item
+                # Only enrich if shipping_data_missing flag is True
+                if enrich_shipping and normalized.get('shipping_data_missing', False):
                     item_id = normalized.get('item_id')
                     if item_id:
                         try:
@@ -394,8 +395,9 @@ def scrape_active_listings_ebay_api(
                                 normalized['extracted_shipping'] = shipping_value
                                 normalized['shipping'] = 'Free' if shipping_value == 0 else f"${shipping_value:.2f}"
                                 normalized['total_price'] = normalized['extracted_price'] + shipping_value
+                                normalized['shipping_data_missing'] = False  # Mark as enriched
                                 
-                                print(f"[eBay API] Updated total_price for {item_id}: ${normalized['total_price']:.2f}")
+                                print(f"[eBay API] Enriched! New total_price for {item_id}: ${normalized['total_price']:.2f}")
                             
                             time.sleep(0.1)  # Small delay to avoid rate limits
                         except Exception as e:

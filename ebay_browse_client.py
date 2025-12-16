@@ -414,6 +414,9 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     total_price_calculated = result.get('extracted_price', 0.0) + result.get('extracted_shipping', 0.0)
     result['total_price'] = total_price_calculated
     
+    # Mark if shipping data was missing (vs. being free)
+    result['shipping_data_missing'] = shipping_cost_missing
+    
     # Log shipping data for debugging
     if shipping_cost_missing:
         print(f"[Browse API] SHIPPING MISSING: Item {result.get('item_id')} - total_price=${total_price_calculated:.2f} (no shipping data from eBay API)")
