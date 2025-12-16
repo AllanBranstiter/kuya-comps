@@ -278,6 +278,7 @@ def scrape_active_listings_ebay_api(
     condition: Optional[str] = None,
     price_min: Optional[float] = None,
     price_max: Optional[float] = None,
+    enrich_shipping: bool = False,
 ) -> List[Dict]:
     """
     Fetch ACTIVE listings using official eBay Browse API.
@@ -294,6 +295,7 @@ def scrape_active_listings_ebay_api(
         condition: Filter - condition name
         price_min: Minimum price filter
         price_max: Maximum price filter
+        enrich_shipping: If True, fetch detailed item data to get complete shipping info
     
     Returns:
         List of normalized item dictionaries
@@ -373,6 +375,34 @@ def scrape_active_listings_ebay_api(
             # Normalize to Kuya Comps format
             for item in items:
                 normalized = normalize_ebay_browse_item(item)
+                
+                # If shipping enrichment is enabled and shipping data was MISSING (not free), fetch detailed item
+                # Only enrich if shipping_data_missing flag is True
+                if enrich_shipping and normalized.get('shipping_data_missing', False):
+                    item_id = normalized.get('item_id')
+                    if item_id:
+                        try:
+                            print(f"[eBay API] Enriching shipping data for item {item_id}")
+                            detailed_item = client.get_item(item_id, fieldgroups="SHIPPING_INFO")
+                            
+                            # Extract shipping from detailed response
+                            detailed_shipping_options = detailed_item.get('shippingOptions', [])
+                            if detailed_shipping_options and len(detailed_shipping_options) > 0:
+                                shipping_obj = detailed_shipping_options[0].get('shippingCost', {})
+                                shipping_value = float(shipping_obj.get('value', 0))
+                                
+                                # Update normalized item with correct shipping
+                                normalized['extracted_shipping'] = shipping_value
+                                normalized['shipping'] = 'Free' if shipping_value == 0 else f"${shipping_value:.2f}"
+                                normalized['total_price'] = normalized['extracted_price'] + shipping_value
+                                normalized['shipping_data_missing'] = False  # Mark as enriched
+                                
+                                print(f"[eBay API] Enriched! New total_price for {item_id}: ${normalized['total_price']:.2f}")
+                            
+                            time.sleep(0.1)  # Small delay to avoid rate limits
+                        except Exception as e:
+                            print(f"[eBay API] Failed to enrich item {item_id}: {e}")
+                
                 all_items.append(normalized)
             
             print(f"[eBay API] Page {page+1}: Added {len(items)} items. Total: {len(all_items)}")
