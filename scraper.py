@@ -131,6 +131,12 @@ def scrape_sold_comps(
                 if 'shipping' in r:
                     print(f"  - shipping field: {r.get('shipping')} (type: {type(r.get('shipping')).__name__})")
                 print(f"  - extracted_shipping field: {r.get('extracted_shipping')}")
+                # NEW: Check extensions and deal fields for price data
+                if 'extensions' in r:
+                    print(f"  - extensions field: {r.get('extensions')}")
+                if 'deal' in r:
+                    print(f"  - deal field: {r.get('deal')}")
+                print(f"[DIAGNOSTIC] FULL FIRST ITEM: {r}")
             
             # The entire result 'r' is now passed, as the Pydantic model
             # will handle the parsing and validation.
