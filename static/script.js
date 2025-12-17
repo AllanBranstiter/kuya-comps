@@ -653,6 +653,13 @@ async function renderData(data, secondData = null, marketValue = null) {
     
     // Render Analysis Dashboard with sold data, FMV, and active listings
     if (data && fmvData) {
+        console.log('[DEBUG renderData] About to call renderAnalysisDashboard with:', {
+            hasData: !!data,
+            hasFmvData: !!fmvData,
+            hasSecondData: !!secondData,
+            secondDataItemCount: secondData?.items?.length || 0,
+            secondDataKeys: secondData ? Object.keys(secondData) : []
+        });
         renderAnalysisDashboard(data, fmvData, secondData);
     }
     const prices = data.items.map(item => item.total_price);
@@ -1216,17 +1223,20 @@ async function runSearchInternal() {
 
     // Perform second search for ACTIVE listings (no sold filter)
     console.log('[DEBUG] Performing second search for active listings...');
-    const activeUrl = url.replace('/comps?', '/active?');
-    console.log('[DEBUG] Active listings URL:', activeUrl);
+const activeUrl = url.replace('/comps?', '/active?');
+console.log('[DEBUG] Active listings URL:', activeUrl);
+console.log('[DEBUG] Market Value before active search:', formatMoney(marketValue));
     
     const activeController = new AbortController();
     const activeTimeoutId = setTimeout(() => activeController.abort(), 30000);
     
     try {
+        console.log('[DEBUG] Fetching active listings from:', activeUrl);
         const secondResp = await fetch(activeUrl, { signal: activeController.signal });
         clearTimeout(activeTimeoutId);
         
-        console.log('[DEBUG] Active listings response status:', secondResp.status);
+        console.log('[DEBUG] Active listings response status:', secondResp.status, secondResp.ok);
+        console.log('[DEBUG] Active listings response headers:', Object.fromEntries(secondResp.headers.entries()));
         
         if (!secondResp.ok) {
             const errorText = await secondResp.text();
@@ -1266,6 +1276,16 @@ async function runSearchInternal() {
         }
         
         console.log('[DEBUG] Passing to renderData - marketValue:', formatMoney(marketValue), 'active items:', secondData.items ? secondData.items.length : 0);
+        console.log('[DEBUG] secondData full object:', {
+            hasItems: !!secondData.items,
+            itemCount: secondData.items?.length || 0,
+            firstItemSample: secondData.items?.[0] ? {
+                item_id: secondData.items[0].item_id,
+                total_price: secondData.items[0].total_price,
+                extracted_price: secondData.items[0].extracted_price,
+                extracted_shipping: secondData.items[0].extracted_shipping
+            } : null
+        });
 
         await renderData(data, secondData, marketValue);
     } catch (error) {
@@ -1353,6 +1373,15 @@ function renderStats(data) {
 
 // Render Analytics Dashboard for the Analysis sub-tab
 function renderAnalysisDashboard(data, fmvData, activeData) {
+    console.log('[renderAnalysisDashboard] Function called with parameters:', {
+        hasData: !!data,
+        hasFmvData: !!fmvData,
+        hasActiveData: !!activeData,
+        activeDataType: typeof activeData,
+        activeDataKeys: activeData ? Object.keys(activeData) : [],
+        activeDataItemsCount: activeData?.items?.length || 0
+    });
+    
     const analysisContainer = document.getElementById("analysis-subtab");
     
     if (!data || !data.items || data.items.length === 0) {
@@ -1388,12 +1417,32 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     let marketPressureGradient = null;
     let marketPressureBorder = null;
     
+    console.log('[MARKET PRESSURE DEBUG] Checking activeData:', {
+        hasActiveData: !!activeData,
+        hasItems: activeData?.items ? true : false,
+        itemsLength: activeData?.items?.length || 0,
+        activeDataKeys: activeData ? Object.keys(activeData) : [],
+        sampleItem: activeData?.items?.[0] ? {
+            item_id: activeData.items[0].item_id,
+            title: activeData.items[0].title?.substring(0, 50),
+            total_price: activeData.items[0].total_price,
+            extracted_price: activeData.items[0].extracted_price,
+            extracted_shipping: activeData.items[0].extracted_shipping
+        } : null
+    });
+    
     if (activeData && activeData.items && activeData.items.length > 0) {
         // Get asking prices from active listings
         const askingPrices = activeData.items
             .map(item => item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0)))
             .filter(p => p > 0)
             .sort((a, b) => a - b);
+        
+        console.log('[MARKET PRESSURE DEBUG] Processed asking prices:', {
+            totalItems: activeData.items.length,
+            validPrices: askingPrices.length,
+            priceRange: askingPrices.length > 0 ? `${formatMoney(askingPrices[0])} - ${formatMoney(askingPrices[askingPrices.length - 1])}` : 'N/A'
+        });
         
         if (askingPrices.length > 0) {
             // Calculate median asking price
