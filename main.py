@@ -921,9 +921,10 @@ def get_fmv(items: List[CompItem]):
             q3 = np.percentile(all_prices, 75)
             iqr = q3 - q1
             
-            # Define outlier bounds (1.5 * IQR is standard)
-            lower_bound = q1 - 1.5 * iqr
-            upper_bound = q3 + 1.5 * iqr
+            # Define outlier bounds (0.5 * IQR for very aggressive filtering)
+            # This focuses FMV on the core cluster of sales where most volume occurs
+            lower_bound = q1 - 0.5 * iqr
+            upper_bound = q3 + 0.5 * iqr
             
             # Filter out outliers
             mask = (all_prices >= lower_bound) & (all_prices <= upper_bound)
@@ -931,7 +932,8 @@ def get_fmv(items: List[CompItem]):
             weights = all_weights[mask]
             
             outliers_removed = len(all_prices) - len(prices)
-            print(f"[FMV] Removed {outliers_removed} outliers using IQR method (bounds: ${lower_bound:.2f} - ${upper_bound:.2f})")
+            print(f"[FMV] Removed {outliers_removed} outliers using very aggressive IQR method (0.5x multiplier)")
+            print(f"[FMV] Price bounds: ${lower_bound:.2f} - ${upper_bound:.2f} (Q1: ${q1:.2f}, Q3: ${q3:.2f})")
         else:
             # Not enough data for outlier detection
             prices = all_prices
