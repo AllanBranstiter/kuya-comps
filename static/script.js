@@ -1938,7 +1938,25 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
     
     // Calculate Liquidity Risk Score using new absorption ratio method
-    const liquidityRisk = calculateLiquidityRisk(data, activeData);
+    let liquidityRisk = null;
+    try {
+        liquidityRisk = calculateLiquidityRisk(data, activeData);
+        console.log('[LIQUIDITY RISK] Calculation result:', liquidityRisk);
+    } catch (error) {
+        console.error('[LIQUIDITY RISK] Error calculating:', error);
+        liquidityRisk = {
+            score: null,
+            label: 'Error',
+            absorptionRatio: null,
+            salesCount: data?.items?.length || 0,
+            listingsCount: 0,
+            confidence: 'N/A',
+            statusColor: '#6e6e73',
+            gradient: 'linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%)',
+            border: '#d1d1d6',
+            message: 'Unable to calculate liquidity risk'
+        };
+    }
     
     const dashboardHtml = `
         <div id="analysis-dashboard">
@@ -2009,7 +2027,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 </div>
                 
                 <!-- Liquidity Risk Score (NEW) -->
-                ${liquidityRisk.score !== null ? `
+                ${liquidityRisk && liquidityRisk.score !== null ? `
                 <div class="indicator-card" style="background: ${liquidityRisk.gradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${liquidityRisk.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Liquidity Risk measures how easy it is to sell this card at or near FMV">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -2027,9 +2045,9 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         ${liquidityRisk.message}
                     </div>
                     <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                        <strong>Absorption Ratio:</strong> ${liquidityRisk.absorptionRatio}<br>
-                        <strong>Sales:</strong> ${liquidityRisk.salesCount} | <strong>Listings:</strong> ${liquidityRisk.listingsCount}<br>
-                        <strong>Confidence:</strong> ${liquidityRisk.confidence}
+                        <strong>Absorption Ratio:</strong> ${liquidityRisk.absorptionRatio || 'N/A'}<br>
+                        <strong>Sales:</strong> ${liquidityRisk.salesCount || 0} | <strong>Listings:</strong> ${liquidityRisk.listingsCount || 0}<br>
+                        <strong>Confidence:</strong> ${liquidityRisk.confidence || 'N/A'}
                     </div>
                 </div>
                 ` : `
@@ -2122,7 +2140,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             </div>
             
             <!-- Market Pressure + Liquidity Risk Cross-Reference -->
-            ${marketPressure !== null && liquidityRisk.score !== null ? `
+            ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ? `
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
                 <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">⚠️ Market Risk Assessment</h4>
                 
@@ -2225,7 +2243,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             ` : ''}
             
             <!-- Price Band Liquidity Analysis -->
-            ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk.score !== null ? `
+            ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? `
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
                 <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">💰 Liquidity at Different Price Points</h4>
                 
