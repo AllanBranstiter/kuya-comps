@@ -1,4 +1,48 @@
 # scraper.py
+"""
+eBay scraper using SearchAPI.io for sold listings and eBay Browse API for active listings.
+
+================================================================================
+TROUBLESHOOTING GUIDE - "Zero Search Results" Issue
+================================================================================
+
+SYMPTOM: All search results filtered as "zero-price items"
+- Frontend shows: 0 results despite "120 raw items scraped"
+- Backend logs show: "Zero-price filtered: 120" and "Final unique items: 0"
+- Console debug: "price field: None", "extracted_price field: None"
+
+ROOT CAUSE: SearchAPI.io API structure changes
+- BEFORE: Prices in 'price' and 'extracted_price' fields
+- AFTER (Dec 2025): Prices moved to 'deal' field
+
+DIAGNOSIS STEPS:
+1. Check backend logs for: "[DIAGNOSTIC] Sample raw SearchAPI item structure"
+2. Look for "price field: None" but "deal field: $X.XX" → API changed
+3. Verify active listings work (different endpoint: eBay Browse API)
+4. If deal field is also None, SearchAPI may have further changed their structure
+
+CURRENT FIX (Lines 134-177):
+Parses price from 'deal' field into 'extracted_price':
+  - Single price: {"deal": "$120.00"} → extracted_price = 120.00
+  - Concatenated: {"deal": "$2.27$3.49"} → extracted_price = 2.27 (sale price)
+  - Price range: {"deal": "$0.99 to $1.49"} → SKIPPED (multi-variant = unknown price)
+
+IF SEARCHAPI REVERTS/CHANGES AGAIN:
+1. Add diagnostic logging to see raw API response (lines 134-177 show pattern)
+2. Identify which field now contains the price
+3. Update parsing logic at lines 134-177
+4. Test with simple query before deploying
+5. Update this documentation
+
+HISTORICAL CHANGES:
+- Dec 2025: Prices moved from 'price' to 'deal' field (commits 586216c, 62205e8)
+
+FOR FUTURE DEBUGGING:
+- Enable diagnostic logs by checking first item in results loop
+- Compare sold vs active endpoint responses to isolate which API changed
+- Check SearchAPI.io docs/changelog for breaking changes
+- Test locally before pushing to production
+"""
 import time
 from typing import List, Dict, Optional
 
@@ -111,8 +155,53 @@ def scrape_sold_comps(
         # Track items before adding to check for potential duplicates
         items_before = len(all_items)
         for r in results:
+            # FIX: SearchAPI moved sold listing prices to the 'deal' field
+            # Parse price from 'deal' field if 'price' is missing
+            if not r.get('price') and r.get('deal'):
+                deal_value = r.get('deal')
+                extracted_price = None
+                
+                # Handle different deal formats:
+                # 1. Single price: "$120.00"
+                # 2. Price range: "$0.99 to $1.49" - SKIP (multi-variant listing, unknown actual price)
+                # 3. Concatenated: "$2.27$3.49" (sale price + original price)
+                
+                if isinstance(deal_value, str):
+                    # Check for price range (e.g., "$0.99 to $1.49")
+                    # These are multi-variant listings - skip them entirely
+                    if ' to ' in deal_value:
+                        print(f"[scraper] SKIPPING price range (multi-variant listing): {deal_value} - {r.get('title', 'N/A')[:60]}")
+                        continue  # Skip this item entirely
+                    
+                    # Check for concatenated prices (e.g., "$2.27$3.49")
+                    elif deal_value.count('$') > 1:
+                        # Split and take first price (sale price)
+                        price_parts = deal_value.split('$')[1:]  # Remove empty first element
+                        if price_parts:
+                            price_clean = price_parts[0].replace(',', '')
+                            try:
+                                extracted_price = float(price_clean)
+                                r['price'] = '$' + price_parts[0]
+                                print(f"[scraper] Parsed concatenated price: {deal_value} → ${extracted_price}")
+                            except ValueError:
+                                print(f"[scraper] WARNING: Could not parse concatenated price: {deal_value}")
+                    
+                    # Single price (e.g., "$120.00")
+                    else:
+                        price_clean = deal_value.replace('$', '').replace(',', '')
+                        try:
+                            extracted_price = float(price_clean)
+                            r['price'] = deal_value
+                            print(f"[scraper] Parsed single price: {deal_value} → ${extracted_price}")
+                        except ValueError:
+                            print(f"[scraper] WARNING: Could not parse single price: {deal_value}")
+                    
+                    # Set the extracted_price field
+                    if extracted_price is not None:
+                        r['extracted_price'] = extracted_price
+            
             # Clean up concatenated price data from eBay sale/discount listings
-            if 'price' in r and r['price'] and isinstance(r['price'], str):
+            elif 'price' in r and r['price'] and isinstance(r['price'], str):
                 price_str = r['price']
                 # Handle concatenated prices like "$3.39$3.99"
                 if price_str.count('$') > 1:

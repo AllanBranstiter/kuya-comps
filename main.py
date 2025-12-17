@@ -637,8 +637,16 @@ def get_comps(
     zero_price_removed = 0
     no_item_id_removed = 0
     
-    for item in raw_items:
+    for idx, item in enumerate(raw_items):
         item_id = item.get('item_id')
+        
+        # DIAGNOSTIC: Log first 3 items to see what we're getting
+        if idx < 3:
+            print(f"[DIAGNOSTIC] Item {idx} before filtering:")
+            print(f"  - item_id: {item_id}")
+            print(f"  - price field: {item.get('price')}")
+            print(f"  - extracted_price field: {item.get('extracted_price')}")
+            print(f"  - Item keys: {list(item.keys())[:15]}")
         
         # Skip items without item_id
         if not item_id:
@@ -654,6 +662,8 @@ def get_comps(
         extracted_price = item.get('extracted_price')
         if extracted_price is None or extracted_price <= 0:
             zero_price_removed += 1
+            if idx < 3:  # Log why first items are rejected
+                print(f"[DIAGNOSTIC] Item {idx} REJECTED: extracted_price={extracted_price} (price field was: {item.get('price')})")
             continue
             
         # Item passed all filters
