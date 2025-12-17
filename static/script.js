@@ -651,9 +651,9 @@ async function renderData(data, secondData = null, marketValue = null) {
     // Update FMV first, then draw beeswarm chart
     const fmvData = await updateFmv(data);
     
-    // Render Analysis Dashboard with both data and FMV
+    // Render Analysis Dashboard with sold data, FMV, and active listings
     if (data && fmvData) {
-        renderAnalysisDashboard(data, fmvData);
+        renderAnalysisDashboard(data, fmvData, secondData);
     }
     const prices = data.items.map(item => item.total_price);
     currentBeeswarmPrices = prices; // Store for resize
@@ -1352,7 +1352,7 @@ function renderStats(data) {
 }
 
 // Render Analytics Dashboard for the Analysis sub-tab
-function renderAnalysisDashboard(data, fmvData) {
+function renderAnalysisDashboard(data, fmvData, activeData) {
     const analysisContainer = document.getElementById("analysis-subtab");
     
     if (!data || !data.items || data.items.length === 0) {
@@ -1379,6 +1379,65 @@ function renderAnalysisDashboard(data, fmvData) {
     const marketValue = fmvData?.market_value || data.avg_price;
     const fmvVsAvg = ((marketValue - data.avg_price) / data.avg_price * 100);
     
+    // Calculate Market Pressure % using active listings
+    let marketPressure = null;
+    let medianAskingPrice = null;
+    let marketPressureStatus = null;
+    let marketPressureLabel = null;
+    let marketPressureColor = null;
+    let marketPressureGradient = null;
+    let marketPressureBorder = null;
+    
+    if (activeData && activeData.items && activeData.items.length > 0) {
+        // Get asking prices from active listings
+        const askingPrices = activeData.items
+            .map(item => item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0)))
+            .filter(p => p > 0)
+            .sort((a, b) => a - b);
+        
+        if (askingPrices.length > 0) {
+            // Calculate median asking price
+            medianAskingPrice = askingPrices[Math.floor(askingPrices.length / 2)];
+            
+            // Calculate Market Pressure %: (Median Asking Price - FMV) / FMV
+            marketPressure = ((medianAskingPrice - marketValue) / marketValue) * 100;
+            
+            // Determine status based on interpretation bands
+            if (marketPressure >= 0 && marketPressure <= 15) {
+                marketPressureStatus = 'HEALTHY';
+                marketPressureLabel = 'Healthy pricing friction';
+                marketPressureColor = '#34c759';
+                marketPressureGradient = 'linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%)';
+                marketPressureBorder = '#99ff99';
+            } else if (marketPressure > 15 && marketPressure <= 30) {
+                marketPressureStatus = 'OPTIMISTIC';
+                marketPressureLabel = 'Seller optimism';
+                marketPressureColor = '#007aff';
+                marketPressureGradient = 'linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%)';
+                marketPressureBorder = '#99daff';
+            } else if (marketPressure > 30 && marketPressure <= 50) {
+                marketPressureStatus = 'RESISTANCE';
+                marketPressureLabel = 'Market resistance';
+                marketPressureColor = '#ff9500';
+                marketPressureGradient = 'linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%)';
+                marketPressureBorder = '#ffd699';
+            } else if (marketPressure > 50) {
+                marketPressureStatus = 'UNREALISTIC';
+                marketPressureLabel = 'Unrealistic asking prices';
+                marketPressureColor = '#ff3b30';
+                marketPressureGradient = 'linear-gradient(135deg, #ffebee 0%, #ffcccc 100%)';
+                marketPressureBorder = '#ff9999';
+            } else {
+                // Negative pressure (asking prices below FMV)
+                marketPressureStatus = 'BELOW FMV';
+                marketPressureLabel = 'Asking below FMV';
+                marketPressureColor = '#5856d6';
+                marketPressureGradient = 'linear-gradient(135deg, #f0e6ff 0%, #e6ccff 100%)';
+                marketPressureBorder = '#d6b3ff';
+            }
+        }
+    }
+    
     // Price distribution quartiles
     const sortedPrices = [...prices].sort((a, b) => a - b);
     const q1 = sortedPrices[Math.floor(sortedPrices.length * 0.25)];
@@ -1395,22 +1454,44 @@ function renderAnalysisDashboard(data, fmvData) {
             <!-- Key Indicators Grid -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
                 
-                <!-- Market Volatility -->
-                <div class="indicator-card" style="background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #ffd699; box-shadow: 0 4px 12px rgba(255, 149, 0, 0.15);">
+                <!-- Market Pressure % -->
+                ${marketPressure !== null ? `
+                <div class="indicator-card" style="background: ${marketPressureGradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${marketPressureBorder}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Market Pressure compares what sellers are asking today to what buyers recently paid">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.5rem;">📈</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: #ff9500; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            ${priceSpread < 30 ? 'LOW' : priceSpread < 70 ? 'MODERATE' : 'HIGH'}
+                        <span style="font-size: 1.5rem;">📊</span>
+                        <span style="font-size: 0.8rem; font-weight: 600; color: ${marketPressureColor}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            ${marketPressureStatus}
                         </span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Volatility</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #ff9500; margin-bottom: 0.5rem;">
-                        ${priceSpread.toFixed(1)}%
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Pressure %</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: ${marketPressureColor}; margin-bottom: 0.5rem;">
+                        ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%
                     </div>
                     <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        Price range: ${formatMoney(priceRange)}
+                        ${marketPressureLabel}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #999; margin-top: 0.5rem; line-height: 1.3;">
+                        Median Ask: ${formatMoney(medianAskingPrice)}<br>
+                        FMV: ${formatMoney(marketValue)}
                     </div>
                 </div>
+                ` : `
+                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="font-size: 1.5rem;">📊</span>
+                        <span style="font-size: 0.8rem; font-weight: 600; color: #6e6e73; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            N/A
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Pressure %</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem;">
+                        --
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        No active listings data
+                    </div>
+                </div>
+                `}
                 
                 <!-- Market Confidence -->
                 <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);">
@@ -1539,22 +1620,42 @@ function calculateStdDev(values) {
 }
 
 // Generate market insights based on analytics
-function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityScore, fmvVsAvg) {
+function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityScore, fmvVsAvg, marketPressure, marketPressureLabel) {
     const insights = [];
     
-    // Volatility insights
-    if (priceSpread < 30) {
-        insights.push(`
-            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); border-left: 4px solid #34c759; border-radius: 6px;">
-                <strong style="color: #34c759;">✓ Stable Market:</strong> Low price volatility (${priceSpread.toFixed(1)}%) suggests consistent pricing and predictable values.
-            </li>
-        `);
-    } else if (priceSpread > 70) {
-        insights.push(`
-            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
-                <strong style="color: #ff9500;">⚠ High Volatility:</strong> Wide price range (${priceSpread.toFixed(1)}%) indicates varying conditions or grades. Review individual listings carefully.
-            </li>
-        `);
+    // Market Pressure insights (replaces volatility)
+    if (marketPressure !== null) {
+        if (marketPressure >= 0 && marketPressure <= 15) {
+            insights.push(`
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); border-left: 4px solid #34c759; border-radius: 6px;">
+                    <strong style="color: #34c759;">✓ ${marketPressureLabel}:</strong> Asking prices are ${marketPressure.toFixed(1)}% above FMV, indicating realistic seller expectations and healthy market conditions.
+                </li>
+            `);
+        } else if (marketPressure > 15 && marketPressure <= 30) {
+            insights.push(`
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); border-left: 4px solid #007aff; border-radius: 6px;">
+                    <strong style="color: #007aff;">📊 ${marketPressureLabel}:</strong> Asking prices are ${marketPressure.toFixed(1)}% above FMV. Sellers are optimistic but prices remain negotiable.
+                </li>
+            `);
+        } else if (marketPressure > 30 && marketPressure <= 50) {
+            insights.push(`
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
+                    <strong style="color: #ff9500;">⚠ ${marketPressureLabel}:</strong> Asking prices are ${marketPressure.toFixed(1)}% above FMV. Current listings may be overpriced relative to recent sales.
+                </li>
+            `);
+        } else if (marketPressure > 50) {
+            insights.push(`
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); border-left: 4px solid #ff3b30; border-radius: 6px;">
+                    <strong style="color: #ff3b30;">⚠ ${marketPressureLabel}:</strong> Asking prices are ${marketPressure.toFixed(1)}% above FMV. Significant gap suggests sellers may need to adjust expectations.
+                </li>
+            `);
+        } else if (marketPressure < 0) {
+            insights.push(`
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%); border-left: 4px solid #5856d6; border-radius: 6px;">
+                    <strong style="color: #5856d6;">💎 Opportunity:</strong> Asking prices are ${Math.abs(marketPressure).toFixed(1)}% below FMV. Active listings may represent good value.
+                </li>
+            `);
+        }
     }
     
     // Confidence insights
