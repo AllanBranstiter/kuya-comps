@@ -119,21 +119,15 @@ def scrape_sold_comps(
                 
                 # Handle different deal formats:
                 # 1. Single price: "$120.00"
-                # 2. Price range: "$0.99 to $1.49"
-                # 3. Concatenated: "$2.27$3.49"
+                # 2. Price range: "$0.99 to $1.49" - SKIP (multi-variant listing, unknown actual price)
+                # 3. Concatenated: "$2.27$3.49" (sale price + original price)
                 
                 if isinstance(deal_value, str):
                     # Check for price range (e.g., "$0.99 to $1.49")
+                    # These are multi-variant listings - skip them entirely
                     if ' to ' in deal_value:
-                        # Extract first price (lower price for sold items)
-                        price_part = deal_value.split(' to ')[0].strip()
-                        price_clean = price_part.replace('$', '').replace(',', '')
-                        try:
-                            extracted_price = float(price_clean)
-                            r['price'] = price_part
-                            print(f"[scraper] Parsed price range: {deal_value} → ${extracted_price}")
-                        except ValueError:
-                            print(f"[scraper] WARNING: Could not parse price range: {deal_value}")
+                        print(f"[scraper] SKIPPING price range (multi-variant listing): {deal_value} - {r.get('title', 'N/A')[:60]}")
+                        continue  # Skip this item entirely
                     
                     # Check for concatenated prices (e.g., "$2.27$3.49")
                     elif deal_value.count('$') > 1:
