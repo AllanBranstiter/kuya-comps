@@ -2391,18 +2391,13 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
         <div id="analysis-dashboard">
             <h3 style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">📊 Market Analysis Dashboard</h3>
             
-            <!-- Data Quality Badge (Phase 2.3) -->
-            <div style="text-align: center;">
-                ${getDataQualityBadge(data.items.length, activeData?.items?.length || 0, marketConfidence, sampleSize)}
-            </div>
-            
-            <!-- Sample Size Warning (Phase 1.1) -->
-            ${getSampleSizeWarning(data.items.length, activeData?.items?.length || 0, sampleSize)}
-            
             <!-- Disclaimer -->
             <p style="margin: 0 0 2rem 0; font-size: 0.75rem; color: #666; text-align: center; line-height: 1.5;">
                 ⚠️ This analysis is for informational purposes only. It is not financial or investment advice. Always do your own research before making decisions.
             </p>
+            
+            <!-- Sample Size Warning (Phase 1.1) -->
+            ${getSampleSizeWarning(data.items.length, activeData?.items?.length || 0, sampleSize)}
             
             <!-- Market Risk Assessment (moved to top) -->
             ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ? `
@@ -2430,9 +2425,10 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         warningIcon = '⚠️';
                         warningTitle = 'Data Quality Warning';
                         
-                        warningMessage = `Extreme price scatter (confidence: ${marketConfidence}/100) with ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% pressure suggests your search may be mixing different card types, conditions, or variants. Refine search for accurate assessment.<br><br>
-                        <strong>Sample Size:</strong> ${sampleSize} listings (${dataConfidence} confidence)<br>
-                        <strong>Recommendation:</strong> Try more specific search terms, filter by condition/grade, or exclude variants`;
+                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
+                        warningMessage = `The prices are all over the place (confidence: ${marketConfidence}/100) and asking prices are ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV. This usually means your search is mixing different card types, conditions, or variations together. Try making your search more specific to get better results.<br><br>
+                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
+                        <strong>Recommendation:</strong> Use more specific search terms, filter by condition/grade, or exclude variants`;
                     }
                     // Edge Case 2: Two-Tier Market - High absorption below + low above
                     else if (absorptionBelow !== 'N/A' && absorptionAbove !== 'N/A' &&
@@ -2445,9 +2441,10 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         warningIcon = '🔀';
                         warningTitle = 'Two-Tier Market Detected';
                         
-                        warningMessage = `Market split: Underpriced cards sell <strong>${absorptionBelow}x faster</strong> than supply (${salesBelow} sales vs ${belowFMV} listings), while premium cards stagnate (${absorptionAbove} absorption, ${salesAbove} sales vs ${aboveFMV} listings). Current asking avg is ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV.<br><br>
-                        <strong>Data Confidence:</strong> ${getConfidenceStatement(marketConfidence, sampleSize)}<br>
-                        <strong>Insight:</strong> Strong buyer demand exists, but only for fairly-priced cards. Premium pricing faces resistance.`;
+                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
+                        warningMessage = `This market has two different speeds: Cards priced below FMV are selling <strong>${absorptionBelow}x faster</strong> than new listings appear (${salesBelow} sales vs ${belowFMV} listings), while premium-priced cards barely move (${absorptionAbove} absorption, ${salesAbove} sales vs ${aboveFMV} listings). Average asking price is ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV.<br><br>
+                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
+                        <strong>Insight:</strong> Buyers are active but only for cards priced at or below fair value. Premium pricing faces strong resistance.`;
                     }
                     // Standard 7-message logic
                     // High pressure + Low liquidity = DANGER
@@ -2460,11 +2457,12 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         warningTitle = 'High Risk Market Conditions';
                         
                         // Base message
-                        let baseMessage = `Sellers are asking <strong>${marketPressure.toFixed(1)}% above FMV</strong> in a market with <strong>low liquidity (${liquidityRisk.score}/100)</strong>. This combination suggests overpriced listings with limited buyer demand. Consider waiting for price corrections or looking for better opportunities.`;
+                        let baseMessage = `Sellers are asking <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but there aren't many buyers interested (liquidity: ${liquidityRisk.score}/100). This means listings are overpriced compared to what buyers are actually willing to pay. It may be better to wait for sellers to lower prices or look for better deals elsewhere.`;
                         
                         // Phase 1 & 2: Add context qualifiers and velocity
+                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
                         warningMessage = baseMessage + `<br><br>
-                        <strong>Data Confidence:</strong> ${getConfidenceStatement(marketConfidence, sampleSize)}<br>
+                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
                         <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
                         ${absorptionAbove !== 'N/A' ? `<br>${getVelocityStatement(absorptionAbove, 'Premium-priced cards')}` : ''}`;
                     }
@@ -2477,10 +2475,11 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         warningIcon = '⚠️';
                         warningTitle = 'Overpriced but Active Market';
                         
-                        let baseMessage = `Asking prices are <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but the market shows <strong>good liquidity (${liquidityRisk.score}/100)</strong>. Sellers may be optimistic given recent demand. Make offers significantly below asking prices.`;
+                        let baseMessage = `Asking prices are <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but the market shows <strong>good liquidity (${liquidityRisk.score}/100)</strong>. Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.`;
                         
+                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
                         warningMessage = baseMessage + `<br><br>
-                        <strong>Data Confidence:</strong> ${getConfidenceStatement(marketConfidence, sampleSize)}<br>
+                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
                         <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
                     }
                     // Low pressure + Low liquidity = CONCERN
@@ -2492,10 +2491,11 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         warningIcon = '⚡';
                         warningTitle = 'Fair Pricing, Limited Demand';
                         
-                        let baseMessage = `Prices are fairly aligned with FMV (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%), but <strong>liquidity is low (${liquidityRisk.score}/100)</strong>. This suggests weak buyer interest despite reasonable pricing. Be cautious - may indicate declining demand.`;
+                        let baseMessage = `Prices are fairly reasonable (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV), but <strong>not many buyers are interested (liquidity: ${liquidityRisk.score}/100)</strong>. Even though prices are fair, cards aren't selling well. This could mean the card is losing popularity or buyer interest is fading. Be careful when buying.`;
                         
+                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
                         warningMessage = baseMessage + `<br><br>
-                        <strong>Data Confidence:</strong> ${getConfidenceStatement(marketConfidence, sampleSize)}<br>
+                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
                         <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
                     }
                     // Low pressure + High liquidity = OPPORTUNITY
@@ -2507,10 +2507,11 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         warningIcon = '💎';
                         warningTitle = 'Strong Buy Opportunity';
                         
-                        let baseMessage = `Asking prices are <strong>${Math.abs(marketPressure).toFixed(1)}% below FMV</strong> in a <strong>highly liquid market (${liquidityRisk.score}/100)</strong>. This rare combination suggests undervalued listings with strong demand. Consider buying quickly before prices adjust.`;
+                        let baseMessage = `Available cards are priced <strong>${Math.abs(marketPressure).toFixed(1)}% below FMV</strong> and lots of buyers are active (liquidity: ${liquidityRisk.score}/100). This is a rare opportunity - cards are underpriced and selling fast. If you're interested, act quickly before sellers realize they can charge more.`;
                         
+                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
                         warningMessage = baseMessage + `<br><br>
-                        <strong>Data Confidence:</strong> ${getConfidenceStatement(marketConfidence, sampleSize)}<br>
+                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
                         <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
                         ${absorptionBelow !== 'N/A' ? `<br>${getVelocityStatement(absorptionBelow, 'Underpriced cards')}` : ''}`;
                     }
@@ -2523,10 +2524,11 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         warningIcon = '✅';
                         warningTitle = 'Healthy Market Conditions';
                         
-                        let baseMessage = `Market shows <strong>fair pricing (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV)</strong> with <strong>strong liquidity (${liquidityRisk.score}/100)</strong>. This indicates a balanced, active market with good price discovery. Normal buying/selling conditions.`;
+                        let baseMessage = `Prices are fair (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) and there's plenty of buyer activity (liquidity: ${liquidityRisk.score}/100). This is a healthy, well-functioning market where both buyers and sellers are active. Prices accurately reflect current demand - good conditions for both buying and selling.`;
                         
+                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
                         warningMessage = baseMessage + `<br><br>
-                        <strong>Data Confidence:</strong> ${getConfidenceStatement(marketConfidence, sampleSize)}<br>
+                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
                         <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
                         ${absorptionAt !== 'N/A' ? `<br>${getVelocityStatement(absorptionAt, 'FMV-priced cards')}` : ''}`;
                     }
@@ -2539,10 +2541,11 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         warningIcon = '📊';
                         warningTitle = 'Balanced Market';
                         
-                        let baseMessage = `Market shows <strong>moderate pricing (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV)</strong> and <strong>moderate liquidity (${liquidityRisk.score}/100)</strong>. Standard market conditions - proceed with normal caution when buying or selling.`;
+                        let baseMessage = `Prices are in the middle range (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) with moderate buyer activity (liquidity: ${liquidityRisk.score}/100). This is a normal, stable market - nothing particularly remarkable happening. Use your normal judgment when buying or selling.`;
                         
+                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
                         warningMessage = baseMessage + `<br><br>
-                        <strong>Data Confidence:</strong> ${getConfidenceStatement(marketConfidence, sampleSize)}<br>
+                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
                         <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
                     }
                     
