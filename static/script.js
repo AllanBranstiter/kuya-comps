@@ -2004,19 +2004,32 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     let dataConfidence = 'N/A';
     
     if (activeData && activeData.items && activeData.items.length > 0) {
-        // Get asking prices from active listings
-        let askingPrices = activeData.items
-            .map(item => item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0)))
-            .filter(p => p > 0)
-            .sort((a, b) => a - b);
-        
-        console.log('[MARKET PRESSURE DEBUG] Raw asking prices before filtering:', {
-            totalItems: activeData.items.length,
-            validPrices: askingPrices.length,
-            priceRange: askingPrices.length > 0 ? `${formatMoney(askingPrices[0])} - ${formatMoney(askingPrices[askingPrices.length - 1])}` : 'N/A'
+        // Step 1: Deduplicate by seller - group listings by seller, get median of each seller's prices
+        const sellerPrices = {};
+        activeData.items.forEach(item => {
+            const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+            const sellerName = item.seller?.name || `unknown_${item.item_id}`;
+            
+            if (price > 0) {
+                if (!sellerPrices[sellerName]) sellerPrices[sellerName] = [];
+                sellerPrices[sellerName].push(price);
+            }
         });
         
-        // Apply IQR outlier filtering to asking prices (same method as sold prices)
+        // Get one price per seller (their median if they have multiple listings)
+        let askingPrices = Object.values(sellerPrices).map(prices => {
+            const sorted = prices.sort((a, b) => a - b);
+            return sorted[Math.floor(sorted.length / 2)];
+        });
+        
+        console.log('[MARKET PRESSURE DEBUG] After seller deduplication:', {
+            totalItems: activeData.items.length,
+            uniqueSellers: Object.keys(sellerPrices).length,
+            deduplicatedPrices: askingPrices.length,
+            priceRange: askingPrices.length > 0 ? `${formatMoney(Math.min(...askingPrices))} - ${formatMoney(Math.max(...askingPrices))}` : 'N/A'
+        });
+        
+        // Step 2: Apply IQR outlier filtering to deduplicated asking prices
         if (askingPrices.length >= 4) {
             const originalCount = askingPrices.length;
             askingPrices = filterOutliers(askingPrices);
@@ -2041,10 +2054,15 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
         });
         
         if (askingPrices.length > 0) {
-            // Calculate median asking price (after outlier filtering)
-            medianAskingPrice = askingPrices[Math.floor(askingPrices.length / 2)];
+            // Step 3: Calculate weighted median asking price (based on price clustering)
+            medianAskingPrice = calculateWeightedMedian(askingPrices);
             
-            // Calculate Market Pressure %: (Median Asking Price - FMV) / FMV
+            console.log('[MARKET PRESSURE DEBUG] Weighted median calculation:', {
+                weightedMedian: formatMoney(medianAskingPrice),
+                simpleMedian: formatMoney(askingPrices[Math.floor(askingPrices.length / 2)])
+            });
+            
+            // Calculate Market Pressure %: (Weighted Median Asking Price - FMV) / FMV
             marketPressure = ((medianAskingPrice - marketValue) / marketValue) * 100;
             
             // Determine status based on interpretation bands
@@ -2223,7 +2241,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 <!-- Market Pressure % -->
                 ${marketPressure !== null ? `
                 <div class="indicator-card" style="background: ${marketPressureGradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${marketPressureBorder}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Market Pressure compares what sellers are asking today to what buyers recently paid">
-                    <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Pressure bands"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Pressure bands"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
                     <div style="margin-bottom: 0.5rem;">
                         <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
                     </div>
@@ -2241,7 +2259,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 </div>
                 ` : `
                 <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); position: relative;">
-                    <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Pressure bands"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Pressure bands"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
                     <div style="margin-bottom: 0.5rem;">
                         <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
                     </div>
@@ -2256,7 +2274,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 
                 <!-- Market Confidence -->
                 <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15); position: relative;" title="Market Confidence measures how consistent prices are">
-                    <button onclick="showMarketConfidenceInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Confidence"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <button onclick="showMarketConfidenceInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Confidence"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
                     <div style="margin-bottom: 0.5rem;">
                         <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Confidence</span>
                     </div>
@@ -2276,7 +2294,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 <!-- Liquidity Risk Score (NEW) -->
                 ${liquidityRisk && liquidityRisk.score !== null ? `
                 <div class="indicator-card" style="background: ${liquidityRisk.gradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${liquidityRisk.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Liquidity Risk measures how easy it is to sell this card at or near FMV">
-                    <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Liquidity Risk"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Liquidity Risk"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
                     <div style="margin-bottom: 0.5rem;">
                         <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity</span>
                     </div>
@@ -2294,7 +2312,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 </div>
                 ` : `
                 <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); position: relative;">
-                    <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Liquidity Risk"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Liquidity Risk"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
                     <div style="margin-bottom: 0.5rem;">
                         <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity</span>
                     </div>
@@ -2714,6 +2732,40 @@ function filterOutliers(prices) {
   console.log(`[OUTLIER FILTER] Bounds: $${lowerBound.toFixed(2)} - $${upperBound.toFixed(2)}`);
   
   return filtered;
+}
+
+// Calculate weighted median based on price clustering
+function calculateWeightedMedian(prices) {
+    if (prices.length === 0) return null;
+    if (prices.length === 1) return prices[0];
+    
+    // Group prices by value and count occurrences
+    const priceCounts = {};
+    prices.forEach(price => {
+        // Round to nearest cent to group similar prices
+        const roundedPrice = Math.round(price * 100) / 100;
+        priceCounts[roundedPrice] = (priceCounts[roundedPrice] || 0) + 1;
+    });
+    
+    // Sort unique prices
+    const uniquePrices = Object.keys(priceCounts).map(p => parseFloat(p)).sort((a, b) => a - b);
+    
+    // Calculate total count
+    const totalCount = prices.length;
+    const targetCount = totalCount / 2;
+    
+    // Find weighted median
+    let cumulativeCount = 0;
+    for (const price of uniquePrices) {
+        cumulativeCount += priceCounts[price];
+        if (cumulativeCount >= targetCount) {
+            console.log(`[WEIGHTED MEDIAN] Price: $${price.toFixed(2)}, Count: ${priceCounts[price]}, Weight: ${(priceCounts[price] / totalCount * 100).toFixed(1)}%`);
+            return price;
+        }
+    }
+    
+    // Fallback to last price (shouldn't reach here)
+    return uniquePrices[uniquePrices.length - 1];
 }
 
 function drawBeeswarm(prices) {
