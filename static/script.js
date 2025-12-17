@@ -1164,14 +1164,6 @@ async function renderData(data, secondData = null, marketValue = null) {
               <span>See All</span>
             </label>
           </div>
-          <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; border-left: 3px solid #ff9500; margin-bottom: 1rem;">
-            <p style="margin: 0; font-size: 0.8rem; color: #333; line-height: 1.5;">
-              ⚠️ These listings are shown for research purposes only. This is not a recommendation to buy. Always do your own due diligence before purchasing.
-            </p>
-          </div>
-          <p style="font-size: 0.75rem; color: #999; margin-top: -0.5rem; margin-bottom: 0.75rem;">
-            This website is supported by affiliate links. Purchases may earn us a commission at no extra cost to you.
-          </p>
           <div id="active-listings-table" class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
               <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -1246,6 +1238,12 @@ async function renderData(data, secondData = null, marketValue = null) {
               </tbody>
             </table>
           </div>
+          <p style="font-size: 0.75rem; color: #666; margin-top: 0.75rem; margin-bottom: 0.5rem; line-height: 1.5;">
+            ⚠️ These listings are shown for research purposes only. This is not a recommendation to buy. Always do your own due diligence before purchasing.
+          </p>
+          <p style="font-size: 0.75rem; color: #999; margin-top: 0.5rem; margin-bottom: 0.75rem;">
+            This website is supported by affiliate links. Purchases may earn us a commission at no extra cost to you.
+          </p>
         `;
     }
     
@@ -2306,18 +2304,10 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
         <div id="analysis-dashboard">
             <h3 style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">📊 Market Analysis Dashboard</h3>
             
-            <!-- Important Disclaimer -->
-            <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #ff9500; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);">
-                <div style="display: flex; align-items: flex-start; gap: 1rem;">
-                    <span style="font-size: 2rem; flex-shrink: 0;">⚠️</span>
-                    <div>
-                        <h4 style="margin: 0 0 0.75rem 0; color: #ff9500; font-size: 1.1rem;">Disclaimer</h4>
-                        <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.6;">
-                            This analysis is for informational purposes only. It is not financial or investment advice. Always do your own research before making decisions.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <!-- Disclaimer -->
+            <p style="margin: 0 0 2rem 0; font-size: 0.75rem; color: #666; text-align: center; line-height: 1.5;">
+                ⚠️ This analysis is for informational purposes only. It is not financial or investment advice. Always do your own research before making decisions.
+            </p>
             
             <!-- Market Risk Assessment (moved to top) -->
             ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ? `
@@ -2404,18 +2394,6 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                             <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
                                 ${warningMessage}
                             </p>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                                <div>
-                                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Market Pressure</div>
-                                    <div style="font-size: 1.25rem; font-weight: 700; color: ${marketPressureColor};">${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%</div>
-                                    <div style="font-size: 0.7rem; color: #999;">${marketPressureStatus}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Liquidity</div>
-                                    <div style="font-size: 1.25rem; font-weight: 700; color: ${liquidityRisk.statusColor};">${liquidityRisk.score}/100</div>
-                                    <div style="font-size: 0.7rem; color: #999;">${liquidityRisk.label}</div>
-                                </div>
-                            </div>
                         </div>
                     `;
                 })()}
