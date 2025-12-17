@@ -236,6 +236,261 @@ function showMarketPressureInfo() {
     document.addEventListener('keydown', escHandler);
 }
 
+// Show Liquidity Risk info popup
+function showLiquidityRiskInfo() {
+    const overlay = document.createElement('div');
+    overlay.id = 'liquidity-risk-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 1rem;
+        animation: fadeIn 0.2s ease;
+    `;
+    
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+        background: var(--card-background);
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        position: relative;
+        animation: slideUp 0.3s ease;
+    `;
+    
+    popup.innerHTML = `
+        <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
+        
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">💧 Understanding Liquidity Risk</h2>
+        
+        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
+            Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value.
+        </p>
+        
+        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <strong style="color: var(--text-color);">Absorption Ratio:</strong><br>
+            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
+                Completed Sales / Active Listings
+            </code>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
+                <em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>
+            </p>
+        </div>
+        
+        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📊 Liquidity Bands</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- High Liquidity Band -->
+            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🟢</span>
+                    <strong style="color: #34c759;">Ratio ≥ 1.0 (HIGH LIQUIDITY)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Demand exceeds supply - cards sell quickly.<br>
+                    <strong>What to do:</strong> Price competitively to capture demand. Quick exits are likely.
+                </p>
+            </div>
+            
+            <!-- Moderate Liquidity Band -->
+            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🔵</span>
+                    <strong style="color: #007aff;">Ratio 0.5-1.0 (MODERATE)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Balanced market with healthy liquidity.<br>
+                    <strong>What to do:</strong> Normal market conditions - expect reasonable sell time.
+                </p>
+            </div>
+            
+            <!-- Low Liquidity Band -->
+            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🟠</span>
+                    <strong style="color: #ff9500;">Ratio 0.2-0.5 (LOW LIQUIDITY)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Slow absorption - elevated exit risk.<br>
+                    <strong>What to do:</strong> May need patience or competitive pricing to attract buyers.
+                </p>
+            </div>
+            
+            <!-- Very Low Liquidity Band -->
+            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🔴</span>
+                    <strong style="color: #ff3b30;">Ratio < 0.2 (VERY LOW)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Illiquid market - high exit risk.<br>
+                    <strong>What to do:</strong> Consider pricing at or below FMV to attract buyers.
+                </p>
+            </div>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
+            <strong style="color: var(--text-color);">💡 Key Principle:</strong><br>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                Liquidity Risk does NOT modify FMV. It tells you how easy it will be to sell at that price. High FMV with low liquidity means the card is valuable but may take time to sell.
+            </p>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
+            <strong style="color: var(--text-color);">📊 Data Confidence:</strong><br>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
+                • <strong>High:</strong> 10+ sales AND 10+ active listings<br>
+                • <strong>Medium:</strong> 5+ sales AND 5+ active listings<br>
+                • <strong>Low:</strong> Below medium thresholds (use with caution)
+            </p>
+        </div>
+    `;
+    
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+    
+    // Close on overlay click or close button
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.id === 'close-popup') {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+        }
+    });
+    
+    // Close on Escape key
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+// Calculate Liquidity Risk Score based on Absorption Ratio
+function calculateLiquidityRisk(soldData, activeData) {
+    console.log('[LIQUIDITY RISK] Calculating with:', {
+        soldItems: soldData?.items?.length || 0,
+        activeItems: activeData?.items?.length || 0
+    });
+    
+    const completedSales = soldData?.items?.length || 0;
+    
+    // Filter active listings to Buy It Now only (exclude pure auctions)
+    const buyItNowListings = activeData?.items?.filter(item => {
+        const buyingFormat = (item.buying_format || '').toLowerCase();
+        return buyingFormat.includes('buy it now');
+    }) || [];
+    
+    const activeListings = buyItNowListings.length;
+    
+    console.log('[LIQUIDITY RISK] After filtering:', {
+        totalActive: activeData?.items?.length || 0,
+        buyItNowOnly: activeListings
+    });
+    
+    // Insufficient data check
+    if (activeListings === 0) {
+        return {
+            score: null,
+            label: 'Insufficient Data',
+            absorptionRatio: null,
+            salesCount: completedSales,
+            listingsCount: 0,
+            confidence: 'N/A',
+            statusColor: '#6e6e73',
+            gradient: 'linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%)',
+            border: '#d1d1d6',
+            message: 'No active Buy It Now listings found'
+        };
+    }
+    
+    // Calculate Absorption Ratio
+    const absorptionRatio = completedSales / activeListings;
+    
+    console.log('[LIQUIDITY RISK] Absorption Ratio:', absorptionRatio);
+    
+    // Determine confidence level
+    let confidence = 'Low';
+    if (completedSales >= 10 && activeListings >= 10) {
+        confidence = 'High';
+    } else if (completedSales >= 5 && activeListings >= 5) {
+        confidence = 'Medium';
+    }
+    
+    // Calculate 0-100 score and determine band
+    let score;
+    let label;
+    let statusColor;
+    let gradient;
+    let border;
+    let message;
+    
+    if (absorptionRatio >= 1.0) {
+        // High Liquidity: 80-100 range
+        score = Math.min(100, 80 + (absorptionRatio - 1.0) * 20);
+        label = 'High Liquidity';
+        statusColor = '#34c759';
+        gradient = 'linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%)';
+        border = '#99ff99';
+        message = 'Demand exceeds supply - cards likely sell quickly';
+    } else if (absorptionRatio >= 0.5) {
+        // Moderate Liquidity: 50-79 range
+        score = 50 + (absorptionRatio - 0.5) * 60;
+        label = 'Moderate Liquidity';
+        statusColor = '#007aff';
+        gradient = 'linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%)';
+        border = '#99daff';
+        message = 'Balanced market - expect reasonable sell time';
+    } else if (absorptionRatio >= 0.2) {
+        // Low Liquidity: 25-49 range
+        score = 25 + (absorptionRatio - 0.2) * 83;
+        label = 'Low Liquidity';
+        statusColor = '#ff9500';
+        gradient = 'linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%)';
+        border = '#ffd699';
+        message = 'Slow absorption - may need patience or competitive pricing';
+    } else {
+        // Very Low Liquidity: 10-24 range
+        score = Math.max(10, absorptionRatio * 125);
+        label = 'Very Low Liquidity';
+        statusColor = '#ff3b30';
+        gradient = 'linear-gradient(135deg, #ffebee 0%, #ffcccc 100%)';
+        border = '#ff9999';
+        message = 'High exit risk - consider pricing at or below FMV';
+    }
+    
+    console.log('[LIQUIDITY RISK] Result:', {
+        score: Math.round(score),
+        label,
+        confidence
+    });
+    
+    return {
+        score: Math.round(score),
+        label,
+        absorptionRatio: absorptionRatio.toFixed(2),
+        salesCount: completedSales,
+        listingsCount: activeListings,
+        confidence,
+        statusColor,
+        gradient,
+        border,
+        message
+    };
+}
+
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
 
@@ -1682,8 +1937,8 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     const median = sortedPrices[Math.floor(sortedPrices.length * 0.5)];
     const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
     
-    // Liquidity score (based on number of sales)
-    const liquidityScore = Math.min(100, (data.items.length / 50) * 100);
+    // Calculate Liquidity Risk Score using new absorption ratio method
+    const liquidityRisk = calculateLiquidityRisk(data, activeData);
     
     const dashboardHtml = `
         <div id="analysis-dashboard">
@@ -1753,22 +2008,49 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                     </div>
                 </div>
                 
-                <!-- Liquidity Score -->
-                <div class="indicator-card" style="background: linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99ff99; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.15);">
+                <!-- Liquidity Risk Score (NEW) -->
+                ${liquidityRisk.score !== null ? `
+                <div class="indicator-card" style="background: ${liquidityRisk.gradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${liquidityRisk.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Liquidity Risk measures how easy it is to sell this card at or near FMV">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.5rem;">💧</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: #34c759; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            ${liquidityScore >= 70 ? 'HIGH' : liquidityScore >= 40 ? 'MODERATE' : 'LOW'}
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity Risk</span>
+                            <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Liquidity Risk">i</button>
+                        </div>
+                        <span style="font-size: 0.75rem; font-weight: 600; color: ${liquidityRisk.statusColor}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            ${liquidityRisk.label.toUpperCase().replace(' LIQUIDITY', '')}
                         </span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Liquidity</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #34c759; margin-bottom: 0.5rem;">
-                        ${liquidityScore.toFixed(0)}/100
+                    <div style="font-size: 2rem; font-weight: 700; color: ${liquidityRisk.statusColor}; margin-bottom: 0.5rem; line-height: 1;">
+                        ${liquidityRisk.score}/100
                     </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        ${data.items.length} recent sales
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
+                        ${liquidityRisk.message}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                        <strong>Absorption Ratio:</strong> ${liquidityRisk.absorptionRatio}<br>
+                        <strong>Sales:</strong> ${liquidityRisk.salesCount} | <strong>Listings:</strong> ${liquidityRisk.listingsCount}<br>
+                        <strong>Confidence:</strong> ${liquidityRisk.confidence}
                     </div>
                 </div>
+                ` : `
+                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity Risk</span>
+                            <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Liquidity Risk">i</button>
+                        </div>
+                        <span style="font-size: 0.75rem; font-weight: 600; color: #6e6e73; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            N/A
+                        </span>
+                    </div>
+                    <div style="font-size: 2rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem; line-height: 1;">
+                        --
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        ${liquidityRisk.message || 'No active listings data'}
+                    </div>
+                </div>
+                `}
                 
                 <!-- FMV Premium -->
                 <div class="indicator-card" style="background: linear-gradient(135deg, ${fmvVsAvg >= 0 ? '#ffe6f7' : '#f0f0f0'} 0%, ${fmvVsAvg >= 0 ? '#ffcceb' : '#e0e0e0'} 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid ${fmvVsAvg >= 0 ? '#ff99d6' : '#cccccc'}; box-shadow: 0 4px 12px rgba(${fmvVsAvg >= 0 ? '255, 59, 48' : '100, 100, 100'}, 0.15);">
@@ -1838,6 +2120,206 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                     <span>High</span>
                 </div>
             </div>
+            
+            <!-- Market Pressure + Liquidity Risk Cross-Reference -->
+            ${marketPressure !== null && liquidityRisk.score !== null ? `
+            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">⚠️ Market Risk Assessment</h4>
+                
+                ${(() => {
+                    // Determine combined risk scenario
+                    let warningLevel = 'info';
+                    let warningColor = '#007aff';
+                    let warningBg = 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)';
+                    let warningBorder = '#99daff';
+                    let warningIcon = 'ℹ️';
+                    let warningTitle = 'Market Analysis';
+                    let warningMessage = '';
+                    
+                    // High pressure + Low liquidity = DANGER
+                    if (marketPressure > 30 && liquidityRisk.score < 50) {
+                        warningLevel = 'danger';
+                        warningColor = '#ff3b30';
+                        warningBg = 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)';
+                        warningBorder = '#ff9999';
+                        warningIcon = '🚨';
+                        warningTitle = 'High Risk Market Conditions';
+                        warningMessage = `Sellers are asking <strong>${marketPressure.toFixed(1)}% above FMV</strong> in a market with <strong>low liquidity (${liquidityRisk.score}/100)</strong>. This combination suggests overpriced listings with limited buyer demand. Consider waiting for price corrections or looking for better opportunities.`;
+                    }
+                    // High pressure + High liquidity = CAUTION
+                    else if (marketPressure > 30 && liquidityRisk.score >= 50) {
+                        warningLevel = 'warning';
+                        warningColor = '#ff9500';
+                        warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
+                        warningBorder = '#ffd699';
+                        warningIcon = '⚠️';
+                        warningTitle = 'Overpriced but Active Market';
+                        warningMessage = `Asking prices are <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but the market shows <strong>good liquidity (${liquidityRisk.score}/100)</strong>. Sellers may be optimistic given recent demand. Make offers significantly below asking prices.`;
+                    }
+                    // Low pressure + Low liquidity = CONCERN
+                    else if (marketPressure <= 15 && liquidityRisk.score < 50) {
+                        warningLevel = 'warning';
+                        warningColor = '#ff9500';
+                        warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
+                        warningBorder = '#ffd699';
+                        warningIcon = '⚡';
+                        warningTitle = 'Fair Pricing, Limited Demand';
+                        warningMessage = `Prices are fairly aligned with FMV (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%), but <strong>liquidity is low (${liquidityRisk.score}/100)</strong>. This suggests weak buyer interest despite reasonable pricing. Be cautious - may indicate declining demand.`;
+                    }
+                    // Low pressure + High liquidity = OPPORTUNITY
+                    else if (marketPressure < 0 && liquidityRisk.score >= 70) {
+                        warningLevel = 'success';
+                        warningColor = '#34c759';
+                        warningBg = 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)';
+                        warningBorder = '#99ff99';
+                        warningIcon = '💎';
+                        warningTitle = 'Strong Buy Opportunity';
+                        warningMessage = `Asking prices are <strong>${Math.abs(marketPressure).toFixed(1)}% below FMV</strong> in a <strong>highly liquid market (${liquidityRisk.score}/100)</strong>. This rare combination suggests undervalued listings with strong demand. Consider buying quickly before prices adjust.`;
+                    }
+                    // Good pricing + Good liquidity = HEALTHY
+                    else if (marketPressure >= 0 && marketPressure <= 15 && liquidityRisk.score >= 70) {
+                        warningLevel = 'success';
+                        warningColor = '#34c759';
+                        warningBg = 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)';
+                        warningBorder = '#99ff99';
+                        warningIcon = '✅';
+                        warningTitle = 'Healthy Market Conditions';
+                        warningMessage = `Market shows <strong>fair pricing (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV)</strong> with <strong>strong liquidity (${liquidityRisk.score}/100)</strong>. This indicates a balanced, active market with good price discovery. Normal buying/selling conditions.`;
+                    }
+                    // Moderate across both = BALANCED
+                    else {
+                        warningLevel = 'info';
+                        warningColor = '#007aff';
+                        warningBg = 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)';
+                        warningBorder = '#99daff';
+                        warningIcon = '📊';
+                        warningTitle = 'Balanced Market';
+                        warningMessage = `Market shows <strong>moderate pricing (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV)</strong> and <strong>moderate liquidity (${liquidityRisk.score}/100)</strong>. Standard market conditions - proceed with normal caution when buying or selling.`;
+                    }
+                    
+                    return `
+                        <div style="background: ${warningBg}; padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${warningBorder};">
+                            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                                <span style="font-size: 2rem;">${warningIcon}</span>
+                                <strong style="font-size: 1.1rem; color: ${warningColor};">${warningTitle}</strong>
+                            </div>
+                            <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
+                                ${warningMessage}
+                            </p>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                                <div>
+                                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Market Pressure</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: ${marketPressureColor};">${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%</div>
+                                    <div style="font-size: 0.7rem; color: #999;">${marketPressureStatus}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Liquidity Risk</div>
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: ${liquidityRisk.statusColor};">${liquidityRisk.score}/100</div>
+                                    <div style="font-size: 0.7rem; color: #999;">${liquidityRisk.label}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })()}
+            </div>
+            ` : ''}
+            
+            <!-- Price Band Liquidity Analysis -->
+            ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk.score !== null ? `
+            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">💰 Liquidity at Different Price Points</h4>
+                
+                ${(() => {
+                    // Calculate price bands based on FMV
+                    const belowFMV = activeData.items.filter(item => {
+                        const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                        const buyingFormat = (item.buying_format || '').toLowerCase();
+                        return price > 0 && price < marketValue * 0.9 && buyingFormat.includes('buy it now');
+                    }).length;
+                    
+                    const atFMV = activeData.items.filter(item => {
+                        const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                        const buyingFormat = (item.buying_format || '').toLowerCase();
+                        return price >= marketValue * 0.9 && price <= marketValue * 1.1 && buyingFormat.includes('buy it now');
+                    }).length;
+                    
+                    const aboveFMV = activeData.items.filter(item => {
+                        const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                        const buyingFormat = (item.buying_format || '').toLowerCase();
+                        return price > marketValue * 1.1 && buyingFormat.includes('buy it now');
+                    }).length;
+                    
+                    const totalActive = belowFMV + atFMV + aboveFMV;
+                    
+                    // Calculate absorption ratios for each band
+                    const salesBelow = data.items.filter(item => item.total_price < marketValue * 0.9).length;
+                    const salesAt = data.items.filter(item => item.total_price >= marketValue * 0.9 && item.total_price <= marketValue * 1.1).length;
+                    const salesAbove = data.items.filter(item => item.total_price > marketValue * 1.1).length;
+                    
+                    const absorptionBelow = belowFMV > 0 ? (salesBelow / belowFMV).toFixed(2) : 'N/A';
+                    const absorptionAt = atFMV > 0 ? (salesAt / atFMV).toFixed(2) : 'N/A';
+                    const absorptionAbove = aboveFMV > 0 ? (salesAbove / aboveFMV).toFixed(2) : 'N/A';
+                    
+                    return `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                            <!-- Below FMV Band -->
+                            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99ff99;">
+                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">Below FMV (&lt; -10%)</div>
+                                <div style="font-size: 1.75rem; font-weight: 700; color: #34c759; margin-bottom: 0.5rem;">
+                                    ${belowFMV}
+                                </div>
+                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                                    Active listings<br>
+                                    <strong>Absorption:</strong> ${absorptionBelow}<br>
+                                    <strong>Sales:</strong> ${salesBelow} in 90 days
+                                </div>
+                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
+                                    ${belowFMV > 0 ? (absorptionBelow !== 'N/A' && parseFloat(absorptionBelow) >= 1.0 ? '🔥 High demand - good deals move fast' : '⚡ Limited supply - potential value') : '📭 No listings in this band'}
+                                </div>
+                            </div>
+                            
+                            <!-- At FMV Band -->
+                            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99daff;">
+                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">At FMV (±10%)</div>
+                                <div style="font-size: 1.75rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem;">
+                                    ${atFMV}
+                                </div>
+                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                                    Active listings<br>
+                                    <strong>Absorption:</strong> ${absorptionAt}<br>
+                                    <strong>Sales:</strong> ${salesAt} in 90 days
+                                </div>
+                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
+                                    ${atFMV > 0 ? (absorptionAt !== 'N/A' && parseFloat(absorptionAt) >= 0.5 ? '✅ Healthy market activity' : '⏳ Slower movement expected') : '📭 No listings at FMV'}
+                                </div>
+                            </div>
+                            
+                            <!-- Above FMV Band -->
+                            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #ffd699;">
+                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">Above FMV (&gt; +10%)</div>
+                                <div style="font-size: 1.75rem; font-weight: 700; color: #ff9500; margin-bottom: 0.5rem;">
+                                    ${aboveFMV}
+                                </div>
+                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                                    Active listings<br>
+                                    <strong>Absorption:</strong> ${absorptionAbove}<br>
+                                    <strong>Sales:</strong> ${salesAbove} in 90 days
+                                </div>
+                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
+                                    ${aboveFMV > 0 ? (absorptionAbove !== 'N/A' && parseFloat(absorptionAbove) < 0.3 ? '⚠️ Overpriced - low absorption' : '📊 Premium pricing') : '📭 No premium listings'}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
+                            <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
+                                <strong>💡 Insight:</strong> The distribution of active listings shows where sellers are pricing cards. Higher absorption ratios indicate faster-moving price points.
+                            </p>
+                        </div>
+                    `;
+                })()}
+            </div>
+            ` : ''}
             
             <!-- Market Insights -->
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
