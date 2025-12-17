@@ -2978,7 +2978,6 @@ function getDataQualityBadge(soldCount, activeCount, confidence, pressureSampleS
     return `
         <div style="background: ${badgeBg}; padding: 0.75rem 1.25rem; border-radius: 8px; border: 2px solid ${badgeBorder}; display: inline-block; margin-bottom: 1.5rem;">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <span style="font-size: 1.25rem;">${score >= 70 ? '✅' : score >= 40 ? '⚠️' : '🔴'}</span>
                 <div>
                     <div style="font-weight: 700; color: ${badgeColor}; font-size: 0.9rem; letter-spacing: 0.5px;">
                         ${badgeText}
