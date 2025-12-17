@@ -3257,22 +3257,45 @@ function drawPriceDistributionChart(soldData, activeData) {
         ctx.fillRect(0, 0, width, height);
         
     // Prepare sold data
-  const soldPrices = soldData?.items?.map(item => item.total_price).filter(p => p > 0) || [];
-  
-  // Prepare active data (Buy It Now only)
-  const activePrices = activeData?.items?.filter(item => {
-      const buyingFormat = (item.buying_format || '').toLowerCase();
-      return buyingFormat.includes('buy it now');
-  }).map(item => {
-      return item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-  }).filter(p => p > 0) || [];
-  
-  console.log('[CHART] Prepared price data:', {
-      soldCount: soldPrices.length,
-      activeCount: activePrices.length,
-      soldSample: soldPrices.slice(0, 3),
-      activeSample: activePrices.slice(0, 3)
-  });
+    let soldPrices = soldData?.items?.map(item => item.total_price).filter(p => p > 0) || [];
+    
+    // Prepare active data (Buy It Now only)
+    let activePrices = activeData?.items?.filter(item => {
+        const buyingFormat = (item.buying_format || '').toLowerCase();
+        return buyingFormat.includes('buy it now');
+    }).map(item => {
+        return item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+    }).filter(p => p > 0) || [];
+    
+    console.log('[CHART] Prepared price data (before outlier filtering):', {
+        soldCount: soldPrices.length,
+        activeCount: activePrices.length,
+        soldSample: soldPrices.slice(0, 3),
+        activeSample: activePrices.slice(0, 3)
+    });
+    
+    // Filter outliers from both datasets using IQR method
+    const soldOriginalCount = soldPrices.length;
+    const activeOriginalCount = activePrices.length;
+    
+    if (soldPrices.length >= 4) {
+        soldPrices = filterOutliers(soldPrices);
+        console.log('[CHART] Filtered sold outliers:', soldOriginalCount - soldPrices.length, 'removed');
+    }
+    
+    if (activePrices.length >= 4) {
+        activePrices = filterOutliers(activePrices);
+        console.log('[CHART] Filtered active outliers:', activeOriginalCount - activePrices.length, 'removed');
+    }
+    
+    console.log('[CHART] After outlier filtering:', {
+        soldCount: soldPrices.length,
+        activeCount: activePrices.length,
+        soldMin: soldPrices.length > 0 ? Math.min(...soldPrices) : 'N/A',
+        soldMax: soldPrices.length > 0 ? Math.max(...soldPrices) : 'N/A',
+        activeMin: activePrices.length > 0 ? Math.min(...activePrices) : 'N/A',
+        activeMax: activePrices.length > 0 ? Math.max(...activePrices) : 'N/A'
+    });
   
   // Show message if no data, but continue to test rendering
   if (soldPrices.length === 0 && activePrices.length === 0) {
