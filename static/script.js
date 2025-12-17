@@ -1481,6 +1481,7 @@ function getSearchQueryWithExclusions(baseQuery) {
             // Additional variant/parallel exclusions
             '-foil', '-shimmer', '-lava', '-wave', '-raywave', '-speckle', '-mojo',
             '-sapphire', '-ice', '-cracked', '-checker', '-optic', '-paper',
+            '-sepia', '-"negative refractor"',
             
             // Additional color exclusions
             '-green', '-orange', '-gold', '-purple', '-pink', '-fuchsia', '-teal',
@@ -2451,15 +2452,6 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 })()}
             </div>
             ` : ''}
-            
-            <!-- Market Insights -->
-            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">💡 Market Insights</h4>
-                
-                <ul style="list-style: none; padding: 0; margin: 0;">
-                    ${generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityRisk, fmvVsAvg)}
-                </ul>
-            </div>
         </div>
     `;
     
