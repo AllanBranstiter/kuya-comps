@@ -75,6 +75,148 @@ function escapeHtml(unsafe) {
     .replace(/'/g, "&#039;");
 }
 
+// Show Market Pressure info popup
+function showMarketPressureInfo() {
+    const overlay = document.createElement('div');
+    overlay.id = 'market-pressure-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 1rem;
+        animation: fadeIn 0.2s ease;
+    `;
+    
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+        background: var(--card-background);
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        position: relative;
+        animation: slideUp 0.3s ease;
+    `;
+    
+    popup.innerHTML = `
+        <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
+        
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">📊 Understanding Market Pressure %</h2>
+        
+        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
+            Market Pressure measures the gap between what sellers are <strong>asking today</strong> versus what buyers <strong>recently paid</strong>.
+        </p>
+        
+        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <strong style="color: var(--text-color);">Formula:</strong><br>
+            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
+                (Median Asking Price - Fair Market Value) / FMV × 100
+            </code>
+        </div>
+        
+        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📈 What Each Band Means</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Healthy Band -->
+            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🟢</span>
+                    <strong style="color: #34c759;">0% to 15% (HEALTHY)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Normal, healthy market. Sellers price slightly above recent sales to leave room for negotiation.<br>
+                    <strong>What to do:</strong> Fair pricing - safe to buy at asking prices or negotiate slightly.
+                </p>
+            </div>
+            
+            <!-- Optimistic Band -->
+            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🔵</span>
+                    <strong style="color: #007aff;">15% to 30% (OPTIMISTIC)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Sellers are hopeful but not unrealistic. Expect to negotiate.<br>
+                    <strong>What to do:</strong> Make offers below asking price - sellers are likely open to negotiation.
+                </p>
+            </div>
+            
+            <!-- Resistance Band -->
+            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🟠</span>
+                    <strong style="color: #ff9500;">30% to 50% (RESISTANCE)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Big gap between asking prices and reality. Market is stalling.<br>
+                    <strong>What to do:</strong> Be patient - sellers will likely need to lower prices or accept much lower offers.
+                </p>
+            </div>
+            
+            <!-- Unrealistic Band -->
+            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🔴</span>
+                    <strong style="color: #ff3b30;">50%+ (UNREALISTIC)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Sellers are detached from market reality. Cards won't sell at these prices.<br>
+                    <strong>What to do:</strong> Wait - these prices won't hold. Look for better-priced alternatives.
+                </p>
+            </div>
+            
+            <!-- Below FMV Band -->
+            <div style="background: linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #5856d6;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🟣</span>
+                    <strong style="color: #5856d6;">Negative % (BELOW FMV)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Opportunity! Sellers are asking less than recent sale prices.<br>
+                    <strong>What to do:</strong> Act fast - these are potential bargains.
+                </p>
+            </div>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem;">
+            <strong style="color: var(--text-color);">📝 Example:</strong><br>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                If cards recently sold for <strong>$100</strong> (FMV), but current listings ask <strong>$140</strong>, that's <strong>+40% Market Pressure</strong> = 🟠 Resistance zone = sellers are asking too much.
+            </p>
+        </div>
+    `;
+    
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+    
+    // Close on overlay click or close button
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.id === 'close-popup') {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+        }
+    });
+    
+    // Close on Escape key
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
 
@@ -1512,7 +1654,10 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                             ${marketPressureStatus}
                         </span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Pressure %</div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                        Market Pressure %
+                        <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Market Pressure bands">i</button>
+                    </div>
                     <div style="font-size: 1.75rem; font-weight: 700; color: ${marketPressureColor}; margin-bottom: 0.5rem;">
                         ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%
                     </div>
