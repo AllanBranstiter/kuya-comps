@@ -2114,191 +2114,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
         <div id="analysis-dashboard">
             <h3 style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">📊 Market Analysis Dashboard</h3>
             
-            <!-- Key Indicators Grid -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-                
-                <!-- Market Pressure % -->
-                ${marketPressure !== null ? `
-                <div class="indicator-card" style="background: ${marketPressureGradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${marketPressureBorder}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Market Pressure compares what sellers are asking today to what buyers recently paid">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
-                            <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Market Pressure bands">i</button>
-                        </div>
-                        <span style="font-size: 0.75rem; font-weight: 600; color: ${marketPressureColor}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            ${marketPressureStatus}
-                        </span>
-                    </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: ${marketPressureColor}; margin-bottom: 0.5rem; line-height: 1;">
-                        ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
-                        ${marketPressureLabel}
-                    </div>
-                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                        <strong>Sample:</strong> ${sampleSize} listings (${dataConfidence} confidence)<br>
-                        <strong>Median Ask:</strong> ${formatMoney(medianAskingPrice)}<br>
-                        <strong>FMV:</strong> ${formatMoney(marketValue)}
-                    </div>
-                </div>
-                ` : `
-                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
-                            <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Market Pressure bands">i</button>
-                        </div>
-                        <span style="font-size: 0.75rem; font-weight: 600; color: #6e6e73; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            N/A
-                        </span>
-                    </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem; line-height: 1;">
-                        --
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        No active listings data
-                    </div>
-                </div>
-                `}
-                
-                <!-- Market Confidence -->
-                <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15); position: relative;" title="Market Confidence measures how consistent prices are">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Confidence</span>
-                            <button onclick="showMarketConfidenceInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Market Confidence">i</button>
-                        </div>
-                        <span style="font-size: 0.75rem; font-weight: 600; color: #007aff; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            ${marketConfidence >= 70 ? 'HIGH' : marketConfidence >= 40 ? 'MODERATE' : marketConfidence >= 20 ? 'LOW' : 'VERY LOW'}
-                        </span>
-                    </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem; line-height: 1;">
-                        ${marketConfidence.toFixed(0)}/100
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
-                        ${marketConfidence >= 70 ? 'Strong price consensus' : marketConfidence >= 40 ? 'Moderate price variation' : marketConfidence >= 20 ? 'High price variation' : 'Extreme price scatter'}
-                    </div>
-                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                        <strong>CoV:</strong> ${coefficientOfVariation.toFixed(1)}%<br>
-                        <strong>Std Dev:</strong> ${formatMoney(stdDev)}<br>
-                        <strong>Sample:</strong> ${data.items.length} sales
-                    </div>
-                </div>
-                
-                <!-- Liquidity Risk Score (NEW) -->
-                ${liquidityRisk && liquidityRisk.score !== null ? `
-                <div class="indicator-card" style="background: ${liquidityRisk.gradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${liquidityRisk.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Liquidity Risk measures how easy it is to sell this card at or near FMV">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity Risk</span>
-                            <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Liquidity Risk">i</button>
-                        </div>
-                        <span style="font-size: 0.75rem; font-weight: 600; color: ${liquidityRisk.statusColor}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            ${liquidityRisk.label.toUpperCase().replace(' LIQUIDITY', '')}
-                        </span>
-                    </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: ${liquidityRisk.statusColor}; margin-bottom: 0.5rem; line-height: 1;">
-                        ${liquidityRisk.score}/100
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
-                        ${liquidityRisk.message}
-                    </div>
-                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                        <strong>Absorption Ratio:</strong> ${liquidityRisk.absorptionRatio || 'N/A'}<br>
-                        <strong>Sales:</strong> ${liquidityRisk.salesCount || 0} | <strong>Listings:</strong> ${liquidityRisk.listingsCount || 0}<br>
-                        <strong>Confidence:</strong> ${liquidityRisk.confidence || 'N/A'}
-                    </div>
-                </div>
-                ` : `
-                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity Risk</span>
-                            <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Liquidity Risk">i</button>
-                        </div>
-                        <span style="font-size: 0.75rem; font-weight: 600; color: #6e6e73; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            N/A
-                        </span>
-                    </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem; line-height: 1;">
-                        --
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        ${liquidityRisk && liquidityRisk.message ? liquidityRisk.message : 'No active listings data'}
-                    </div>
-                </div>
-                `}
-                
-                <!-- FMV Premium -->
-                <div class="indicator-card" style="background: linear-gradient(135deg, ${fmvVsAvg >= 0 ? '#ffe6f7' : '#f0f0f0'} 0%, ${fmvVsAvg >= 0 ? '#ffcceb' : '#e0e0e0'} 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid ${fmvVsAvg >= 0 ? '#ff99d6' : '#cccccc'}; box-shadow: 0 4px 12px rgba(${fmvVsAvg >= 0 ? '255, 59, 48' : '100, 100, 100'}, 0.15);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.5rem;">${fmvVsAvg >= 0 ? '⬆️' : '⬇️'}</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: ${fmvVsAvg >= 0 ? '#ff3b30' : '#666'}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            ${fmvVsAvg >= 0 ? 'PREMIUM' : 'DISCOUNT'}
-                        </span>
-                    </div>
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">FMV vs Avg</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: ${fmvVsAvg >= 0 ? '#ff3b30' : '#666'}; margin-bottom: 0.5rem;">
-                        ${fmvVsAvg >= 0 ? '+' : ''}${fmvVsAvg.toFixed(1)}%
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        FMV: ${formatMoney(marketValue)}
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Price Distribution Analysis -->
-            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">📊 Price Distribution</h4>
-                
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Minimum</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(data.min_price)}</div>
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Q1 (25%)</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(q1)}</div>
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Median (50%)</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: #007aff;">${formatMoney(median)}</div>
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Q3 (75%)</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(q3)}</div>
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Maximum</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(data.max_price)}</div>
-                    </div>
-                </div>
-                
-                <!-- Visual distribution bar -->
-                <div style="margin-top: 2rem; position: relative; height: 40px; background: linear-gradient(90deg,
-                    #34c759 0%,
-                    #34c759 25%,
-                    #007aff 25%,
-                    #007aff 50%,
-                    #ff9500 50%,
-                    #ff9500 75%,
-                    #ff3b30 75%,
-                    #ff3b30 100%);
-                    border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.75rem; color: var(--subtle-text-color);">
-                    <span>Low</span>
-                    <span>Mid-Low</span>
-                    <span>Mid-High</span>
-                    <span>High</span>
-                </div>
-            </div>
-            
-            <!-- Market Pressure + Liquidity Risk Cross-Reference -->
+            <!-- Market Risk Assessment (moved to top) -->
             ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ? `
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
                 <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">⚠️ Market Risk Assessment</h4>
@@ -2390,7 +2206,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                                     <div style="font-size: 0.7rem; color: #999;">${marketPressureStatus}</div>
                                 </div>
                                 <div>
-                                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Liquidity Risk</div>
+                                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Liquidity</div>
                                     <div style="font-size: 1.25rem; font-weight: 700; color: ${liquidityRisk.statusColor};">${liquidityRisk.score}/100</div>
                                     <div style="font-size: 0.7rem; color: #999;">${liquidityRisk.label}</div>
                                 </div>
@@ -2400,6 +2216,166 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 })()}
             </div>
             ` : ''}
+            
+            <!-- Key Indicators Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                
+                <!-- Market Pressure % -->
+                ${marketPressure !== null ? `
+                <div class="indicator-card" style="background: ${marketPressureGradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${marketPressureBorder}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Market Pressure compares what sellers are asking today to what buyers recently paid">
+                    <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Pressure bands"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <div style="margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
+                    </div>
+                    <div style="font-size: 2rem; font-weight: 700; color: ${marketPressureColor}; margin-bottom: 0.5rem; line-height: 1;">
+                        ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
+                        ${marketPressureLabel}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                        <strong>Sample:</strong> ${sampleSize} listings (${dataConfidence} confidence)<br>
+                        <strong>Median Ask:</strong> ${formatMoney(medianAskingPrice)}<br>
+                        <strong>FMV:</strong> ${formatMoney(marketValue)}
+                    </div>
+                </div>
+                ` : `
+                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); position: relative;">
+                    <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Pressure bands"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <div style="margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
+                    </div>
+                    <div style="font-size: 2rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem; line-height: 1;">
+                        --
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        No active listings data
+                    </div>
+                </div>
+                `}
+                
+                <!-- Market Confidence -->
+                <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15); position: relative;" title="Market Confidence measures how consistent prices are">
+                    <button onclick="showMarketConfidenceInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Confidence"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <div style="margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Confidence</span>
+                    </div>
+                    <div style="font-size: 2rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem; line-height: 1;">
+                        ${marketConfidence.toFixed(0)}/100
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
+                        ${marketConfidence >= 70 ? 'Strong price consensus' : marketConfidence >= 40 ? 'Moderate price variation' : marketConfidence >= 20 ? 'High price variation' : 'Extreme price scatter'}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                        <strong>CoV:</strong> ${coefficientOfVariation.toFixed(1)}%<br>
+                        <strong>Std Dev:</strong> ${formatMoney(stdDev)}<br>
+                        <strong>Sample:</strong> ${data.items.length} sales
+                    </div>
+                </div>
+                
+                <!-- Liquidity Risk Score (NEW) -->
+                ${liquidityRisk && liquidityRisk.score !== null ? `
+                <div class="indicator-card" style="background: ${liquidityRisk.gradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${liquidityRisk.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Liquidity Risk measures how easy it is to sell this card at or near FMV">
+                    <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Liquidity Risk"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <div style="margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity</span>
+                    </div>
+                    <div style="font-size: 2rem; font-weight: 700; color: ${liquidityRisk.statusColor}; margin-bottom: 0.5rem; line-height: 1;">
+                        ${liquidityRisk.score}/100
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
+                        ${liquidityRisk.message}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                        <strong>Absorption Ratio:</strong> ${liquidityRisk.absorptionRatio || 'N/A'}<br>
+                        <strong>Sales:</strong> ${liquidityRisk.salesCount || 0} | <strong>Listings:</strong> ${liquidityRisk.listingsCount || 0}<br>
+                        <strong>Confidence:</strong> ${liquidityRisk.confidence || 'N/A'}
+                    </div>
+                </div>
+                ` : `
+                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); position: relative;">
+                    <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Liquidity Risk"><svg width="14" height="14" viewBox="0 0 92 92" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;"><circle cx="46" cy="46" r="42" stroke="#666" stroke-width="7" fill="none"/><path d="M39.6 50.4h11.8v-22c0-1.8 1.2-3 3-3h4.8c1.8 0 3 1.2 3 3v22h11.8c1.8 0 3 1.2 3 3v0c0 1.8-1.2 3-3 3h-34.4c-1.8 0-3-1.2-3-3v0c0-1.8 1.2-3 3-3z" fill="#666" transform="translate(0, 11)"/><circle cx="46" cy="17" r="5" fill="#666"/></svg></button>
+                    <div style="margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity</span>
+                    </div>
+                    <div style="font-size: 2rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem; line-height: 1;">
+                        --
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        ${liquidityRisk && liquidityRisk.message ? liquidityRisk.message : 'No active listings data'}
+                    </div>
+                </div>
+                `}
+                
+                <!-- FMV Premium -->
+                <div class="indicator-card" style="background: linear-gradient(135deg, ${fmvVsAvg >= 0 ? '#ffe6f7' : '#f0f0f0'} 0%, ${fmvVsAvg >= 0 ? '#ffcceb' : '#e0e0e0'} 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid ${fmvVsAvg >= 0 ? '#ff99d6' : '#cccccc'}; box-shadow: 0 4px 12px rgba(${fmvVsAvg >= 0 ? '255, 59, 48' : '100, 100, 100'}, 0.15);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="font-size: 1.5rem;">${fmvVsAvg >= 0 ? '⬆️' : '⬇️'}</span>
+                        <span style="font-size: 0.8rem; font-weight: 600; color: ${fmvVsAvg >= 0 ? '#ff3b30' : '#666'}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            ${fmvVsAvg >= 0 ? 'PREMIUM' : 'DISCOUNT'}
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">FMV vs Avg</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: ${fmvVsAvg >= 0 ? '#ff3b30' : '#666'}; margin-bottom: 0.5rem;">
+                        ${fmvVsAvg >= 0 ? '+' : ''}${fmvVsAvg.toFixed(1)}%
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        FMV: ${formatMoney(marketValue)}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Price Distribution Analysis -->
+            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">📊 Price Distribution</h4>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Minimum</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(data.min_price)}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Q1 (25%)</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(q1)}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Median (50%)</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #007aff;">${formatMoney(median)}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Q3 (75%)</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(q3)}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Maximum</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(data.max_price)}</div>
+                    </div>
+                </div>
+                
+                <!-- Visual distribution bar -->
+                <div style="margin-top: 2rem; position: relative; height: 40px; background: linear-gradient(90deg,
+                    #34c759 0%,
+                    #34c759 25%,
+                    #007aff 25%,
+                    #007aff 50%,
+                    #ff9500 50%,
+                    #ff9500 75%,
+                    #ff3b30 75%,
+                    #ff3b30 100%);
+                    border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.75rem; color: var(--subtle-text-color);">
+                    <span>Low</span>
+                    <span>Mid-Low</span>
+                    <span>Mid-High</span>
+                    <span>High</span>
+                </div>
+            </div>
+            
             
             <!-- Price Band Liquidity Analysis -->
             ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? `
