@@ -2435,7 +2435,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
                             <!-- Below FMV Band -->
                             <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99ff99;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">Below FMV (&lt; -10%)</div>
+                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">10% or More Below FMV</div>
                                 <div style="font-size: 1.75rem; font-weight: 700; color: #34c759; margin-bottom: 0.5rem;">
                                     ${belowFMV}
                                 </div>
@@ -2445,13 +2445,13 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                                     <strong>Sales:</strong> ${salesBelow} in 90 days
                                 </div>
                                 <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${belowFMV > 0 ? (absorptionBelow !== 'N/A' && parseFloat(absorptionBelow) >= 1.0 ? '🔥 High demand - good deals move fast' : '⚡ Limited supply - potential value') : '📭 No listings in this band'}
+                                    ${belowFMV > 0 ? (absorptionBelow !== 'N/A' && parseFloat(absorptionBelow) >= 1.0 ? '🔥 High demand (ratio ≥1.0) - More sales than listings! These deals sell quickly.' : '⚡ Moderate activity (ratio <1.0) - Some interest, but good values may still be available.') : '📭 No listings in this band'}
                                 </div>
                             </div>
                             
                             <!-- At FMV Band -->
                             <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99daff;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">At FMV (±10%)</div>
+                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">±10% of FMV</div>
                                 <div style="font-size: 1.75rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem;">
                                     ${atFMV}
                                 </div>
@@ -2461,13 +2461,13 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                                     <strong>Sales:</strong> ${salesAt} in 90 days
                                 </div>
                                 <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${atFMV > 0 ? (absorptionAt !== 'N/A' && parseFloat(absorptionAt) >= 0.5 ? '✅ Healthy market activity' : '⏳ Slower movement expected') : '📭 No listings at FMV'}
+                                    ${atFMV > 0 ? (absorptionAt !== 'N/A' && parseFloat(absorptionAt) >= 0.5 ? '✅ Healthy activity (ratio ≥0.5) - Balanced supply & demand. Cards move at steady pace.' : '⏳ Lower activity (ratio <0.5) - More listings than sales. Expect longer wait times.') : '📭 No listings at FMV'}
                                 </div>
                             </div>
                             
                             <!-- Above FMV Band -->
                             <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #ffd699;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">Above FMV (&gt; +10%)</div>
+                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">10% or More Above FMV</div>
                                 <div style="font-size: 1.75rem; font-weight: 700; color: #ff9500; margin-bottom: 0.5rem;">
                                     ${aboveFMV}
                                 </div>
@@ -2477,14 +2477,14 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                                     <strong>Sales:</strong> ${salesAbove} in 90 days
                                 </div>
                                 <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${aboveFMV > 0 ? (absorptionAbove !== 'N/A' && parseFloat(absorptionAbove) < 0.3 ? '⚠️ Overpriced - low absorption' : '📊 Premium pricing') : '📭 No premium listings'}
+                                    ${aboveFMV > 0 ? (absorptionAbove !== 'N/A' && parseFloat(absorptionAbove) < 0.3 ? '⚠️ Low demand (ratio <0.3) - Many listings, few sales. Overpriced for current market.' : '📊 Moderate demand (ratio ≥0.3) - Premium pricing, but cards still selling.') : '📭 No premium listings'}
                                 </div>
                             </div>
                         </div>
                         
                         <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
                             <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                                <strong>💡 Insight:</strong> The distribution of active listings shows where sellers are pricing cards. Higher absorption ratios indicate faster-moving price points.
+                                <strong>💡 Insight:</strong> Absorption ratios show how fast cards sell at different prices. High ratios (1.0+) = fast sales with strong buyer demand. Moderate (0.5-1.0) = steady market activity. Low (below 0.5) = slow sales with fewer buyers than listings.
                             </p>
                         </div>
                     `;
