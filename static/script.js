@@ -1157,14 +1157,12 @@ async function renderData(data, secondData = null, marketValue = null) {
         });
         
         html += `
-          <div style="margin-bottom: 1rem; margin-top: 2rem;">
-            <h3 style="margin: 0 0 1rem 0; color: var(--text-color);">Active Listings ${showAllListings ? '' : 'Below Fair Market Value'}</h3>
-            <div style="margin-bottom: 1rem;">
-              <label style="font-size: 1rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
-                <input type="checkbox" id="see-all-active-listings" style="transform: scale(1.3); cursor: pointer;" onchange="toggleActiveListingsView()" ${showAllListings ? 'checked' : ''}>
-                <span>See All Active Listings</span>
-              </label>
-            </div>
+          <div style="margin-bottom: 1rem; margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: var(--text-color);">Active Listings ${showAllListings ? '' : 'Below Fair Market Value'}</h3>
+            <label style="font-size: 0.95rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+              <input type="checkbox" id="see-all-active-listings" style="transform: scale(1.3); cursor: pointer;" onchange="toggleActiveListingsView()" ${showAllListings ? 'checked' : ''}>
+              <span>See All</span>
+            </label>
           </div>
           <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; border-left: 3px solid #ff9500; margin-bottom: 1rem;">
             <p style="margin: 0; font-size: 0.8rem; color: #333; line-height: 1.5;">
