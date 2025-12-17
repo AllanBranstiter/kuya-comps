@@ -1166,7 +1166,7 @@ async function renderData(data, secondData = null, marketValue = null) {
           </div>
           <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; border-left: 3px solid #ff9500; margin-bottom: 1rem;">
             <p style="margin: 0; font-size: 0.8rem; color: #333; line-height: 1.5;">
-              <strong style="color: #ff9500;">⚠️ Informational Only:</strong> These listings are shown for research purposes. This is not a recommendation to buy. Always verify card condition, seller reputation, and do your own due diligence before purchasing.
+              ⚠️ These listings are shown for research purposes only. This is not a recommendation to buy. Always do your own due diligence before purchasing.
             </p>
           </div>
           <p style="font-size: 0.75rem; color: #999; margin-top: -0.5rem; margin-bottom: 0.75rem;">
@@ -2311,12 +2311,9 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 <div style="display: flex; align-items: flex-start; gap: 1rem;">
                     <span style="font-size: 2rem; flex-shrink: 0;">⚠️</span>
                     <div>
-                        <h4 style="margin: 0 0 0.75rem 0; color: #ff9500; font-size: 1.1rem;">Important Disclaimer</h4>
-                        <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #333; line-height: 1.6;">
-                            <strong>This analysis is for informational and educational purposes only.</strong> It is not financial, investment, or professional advice. All data is based on historical sales and current listings, which may not predict future market conditions.
-                        </p>
-                        <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                            Market values can change rapidly. Always conduct your own research and consider multiple sources before making buying or selling decisions. The accuracy of this analysis depends entirely on search term precision and data quality.
+                        <h4 style="margin: 0 0 0.75rem 0; color: #ff9500; font-size: 1.1rem;">Disclaimer</h4>
+                        <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.6;">
+                            This analysis is for informational purposes only. It is not financial or investment advice. Always do your own research before making decisions.
                         </p>
                     </div>
                 </div>
