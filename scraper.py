@@ -122,6 +122,16 @@ def scrape_sold_comps(
                         r['price'] = '$' + price_parts[0]  # Use sale price
                         print(f"[scraper] Cleaned concatenated price: {price_str} → ${price_parts[0]}")
             
+            # DIAGNOSTIC: Log raw item structure
+            if items_before == 0:  # Log first item of first page
+                print(f"[DIAGNOSTIC] Sample raw SearchAPI item structure:")
+                print(f"  - Keys: {list(r.keys())}")
+                print(f"  - price field: {r.get('price')} (type: {type(r.get('price')).__name__})")
+                print(f"  - extracted_price field: {r.get('extracted_price')} (type: {type(r.get('extracted_price')).__name__})")
+                if 'shipping' in r:
+                    print(f"  - shipping field: {r.get('shipping')} (type: {type(r.get('shipping')).__name__})")
+                print(f"  - extracted_shipping field: {r.get('extracted_shipping')}")
+            
             # The entire result 'r' is now passed, as the Pydantic model
             # will handle the parsing and validation.
             all_items.append(r)
