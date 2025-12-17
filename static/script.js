@@ -1,4 +1,6 @@
 let lastData = null;
+let priceDistributionChartTimeout = null; // Track pending chart draw
+let lastChartData = { soldData: null, activeData: null }; // Store data for chart redraws
 
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -710,6 +712,22 @@ function switchSubTab(subTabName) {
             drawBeeswarm(currentBeeswarmPrices);
         }, 100);
     }
+    
+    // Redraw price distribution chart if switching to analysis sub-tab
+    if (subTabName === 'analysis') {
+        setTimeout(() => {
+            const canvas = document.getElementById("priceDistributionCanvas");
+            if (canvas && canvas.offsetParent !== null) {
+                console.log('[CHART] Analysis tab activated, redrawing price distribution chart');
+                // Chart will be redrawn using stored data from last search
+                const analysisContainer = document.getElementById("analysis-subtab");
+                if (analysisContainer && analysisContainer.innerHTML.includes('priceDistributionCanvas')) {
+                    // Trigger a redraw by dispatching a custom event
+                    window.dispatchEvent(new CustomEvent('redrawPriceDistribution'));
+                }
+            }
+        }, 100);
+    }
 }
 
 // Intelligence Search Function
@@ -1116,6 +1134,11 @@ async function renderData(data, secondData = null, marketValue = null) {
         html += `
           <div style="margin-bottom: 1rem; margin-top: 2rem;">
             <h3 style="margin: 0; color: var(--text-color);">Active Listings Below Fair Market Value</h3>
+          </div>
+          <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; border-left: 3px solid #ff9500; margin-bottom: 1rem;">
+            <p style="margin: 0; font-size: 0.8rem; color: #333; line-height: 1.5;">
+              <strong style="color: #ff9500;">⚠️ Informational Only:</strong> These listings are shown for research purposes. This is not a recommendation to buy. Always verify card condition, seller reputation, and do your own due diligence before purchasing.
+            </p>
           </div>
           <p style="font-size: 0.75rem; color: #999; margin-top: -0.5rem; margin-bottom: 0.75rem;">
             This website is supported by affiliate links. Purchases may earn us a commission at no extra cost to you.
@@ -2140,6 +2163,22 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
         <div id="analysis-dashboard">
             <h3 style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">📊 Market Analysis Dashboard</h3>
             
+            <!-- Important Disclaimer -->
+            <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #ff9500; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);">
+                <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                    <span style="font-size: 2rem; flex-shrink: 0;">⚠️</span>
+                    <div>
+                        <h4 style="margin: 0 0 0.75rem 0; color: #ff9500; font-size: 1.1rem;">Important Disclaimer</h4>
+                        <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #333; line-height: 1.6;">
+                            <strong>This analysis is for informational and educational purposes only.</strong> It is not financial, investment, or professional advice. All data is based on historical sales and current listings, which may not predict future market conditions.
+                        </p>
+                        <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
+                            Market values can change rapidly. Always conduct your own research and consider multiple sources before making buying or selling decisions. The accuracy of this analysis depends entirely on search term precision and data quality.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Market Risk Assessment (moved to top) -->
             ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ? `
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
@@ -2457,9 +2496,21 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     
     analysisContainer.innerHTML = dashboardHtml;
     
+    // Store data for potential redraws
+    lastChartData.soldData = data;
+    lastChartData.activeData = activeData;
+    
+    // Clear any pending chart draw to prevent race condition
+    if (priceDistributionChartTimeout) {
+        clearTimeout(priceDistributionChartTimeout);
+        priceDistributionChartTimeout = null;
+    }
+    
     // Draw price distribution chart after DOM is updated
     // Wrap in try-catch to prevent chart errors from breaking the page
-    setTimeout(() => {
+    // Use requestAnimationFrame for better timing with DOM updates
+    priceDistributionChartTimeout = setTimeout(() => {
+        priceDistributionChartTimeout = null;
         try {
             const canvas = document.getElementById("priceDistributionCanvas");
             if (canvas) {
@@ -2477,8 +2528,26 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             console.error('[ERROR] Failed to draw price distribution chart:', error);
             // Don't throw - chart failure shouldn't break the page
         }
-    }, 200);
+    }, 100);
 }
+
+// Add event listener for redrawing the price distribution chart
+window.addEventListener('redrawPriceDistribution', () => {
+    console.log('[CHART] Redraw event triggered');
+    if (lastChartData.soldData) {
+        setTimeout(() => {
+            try {
+                const canvas = document.getElementById("priceDistributionCanvas");
+                if (canvas && canvas.offsetParent !== null) {
+                    console.log('[CHART] Redrawing price distribution chart');
+                    drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+                }
+            } catch (error) {
+                console.error('[ERROR] Failed to redraw chart:', error);
+            }
+        }, 50);
+    }
+});
 
 // Calculate standard deviation
 function calculateStdDev(values) {
@@ -3208,12 +3277,21 @@ function drawPriceDistributionChart(soldData, activeData) {
             return;
         }
         
-        console.log('[CHART] Canvas found, dimensions:', {
+        // Check if canvas is visible
+        const isVisible = canvas.offsetParent !== null;
+        console.log('[CHART] Canvas found, visibility:', {
+            isVisible,
             width: canvas.width,
             height: canvas.height,
             offsetWidth: canvas.offsetWidth,
             offsetHeight: canvas.offsetHeight
         });
+        
+        // If not visible, schedule a retry when it becomes visible
+        if (!isVisible) {
+            console.warn('[CHART] Canvas not visible yet, will retry when Analysis tab is active');
+            return;
+        }
         
         // Set canvas size
         const container = canvas.parentElement;
