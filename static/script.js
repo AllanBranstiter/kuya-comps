@@ -236,6 +236,156 @@ function showMarketPressureInfo() {
     document.addEventListener('keydown', escHandler);
 }
 
+// Show Market Confidence info popup
+function showMarketConfidenceInfo() {
+    const overlay = document.createElement('div');
+    overlay.id = 'market-confidence-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 1rem;
+        animation: fadeIn 0.2s ease;
+    `;
+    
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+        background: var(--card-background);
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        position: relative;
+        animation: slideUp 0.3s ease;
+    `;
+    
+    popup.innerHTML = `
+        <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
+        
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">🎯 Understanding Market Confidence</h2>
+        
+        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
+            Market Confidence measures how <strong>consistent</strong> prices are in the market. Higher consistency = more reliable data and clearer pricing signals.
+        </p>
+        
+        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <strong style="color: var(--text-color);">Formula:</strong><br>
+            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
+                100 / (1 + Coefficient of Variation / 100)
+            </code>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
+                <em>Coefficient of Variation = (Standard Deviation ÷ Average Price) × 100</em>
+            </p>
+        </div>
+        
+        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📊 Confidence Bands</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- High Confidence Band -->
+            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🟢</span>
+                    <strong style="color: #34c759;">70-100 (HIGH CONFIDENCE)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Prices are very consistent - strong market consensus on value.<br>
+                    <strong>What to do:</strong> FMV estimates are highly reliable. Safe to use for pricing decisions.
+                </p>
+            </div>
+            
+            <!-- Moderate Confidence Band -->
+            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🔵</span>
+                    <strong style="color: #007aff;">40-69 (MODERATE CONFIDENCE)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Some price variation but overall market is functional.<br>
+                    <strong>What to do:</strong> FMV estimates are reasonably reliable. Consider using price ranges.
+                </p>
+            </div>
+            
+            <!-- Low Confidence Band -->
+            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🟠</span>
+                    <strong style="color: #ff9500;">20-39 (LOW CONFIDENCE)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> High price variation - market is less certain.<br>
+                    <strong>What to do:</strong> Use caution with FMV estimates. Consider refining search terms or gathering more data.
+                </p>
+            </div>
+            
+            <!-- Very Low Confidence Band -->
+            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.2rem;">🔴</span>
+                    <strong style="color: #ff3b30;">0-19 (VERY LOW CONFIDENCE)</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                    <strong>What it means:</strong> Extreme price variation - unreliable market signals.<br>
+                    <strong>What to do:</strong> FMV estimates may not be accurate. Refine search or check for data quality issues.
+                </p>
+            </div>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
+            <strong style="color: var(--text-color);">💡 Key Principle:</strong><br>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                Market Confidence tells you how <strong>reliable</strong> the data is, not what the value is. High confidence means prices are clustered together. Low confidence means prices are scattered and unpredictable.
+            </p>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+            <strong style="color: var(--text-color);">📝 Example:</strong><br>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                If 20 cards sold between $95-$105 (tight range), confidence is <strong>HIGH (80+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>.
+            </p>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
+            <strong style="color: var(--text-color);">🔧 Improve Confidence:</strong><br>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
+                • Make search terms more specific (exact card number, parallel type)<br>
+                • Filter out unrelated variations (use "Base Only" or exclude parallels)<br>
+                • Exclude lots and multi-card listings<br>
+                • Check for grading consistency (don't mix raw with graded)
+            </p>
+        </div>
+    `;
+    
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+    
+    // Close on overlay click or close button
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.id === 'close-popup') {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+        }
+    });
+    
+    // Close on Escape key
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
 // Show Liquidity Risk info popup
 function showLiquidityRiskInfo() {
     const overlay = document.createElement('div');
@@ -2012,19 +2162,26 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 `}
                 
                 <!-- Market Confidence -->
-                <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);">
+                <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15); position: relative;" title="Market Confidence measures how consistent prices are">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.5rem;">🎯</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: #007aff; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            ${marketConfidence >= 70 ? 'HIGH' : marketConfidence >= 40 ? 'MODERATE' : 'LOW'}
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Confidence</span>
+                            <button onclick="showMarketConfidenceInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Market Confidence">i</button>
+                        </div>
+                        <span style="font-size: 0.75rem; font-weight: 600; color: #007aff; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            ${marketConfidence >= 70 ? 'HIGH' : marketConfidence >= 40 ? 'MODERATE' : marketConfidence >= 20 ? 'LOW' : 'VERY LOW'}
                         </span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Confidence</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem;">
+                    <div style="font-size: 2rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem; line-height: 1;">
                         ${marketConfidence.toFixed(0)}/100
                     </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        Based on price consistency
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
+                        ${marketConfidence >= 70 ? 'Strong price consensus' : marketConfidence >= 40 ? 'Moderate price variation' : marketConfidence >= 20 ? 'High price variation' : 'Extreme price scatter'}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                        <strong>CoV:</strong> ${coefficientOfVariation.toFixed(1)}%<br>
+                        <strong>Std Dev:</strong> ${formatMoney(stdDev)}<br>
+                        <strong>Sample:</strong> ${data.items.length} sales
                     </div>
                 </div>
                 
