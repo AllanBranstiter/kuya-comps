@@ -111,8 +111,59 @@ def scrape_sold_comps(
         # Track items before adding to check for potential duplicates
         items_before = len(all_items)
         for r in results:
+            # FIX: SearchAPI moved sold listing prices to the 'deal' field
+            # Parse price from 'deal' field if 'price' is missing
+            if not r.get('price') and r.get('deal'):
+                deal_value = r.get('deal')
+                extracted_price = None
+                
+                # Handle different deal formats:
+                # 1. Single price: "$120.00"
+                # 2. Price range: "$0.99 to $1.49"
+                # 3. Concatenated: "$2.27$3.49"
+                
+                if isinstance(deal_value, str):
+                    # Check for price range (e.g., "$0.99 to $1.49")
+                    if ' to ' in deal_value:
+                        # Extract first price (lower price for sold items)
+                        price_part = deal_value.split(' to ')[0].strip()
+                        price_clean = price_part.replace('$', '').replace(',', '')
+                        try:
+                            extracted_price = float(price_clean)
+                            r['price'] = price_part
+                            print(f"[scraper] Parsed price range: {deal_value} → ${extracted_price}")
+                        except ValueError:
+                            print(f"[scraper] WARNING: Could not parse price range: {deal_value}")
+                    
+                    # Check for concatenated prices (e.g., "$2.27$3.49")
+                    elif deal_value.count('$') > 1:
+                        # Split and take first price (sale price)
+                        price_parts = deal_value.split('$')[1:]  # Remove empty first element
+                        if price_parts:
+                            price_clean = price_parts[0].replace(',', '')
+                            try:
+                                extracted_price = float(price_clean)
+                                r['price'] = '$' + price_parts[0]
+                                print(f"[scraper] Parsed concatenated price: {deal_value} → ${extracted_price}")
+                            except ValueError:
+                                print(f"[scraper] WARNING: Could not parse concatenated price: {deal_value}")
+                    
+                    # Single price (e.g., "$120.00")
+                    else:
+                        price_clean = deal_value.replace('$', '').replace(',', '')
+                        try:
+                            extracted_price = float(price_clean)
+                            r['price'] = deal_value
+                            print(f"[scraper] Parsed single price: {deal_value} → ${extracted_price}")
+                        except ValueError:
+                            print(f"[scraper] WARNING: Could not parse single price: {deal_value}")
+                    
+                    # Set the extracted_price field
+                    if extracted_price is not None:
+                        r['extracted_price'] = extracted_price
+            
             # Clean up concatenated price data from eBay sale/discount listings
-            if 'price' in r and r['price'] and isinstance(r['price'], str):
+            elif 'price' in r and r['price'] and isinstance(r['price'], str):
                 price_str = r['price']
                 # Handle concatenated prices like "$3.39$3.99"
                 if price_str.count('$') > 1:
@@ -121,22 +172,6 @@ def scrape_sold_comps(
                     if price_parts:
                         r['price'] = '$' + price_parts[0]  # Use sale price
                         print(f"[scraper] Cleaned concatenated price: {price_str} → ${price_parts[0]}")
-            
-            # DIAGNOSTIC: Log raw item structure
-            if items_before == 0:  # Log first item of first page
-                print(f"[DIAGNOSTIC] Sample raw SearchAPI item structure:")
-                print(f"  - Keys: {list(r.keys())}")
-                print(f"  - price field: {r.get('price')} (type: {type(r.get('price')).__name__})")
-                print(f"  - extracted_price field: {r.get('extracted_price')} (type: {type(r.get('extracted_price')).__name__})")
-                if 'shipping' in r:
-                    print(f"  - shipping field: {r.get('shipping')} (type: {type(r.get('shipping')).__name__})")
-                print(f"  - extracted_shipping field: {r.get('extracted_shipping')}")
-                # NEW: Check extensions and deal fields for price data
-                if 'extensions' in r:
-                    print(f"  - extensions field: {r.get('extensions')}")
-                if 'deal' in r:
-                    print(f"  - deal field: {r.get('deal')}")
-                print(f"[DIAGNOSTIC] FULL FIRST ITEM: {r}")
             
             # The entire result 'r' is now passed, as the Pydantic model
             # will handle the parsing and validation.
