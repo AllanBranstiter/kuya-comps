@@ -2324,73 +2324,26 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                     </div>
                 </div>
                 `}
-                
-                <!-- FMV Premium -->
-                <div class="indicator-card" style="background: linear-gradient(135deg, ${fmvVsAvg >= 0 ? '#ffe6f7' : '#f0f0f0'} 0%, ${fmvVsAvg >= 0 ? '#ffcceb' : '#e0e0e0'} 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid ${fmvVsAvg >= 0 ? '#ff99d6' : '#cccccc'}; box-shadow: 0 4px 12px rgba(${fmvVsAvg >= 0 ? '255, 59, 48' : '100, 100, 100'}, 0.15);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.5rem;">${fmvVsAvg >= 0 ? '⬆️' : '⬇️'}</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: ${fmvVsAvg >= 0 ? '#ff3b30' : '#666'}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                            ${fmvVsAvg >= 0 ? 'PREMIUM' : 'DISCOUNT'}
-                        </span>
-                    </div>
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">FMV vs Avg</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: ${fmvVsAvg >= 0 ? '#ff3b30' : '#666'}; margin-bottom: 0.5rem;">
-                        ${fmvVsAvg >= 0 ? '+' : ''}${fmvVsAvg.toFixed(1)}%
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        FMV: ${formatMoney(marketValue)}
-                    </div>
-                </div>
             </div>
             
             <!-- Price Distribution Analysis -->
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
                 <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">📊 Price Distribution</h4>
                 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Minimum</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(data.min_price)}</div>
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Q1 (25%)</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(q1)}</div>
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Median (50%)</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: #007aff;">${formatMoney(median)}</div>
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Q3 (75%)</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(q3)}</div>
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Maximum</div>
-                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(data.max_price)}</div>
-                    </div>
+                <div style="width: 100%; position: relative; margin-bottom: 1rem;">
+                    <canvas id="priceDistributionCanvas" style="width: 100%; height: 300px; display: block;"></canvas>
                 </div>
                 
-                <!-- Visual distribution bar -->
-                <div style="margin-top: 2rem; position: relative; height: 40px; background: linear-gradient(90deg,
-                    #34c759 0%,
-                    #34c759 25%,
-                    #007aff 25%,
-                    #007aff 50%,
-                    #ff9500 50%,
-                    #ff9500 75%,
-                    #ff3b30 75%,
-                    #ff3b30 100%);
-                    border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.75rem; color: var(--subtle-text-color);">
-                    <span>Low</span>
-                    <span>Mid-Low</span>
-                    <span>Mid-High</span>
-                    <span>High</span>
+                <!-- Legend -->
+                <div style="display: flex; justify-content: center; gap: 2rem; margin-top: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 20px; height: 20px; background: rgba(0, 122, 255, 0.6); border: 2px solid rgba(0, 122, 255, 0.9); border-radius: 4px;"></div>
+                        <span style="font-size: 0.9rem; color: var(--text-color);">Sold Listings</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 20px; height: 20px; background: rgba(255, 59, 48, 0.6); border: 2px solid rgba(255, 59, 48, 0.9); border-radius: 4px;"></div>
+                        <span style="font-size: 0.9rem; color: var(--text-color);">Active Listings</span>
+                    </div>
                 </div>
             </div>
             
@@ -2504,6 +2457,22 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     `;
     
     analysisContainer.innerHTML = dashboardHtml;
+    
+    // Draw price distribution chart after DOM is updated
+    setTimeout(() => {
+        const canvas = document.getElementById("priceDistributionCanvas");
+        if (canvas) {
+            console.log('[CHART] Drawing price distribution chart with data:', {
+                hasSoldData: !!data,
+                hasActiveData: !!activeData,
+                soldItems: data?.items?.length || 0,
+                activeItems: activeData?.items?.length || 0
+            });
+            drawPriceDistributionChart(data, activeData);
+        } else {
+            console.error('[CHART] Price distribution canvas element not found');
+        }
+    }, 200);
 }
 
 // Calculate standard deviation
@@ -3210,8 +3179,204 @@ function drawComparisonBeeswarm(cardResults) {
     ctx.fillText(formatMoney(globalMin), margin.left, height - margin.bottom + 20);
     // Max
     ctx.fillText(formatMoney(globalMax), width - margin.right, height - margin.bottom + 20);
-  } else {
+} else {
     ctx.fillText(formatMoney(globalMin), width / 2, height - margin.bottom + 20);
+}
+}
+
+// Draw Price Distribution Bar Chart
+function drawPriceDistributionChart(soldData, activeData) {
+  const canvas = document.getElementById("priceDistributionCanvas");
+  if (!canvas) {
+      console.error('[CHART] Price distribution canvas not found');
+      return;
   }
+  
+  console.log('[CHART] Drawing price distribution chart', {
+      soldItems: soldData?.items?.length || 0,
+      activeItems: activeData?.items?.length || 0
+  });
+  
+  // Set canvas size
+  const container = canvas.parentElement;
+  const containerWidth = container.offsetWidth;
+  
+  canvas.width = containerWidth;
+  canvas.height = 300;
+  canvas.style.width = containerWidth + 'px';
+  canvas.style.height = '300px';
+  
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const margin = { top: 40, right: 40, bottom: 60, left: 60 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+  
+  ctx.clearRect(0, 0, width, height);
+  
+  // Prepare sold data
+  const soldPrices = soldData?.items?.map(item => item.total_price).filter(p => p > 0) || [];
+  
+  // Prepare active data (Buy It Now only)
+  const activePrices = activeData?.items?.filter(item => {
+      const buyingFormat = (item.buying_format || '').toLowerCase();
+      return buyingFormat.includes('buy it now');
+  }).map(item => {
+      return item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+  }).filter(p => p > 0) || [];
+  
+  console.log('[CHART] Prices:', { soldCount: soldPrices.length, activeCount: activePrices.length });
+  
+  if (soldPrices.length === 0 && activePrices.length === 0) {
+      ctx.fillStyle = "#6e6e73";
+      ctx.font = "16px " + getComputedStyle(document.body).fontFamily;
+      ctx.textAlign = "center";
+      ctx.fillText("No data available for price distribution", width / 2, height / 2);
+      return;
+  }
+  
+  // Find global min and max across both datasets
+  const allPrices = [...soldPrices, ...activePrices];
+  const minPrice = Math.min(...allPrices);
+  const maxPrice = Math.max(...allPrices);
+  const priceRange = maxPrice - minPrice;
+  
+  // Create price bins (10 bins)
+  const numBins = 10;
+  const binWidth = priceRange / numBins;
+  
+  // Initialize bins
+  const soldBins = new Array(numBins).fill(0);
+  const activeBins = new Array(numBins).fill(0);
+  
+  // Fill sold bins
+  soldPrices.forEach(price => {
+      let binIndex = Math.floor((price - minPrice) / binWidth);
+      if (binIndex >= numBins) binIndex = numBins - 1;
+      if (binIndex < 0) binIndex = 0;
+      soldBins[binIndex]++;
+  });
+  
+  // Fill active bins
+  activePrices.forEach(price => {
+      let binIndex = Math.floor((price - minPrice) / binWidth);
+      if (binIndex >= numBins) binIndex = numBins - 1;
+      if (binIndex < 0) binIndex = 0;
+      activeBins[binIndex]++;
+  });
+  
+  // Find max count for scaling
+  const maxCount = Math.max(...soldBins, ...activeBins, 1);
+  
+  // Draw axes
+  ctx.strokeStyle = "#d2d2d7";
+  ctx.lineWidth = 2;
+  
+  // Y-axis
+  ctx.beginPath();
+  ctx.moveTo(margin.left, margin.top);
+  ctx.lineTo(margin.left, height - margin.bottom);
+  ctx.stroke();
+  
+  // X-axis
+  ctx.beginPath();
+  ctx.moveTo(margin.left, height - margin.bottom);
+  ctx.lineTo(width - margin.right, height - margin.bottom);
+  ctx.stroke();
+  
+  // Draw Y-axis label
+  ctx.save();
+  ctx.translate(20, height / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = "#1d1d1f";
+  ctx.font = "bold 14px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  ctx.fillText("Number of Sales/Listings", 0, 0);
+  ctx.restore();
+  
+  // Draw X-axis label
+  ctx.fillStyle = "#1d1d1f";
+  ctx.font = "bold 14px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  ctx.fillText("Price", width / 2, height - 10);
+  
+  // Draw Y-axis ticks and labels
+  const yTicks = 5;
+  ctx.fillStyle = "#6e6e73";
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "right";
+  
+  for (let i = 0; i <= yTicks; i++) {
+      const y = height - margin.bottom - (i / yTicks) * innerHeight;
+      const value = Math.round((i / yTicks) * maxCount);
+      
+      // Tick line
+      ctx.strokeStyle = "#e5e5ea";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(margin.left, y);
+      ctx.lineTo(width - margin.right, y);
+      ctx.stroke();
+      
+      // Label
+      ctx.fillText(value.toString(), margin.left - 10, y + 4);
+  }
+  
+  // Calculate bar dimensions
+  const barAreaWidth = innerWidth / numBins;
+  const barWidth = barAreaWidth * 0.8; // 80% of available space
+  const barOffset = barAreaWidth * 0.1; // Center the bars
+  
+  // Draw bars (overlapping)
+  for (let i = 0; i < numBins; i++) {
+      const x = margin.left + (i * barAreaWidth) + barOffset;
+      
+      // Draw sold bars (blue) - behind
+      if (soldBins[i] > 0) {
+          const barHeight = (soldBins[i] / maxCount) * innerHeight;
+          const y = height - margin.bottom - barHeight;
+          
+          ctx.fillStyle = 'rgba(0, 122, 255, 0.6)';
+          ctx.fillRect(x, y, barWidth, barHeight);
+          
+          ctx.strokeStyle = 'rgba(0, 122, 255, 0.9)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x, y, barWidth, barHeight);
+      }
+      
+      // Draw active bars (red) - front (slightly offset for overlap visibility)
+      if (activeBins[i] > 0) {
+          const barHeight = (activeBins[i] / maxCount) * innerHeight;
+          const y = height - margin.bottom - barHeight;
+          const offsetX = barWidth * 0.15; // 15% offset to show overlap
+          
+          ctx.fillStyle = 'rgba(255, 59, 48, 0.6)';
+          ctx.fillRect(x + offsetX, y, barWidth, barHeight);
+          
+          ctx.strokeStyle = 'rgba(255, 59, 48, 0.9)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + offsetX, y, barWidth, barHeight);
+      }
+  }
+  
+  // Draw X-axis labels (price ranges)
+  ctx.fillStyle = "#6e6e73";
+  ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  
+  // Show first, middle, and last tick
+  const tickIndices = [0, Math.floor(numBins / 2), numBins - 1];
+  tickIndices.forEach(i => {
+      const binStart = minPrice + (i * binWidth);
+      const binEnd = binStart + binWidth;
+      const x = margin.left + (i * barAreaWidth) + (barAreaWidth / 2);
+      
+      ctx.fillText(formatMoney(binStart), x, height - margin.bottom + 20);
+  });
+  
+  // Draw final price
+  const finalX = margin.left + (numBins * barAreaWidth);
+  ctx.fillText(formatMoney(maxPrice), finalX, height - margin.bottom + 20);
 }
 
