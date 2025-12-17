@@ -1,4 +1,6 @@
 let lastData = null;
+let lastActiveData = null; // Store active listings data
+let lastMarketValue = null; // Store market value for filtering
 let priceDistributionChartTimeout = null; // Track pending chart draw
 let lastChartData = { soldData: null, activeData: null }; // Store data for chart redraws
 
@@ -1022,6 +1024,10 @@ function resizeCanvas() {
 async function renderData(data, secondData = null, marketValue = null) {
     const resultsDiv = document.getElementById("results");
     
+    // Store active data and market value globally for checkbox toggle
+    lastActiveData = secondData;
+    lastMarketValue = marketValue;
+    
     // Create first table
     let html = `
       <h3 style="margin-bottom: 1rem; color: var(--text-color);">Recently Sold Listings</h3>
@@ -1081,37 +1087,56 @@ async function renderData(data, secondData = null, marketValue = null) {
     if (secondData && secondData.items && marketValue) {
         console.log('[DEBUG renderData] Starting to filter active listings. Total items:', secondData.items.length);
         
-        // Filter active listings to only show Buy It Now items at or below market value
-        const filteredItems = secondData.items.filter(item => {
-            const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-            const buyingFormat = (item.buying_format || '').toLowerCase();
-            
-            // Only show items with "buy it now" in the format (excludes pure auctions)
-            const hasBuyItNow = buyingFormat.includes('buy it now');
-            const passes = price > 0 && price <= marketValue && hasBuyItNow;
-            
-            if (!passes) {
-                console.log('[DEBUG renderData] Filtered out item:', {
-                    item_id: item.item_id,
-                    title: item.title?.substring(0, 40),
-                    total_price: item.total_price,
-                    extracted_price: item.extracted_price,
-                    extracted_shipping: item.extracted_shipping,
-                    calculated_price: price,
-                    marketValue: marketValue,
-                    buying_format: item.buying_format,
-                    hasBuyItNow: hasBuyItNow,
-                    reason: !hasBuyItNow ? 'not buy it now' : (price <= 0 ? 'zero/negative price' : 'above market value')
-                });
-            }
-            
-            return passes;
-        });
+        // Get checkbox state (default to unchecked on first render)
+        const seeAllCheckbox = document.getElementById('see-all-active-listings');
+        const showAllListings = seeAllCheckbox ? seeAllCheckbox.checked : false;
+        
+        console.log('[DEBUG renderData] See All checkbox state:', showAllListings);
+        
+        // Filter active listings based on checkbox state
+        let filteredItems;
+        if (showAllListings) {
+            // Show all Buy It Now items, sorted by price
+            filteredItems = secondData.items.filter(item => {
+                const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                const buyingFormat = (item.buying_format || '').toLowerCase();
+                const hasBuyItNow = buyingFormat.includes('buy it now');
+                return price > 0 && hasBuyItNow;
+            });
+        } else {
+            // Show only Buy It Now items at or below market value
+            filteredItems = secondData.items.filter(item => {
+                const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                const buyingFormat = (item.buying_format || '').toLowerCase();
+                
+                // Only show items with "buy it now" in the format (excludes pure auctions)
+                const hasBuyItNow = buyingFormat.includes('buy it now');
+                const passes = price > 0 && price <= marketValue && hasBuyItNow;
+                
+                if (!passes) {
+                    console.log('[DEBUG renderData] Filtered out item:', {
+                        item_id: item.item_id,
+                        title: item.title?.substring(0, 40),
+                        total_price: item.total_price,
+                        extracted_price: item.extracted_price,
+                        extracted_shipping: item.extracted_shipping,
+                        calculated_price: price,
+                        marketValue: marketValue,
+                        buying_format: item.buying_format,
+                        hasBuyItNow: hasBuyItNow,
+                        reason: !hasBuyItNow ? 'not buy it now' : (price <= 0 ? 'zero/negative price' : 'above market value')
+                    });
+                }
+                
+                return passes;
+            });
+        }
         
         console.log('[DEBUG renderData] After filtering:', {
             original: secondData.items.length,
             filtered: filteredItems.length,
-            marketValue: marketValue
+            marketValue: marketValue,
+            showingAll: showAllListings
         });
         
         // Sort by price (lowest to highest)
@@ -1122,17 +1147,13 @@ async function renderData(data, secondData = null, marketValue = null) {
         });
         
         html += `
-          <div style="margin-bottom: 1rem; margin-top: 2rem;">
-            <h3 style="margin: 0; color: var(--text-color);">Active Listings Below Fair Market Value</h3>
+          <div style="margin-bottom: 1rem; margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: var(--text-color);">Active Listings ${showAllListings ? '' : 'Below Fair Market Value'}</h3>
+            <label style="font-size: 0.95rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
+              <input type="checkbox" id="see-all-active-listings" style="transform: scale(1.3); cursor: pointer;" onchange="toggleActiveListingsView()" ${showAllListings ? 'checked' : ''}>
+              <span>See All</span>
+            </label>
           </div>
-          <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; border-left: 3px solid #ff9500; margin-bottom: 1rem;">
-            <p style="margin: 0; font-size: 0.8rem; color: #333; line-height: 1.5;">
-              <strong style="color: #ff9500;">⚠️ Informational Only:</strong> These listings are shown for research purposes. This is not a recommendation to buy. Always verify card condition, seller reputation, and do your own due diligence before purchasing.
-            </p>
-          </div>
-          <p style="font-size: 0.75rem; color: #999; margin-top: -0.5rem; margin-bottom: 0.75rem;">
-            This website is supported by affiliate links. Purchases may earn us a commission at no extra cost to you.
-          </p>
           <div id="active-listings-table" class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
               <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -1151,7 +1172,10 @@ async function renderData(data, secondData = null, marketValue = null) {
                 
                 // Calculate price with fallback - use total_price from API if available
                 const itemPrice = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                // Calculate discount (may be negative if above FMV)
                 const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                const discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
+                const discountColor = discount > 0 ? '#34c759' : '#ff3b30';
                 
                 // Debug logging for price calculation
                 console.log('[ACTIVE LISTING PRICE]', {
@@ -1189,7 +1213,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(itemPrice)}</td>
-                    <td style="color: #ff3b30; font-weight: 600;">-${discount}%</td>
+                    <td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>
                     <td>${escapeHtml(displayType)}</td>
                     <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
                   </tr>
@@ -1197,13 +1221,19 @@ async function renderData(data, secondData = null, marketValue = null) {
               }).join('') : `
                 <tr>
                   <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
-                    No active listings found below Fair Market Value
+                    ${showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value'}
                   </td>
                 </tr>
               `}
               </tbody>
             </table>
           </div>
+          <p style="font-size: 0.75rem; color: #666; margin-top: 0.75rem; margin-bottom: 0.5rem; line-height: 1.5;">
+            ⚠️ These listings are shown for research purposes only. This is not a recommendation to buy. Always do your own due diligence before purchasing.
+          </p>
+          <p style="font-size: 0.75rem; color: #999; margin-top: 0.5rem; margin-bottom: 0.75rem;">
+            This website is supported by affiliate links. Purchases may earn us a commission at no extra cost to you.
+          </p>
         `;
     }
     
@@ -1256,6 +1286,117 @@ async function renderData(data, secondData = null, marketValue = null) {
     chartContainer.style.opacity = '0';
     await new Promise(resolve => setTimeout(resolve, 100));
     chartContainer.style.opacity = '1';
+}
+
+function toggleActiveListingsView() {
+    console.log('[DEBUG] Toggle active listings view called');
+    
+    // Re-render the active listings table with the new checkbox state
+    if (lastData && lastActiveData && lastMarketValue) {
+        console.log('[DEBUG] Re-rendering active listings with stored data');
+        
+        // Get checkbox state
+        const seeAllCheckbox = document.getElementById('see-all-active-listings');
+        const showAllListings = seeAllCheckbox ? seeAllCheckbox.checked : false;
+        
+        console.log('[DEBUG] Checkbox state:', showAllListings);
+        
+        // Filter active listings based on checkbox state
+        let filteredItems;
+        if (showAllListings) {
+            // Show all Buy It Now items, sorted by price
+            filteredItems = lastActiveData.items.filter(item => {
+                const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                const buyingFormat = (item.buying_format || '').toLowerCase();
+                const hasBuyItNow = buyingFormat.includes('buy it now');
+                return price > 0 && hasBuyItNow;
+            });
+        } else {
+            // Show only Buy It Now items at or below market value
+            filteredItems = lastActiveData.items.filter(item => {
+                const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                const buyingFormat = (item.buying_format || '').toLowerCase();
+                const hasBuyItNow = buyingFormat.includes('buy it now');
+                return price > 0 && price <= lastMarketValue && hasBuyItNow;
+            });
+        }
+        
+        // Sort by price (lowest to highest)
+        filteredItems.sort((a, b) => {
+            const priceA = a.total_price ?? ((a.extracted_price || 0) + (a.extracted_shipping || 0));
+            const priceB = b.total_price ?? ((b.extracted_price || 0) + (b.extracted_shipping || 0));
+            return priceA - priceB;
+        });
+        
+        console.log('[DEBUG] Filtered items:', filteredItems.length);
+        
+        // Rebuild the active listings table HTML
+        let tableHtml = `
+          <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <tr>
+              <th>Title</th>
+              <th>Price</th>
+              <th>Discount</th>
+              <th>Type</th>
+              <th>Item ID</th>
+            </tr>
+          </thead>
+          <tbody>
+        `;
+        
+        if (filteredItems.length > 0) {
+            filteredItems.forEach(item => {
+                const displayType = 'Buy It Now';
+                const itemPrice = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                const discount = ((lastMarketValue - itemPrice) / lastMarketValue * 100).toFixed(0);
+                const discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
+                const discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                
+                const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
+                const targetAttr = isIOS ? '' : ' target="_blank"';
+                const touchStyle = isIOS ? ' style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1);"' : '';
+                
+                tableHtml += `
+                  <tr>
+                    <td>${escapeHtml(item.title)}</td>
+                    <td>${formatMoney(itemPrice)}</td>
+                    <td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>
+                    <td>${escapeHtml(displayType)}</td>
+                    <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
+                  </tr>
+                `;
+            });
+        } else {
+            tableHtml += `
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                  ${showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value'}
+                </td>
+              </tr>
+            `;
+        }
+        
+        tableHtml += '</tbody>';
+        
+        // Update the table content
+        const tableContainer = document.getElementById('active-listings-table');
+        if (tableContainer) {
+            const table = tableContainer.querySelector('table');
+            if (table) {
+                table.innerHTML = tableHtml;
+            }
+        }
+        
+        // Update the heading
+        const headingContainer = tableContainer?.previousElementSibling?.previousElementSibling;
+        if (headingContainer && headingContainer.querySelector('h3')) {
+            headingContainer.querySelector('h3').textContent = `Active Listings ${showAllListings ? '' : 'Below Fair Market Value'}`;
+        }
+        
+        console.log('[DEBUG] Active listings table updated');
+    } else {
+        console.warn('[DEBUG] Cannot toggle - missing stored data');
+    }
 }
 
 function clearSearch() {
@@ -2153,26 +2294,15 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
         <div id="analysis-dashboard">
             <h3 style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">📊 Market Analysis Dashboard</h3>
             
-            <!-- Important Disclaimer -->
-            <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid #ff9500; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);">
-                <div style="display: flex; align-items: flex-start; gap: 1rem;">
-                    <span style="font-size: 2rem; flex-shrink: 0;">⚠️</span>
-                    <div>
-                        <h4 style="margin: 0 0 0.75rem 0; color: #ff9500; font-size: 1.1rem;">Important Disclaimer</h4>
-                        <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #333; line-height: 1.6;">
-                            <strong>This analysis is for informational and educational purposes only.</strong> It is not financial, investment, or professional advice. All data is based on historical sales and current listings, which may not predict future market conditions.
-                        </p>
-                        <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                            Market values can change rapidly. Always conduct your own research and consider multiple sources before making buying or selling decisions. The accuracy of this analysis depends entirely on search term precision and data quality.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <!-- Disclaimer -->
+            <p style="margin: 0 0 2rem 0; font-size: 0.75rem; color: #666; text-align: center; line-height: 1.5;">
+                ⚠️ This analysis is for informational purposes only. It is not financial or investment advice. Always do your own research before making decisions.
+            </p>
             
             <!-- Market Risk Assessment (moved to top) -->
             ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ? `
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">⚠️ Market Risk Assessment</h4>
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
                 
                 ${(() => {
                     // Determine combined risk scenario
@@ -2254,18 +2384,6 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                             <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
                                 ${warningMessage}
                             </p>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                                <div>
-                                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Market Pressure</div>
-                                    <div style="font-size: 1.25rem; font-weight: 700; color: ${marketPressureColor};">${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%</div>
-                                    <div style="font-size: 0.7rem; color: #999;">${marketPressureStatus}</div>
-                                </div>
-                                <div>
-                                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Liquidity</div>
-                                    <div style="font-size: 1.25rem; font-weight: 700; color: ${liquidityRisk.statusColor};">${liquidityRisk.score}/100</div>
-                                    <div style="font-size: 0.7rem; color: #999;">${liquidityRisk.label}</div>
-                                </div>
-                            </div>
                         </div>
                     `;
                 })()}
@@ -2365,7 +2483,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             
             <!-- Price Distribution Analysis -->
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">📊 Price Distribution</h4>
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Volume Profile</h4>
                 
                 <div style="width: 100%; position: relative; margin-bottom: 1rem;">
                     <canvas id="priceDistributionCanvas" style="width: 100%; height: 300px; display: block;"></canvas>
@@ -2388,7 +2506,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             <!-- Price Band Liquidity Analysis -->
             ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? `
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">💰 Liquidity at Different Price Points</h4>
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Liquidity Profile</h4>
                 
                 ${(() => {
                     // Calculate price bands based on FMV
