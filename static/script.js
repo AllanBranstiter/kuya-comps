@@ -2065,7 +2065,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                         --
                     </div>
                     <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        ${liquidityRisk.message || 'No active listings data'}
+                        ${liquidityRisk && liquidityRisk.message ? liquidityRisk.message : 'No active listings data'}
                     </div>
                 </div>
                 `}
@@ -2344,7 +2344,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">💡 Market Insights</h4>
                 
                 <ul style="list-style: none; padding: 0; margin: 0;">
-                    ${generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityScore, fmvVsAvg)}
+                    ${generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityRisk, fmvVsAvg)}
                 </ul>
             </div>
         </div>
@@ -2363,8 +2363,11 @@ function calculateStdDev(values) {
 }
 
 // Generate market insights based on analytics
-function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityScore, fmvVsAvg, marketPressure, marketPressureLabel) {
+function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityRisk, fmvVsAvg, marketPressure, marketPressureLabel) {
     const insights = [];
+    
+    // Extract score from liquidityRisk object (handle both old number format and new object format)
+    const liquidityScore = (liquidityRisk && typeof liquidityRisk === 'object') ? (liquidityRisk.score || 0) : (liquidityRisk || 0);
     
     // Market Pressure insights (replaces volatility)
     if (marketPressure !== null) {
