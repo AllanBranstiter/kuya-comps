@@ -1218,15 +1218,21 @@ async function renderData(data, secondData = null, marketValue = null) {
     const fmvData = await updateFmv(data);
     
     // Render Analysis Dashboard with sold data, FMV, and active listings
+    // Wrap in try-catch to ensure Analysis errors don't block Comps display
     if (data && fmvData) {
-        console.log('[DEBUG renderData] About to call renderAnalysisDashboard with:', {
-            hasData: !!data,
-            hasFmvData: !!fmvData,
-            hasSecondData: !!secondData,
-            secondDataItemCount: secondData?.items?.length || 0,
-            secondDataKeys: secondData ? Object.keys(secondData) : []
-        });
-        renderAnalysisDashboard(data, fmvData, secondData);
+        try {
+            console.log('[DEBUG renderData] About to call renderAnalysisDashboard with:', {
+                hasData: !!data,
+                hasFmvData: !!fmvData,
+                hasSecondData: !!secondData,
+                secondDataItemCount: secondData?.items?.length || 0,
+                secondDataKeys: secondData ? Object.keys(secondData) : []
+            });
+            renderAnalysisDashboard(data, fmvData, secondData);
+        } catch (error) {
+            console.error('[ERROR] Failed to render Analysis Dashboard, but Comps data is still available:', error);
+            // Don't throw - let the Comps data display normally
+        }
     }
     const prices = data.items.map(item => item.total_price);
     currentBeeswarmPrices = prices; // Store for resize
@@ -2108,15 +2114,16 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
     
     // Calculate Liquidity Risk Score using new absorption ratio method
+    // Error handling to prevent calculation failures from blocking Analysis display
     let liquidityRisk = null;
     try {
         liquidityRisk = calculateLiquidityRisk(data, activeData);
         console.log('[LIQUIDITY RISK] Calculation result:', liquidityRisk);
     } catch (error) {
-        console.error('[LIQUIDITY RISK] Error calculating:', error);
+        console.error('[LIQUIDITY RISK] Error calculating (non-blocking):', error);
         liquidityRisk = {
             score: null,
-            label: 'Error',
+            label: 'Calculation Error',
             absorptionRatio: null,
             salesCount: data?.items?.length || 0,
             listingsCount: 0,
@@ -2459,18 +2466,24 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     analysisContainer.innerHTML = dashboardHtml;
     
     // Draw price distribution chart after DOM is updated
+    // Wrap in try-catch to prevent chart errors from breaking the page
     setTimeout(() => {
-        const canvas = document.getElementById("priceDistributionCanvas");
-        if (canvas) {
-            console.log('[CHART] Drawing price distribution chart with data:', {
-                hasSoldData: !!data,
-                hasActiveData: !!activeData,
-                soldItems: data?.items?.length || 0,
-                activeItems: activeData?.items?.length || 0
-            });
-            drawPriceDistributionChart(data, activeData);
-        } else {
-            console.error('[CHART] Price distribution canvas element not found');
+        try {
+            const canvas = document.getElementById("priceDistributionCanvas");
+            if (canvas) {
+                console.log('[CHART] Drawing price distribution chart with data:', {
+                    hasSoldData: !!data,
+                    hasActiveData: !!activeData,
+                    soldItems: data?.items?.length || 0,
+                    activeItems: activeData?.items?.length || 0
+                });
+                drawPriceDistributionChart(data, activeData);
+            } else {
+                console.error('[CHART] Price distribution canvas element not found');
+            }
+        } catch (error) {
+            console.error('[ERROR] Failed to draw price distribution chart:', error);
+            // Don't throw - chart failure shouldn't break the page
         }
     }, 200);
 }
@@ -3186,36 +3199,64 @@ function drawComparisonBeeswarm(cardResults) {
 
 // Draw Price Distribution Bar Chart
 function drawPriceDistributionChart(soldData, activeData) {
-  const canvas = document.getElementById("priceDistributionCanvas");
-  if (!canvas) {
-      console.error('[CHART] Price distribution canvas not found');
-      return;
-  }
-  
-  console.log('[CHART] Drawing price distribution chart', {
-      soldItems: soldData?.items?.length || 0,
-      activeItems: activeData?.items?.length || 0
-  });
-  
-  // Set canvas size
-  const container = canvas.parentElement;
-  const containerWidth = container.offsetWidth;
-  
-  canvas.width = containerWidth;
-  canvas.height = 300;
-  canvas.style.width = containerWidth + 'px';
-  canvas.style.height = '300px';
-  
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const margin = { top: 40, right: 40, bottom: 60, left: 60 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
-  
-  ctx.clearRect(0, 0, width, height);
-  
-  // Prepare sold data
+    console.log('[CHART] drawPriceDistributionChart called with:', {
+        hasSoldData: !!soldData,
+        hasActiveData: !!activeData,
+        soldItems: soldData?.items?.length || 0,
+        activeItems: activeData?.items?.length || 0
+    });
+    
+    try {
+        const canvas = document.getElementById("priceDistributionCanvas");
+        if (!canvas) {
+            console.error('[CHART ERROR] Price distribution canvas element not found in DOM');
+            // List all canvas elements for debugging
+            const allCanvases = document.querySelectorAll('canvas');
+            console.log('[CHART DEBUG] Found canvas elements:', Array.from(allCanvases).map(c => c.id));
+            return;
+        }
+        
+        console.log('[CHART] Canvas found, dimensions:', {
+            width: canvas.width,
+            height: canvas.height,
+            offsetWidth: canvas.offsetWidth,
+            offsetHeight: canvas.offsetHeight
+        });
+        
+        // Set canvas size
+        const container = canvas.parentElement;
+        if (!container) {
+            console.error('[CHART] Canvas container not found');
+            return;
+        }
+        
+        const containerWidth = container.offsetWidth;
+        
+        canvas.width = containerWidth;
+        canvas.height = 300;
+        canvas.style.width = containerWidth + 'px';
+        canvas.style.height = '300px';
+        
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            console.error('[CHART] Could not get canvas context');
+            return;
+        }
+        
+        const width = canvas.width;
+        const height = canvas.height;
+        const margin = { top: 40, right: 40, bottom: 60, left: 60 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        // Draw a test background to verify canvas is rendering
+        console.log('[CHART] Drawing test background...');
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, width, height);
+        
+    // Prepare sold data
   const soldPrices = soldData?.items?.map(item => item.total_price).filter(p => p > 0) || [];
   
   // Prepare active data (Buy It Now only)
@@ -3226,15 +3267,29 @@ function drawPriceDistributionChart(soldData, activeData) {
       return item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
   }).filter(p => p > 0) || [];
   
-  console.log('[CHART] Prices:', { soldCount: soldPrices.length, activeCount: activePrices.length });
+  console.log('[CHART] Prepared price data:', {
+      soldCount: soldPrices.length,
+      activeCount: activePrices.length,
+      soldSample: soldPrices.slice(0, 3),
+      activeSample: activePrices.slice(0, 3)
+  });
   
+  // Show message if no data, but continue to test rendering
   if (soldPrices.length === 0 && activePrices.length === 0) {
-      ctx.fillStyle = "#6e6e73";
-      ctx.font = "16px " + getComputedStyle(document.body).fontFamily;
+      console.warn('[CHART] No price data available for distribution chart - showing message');
+      ctx.fillStyle = "#1d1d1f";
+      ctx.font = "bold 16px " + getComputedStyle(document.body).fontFamily;
       ctx.textAlign = "center";
       ctx.fillText("No data available for price distribution", width / 2, height / 2);
+      
+      ctx.font = "14px " + getComputedStyle(document.body).fontFamily;
+      ctx.fillStyle = "#6e6e73";
+      ctx.fillText("(Sold and active listing data required)", width / 2, height / 2 + 30);
+      console.log('[CHART] Message drawn on canvas');
       return;
   }
+  
+  console.log('[CHART] Sufficient data, proceeding with chart drawing...');
   
   // Find global min and max across both datasets
   const allPrices = [...soldPrices, ...activePrices];
@@ -3378,5 +3433,19 @@ function drawPriceDistributionChart(soldData, activeData) {
   // Draw final price
   const finalX = margin.left + (numBins * barAreaWidth);
   ctx.fillText(formatMoney(maxPrice), finalX, height - margin.bottom + 20);
+  
+  console.log('[CHART] Price distribution chart drawing completed successfully!');
+  console.log('[CHART] Final canvas state:', {
+      width: canvas.width,
+      height: canvas.height,
+      displayWidth: canvas.style.width,
+      displayHeight: canvas.style.height
+  });
+  
+  } catch (error) {
+      console.error('[CHART ERROR] Failed to draw price distribution chart (non-blocking):', error);
+      console.error('[CHART ERROR] Stack trace:', error.stack);
+      // Chart failure is graceful - won't block other functionality
+  }
 }
 
