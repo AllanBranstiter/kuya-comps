@@ -2312,7 +2312,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             <!-- Market Risk Assessment (moved to top) -->
             ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ? `
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">⚠️ Market Risk Assessment</h4>
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
                 
                 ${(() => {
                     // Determine combined risk scenario
@@ -2493,7 +2493,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             
             <!-- Price Distribution Analysis -->
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">📊 Price Distribution</h4>
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Volume Profile</h4>
                 
                 <div style="width: 100%; position: relative; margin-bottom: 1rem;">
                     <canvas id="priceDistributionCanvas" style="width: 100%; height: 300px; display: block;"></canvas>
@@ -2516,7 +2516,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             <!-- Price Band Liquidity Analysis -->
             ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? `
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">💰 Liquidity at Different Price Points</h4>
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Liquidity Profile</h4>
                 
                 ${(() => {
                     // Calculate price bands based on FMV
