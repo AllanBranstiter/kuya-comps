@@ -2304,6 +2304,14 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
         <div id="analysis-dashboard">
             <h3 style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">📊 Market Analysis Dashboard</h3>
             
+            <!-- Data Quality Badge (Phase 2.3) -->
+            <div style="text-align: center;">
+                ${getDataQualityBadge(data.items.length, activeData?.items?.length || 0, marketConfidence, sampleSize)}
+            </div>
+            
+            <!-- Sample Size Warning (Phase 1.1) -->
+            ${getSampleSizeWarning(data.items.length, activeData?.items?.length || 0, sampleSize)}
+            
             <!-- Disclaimer -->
             <p style="margin: 0 0 2rem 0; font-size: 0.75rem; color: #666; text-align: center; line-height: 1.5;">
                 ⚠️ This analysis is for informational purposes only. It is not financial or investment advice. Always do your own research before making decisions.
@@ -2563,7 +2571,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                                     <strong>Sales:</strong> ${salesBelow} in 90 days
                                 </div>
                                 <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${belowFMV > 0 ? (absorptionBelow !== 'N/A' && parseFloat(absorptionBelow) >= 1.0 ? '🔥 High demand (ratio ≥1.0) - More sales than listings! These deals sell quickly.' : '⚡ Moderate activity (ratio <1.0) - Some interest, but good values may still be available.') : '📭 No listings in this band'}
+                                    ${getAbsorptionRatioInterpretation(absorptionBelow, 'below')}
                                 </div>
                             </div>
                             
@@ -2579,7 +2587,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                                     <strong>Sales:</strong> ${salesAt} in 90 days
                                 </div>
                                 <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${atFMV > 0 ? (absorptionAt !== 'N/A' && parseFloat(absorptionAt) >= 0.5 ? '✅ Healthy activity (ratio ≥0.5) - Balanced supply & demand. Cards move at steady pace.' : '⏳ Lower activity (ratio <0.5) - More listings than sales. Expect longer wait times.') : '📭 No listings at FMV'}
+                                    ${getAbsorptionRatioInterpretation(absorptionAt, 'at')}
                                 </div>
                             </div>
                             
@@ -2595,7 +2603,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                                     <strong>Sales:</strong> ${salesAbove} in 90 days
                                 </div>
                                 <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${aboveFMV > 0 ? (absorptionAbove !== 'N/A' && parseFloat(absorptionAbove) < 0.3 ? '⚠️ Low demand (ratio <0.3) - Many listings, few sales. Overpriced for current market.' : '📊 Moderate demand (ratio ≥0.3) - Premium pricing, but cards still selling.') : '📭 No premium listings'}
+                                    ${getAbsorptionRatioInterpretation(absorptionAbove, 'above')}
                                 </div>
                             </div>
                         </div>
@@ -2608,6 +2616,48 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                     `;
                 })()}
             </div>
+            
+            <!-- Pricing Recommendations (Phase 2.2) -->
+            ${(() => {
+                if (!activeData || !activeData.items || activeData.items.length === 0) {
+                    return '';
+                }
+                
+                // Prepare band data for recommendations
+                const belowFMV = activeData.items.filter(item => {
+                    const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                    const buyingFormat = (item.buying_format || '').toLowerCase();
+                    return price > 0 && price < marketValue * 0.9 && buyingFormat.includes('buy it now');
+                }).length;
+                
+                const atFMV = activeData.items.filter(item => {
+                    const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                    const buyingFormat = (item.buying_format || '').toLowerCase();
+                    return price >= marketValue * 0.9 && price <= marketValue * 1.1 && buyingFormat.includes('buy it now');
+                }).length;
+                
+                const aboveFMV = activeData.items.filter(item => {
+                    const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+                    const buyingFormat = (item.buying_format || '').toLowerCase();
+                    return price > marketValue * 1.1 && buyingFormat.includes('buy it now');
+                }).length;
+                
+                const salesBelow = data.items.filter(item => item.total_price < marketValue * 0.9).length;
+                const salesAt = data.items.filter(item => item.total_price >= marketValue * 0.9 && item.total_price <= marketValue * 1.1).length;
+                const salesAbove = data.items.filter(item => item.total_price > marketValue * 1.1).length;
+                
+                const absorptionBelow = belowFMV > 0 ? (salesBelow / belowFMV).toFixed(2) : 'N/A';
+                const absorptionAt = atFMV > 0 ? (salesAt / atFMV).toFixed(2) : 'N/A';
+                const absorptionAbove = aboveFMV > 0 ? (salesAbove / aboveFMV).toFixed(2) : 'N/A';
+                
+                const bands = {
+                    belowFMV: { count: belowFMV, absorption: absorptionBelow, sales: salesBelow },
+                    atFMV: { count: atFMV, absorption: absorptionAt, sales: salesAt },
+                    aboveFMV: { count: aboveFMV, absorption: absorptionAbove, sales: salesAbove }
+                };
+                
+                return getPricingRecommendations(bands, marketValue, marketPressure, liquidityRisk?.score || 0);
+            })()}
             ` : ''}
         </div>
     `;
@@ -2666,6 +2716,281 @@ window.addEventListener('redrawPriceDistribution', () => {
         }, 50);
     }
 });
+
+// ============================================================================
+// PHASE 1: ENHANCED MARKET ANALYSIS HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Phase 1.1: Generate sample size warning banner
+ * Shows warning when data quality is limited
+ */
+function getSampleSizeWarning(soldCount, activeCount, pressureSampleSize) {
+    // Determine if we should show a warning
+    const lowSoldData = soldCount < 10;
+    const lowActiveData = activeCount < 5;
+    const lowPressureData = pressureSampleSize < 5;
+    
+    if (lowSoldData || lowActiveData || lowPressureData) {
+        const issues = [];
+        if (lowSoldData) issues.push(`${soldCount} recent sales`);
+        if (lowActiveData) issues.push(`${activeCount} active listings`);
+        if (lowPressureData && pressureSampleSize > 0) issues.push(`${pressureSampleSize} sellers sampled`);
+        
+        return `
+            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #ff9500; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.15);">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="font-size: 1.5rem;">⚠️</span>
+                    <div style="flex: 1;">
+                        <strong style="color: #ff9500; font-size: 0.95rem;">Limited Data Available</strong>
+                        <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
+                            ${issues.join(' • ')} — Results may vary. Consider refining your search terms or checking back later for more data.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    return ''; // No warning needed
+}
+
+/**
+ * Phase 1.3: Generate absorption ratio interpretation
+ * Provides context for what absorption ratios mean
+ */
+function getAbsorptionRatioInterpretation(absorptionRatio, band) {
+    if (absorptionRatio === 'N/A' || absorptionRatio === null) {
+        return '📭 No active listings in this price band';
+    }
+    
+    const ratio = parseFloat(absorptionRatio);
+    
+    if (band === 'below') {
+        if (ratio >= 1.5) {
+            return '🔥 Extremely hot zone! Sales happening 50%+ faster than new listings appear. Deals vanish quickly at these prices.';
+        } else if (ratio >= 1.0) {
+            return '🔥 Hot zone! More sales than listings means deals sell faster than they\'re posted. Act fast on good prices.';
+        } else if (ratio >= 0.5) {
+            return '⚡ Moderate demand. Cards at these prices get steady interest, though not instant sales.';
+        } else {
+            return '📊 Lower activity. Some bargains available but demand is modest at these price points.';
+        }
+    } else if (band === 'at') {
+        if (ratio >= 1.0) {
+            return '🔥 Strong demand at fair value! Cards priced near FMV are selling faster than they\'re listed.';
+        } else if (ratio >= 0.5) {
+            return '✅ Healthy activity! Balanced supply and demand. Cards move at a steady, predictable pace.';
+        } else {
+            return '⏳ Slower activity. More listings than recent sales. Sellers may need patience or slight price adjustments.';
+        }
+    } else { // above
+        if (ratio >= 0.5) {
+            return '📊 Moderate demand even at premium pricing. Some buyers willing to pay above FMV.';
+        } else if (ratio >= 0.3) {
+            return '⏳ Lower demand. Premium-priced cards face longer wait times. Most sales happen closer to FMV.';
+        } else {
+            return '⚠️ Very low demand at these prices. Significant oversupply vs sales. Overpriced for current market conditions.';
+        }
+    }
+}
+
+/**
+ * Phase 2.2: Generate pricing recommendations based on liquidity profile
+ * Provides actionable pricing advice based on where activity is concentrated
+ */
+function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
+    if (!bands || !fmv) return '';
+    
+    const recommendations = [];
+    
+    // Extract band data
+    const belowFMV = bands.belowFMV || { count: 0, absorption: 'N/A', sales: 0 };
+    const atFMV = bands.atFMV || { count: 0, absorption: 'N/A', sales: 0 };
+    const aboveFMV = bands.aboveFMV || { count: 0, absorption: 'N/A', sales: 0 };
+    
+    const belowAbsorption = belowFMV.absorption !== 'N/A' ? parseFloat(belowFMV.absorption) : 0;
+    const atAbsorption = atFMV.absorption !== 'N/A' ? parseFloat(atFMV.absorption) : 0;
+    const aboveAbsorption = aboveFMV.absorption !== 'N/A' ? parseFloat(aboveFMV.absorption) : 0;
+    
+    // Recommendation 1: Quick Sale Strategy
+    if (belowAbsorption >= 1.0 && belowFMV.count > 0) {
+        const quickPrice = fmv * 0.85;
+        recommendations.push({
+            icon: '⚡',
+            title: 'Quick Sale Strategy',
+            price: quickPrice,
+            range: `${formatMoney(fmv * 0.80)} - ${formatMoney(fmv * 0.90)}`,
+            reason: `High demand below FMV (${belowAbsorption}:1 absorption ratio). Cards priced 10-20% below FMV are selling faster than they're listed.`,
+            color: '#34c759',
+            bg: 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)',
+            border: '#99ff99'
+        });
+    }
+    
+    // Recommendation 2: Balanced Market Strategy
+    if (atAbsorption >= 0.5 && atFMV.count > 0) {
+        recommendations.push({
+            icon: '⚖️',
+            title: 'Fair Market Strategy',
+            price: fmv,
+            range: `${formatMoney(fmv * 0.95)} - ${formatMoney(fmv * 1.05)}`,
+            reason: `Steady activity at FMV (${atAbsorption} absorption ratio). Price competitively near ${formatMoney(fmv)} for reliable sales.`,
+            color: '#007aff',
+            bg: 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)',
+            border: '#99daff'
+        });
+    }
+    
+    // Recommendation 3: Premium/Patient Strategy
+    if (marketPressure < 15 && liquidityScore >= 60) {
+        const patientPrice = fmv * 1.10;
+        recommendations.push({
+            icon: '🕰️',
+            title: 'Patient Sale Strategy',
+            price: patientPrice,
+            range: `${formatMoney(fmv * 1.05)} - ${formatMoney(fmv * 1.15)}`,
+            reason: `Low market pressure and good liquidity suggest room for premium pricing if you're patient.`,
+            color: '#5856d6',
+            bg: 'linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%)',
+            border: '#d6b3ff'
+        });
+    } else if (aboveAbsorption >= 0.3 && aboveFMV.count > 0) {
+        const patientPrice = fmv * 1.12;
+        recommendations.push({
+            icon: '🎯',
+            title: 'Premium Strategy',
+            price: patientPrice,
+            range: `${formatMoney(fmv * 1.10)} - ${formatMoney(fmv * 1.20)}`,
+            reason: `Some cards selling above FMV (${aboveAbsorption} absorption). Premium pricing possible with patience.`,
+            color: '#ff9500',
+            bg: 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)',
+            border: '#ffd699'
+        });
+    }
+    
+    // If no strong recommendations, provide default guidance
+    if (recommendations.length === 0) {
+        recommendations.push({
+            icon: '📊',
+            title: 'Standard Market Strategy',
+            price: fmv,
+            range: `${formatMoney(fmv * 0.90)} - ${formatMoney(fmv * 1.10)}`,
+            reason: `With current market data, price within 10% of FMV (${formatMoney(fmv)}) for best results.`,
+            color: '#6e6e73',
+            bg: 'linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%)',
+            border: '#d1d1d6'
+        });
+    }
+    
+    // Generate HTML
+    let html = `
+        <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+            <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">💰 Pricing Recommendations</h4>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+    `;
+    
+    recommendations.forEach(rec => {
+        html += `
+            <div style="background: ${rec.bg}; padding: 1.25rem; border-radius: 12px; border: 2px solid ${rec.border};">
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                    <span style="font-size: 1.5rem;">${rec.icon}</span>
+                    <strong style="color: ${rec.color}; font-size: 1rem;">${rec.title}</strong>
+                </div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: ${rec.color}; margin-bottom: 0.5rem;">
+                    ${formatMoney(rec.price)}
+                </div>
+                <div style="font-size: 0.8rem; color: #666; margin-bottom: 0.75rem;">
+                    <strong>Target Range:</strong> ${rec.range}
+                </div>
+                <div style="font-size: 0.75rem; color: #333; line-height: 1.4; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                    ${rec.reason}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+            </div>
+            
+            <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
+                <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
+                    <strong>💡 Note:</strong> These recommendations are based on recent market activity and absorption ratios. Adjust based on your selling timeline and risk tolerance. Always factor in fees, shipping costs, and current market trends.
+                </p>
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+/**
+ * Phase 2.3: Calculate overall data quality score
+ * Returns 0-100 score based on sample sizes and consistency
+ */
+function calculateDataQuality(soldCount, activeCount, confidence) {
+    // Sample size component (60% weight)
+    let sampleScore = 0;
+    if (soldCount >= 20 && activeCount >= 10) {
+        sampleScore = 100;
+    } else if (soldCount >= 10 && activeCount >= 5) {
+        sampleScore = 70;
+    } else if (soldCount >= 5 && activeCount >= 3) {
+        sampleScore = 40;
+    } else {
+        sampleScore = 20;
+    }
+    
+    // Confidence component (40% weight)
+    const confidenceScore = confidence || 0;
+    
+    // Weighted average
+    return Math.round(sampleScore * 0.6 + confidenceScore * 0.4);
+}
+
+/**
+ * Phase 2.3: Generate data quality badge HTML
+ * Shows color-coded confidence level
+ */
+function getDataQualityBadge(soldCount, activeCount, confidence, pressureSampleSize) {
+    const score = calculateDataQuality(soldCount, activeCount, confidence);
+    
+    let badgeColor, badgeText, badgeBg, badgeBorder;
+    
+    if (score >= 70) {
+        badgeColor = '#34c759';
+        badgeText = 'HIGH CONFIDENCE';
+        badgeBg = 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)';
+        badgeBorder = '#99ff99';
+    } else if (score >= 40) {
+        badgeColor = '#ff9500';
+        badgeText = 'MODERATE CONFIDENCE';
+        badgeBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
+        badgeBorder = '#ffd699';
+    } else {
+        badgeColor = '#ff3b30';
+        badgeText = 'LOW CONFIDENCE - Use Caution';
+        badgeBg = 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)';
+        badgeBorder = '#ff9999';
+    }
+    
+    return `
+        <div style="background: ${badgeBg}; padding: 0.75rem 1.25rem; border-radius: 8px; border: 2px solid ${badgeBorder}; display: inline-block; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.25rem;">${score >= 70 ? '✅' : score >= 40 ? '⚠️' : '🔴'}</span>
+                <div>
+                    <div style="font-weight: 700; color: ${badgeColor}; font-size: 0.9rem; letter-spacing: 0.5px;">
+                        ${badgeText}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
+                        Data Quality Score: ${score}/100
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
 
 // Calculate standard deviation
 function calculateStdDev(values) {
