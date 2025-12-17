@@ -1818,7 +1818,9 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
     // Market confidence (based on consistency of prices)
     const stdDev = calculateStdDev(prices);
     const coefficientOfVariation = (stdDev / data.avg_price) * 100;
-    const marketConfidence = Math.max(0, Math.min(100, 100 - coefficientOfVariation));
+    // Use a scaled formula that handles high variability better
+    // CoV=0% → confidence=100, CoV=100% → confidence=50, CoV=200% → confidence=33
+    const marketConfidence = Math.round(100 / (1 + coefficientOfVariation / 100));
     
     // FMV vs Average comparison
     const marketValue = fmvData?.market_value || data.avg_price;
