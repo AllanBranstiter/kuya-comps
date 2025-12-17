@@ -649,7 +649,12 @@ async function renderData(data, secondData = null, marketValue = null) {
     }
     
     // Update FMV first, then draw beeswarm chart
-    await updateFmv(data);
+    const fmvData = await updateFmv(data);
+    
+    // Render Analysis Dashboard with both data and FMV
+    if (data && fmvData) {
+        renderAnalysisDashboard(data, fmvData);
+    }
     const prices = data.items.map(item => item.total_price);
     currentBeeswarmPrices = prices; // Store for resize
     drawBeeswarm(prices);
@@ -1346,6 +1351,268 @@ function renderStats(data) {
     container.innerHTML = statsHtml;
 }
 
+// Render Analytics Dashboard for the Analysis sub-tab
+function renderAnalysisDashboard(data, fmvData) {
+    const analysisContainer = document.getElementById("analysis-subtab");
+    
+    if (!data || !data.items || data.items.length === 0) {
+        analysisContainer.innerHTML = `
+            <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+                <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Market Analysis</h3>
+                <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Run a search to see advanced market analytics and insights</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Calculate analytics metrics
+    const prices = data.items.map(item => item.total_price).filter(p => p > 0);
+    const priceRange = data.max_price - data.min_price;
+    const priceSpread = priceRange / data.avg_price * 100; // Volatility percentage
+    
+    // Market confidence (based on consistency of prices)
+    const stdDev = calculateStdDev(prices);
+    const coefficientOfVariation = (stdDev / data.avg_price) * 100;
+    const marketConfidence = Math.max(0, Math.min(100, 100 - coefficientOfVariation));
+    
+    // FMV vs Average comparison
+    const marketValue = fmvData?.market_value || data.avg_price;
+    const fmvVsAvg = ((marketValue - data.avg_price) / data.avg_price * 100);
+    
+    // Price distribution quartiles
+    const sortedPrices = [...prices].sort((a, b) => a - b);
+    const q1 = sortedPrices[Math.floor(sortedPrices.length * 0.25)];
+    const median = sortedPrices[Math.floor(sortedPrices.length * 0.5)];
+    const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
+    
+    // Liquidity score (based on number of sales)
+    const liquidityScore = Math.min(100, (data.items.length / 50) * 100);
+    
+    const dashboardHtml = `
+        <div id="analysis-dashboard">
+            <h3 style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">📊 Market Analysis Dashboard</h3>
+            
+            <!-- Key Indicators Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                
+                <!-- Market Volatility -->
+                <div class="indicator-card" style="background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #ffd699; box-shadow: 0 4px 12px rgba(255, 149, 0, 0.15);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="font-size: 1.5rem;">📈</span>
+                        <span style="font-size: 0.8rem; font-weight: 600; color: #ff9500; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            ${priceSpread < 30 ? 'LOW' : priceSpread < 70 ? 'MODERATE' : 'HIGH'}
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Volatility</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #ff9500; margin-bottom: 0.5rem;">
+                        ${priceSpread.toFixed(1)}%
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        Price range: ${formatMoney(priceRange)}
+                    </div>
+                </div>
+                
+                <!-- Market Confidence -->
+                <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="font-size: 1.5rem;">🎯</span>
+                        <span style="font-size: 0.8rem; font-weight: 600; color: #007aff; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            ${marketConfidence >= 70 ? 'HIGH' : marketConfidence >= 40 ? 'MODERATE' : 'LOW'}
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Confidence</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem;">
+                        ${marketConfidence.toFixed(0)}/100
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        Based on price consistency
+                    </div>
+                </div>
+                
+                <!-- Liquidity Score -->
+                <div class="indicator-card" style="background: linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99ff99; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.15);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="font-size: 1.5rem;">💧</span>
+                        <span style="font-size: 0.8rem; font-weight: 600; color: #34c759; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            ${liquidityScore >= 70 ? 'HIGH' : liquidityScore >= 40 ? 'MODERATE' : 'LOW'}
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Liquidity</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: #34c759; margin-bottom: 0.5rem;">
+                        ${liquidityScore.toFixed(0)}/100
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        ${data.items.length} recent sales
+                    </div>
+                </div>
+                
+                <!-- FMV Premium -->
+                <div class="indicator-card" style="background: linear-gradient(135deg, ${fmvVsAvg >= 0 ? '#ffe6f7' : '#f0f0f0'} 0%, ${fmvVsAvg >= 0 ? '#ffcceb' : '#e0e0e0'} 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid ${fmvVsAvg >= 0 ? '#ff99d6' : '#cccccc'}; box-shadow: 0 4px 12px rgba(${fmvVsAvg >= 0 ? '255, 59, 48' : '100, 100, 100'}, 0.15);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="font-size: 1.5rem;">${fmvVsAvg >= 0 ? '⬆️' : '⬇️'}</span>
+                        <span style="font-size: 0.8rem; font-weight: 600; color: ${fmvVsAvg >= 0 ? '#ff3b30' : '#666'}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                            ${fmvVsAvg >= 0 ? 'PREMIUM' : 'DISCOUNT'}
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">FMV vs Avg</div>
+                    <div style="font-size: 1.75rem; font-weight: 700; color: ${fmvVsAvg >= 0 ? '#ff3b30' : '#666'}; margin-bottom: 0.5rem;">
+                        ${fmvVsAvg >= 0 ? '+' : ''}${fmvVsAvg.toFixed(1)}%
+                    </div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                        FMV: ${formatMoney(marketValue)}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Price Distribution Analysis -->
+            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">📊 Price Distribution</h4>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1.5rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Minimum</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(data.min_price)}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Q1 (25%)</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(q1)}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Median (50%)</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: #007aff;">${formatMoney(median)}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Q3 (75%)</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(q3)}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 0.5rem;">Maximum</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-color);">${formatMoney(data.max_price)}</div>
+                    </div>
+                </div>
+                
+                <!-- Visual distribution bar -->
+                <div style="margin-top: 2rem; position: relative; height: 40px; background: linear-gradient(90deg,
+                    #34c759 0%,
+                    #34c759 25%,
+                    #007aff 25%,
+                    #007aff 50%,
+                    #ff9500 50%,
+                    #ff9500 75%,
+                    #ff3b30 75%,
+                    #ff3b30 100%);
+                    border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.75rem; color: var(--subtle-text-color);">
+                    <span>Low</span>
+                    <span>Mid-Low</span>
+                    <span>Mid-High</span>
+                    <span>High</span>
+                </div>
+            </div>
+            
+            <!-- Market Insights -->
+            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">💡 Market Insights</h4>
+                
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    ${generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityScore, fmvVsAvg)}
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    analysisContainer.innerHTML = dashboardHtml;
+}
+
+// Calculate standard deviation
+function calculateStdDev(values) {
+    if (values.length === 0) return 0;
+    const avg = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const squareDiffs = values.map(value => Math.pow(value - avg, 2));
+    const avgSquareDiff = squareDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+    return Math.sqrt(avgSquareDiff);
+}
+
+// Generate market insights based on analytics
+function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, liquidityScore, fmvVsAvg) {
+    const insights = [];
+    
+    // Volatility insights
+    if (priceSpread < 30) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); border-left: 4px solid #34c759; border-radius: 6px;">
+                <strong style="color: #34c759;">✓ Stable Market:</strong> Low price volatility (${priceSpread.toFixed(1)}%) suggests consistent pricing and predictable values.
+            </li>
+        `);
+    } else if (priceSpread > 70) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
+                <strong style="color: #ff9500;">⚠ High Volatility:</strong> Wide price range (${priceSpread.toFixed(1)}%) indicates varying conditions or grades. Review individual listings carefully.
+            </li>
+        `);
+    }
+    
+    // Confidence insights
+    if (marketConfidence >= 70) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); border-left: 4px solid #007aff; border-radius: 6px;">
+                <strong style="color: #007aff;">✓ High Confidence:</strong> Strong market consensus with consistent pricing (${marketConfidence.toFixed(0)}/100 confidence score).
+            </li>
+        `);
+    } else if (marketConfidence < 40) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
+                <strong style="color: #ff9500;">⚠ Lower Confidence:</strong> Inconsistent pricing (${marketConfidence.toFixed(0)}/100). Consider gathering more data or refining search terms.
+            </li>
+        `);
+    }
+    
+    // Liquidity insights
+    if (liquidityScore >= 70) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); border-left: 4px solid #34c759; border-radius: 6px;">
+                <strong style="color: #34c759;">✓ High Liquidity:</strong> ${data.items.length} recent sales indicate an active market with good price discovery.
+            </li>
+        `);
+    } else if (liquidityScore < 40) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); border-left: 4px solid #ff3b30; border-radius: 6px;">
+                <strong style="color: #ff3b30;">⚠ Limited Data:</strong> Only ${data.items.length} recent sales found. Consider broadening search or checking back later for more data.
+            </li>
+        `);
+    }
+    
+    // FMV vs Average insights
+    if (Math.abs(fmvVsAvg) < 5) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); border-left: 4px solid #007aff; border-radius: 6px;">
+                <strong style="color: #007aff;">✓ Fair Pricing:</strong> FMV closely aligned with average price (${fmvVsAvg >= 0 ? '+' : ''}${fmvVsAvg.toFixed(1)}%), suggesting balanced market.
+            </li>
+        `);
+    } else if (fmvVsAvg > 10) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #ffe6f7 0%, #fff0fa 100%); border-left: 4px solid #ff3b30; border-radius: 6px;">
+                <strong style="color: #ff3b30;">📈 Premium Market:</strong> FMV is ${fmvVsAvg.toFixed(1)}% higher than average, indicating recent price appreciation or strong demand.
+            </li>
+        `);
+    }
+    
+    // Data quality insight
+    const dataQuality = (marketConfidence * 0.4) + (liquidityScore * 0.6);
+    insights.push(`
+        <li style="padding: 1rem; margin-bottom: 0; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-left: 4px solid #6e6e73; border-radius: 6px;">
+            <strong style="color: #6e6e73;">📊 Data Quality:</strong> Overall reliability score: ${dataQuality.toFixed(0)}/100 based on sample size and consistency.
+        </li>
+    `);
+    
+    return insights.join('');
+}
+
 function renderMarketIntelligence(intelligence) {
     const container = document.getElementById("insights-container");
     // Always show empty state - no market intelligence UI
@@ -1364,7 +1631,7 @@ async function updateFmv(data) {
   if (!data || !data.items || data.items.length === 0) {
     if (statsContainer) statsContainer.innerHTML = "";
     if (fmvContainer) fmvContainer.innerHTML = "";
-    return;
+    return null;
   }
 
   try {
@@ -1381,7 +1648,7 @@ async function updateFmv(data) {
       if (fmvContainer) {
         fmvContainer.innerHTML = "Error calculating FMV: " + escapeHtml(fmvData.detail);
       }
-      return;
+      return null;
     }
 
     // store for beeswarm chart
@@ -1425,11 +1692,15 @@ async function updateFmv(data) {
     if (fmvContainer) {
       fmvContainer.innerHTML = fmvHtml;
     }
+    
+    // Return FMV data for use in analytics dashboard
+    return fmvData;
 
   } catch (err) {
     if (fmvContainer) {
       fmvContainer.innerHTML = "Error calculating FMV: " + escapeHtml(String(err));
     }
+    return null;
   }
 }
 
