@@ -110,20 +110,23 @@ function showMarketPressureInfo() {
     popup.innerHTML = `
         <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
         
-        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">📊 Understanding Market Pressure %</h2>
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">📊 Understanding Market Pressure</h2>
         
         <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
-            Market Pressure measures the gap between what sellers are <strong>asking today</strong> versus what buyers <strong>recently paid</strong>.
+            Market Pressure compares what sellers are <strong>asking today</strong> to what buyers <strong>recently paid</strong>. It does not affect Fair Market Value.
         </p>
         
         <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
             <strong style="color: var(--text-color);">Formula:</strong><br>
             <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
-                (Median Asking Price - Fair Market Value) / FMV × 100
+                (Median Asking Price - FMV) / FMV × 100
             </code>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
+                <em>Note: Outlier prices are filtered using IQR method for accuracy.</em>
+            </p>
         </div>
         
-        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📈 What Each Band Means</h3>
+        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📈 Interpretation Bands</h3>
         
         <div style="display: flex; flex-direction: column; gap: 1rem;">
             <!-- Healthy Band -->
@@ -133,8 +136,8 @@ function showMarketPressureInfo() {
                     <strong style="color: #34c759;">0% to 15% (HEALTHY)</strong>
                 </div>
                 <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Normal, healthy market. Sellers price slightly above recent sales to leave room for negotiation.<br>
-                    <strong>What to do:</strong> Fair pricing - safe to buy at asking prices or negotiate slightly.
+                    <strong>What it means:</strong> Normal pricing friction. Sellers price slightly above recent sales to leave room for negotiation.<br>
+                    <strong>What to do:</strong> Fair pricing - safe to buy at asking prices or make small offers.
                 </p>
             </div>
             
@@ -145,8 +148,8 @@ function showMarketPressureInfo() {
                     <strong style="color: #007aff;">15% to 30% (OPTIMISTIC)</strong>
                 </div>
                 <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Sellers are hopeful but not unrealistic. Expect to negotiate.<br>
-                    <strong>What to do:</strong> Make offers below asking price - sellers are likely open to negotiation.
+                    <strong>What it means:</strong> Seller optimism. Prices drifting above recent buyer behavior.<br>
+                    <strong>What to do:</strong> Make offers 10-20% below asking - sellers are likely open to negotiation.
                 </p>
             </div>
             
@@ -157,8 +160,8 @@ function showMarketPressureInfo() {
                     <strong style="color: #ff9500;">30% to 50% (RESISTANCE)</strong>
                 </div>
                 <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Big gap between asking prices and reality. Market is stalling.<br>
-                    <strong>What to do:</strong> Be patient - sellers will likely need to lower prices or accept much lower offers.
+                    <strong>What it means:</strong> Overpriced market. Clear resistance between buyers and sellers.<br>
+                    <strong>What to do:</strong> Be patient. Sellers will likely need to lower prices or accept significantly lower offers (20-30% below ask).
                 </p>
             </div>
             
@@ -169,8 +172,8 @@ function showMarketPressureInfo() {
                     <strong style="color: #ff3b30;">50%+ (UNREALISTIC)</strong>
                 </div>
                 <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Sellers are detached from market reality. Cards won't sell at these prices.<br>
-                    <strong>What to do:</strong> Wait - these prices won't hold. Look for better-priced alternatives.
+                    <strong>What it means:</strong> Unrealistic asking prices. Listings unlikely to transact near current levels.<br>
+                    <strong>What to do:</strong> Wait for price corrections or look for better-priced alternatives. These sellers are detached from market reality.
                 </p>
             </div>
             
@@ -182,15 +185,31 @@ function showMarketPressureInfo() {
                 </div>
                 <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
                     <strong>What it means:</strong> Opportunity! Sellers are asking less than recent sale prices.<br>
-                    <strong>What to do:</strong> Act fast - these are potential bargains.
+                    <strong>What to do:</strong> Act fast - these may be undervalued or motivated sellers.
                 </p>
             </div>
         </div>
         
-        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem;">
+        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
+            <strong style="color: var(--text-color);">💡 Quick Tip:</strong><br>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                Market Pressure above 30% suggests waiting for price corrections or making significantly lower offers. Below 0% indicates potential buying opportunities.
+            </p>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
             <strong style="color: var(--text-color);">📝 Example:</strong><br>
             <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                If cards recently sold for <strong>$100</strong> (FMV), but current listings ask <strong>$140</strong>, that's <strong>+40% Market Pressure</strong> = 🟠 Resistance zone = sellers are asking too much.
+                If cards recently sold for <strong>$100</strong> (FMV), but current listings ask <strong>$140</strong>, that's <strong>+40% Market Pressure</strong> (Resistance) = sellers are asking too much.
+            </p>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
+            <strong style="color: var(--text-color);">📊 Data Confidence:</strong><br>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
+                • <strong>High:</strong> 10+ active listings<br>
+                • <strong>Medium:</strong> 5-9 active listings<br>
+                • <strong>Low:</strong> Less than 5 active listings (use with caution)
             </p>
         </div>
     `;
@@ -1573,21 +1592,49 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
         } : null
     });
     
+    // Track variables for sample size and confidence
+    let sampleSize = 0;
+    let dataConfidence = 'N/A';
+    
     if (activeData && activeData.items && activeData.items.length > 0) {
         // Get asking prices from active listings
-        const askingPrices = activeData.items
+        let askingPrices = activeData.items
             .map(item => item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0)))
             .filter(p => p > 0)
             .sort((a, b) => a - b);
         
-        console.log('[MARKET PRESSURE DEBUG] Processed asking prices:', {
+        console.log('[MARKET PRESSURE DEBUG] Raw asking prices before filtering:', {
             totalItems: activeData.items.length,
             validPrices: askingPrices.length,
             priceRange: askingPrices.length > 0 ? `${formatMoney(askingPrices[0])} - ${formatMoney(askingPrices[askingPrices.length - 1])}` : 'N/A'
         });
         
+        // Apply IQR outlier filtering to asking prices (same method as sold prices)
+        if (askingPrices.length >= 4) {
+            const originalCount = askingPrices.length;
+            askingPrices = filterOutliers(askingPrices);
+            console.log('[MARKET PRESSURE DEBUG] IQR filtering removed', (originalCount - askingPrices.length), 'outlier asking prices');
+        }
+        
+        sampleSize = askingPrices.length;
+        
+        // Determine confidence level based on sample size
+        if (sampleSize >= 10) {
+            dataConfidence = 'High';
+        } else if (sampleSize >= 5) {
+            dataConfidence = 'Medium';
+        } else if (sampleSize > 0) {
+            dataConfidence = 'Low';
+        }
+        
+        console.log('[MARKET PRESSURE DEBUG] After filtering:', {
+            filteredPrices: askingPrices.length,
+            sampleSize: sampleSize,
+            confidence: dataConfidence
+        });
+        
         if (askingPrices.length > 0) {
-            // Calculate median asking price
+            // Calculate median asking price (after outlier filtering)
             medianAskingPrice = askingPrices[Math.floor(askingPrices.length / 2)];
             
             // Calculate Market Pressure %: (Median Asking Price - FMV) / FMV
@@ -1649,36 +1696,38 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
                 ${marketPressure !== null ? `
                 <div class="indicator-card" style="background: ${marketPressureGradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${marketPressureBorder}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Market Pressure compares what sellers are asking today to what buyers recently paid">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.5rem;">📊</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: ${marketPressureColor}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
+                            <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Market Pressure bands">i</button>
+                        </div>
+                        <span style="font-size: 0.75rem; font-weight: 600; color: ${marketPressureColor}; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
                             ${marketPressureStatus}
                         </span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
-                        Market Pressure %
-                        <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Market Pressure bands">i</button>
-                    </div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: ${marketPressureColor}; margin-bottom: 0.5rem;">
+                    <div style="font-size: 2rem; font-weight: 700; color: ${marketPressureColor}; margin-bottom: 0.5rem; line-height: 1;">
                         ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%
                     </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
                         ${marketPressureLabel}
                     </div>
-                    <div style="font-size: 0.7rem; color: #999; margin-top: 0.5rem; line-height: 1.3;">
-                        Median Ask: ${formatMoney(medianAskingPrice)}<br>
-                        FMV: ${formatMoney(marketValue)}
+                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                        <strong>Sample:</strong> ${sampleSize} listings (${dataConfidence} confidence)<br>
+                        <strong>Median Ask:</strong> ${formatMoney(medianAskingPrice)}<br>
+                        <strong>FMV:</strong> ${formatMoney(marketValue)}
                     </div>
                 </div>
                 ` : `
                 <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.5rem;">📊</span>
-                        <span style="font-size: 0.8rem; font-weight: 600; color: #6e6e73; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
+                            <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; font-weight: bold; color: #666; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 0, 0, 0.1)'; this.style.color='#333';" onmouseout="this.style.background='rgba(0, 0, 0, 0.05)'; this.style.color='#666';" title="Learn about Market Pressure bands">i</button>
+                        </div>
+                        <span style="font-size: 0.75rem; font-weight: 600; color: #6e6e73; background: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
                             N/A
                         </span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.25rem; font-weight: 500;">Market Pressure %</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem;">
+                    <div style="font-size: 2rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem; line-height: 1;">
                         --
                     </div>
                     <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
