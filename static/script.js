@@ -1410,7 +1410,56 @@ function toggleActiveListingsView() {
 }
 
 function clearSearch() {
+    // Clear the query input
     document.getElementById("query").value = "";
+    
+    // Clear results in Comps tab
+    const resultsDiv = document.getElementById("results");
+    if (resultsDiv) {
+        resultsDiv.innerHTML = "";
+    }
+    
+    // Clear stats container and show empty state
+    const statsContainer = document.getElementById("stats-container");
+    if (statsContainer) {
+        statsContainer.innerHTML = `
+            <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+                <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Comps & Statistics</h3>
+                <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Search for a card above to see recent sales, price statistics, and fair market value</p>
+            </div>
+        `;
+    }
+    
+    // Clear FMV container
+    const fmvContainer = document.getElementById("fmv-container");
+    if (fmvContainer) {
+        fmvContainer.innerHTML = "";
+    }
+    
+    // Clear Analysis tab and show empty state
+    const analysisContainer = document.getElementById("analysis-subtab");
+    if (analysisContainer) {
+        analysisContainer.innerHTML = `
+            <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+                <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Market Analysis</h3>
+                <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Search for a card to see advanced market analytics and insights</p>
+            </div>
+        `;
+    }
+    
+    // Clear beeswarm chart
+    clearBeeswarm();
+    
+    // Reset stored data
+    lastData = null;
+    lastActiveData = null;
+    lastMarketValue = null;
+    expectLowGlobal = null;
+    expectHighGlobal = null;
+    marketValueGlobal = null;
+    currentBeeswarmPrices = [];
+    
+    // Focus on the query input
     document.getElementById("query").focus();
 }
 
@@ -1796,6 +1845,25 @@ async function runSearchInternal() {
     // Show detailed loading state
     const resultsDiv = document.getElementById("results");
     const statsContainer = document.getElementById("stats-container");
+    const analysisContainer = document.getElementById("analysis-subtab");
+    
+    // Add loading state to Analysis tab
+    if (analysisContainer) {
+        analysisContainer.innerHTML = `
+            <div class="loading-container">
+                <div class="loading-stage active">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">
+                        <h4>Searching & Analyzing...</h4>
+                        <p>Gathering market data and calculating analytics</p>
+                    </div>
+                </div>
+                <div class="progress-info" style="text-align: center; margin-top: 1rem; color: var(--subtle-text-color);">
+                    <p>Estimated time: ~15 seconds</p>
+                </div>
+            </div>
+        `;
+    }
     
     resultsDiv.innerHTML = `
       <div class="loading-container">
@@ -1913,6 +1981,39 @@ async function runSearchInternal() {
 
       if (!resp.ok) {
         const errorText = await resp.text();
+        
+        // Check for query length validation error (422)
+        if (resp.status === 422) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            // Check if it's a string_too_long error for the query field
+            if (errorJson.detail && Array.isArray(errorJson.detail)) {
+              const queryLengthError = errorJson.detail.find(err =>
+                err.type === 'string_too_long' &&
+                err.loc?.includes('query')
+              );
+              
+              if (queryLengthError) {
+                const maxLength = queryLengthError.ctx?.max_length || 500;
+                const currentLength = queryLengthError.input?.length || 'unknown';
+                throw new Error(
+                  `Your search query is too long (${currentLength} characters, max ${maxLength}).\n\n` +
+                  `Try:\n` +
+                  `• Using a shorter base search term\n` +
+                  `• Unchecking some filter options (lots, graded, autographs, etc.)\n` +
+                  `• Using more specific keywords instead of many exclusions`
+                );
+              }
+            }
+          } catch (parseError) {
+            // If it's not the Error we threw above, fall through to generic error
+            if (parseError.message.includes('search query is too long')) {
+              throw parseError;
+            }
+          }
+        }
+        
+        // Generic error for other cases
         throw new Error(`Request failed (${resp.status}): ${errorText}`);
       }
 
@@ -1978,6 +2079,37 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
         if (!secondResp.ok) {
             const errorText = await secondResp.text();
             console.error('[DEBUG] Active listings request failed:', secondResp.status, errorText);
+            
+            // Check for query length validation error (422)
+            if (secondResp.status === 422) {
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    // Check if it's a string_too_long error for the query field
+                    if (errorJson.detail && Array.isArray(errorJson.detail)) {
+                        const queryLengthError = errorJson.detail.find(err =>
+                            err.type === 'string_too_long' &&
+                            err.loc?.includes('query')
+                        );
+                        
+                        if (queryLengthError) {
+                            const maxLength = queryLengthError.ctx?.max_length || 500;
+                            const currentLength = queryLengthError.input?.length || 'unknown';
+                            throw new Error(
+                                `Your search query is too long (${currentLength} characters, max ${maxLength}).\n\n` +
+                                `Try:\n` +
+                                `• Using a shorter base search term\n` +
+                                `• Unchecking some filter options (lots, graded, autographs, etc.)\n` +
+                                `• Using more specific keywords instead of many exclusions`
+                            );
+                        }
+                    }
+                } catch (parseError) {
+                    // If it's not the Error we threw above, fall through to generic error
+                    if (parseError.message.includes('search query is too long')) {
+                        throw parseError;
+                    }
+                }
+            }
             
             // Try to parse error as JSON to get detail
             let errorDetail = errorText;
@@ -2045,6 +2177,18 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
       `;
       document.getElementById("results").innerHTML = errorHtml;
       document.getElementById("stats-container").innerHTML = "";
+      
+      // Clear Analysis tab loading state on error
+      const analysisContainer = document.getElementById("analysis-subtab");
+      if (analysisContainer) {
+        analysisContainer.innerHTML = `
+          <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+            <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Market Analysis</h3>
+            <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Run a search to see advanced market analytics and insights</p>
+          </div>
+        `;
+      }
+      
       lastData = null;
       console.error('[ERROR] Search failed:', err);
     } finally {
