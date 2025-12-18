@@ -44,7 +44,7 @@ class QueryValidator(BaseModel):
     query: str = Field(
         ...,
         min_length=1,
-        max_length=2000,
+        max_length=5000,
         description="Search term for eBay listings"
     )
     pages: int = Field(
@@ -146,7 +146,7 @@ class ActiveListingsValidator(BaseModel):
     query: str = Field(
         ...,
         min_length=1,
-        max_length=2000,
+        max_length=5000,
         description="Search term for eBay listings"
     )
     pages: int = Field(
