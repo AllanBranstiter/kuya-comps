@@ -306,8 +306,9 @@
 
     .stat-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(150px, 200px));
         gap: 1.5rem;
+        justify-content: center;
     }
 
     .stat-item {
@@ -884,8 +885,9 @@
 
      /* Mobile Stats Grid */
      .stat-grid {
-       grid-template-columns: 1fr;
+       grid-template-columns: minmax(200px, 400px);
        gap: 1rem;
+       justify-content: center;
      }
 
      .stat-item {
@@ -999,8 +1001,9 @@
 
      /* Tablet Stats Grid */
      .stat-grid {
-       grid-template-columns: repeat(2, 1fr);
+       grid-template-columns: repeat(auto-fit, minmax(150px, 200px));
        gap: 1.25rem;
+       justify-content: center;
      }
 
      /* Tablet PSA Grid */
@@ -1048,7 +1051,8 @@
 
      /* Desktop-specific layout improvements */
      .stat-grid {
-       grid-template-columns: repeat(3, 1fr);
+       grid-template-columns: repeat(auto-fit, minmax(150px, 200px));
+       justify-content: center;
      }
 
      .psa-results-grid {
@@ -1072,7 +1076,8 @@
      }
 
      .stat-grid {
-       grid-template-columns: repeat(4, 1fr);
+       grid-template-columns: repeat(auto-fit, minmax(150px, 200px));
+       justify-content: center;
      }
    }
 
@@ -1101,8 +1106,9 @@
      }
 
      .stat-grid {
-       grid-template-columns: repeat(2, 1fr);
+       grid-template-columns: repeat(auto-fit, minmax(150px, 200px));
        gap: 0.75rem;
+       justify-content: center;
      }
 
      .stat-item {
