@@ -1094,7 +1094,7 @@ async function renderData(data, secondData = null, marketValue = null) {
         marketValue: marketValue
     });
     
-    if (secondData && secondData.items && marketValue) {
+    if (secondData && secondData.items) {
         console.log('[DEBUG renderData] Starting to filter active listings. Total items:', secondData.items.length);
         
         // Get checkbox state (default to unchecked on first render)
@@ -1103,10 +1103,12 @@ async function renderData(data, secondData = null, marketValue = null) {
         
         console.log('[DEBUG renderData] See All checkbox state:', showAllListings);
         
-        // Filter active listings based on checkbox state
+        // Filter active listings based on checkbox state and FMV availability
         let filteredItems;
-        if (showAllListings) {
-            // Show all Buy It Now items, sorted by price
+        if (showAllListings || !marketValue) {
+            // Show all Buy It Now items when:
+            // 1. "See All" is checked, OR
+            // 2. No market value available (can't filter by price)
             filteredItems = secondData.items.filter(item => {
                 const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const buyingFormat = (item.buying_format || '').toLowerCase();
@@ -1156,21 +1158,36 @@ async function renderData(data, secondData = null, marketValue = null) {
             return priceA - priceB;
         });
         
+        // Determine header text and checkbox state based on FMV availability
+        const hasMarketValue = marketValue !== null && marketValue !== undefined;
+        const headerText = hasMarketValue
+            ? (showAllListings ? 'Active Listings' : 'Active Listings Below Fair Market Value')
+            : 'Active Listings';
+        const checkboxDisabled = !hasMarketValue;
+        
         html += `
           <div style="margin-bottom: 1rem; margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; color: var(--text-color);">Active Listings ${showAllListings ? '' : 'Below Fair Market Value'}</h3>
-            <label style="font-size: 0.95rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
-              <input type="checkbox" id="see-all-active-listings" style="transform: scale(1.3); cursor: pointer;" onchange="toggleActiveListingsView()" ${showAllListings ? 'checked' : ''}>
+            <h3 style="margin: 0; color: var(--text-color);">${headerText}</h3>
+            <label style="font-size: 0.95rem; font-weight: 500; cursor: ${checkboxDisabled ? 'not-allowed' : 'pointer'}; display: inline-flex; align-items: center; gap: 0.5rem; opacity: ${checkboxDisabled ? '0.5' : '1'};">
+              <input type="checkbox" id="see-all-active-listings" style="transform: scale(1.3); cursor: ${checkboxDisabled ? 'not-allowed' : 'pointer'};" onchange="toggleActiveListingsView()" ${showAllListings ? 'checked' : ''} ${checkboxDisabled ? 'disabled' : ''}>
               <span>See All</span>
             </label>
           </div>
+          ${!hasMarketValue ? `
+          <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #ff9500;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">ℹ️</span>
+              <span style="font-size: 0.85rem; color: #333;">No recent sales found - showing all active listings (Fair Market Value unavailable)</span>
+            </div>
+          </div>
+          ` : ''}
           <div id="active-listings-table" class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
               <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <tr>
                   <th>Title</th>
                   <th>Price</th>
-                  <th>Discount</th>
+                  ${hasMarketValue ? '<th>Discount</th>' : ''}
                   <th>Type</th>
                   <th>Item ID</th>
                 </tr>
@@ -1182,10 +1199,15 @@ async function renderData(data, secondData = null, marketValue = null) {
                 
                 // Calculate price with fallback - use total_price from API if available
                 const itemPrice = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-                // Calculate discount (may be negative if above FMV)
-                const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
-                const discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
-                const discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                
+                // Calculate discount only if market value is available
+                let discountDisplay = '';
+                let discountColor = '';
+                if (hasMarketValue) {
+                  const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                  discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
+                  discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                }
                 
                 // Debug logging for price calculation
                 console.log('[ACTIVE LISTING PRICE]', {
@@ -1223,15 +1245,17 @@ async function renderData(data, secondData = null, marketValue = null) {
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(itemPrice)}</td>
-                    <td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>
+                    ${hasMarketValue ? `<td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>` : ''}
                     <td>${escapeHtml(displayType)}</td>
                     <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
                 <tr>
-                  <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
-                    ${showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value'}
+                  <td colspan="${hasMarketValue ? '5' : '4'}" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                    ${hasMarketValue
+                      ? (showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value')
+                      : 'No active listings found'}
                   </td>
                 </tr>
               `}
@@ -1302,7 +1326,7 @@ function toggleActiveListingsView() {
     console.log('[DEBUG] Toggle active listings view called');
     
     // Re-render the active listings table with the new checkbox state
-    if (lastData && lastActiveData && lastMarketValue) {
+    if (lastData && lastActiveData) {
         console.log('[DEBUG] Re-rendering active listings with stored data');
         
         // Get checkbox state
@@ -1311,10 +1335,15 @@ function toggleActiveListingsView() {
         
         console.log('[DEBUG] Checkbox state:', showAllListings);
         
-        // Filter active listings based on checkbox state
+        // Check if market value is available
+        const hasMarketValue = lastMarketValue !== null && lastMarketValue !== undefined;
+        
+        // Filter active listings based on checkbox state and FMV availability
         let filteredItems;
-        if (showAllListings) {
-            // Show all Buy It Now items, sorted by price
+        if (showAllListings || !hasMarketValue) {
+            // Show all Buy It Now items when:
+            // 1. "See All" is checked, OR
+            // 2. No market value available (can't filter by price)
             filteredItems = lastActiveData.items.filter(item => {
                 const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const buyingFormat = (item.buying_format || '').toLowerCase();
@@ -1346,7 +1375,7 @@ function toggleActiveListingsView() {
             <tr>
               <th>Title</th>
               <th>Price</th>
-              <th>Discount</th>
+              ${hasMarketValue ? '<th>Discount</th>' : ''}
               <th>Type</th>
               <th>Item ID</th>
             </tr>
@@ -1358,9 +1387,15 @@ function toggleActiveListingsView() {
             filteredItems.forEach(item => {
                 const displayType = 'Buy It Now';
                 const itemPrice = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-                const discount = ((lastMarketValue - itemPrice) / lastMarketValue * 100).toFixed(0);
-                const discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
-                const discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                
+                // Calculate discount only if market value is available
+                let discountDisplay = '';
+                let discountColor = '';
+                if (hasMarketValue) {
+                  const discount = ((lastMarketValue - itemPrice) / lastMarketValue * 100).toFixed(0);
+                  discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
+                  discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                }
                 
                 const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
                 const targetAttr = isIOS ? '' : ' target="_blank"';
@@ -1370,7 +1405,7 @@ function toggleActiveListingsView() {
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(itemPrice)}</td>
-                    <td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>
+                    ${hasMarketValue ? `<td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>` : ''}
                     <td>${escapeHtml(displayType)}</td>
                     <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
                   </tr>
@@ -1379,8 +1414,10 @@ function toggleActiveListingsView() {
         } else {
             tableHtml += `
               <tr>
-                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
-                  ${showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value'}
+                <td colspan="${hasMarketValue ? '5' : '4'}" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                  ${hasMarketValue
+                    ? (showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value')
+                    : 'No active listings found'}
                 </td>
               </tr>
             `;
@@ -1397,10 +1434,13 @@ function toggleActiveListingsView() {
             }
         }
         
-        // Update the heading
+        // Update the heading based on FMV availability
         const headingContainer = tableContainer?.previousElementSibling?.previousElementSibling;
         if (headingContainer && headingContainer.querySelector('h3')) {
-            headingContainer.querySelector('h3').textContent = `Active Listings ${showAllListings ? '' : 'Below Fair Market Value'}`;
+            const headerText = hasMarketValue
+                ? (showAllListings ? 'Active Listings' : 'Active Listings Below Fair Market Value')
+                : 'Active Listings';
+            headingContainer.querySelector('h3').textContent = headerText;
         }
         
         console.log('[DEBUG] Active listings table updated');
