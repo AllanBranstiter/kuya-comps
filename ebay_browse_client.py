@@ -4,12 +4,15 @@ Official eBay Buy API integration for Kuya Comps
 Documentation: https://developer.ebay.com/api-docs/buy/browse/overview.html
 """
 import os
-import requests
+import httpx
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
 from dotenv import load_dotenv
+from backend.http_client import AsyncHTTPClient
+import logging
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 class eBayBrowseClient:
@@ -50,7 +53,7 @@ class eBayBrowseClient:
         
         print(f"[eBay API] Initialized in {self.environment} mode")
     
-    def get_access_token(self) -> str:
+    async def get_access_token(self) -> str:
         """
         Get OAuth 2.0 Application Access Token using Client Credentials flow.
         Tokens are cached and automatically refreshed when expired.
@@ -62,10 +65,9 @@ class eBayBrowseClient:
         if self.token and self.token_expires and datetime.now() < self.token_expires:
             return self.token
         
-        print("[eBay API] Requesting new access token...")
+        logger.info("[eBay API] Requesting new access token...")
         
         # Request new token using Client Credentials grant
-        auth = (self.app_id, self.cert_id)
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded'
         }
@@ -75,32 +77,36 @@ class eBayBrowseClient:
         }
         
         try:
-            response = requests.post(
-                self.auth_url,
-                auth=auth,
-                headers=headers,
-                data=data,
-                timeout=10
-            )
-            response.raise_for_status()
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.auth_url,
+                    auth=(self.app_id, self.cert_id),
+                    headers=headers,
+                    data=data,
+                    timeout=10
+                )
+                response.raise_for_status()
+                
+                token_data = response.json()
+                self.token = token_data['access_token']
+                
+                # Refresh token 5 minutes before actual expiry for safety
+                expires_in = token_data.get('expires_in', 7200) - 300
+                self.token_expires = datetime.now() + timedelta(seconds=expires_in)
+                
+                logger.info(f"[eBay API] Token acquired successfully, expires in {expires_in}s")
+                return self.token
             
-            token_data = response.json()
-            self.token = token_data['access_token']
-            
-            # Refresh token 5 minutes before actual expiry for safety
-            expires_in = token_data.get('expires_in', 7200) - 300
-            self.token_expires = datetime.now() + timedelta(seconds=expires_in)
-            
-            print(f"[eBay API] Token acquired successfully, expires in {expires_in}s")
-            return self.token
-            
-        except requests.exceptions.RequestException as e:
-            print(f"[eBay API] Authentication failed: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"[eBay API] Error response: {e.response.text[:500]}")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"[eBay API] Authentication failed: {e}")
+            if e.response is not None:
+                logger.error(f"[eBay API] Error response: {e.response.text[:500]}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"[eBay API] Authentication request failed: {e}")
             raise
     
-    def search_items(
+    async def search_items(
         self,
         query: str,
         limit: int = 50,
@@ -142,7 +148,7 @@ class eBayBrowseClient:
                 'itemLocationCountry': 'US'
             }
         """
-        token = self.get_access_token()
+        token = await self.get_access_token()
         
         headers = {
             'Authorization': f'Bearer {token}',
@@ -155,10 +161,10 @@ class eBayBrowseClient:
         # Only add if both enabled AND campaign_id is valid (not a placeholder)
         if self.enable_affiliate and self.campaign_id and self.campaign_id.isdigit():
             headers['X-EBAY-C-ENDUSERCTX'] = f'affiliateCampaignId={self.campaign_id}'
-            print(f"[eBay API] Affiliate tracking enabled (Campaign: {self.campaign_id})")
+            logger.info(f"[eBay API] Affiliate tracking enabled (Campaign: {self.campaign_id})")
         else:
             if self.enable_affiliate:
-                print(f"[eBay API] Affiliate disabled - invalid or missing campaign ID: {self.campaign_id}")
+                logger.warning(f"[eBay API] Affiliate disabled - invalid or missing campaign ID: {self.campaign_id}")
         
         params = {
             'q': query,
@@ -183,24 +189,28 @@ class eBayBrowseClient:
         url = f"{self.base_url}/item_summary/search"
         
         try:
-            print(f"[eBay API] Searching: '{query}' (limit={limit}, offset={offset})")
-            response = requests.get(url, headers=headers, params=params, timeout=15)
-            response.raise_for_status()
+            logger.info(f"[eBay API] Searching: '{query}' (limit={limit}, offset={offset})")
+            
+            async with AsyncHTTPClient(timeout=15) as client:
+                response = await client.get(url, headers=headers, params=params)
             
             data = response.json()
             total = data.get('total', 0)
             items_count = len(data.get('itemSummaries', []))
-            print(f"[eBay API] Found {items_count} items on this page (total matches: {total})")
+            logger.info(f"[eBay API] Found {items_count} items on this page (total matches: {total})")
             
             return data
             
-        except requests.exceptions.RequestException as e:
-            print(f"[eBay API] Search failed: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"[eBay API] Error response: {e.response.text[:500]}")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"[eBay API] Search failed: {e}")
+            if e.response is not None:
+                logger.error(f"[eBay API] Error response: {e.response.text[:500]}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"[eBay API] Search request failed: {e}")
             raise
     
-    def get_item(
+    async def get_item(
         self,
         item_id: str,
         fieldgroups: Optional[str] = None,
@@ -220,7 +230,7 @@ class eBayBrowseClient:
         Returns:
             Dict: Detailed item information including description, specs, seller info, etc.
         """
-        token = self.get_access_token()
+        token = await self.get_access_token()
         
         headers = {
             'Authorization': f'Bearer {token}',
@@ -240,16 +250,20 @@ class eBayBrowseClient:
         url = f"{self.base_url}/item/{item_id}"
         
         try:
-            print(f"[eBay API] Getting item details: {item_id}")
-            response = requests.get(url, headers=headers, params=params, timeout=10)
-            response.raise_for_status()
+            logger.info(f"[eBay API] Getting item details: {item_id}")
+            
+            async with AsyncHTTPClient(timeout=10) as client:
+                response = await client.get(url, headers=headers, params=params)
             
             return response.json()
             
-        except requests.exceptions.RequestException as e:
-            print(f"[eBay API] Get item failed: {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                print(f"[eBay API] Error response: {e.response.text[:500]}")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"[eBay API] Get item failed: {e}")
+            if e.response is not None:
+                logger.error(f"[eBay API] Error response: {e.response.text[:500]}")
+            raise
+        except httpx.RequestError as e:
+            logger.error(f"[eBay API] Get item request failed: {e}")
             raise
 
 
@@ -433,21 +447,21 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
 
 
 # Test function
-def test_ebay_client():
+async def test_ebay_client():
     """
     Test the eBay Browse API client with a sample search.
     Run this file directly to test: python ebay_browse_client.py
     """
     try:
         print("="*60)
-        print("Testing eBay Browse API Client")
+        print("Testing eBay Browse API Client (Async)")
         print("="*60)
         
         client = eBayBrowseClient()
         
         # Test search
         print("\n[TEST] Searching for: '2024 topps chrome paul skenes'")
-        results = client.search_items(
+        results = await client.search_items(
             query="2024 topps chrome paul skenes",
             limit=10,
             sort="price",
@@ -492,4 +506,5 @@ def test_ebay_client():
 
 
 if __name__ == "__main__":
-    test_ebay_client()
+    import asyncio
+    asyncio.run(test_ebay_client())

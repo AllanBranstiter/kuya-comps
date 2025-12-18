@@ -3,6 +3,9 @@
 .env.local
 .env.production
 .env.development
+.env.*.local
+.env.test.local
+.env.staging
 
 # Python
 __pycache__/
@@ -34,10 +37,55 @@ testing/comps.csv
 *.log
 AI_CONTEXT.md
 
+# Planning documents (internal use only)
+plans/
+
 # eBay data - DO NOT STORE per eBay Terms of Service
 debug_active_listings.csv
 debug_*.csv
 *_debug.csv
+
+# Secret files and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
+id_rsa*
+id_dsa*
+secrets.yml
+secrets.yaml
+secrets.json
+secrets.txt
+.secret
+.secrets
+credentials.json
+credentials.yml
+service-account*.json
+gcloud-service-key.json
+firebase-adminsdk-*.json
+.aws/credentials
+.aws/config
+.azure/credentials
+.gcp/credentials
+
+# Config files that may contain secrets
+config.local.js
+config.local.json
+config.local.yml
+.npmrc
+.pypirc
+
+# Security scanning reports
+gitleaks-report.json
+trivy-results.json
+snyk-results.json
+secretlint-report.json
 
 # Temporary files
 *.tmp
