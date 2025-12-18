@@ -56,8 +56,14 @@ This is a simple web application to scrape and display sold listings for basebal
     - Railway will automatically detect the Python app and deploy using the Procfile
 
 3.  **Environment Variables Required:**
-    - `SEARCH_API_KEY`: Your SearchAPI.io API key
-    - `PORT`: Automatically set by Railway
+    - `SEARCH_API_KEY`: Your SearchAPI.io API key (required)
+    - `EBAY_APP_ID`, `EBAY_DEV_ID`, `EBAY_CERT_ID`: eBay API credentials (recommended)
+    - `ENVIRONMENT`: Set to `production`
+    - `SENTRY_DSN`: Error monitoring (optional but recommended)
+    - `REDIS_URL`: Automatically provided by Railway/Render for caching
+    - `PORT`: Automatically set by hosting provider
+    
+    See `.env.example` for a complete list of configuration options.
 
 ## API
 
@@ -70,10 +76,20 @@ Both endpoints support comprehensive filtering and modern analytics.
 
 ## Security
 
-- API keys are handled securely on the backend via environment variables
-- The `.env` file is excluded from version control via `.gitignore`
-- Password protection prevents unauthorized access to the application
-- All API calls are routed through the secure backend, never exposing keys to the frontend
+🔒 **Important**: This project includes multiple layers of protection to prevent secrets from being committed to Git.
+
+- **Automated Secret Scanning**: Pre-commit hook using [gitleaks](https://github.com/gitleaks/gitleaks) scans for API keys before every commit
+- **Comprehensive `.gitignore`**: Excludes `.env` files, credentials, private keys, and other sensitive data
+- **Custom Detection Rules**: Project-specific patterns in `.gitleaks.toml` detect eBay API, SearchAPI, and other keys
+- **Environment Variables**: API keys are handled securely on the backend via environment variables
+- **Password Protection**: Prevents unauthorized access to the application
+- **Secure API Routing**: All API calls are routed through the backend, never exposing keys to the frontend
+
+**📚 For detailed security guidelines**, see [`docs/SECURITY.md`](docs/SECURITY.md) for:
+- Setting up your environment securely
+- What to do if you accidentally commit a secret
+- Testing the security setup
+- Best practices for production deployments
 
 ## Version History
 
