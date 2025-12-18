@@ -1994,7 +1994,7 @@ async function runSearchInternal() {
               );
               
               if (queryLengthError) {
-                const maxLength = queryLengthError.ctx?.max_length || 500;
+                const maxLength = queryLengthError.ctx?.max_length || 2000;
                 const currentLength = queryLengthError.input?.length || 'unknown';
                 throw new Error(
                   `Your search query is too long (${currentLength} characters, max ${maxLength}).\n\n` +
@@ -2092,7 +2092,7 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
                         );
                         
                         if (queryLengthError) {
-                            const maxLength = queryLengthError.ctx?.max_length || 500;
+                            const maxLength = queryLengthError.ctx?.max_length || 2000;
                             const currentLength = queryLengthError.input?.length || 'unknown';
                             throw new Error(
                                 `Your search query is too long (${currentLength} characters, max ${maxLength}).\n\n` +
