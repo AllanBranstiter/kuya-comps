@@ -18,7 +18,7 @@ from backend.services.fmv_service import (
     calculate_fmv,
     FMVResult
 )
-from main import CompItem
+from backend.models.schemas import CompItem
 from backend.config import (
     MIN_VOLUME_WEIGHT,
     MAX_VOLUME_WEIGHT,

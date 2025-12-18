@@ -11,7 +11,8 @@ import pytest
 from unittest.mock import patch, Mock
 from fastapi.testclient import TestClient
 
-from main import app, CompItem
+from main import app
+from backend.models.schemas import CompItem
 
 
 @pytest.mark.integration

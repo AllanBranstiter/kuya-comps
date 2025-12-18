@@ -14,7 +14,7 @@ from backend.services.intelligence_service import (
     extract_card_year,
     analyze_market_intelligence
 )
-from main import CompItem
+from backend.models.schemas import CompItem
 
 
 class TestDetectParallelType:

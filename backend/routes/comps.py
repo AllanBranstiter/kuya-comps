@@ -22,13 +22,9 @@ from backend.logging_config import get_logger, log_with_context
 from backend.cache import CacheService
 from backend.config import get_search_api_key, CACHE_TTL_SOLD, CACHE_TTL_ACTIVE
 from backend.services.intelligence_service import analyze_market_intelligence
+from backend.models.schemas import CompItem, CompsResponse
+from backend.utils import generate_ebay_deep_link, load_test_data
 from scraper import scrape_sold_comps, scrape_active_listings_ebay_api
-from main import (
-    CompItem,
-    CompsResponse,
-    generate_ebay_deep_link,
-    load_test_data,
-)
 
 
 # Initialize router

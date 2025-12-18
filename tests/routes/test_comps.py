@@ -12,7 +12,8 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 
-from main import app, CompItem
+from main import app
+from backend.models.schemas import CompItem
 from backend.exceptions import APIKeyMissingError, ScraperError
 
 

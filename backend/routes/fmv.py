@@ -8,7 +8,7 @@ from comp data and testing external API connectivity.
 from typing import List
 from fastapi import APIRouter, HTTPException
 from backend.services.fmv_service import calculate_fmv
-from main import CompItem, FmvResponse
+from backend.models.schemas import CompItem, FmvResponse
 
 
 # Initialize router

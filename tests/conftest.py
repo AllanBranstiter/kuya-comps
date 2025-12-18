@@ -14,7 +14,8 @@ import os
 # Add parent directory to path to import modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from main import app, CompItem
+from main import app
+from backend.models.schemas import CompItem
 from backend.cache import CacheService
 
 
