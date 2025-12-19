@@ -64,7 +64,7 @@ from backend.middleware import RequestIDMiddleware, MetricsMiddleware, SecurityH
 from backend.middleware.metrics import metrics
 
 # Import routers
-from backend.routes import health, comps, fmv
+from backend.routes import health, comps, fmv, market_messages
 
 # Initialize logger for this module
 logger = get_logger(__name__)
@@ -154,6 +154,9 @@ app.include_router(comps.router, tags=["Comps"])
 
 # FMV endpoints (/fmv and /test-ebay-api)
 app.include_router(fmv.router, tags=["FMV"])
+
+# Market messages endpoints (/market-message and /liquidity-popup/<tier_id>)
+app.include_router(market_messages.router, tags=["Market Messages"])
 
 
 # ============================================================================

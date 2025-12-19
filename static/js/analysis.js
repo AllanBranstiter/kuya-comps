@@ -592,27 +592,17 @@ function renderPersonaAdvice(personaAdvice) {
     return html;
 }
 
+// ============================================================================
+// FALLBACK MESSAGE CONTENT (USED IF JSON LOADING FAILS)
+// ============================================================================
+
 /**
- * Render market assessment warning section
- * @param {number} marketPressure - Market pressure percentage
- * @param {Object} liquidityRisk - Liquidity risk metrics
- * @param {Object} priceBands - Price band data
- * @param {number} marketConfidence - Market confidence score
- * @param {Object} data - Sold data
- * @param {Object} activeData - Active listings data
- * @returns {string} HTML for market assessment
+ * Hardcoded fallback content for market assessment messages
+ * Used when dynamic content loading from JSON fails
  */
-function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData) {
-    if (marketPressure === null || !liquidityRisk || liquidityRisk.score === null) {
-        return '';
-    }
-    
-    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
-    
-    // MESSAGE CONTENT DEFINITIONS WITH PERSONA ADVICE
-    const messageContent = {
+const FALLBACK_MESSAGE_CONTENT = {
         dataQualityWarning: {
-            message: `The prices are all over the place (confidence: ${marketConfidence}/100) and asking prices are ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV. This usually means your search is mixing different card types, conditions, or variations together. Try making your search more specific to get better results.`,
+            message: `The prices are all over the place (confidence: {confidence}/100) and asking prices are {marketPressure}% vs FMV. This usually means your search is mixing different card types, conditions, or variations together. Try making your search more specific to get better results.`,
             personaAdvice: {
                 seller: [
                     "Be careful pricing your card based on outliers",
@@ -633,7 +623,7 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
         },
         
         twoTierMarket: {
-            message: `This market has two different speeds: Cards priced below FMV are selling <strong>${absorptionBelow}x faster</strong> than new listings appear (${salesBelow} sales vs ${belowFMV} listings), while higher-priced cards aren't selling quickly (${absorptionAbove} absorption, ${salesAbove} sales vs ${aboveFMV} listings). Average asking price is ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV.`,
+            message: `This market has two different speeds: Cards priced below FMV are selling <strong>{absorptionBelow}x faster</strong> than new listings appear ({salesBelow} sales vs {belowFMV} listings), while higher-priced cards aren't selling quickly ({absorptionAbove} absorption, {salesAbove} sales vs {aboveFMV} listings). Average asking price is {marketPressure}% vs FMV.`,
             personaAdvice: {
                 seller: [
                     "Cards priced near or below fair value sell much faster",
@@ -654,7 +644,7 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
         },
         
         highRiskConditions: {
-            message: `Sellers are asking <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but there aren't many buyers interested (liquidity: ${liquidityRisk.score}/100). This means listings are overpriced compared to what buyers are actually willing to pay. It may be better to wait for sellers to lower prices or look for better deals elsewhere.`,
+            message: `Sellers are asking <strong>{marketPressure}% above FMV</strong>, but there aren't many buyers interested (liquidity: {liquidityScore}/100). This means listings are overpriced compared to what buyers are actually willing to pay. It may be better to wait for sellers to lower prices or look for better deals elsewhere.`,
             personaAdvice: {
                 seller: [
                     "This is a tough environment to sell in",
@@ -675,7 +665,7 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
         },
         
         overpricedActiveMarket: {
-            message: `The market for this card is very hot. Asking prices are <strong>${marketPressure.toFixed(1)}% above FMV</strong>, and are supported by strong demand and good liquidity (${liquidityRisk.score}/100). Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.`,
+            message: `The market for this card is very hot. Asking prices are <strong>{marketPressure}% above FMV</strong>, and are supported by strong demand and good liquidity ({liquidityScore}/100). Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.`,
             personaAdvice: {
                 seller: [
                     "This is a strong selling window",
@@ -696,7 +686,7 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
         },
         
         fairPricingLimitedDemand: {
-            message: `Prices are fairly reasonable (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV), but not many buyers are interested (liquidity: ${liquidityRisk.score}/100). Even though prices are fair, cards aren't selling well. This could mean the card is losing popularity or buyer interest is fading. If this card is from a recent release, this could also mean the number of cards available for sale (supply) is starting to outstrip the number of interested buyers (demand).`,
+            message: `Prices are fairly reasonable ({marketPressure}% vs FMV), but not many buyers are interested (liquidity: {liquidityScore}/100). Even though prices are fair, cards aren't selling well. This could mean the card is losing popularity or buyer interest is fading. If this card is from a recent release, this could also mean the number of cards available for sale (supply) is starting to outstrip the number of interested buyers (demand).`,
             personaAdvice: {
                 seller: [
                     "Slow sales are likely, even at fair prices",
@@ -717,7 +707,7 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
         },
         
         strongBuyOpportunity: {
-            message: `Available cards are priced <strong>${Math.abs(marketPressure).toFixed(1)}% below FMV</strong> and lots of buyers are active (liquidity: ${liquidityRisk.score}/100). This is a rare opportunity: cards are underpriced and selling fast. This could mean a player is breaking out or performing well.`,
+            message: `Available cards are priced <strong>{absMarketPressure}% below FMV</strong> and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: cards are underpriced and selling fast. This could mean a player is breaking out or performing well.`,
             personaAdvice: {
                 seller: [
                     "You could be leaving money on the table at current prices—consider your opinion of the player's potential",
@@ -738,7 +728,7 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
         },
         
         healthyMarketConditions: {
-            message: `Prices are fair (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) and there's plenty of buyer activity (liquidity: ${liquidityRisk.score}/100). This is a healthy, well-functioning market where both buyers and sellers are active. Prices accurately reflect current demand: good conditions for both buying and selling.`,
+            message: `Prices are fair ({marketPressure}% vs FMV) and there's plenty of buyer activity (liquidity: {liquidityScore}/100). This is a healthy, well-functioning market where both buyers and sellers are active. Prices accurately reflect current demand: good conditions for both buying and selling.`,
             personaAdvice: {
                 seller: [
                     "Fair pricing is being rewarded with steady sales",
@@ -759,10 +749,52 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
         },
         
         balancedMarket: {
-            message: `Prices are in the middle range (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) with moderate buyer activity (liquidity: ${liquidityRisk.score}/100). This is a normal, stable market: nothing particularly remarkable happening. Use your normal judgment when buying or selling.`,
+            message: `Prices are in the middle range ({marketPressure}% vs FMV) with moderate buyer activity (liquidity: {liquidityScore}/100). This is a normal, stable market: nothing particularly remarkable happening. Use your normal judgment when buying or selling.`,
             personaAdvice: null  // No persona advice for balanced market
+    }
+};
+
+// Set fallback in content loader if available
+if (typeof window !== 'undefined' && window.contentLoader) {
+    window.contentLoader.setFallback({ messages: FALLBACK_MESSAGE_CONTENT });
+}
+
+// ============================================================================
+// MARKET ASSESSMENT RENDERING
+// ============================================================================
+
+/**
+ * Render market assessment warning section
+ * @param {number} marketPressure - Market pressure percentage
+ * @param {Object} liquidityRisk - Liquidity risk metrics
+ * @param {Object} priceBands - Price band data
+ * @param {number} marketConfidence - Market confidence score
+ * @param {Object} data - Sold data
+ * @param {Object} activeData - Active listings data
+ * @returns {Promise<string>} HTML for market assessment
+ */
+async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData) {
+    if (marketPressure === null || !liquidityRisk || liquidityRisk.score === null) {
+        return '';
+    }
+    
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
+    
+    // Load message content dynamically from JSON
+    let messageContent;
+    try {
+        if (window.contentLoader) {
+            const content = await window.contentLoader.load();
+            messageContent = content.messages;
+            console.log('[renderMarketAssessment] Loaded dynamic content from JSON');
+        } else {
+            console.warn('[renderMarketAssessment] contentLoader not available, using fallback');
+            messageContent = FALLBACK_MESSAGE_CONTENT;
         }
-    };
+    } catch (error) {
+        console.error('[renderMarketAssessment] Failed to load content, using fallback:', error);
+        messageContent = FALLBACK_MESSAGE_CONTENT;
+    }
     
     // SELECT APPROPRIATE MESSAGE BASED ON CONDITIONS
     let selectedScenario = null;
@@ -860,6 +892,22 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
     const content = messageContent[selectedScenario];
     const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
     
+    // Replace placeholders in the message with actual values
+    let processedMessage = content.message
+        .replace(/{confidence}/g, marketConfidence)
+        .replace(/{marketPressure}/g, marketPressure >= 0 ? '+' + marketPressure.toFixed(1) : marketPressure.toFixed(1))
+        .replace(/{absMarketPressure}/g, Math.abs(marketPressure).toFixed(1))
+        .replace(/{liquidityScore}/g, liquidityRisk.score)
+        .replace(/{absorptionBelow}/g, absorptionBelow)
+        .replace(/{absorptionAt}/g, absorptionAt)
+        .replace(/{absorptionAbove}/g, absorptionAbove)
+        .replace(/{salesBelow}/g, salesBelow)
+        .replace(/{salesAt}/g, salesAt)
+        .replace(/{salesAbove}/g, salesAbove)
+        .replace(/{belowFMV}/g, belowFMV)
+        .replace(/{atFMV}/g, atFMV)
+        .replace(/{aboveFMV}/g, aboveFMV);
+    
     // BUILD HTML WITH PERSONA ADVICE
     return `
         <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
@@ -871,7 +919,7 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
                     <strong style="font-size: 1.1rem; color: ${warningColor};">${warningTitle}</strong>
                 </div>
                 <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
-                    ${content.message}
+                    ${processedMessage}
                 </p>
                 ${renderPersonaAdvice(content.personaAdvice)}
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">

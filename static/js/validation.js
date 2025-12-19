@@ -3,15 +3,12 @@
  * Validates query length, pages, and provides real-time feedback
  */
 
-import { UI_CONSTANTS } from './config.js';
-import { showValidationError } from './errorHandler.js';
-
 /**
  * Validate search query
  * @param {string} query - Search query to validate
  * @returns {boolean} - True if valid, false otherwise
  */
-export function validateSearchQuery(query) {
+function validateSearchQuery(query) {
     if (!query || typeof query !== 'string') {
         return false;
     }
@@ -35,7 +32,7 @@ export function validateSearchQuery(query) {
  * @param {number} pages - Number of pages to validate
  * @returns {boolean} - True if valid, false otherwise
  */
-export function validatePages(pages) {
+function validatePages(pages) {
     const pageNum = parseInt(pages, 10);
     
     if (isNaN(pageNum)) {
@@ -62,7 +59,7 @@ export function validatePages(pages) {
  * @param {Array} cardSelections - Array of card selections
  * @returns {Object} - {valid: boolean, error: string}
  */
-export function validateIntelligenceSearch(query, cardSelections) {
+function validateIntelligenceSearch(query, cardSelections) {
     // Validate query
     if (!validateSearchQuery(query)) {
         return {
@@ -115,7 +112,7 @@ export function validateIntelligenceSearch(query, cardSelections) {
  * @param {Function} onValid - Callback when input is valid
  * @param {Function} onInvalid - Callback when input is invalid
  */
-export function setupRealTimeValidation(inputId, validator, onValid, onInvalid) {
+function setupRealTimeValidation(inputId, validator, onValid, onInvalid) {
     const input = document.getElementById(inputId);
     if (!input) return;
     
@@ -150,7 +147,7 @@ export function setupRealTimeValidation(inputId, validator, onValid, onInvalid) 
  * @param {string} buttonId - ID of submit button
  * @param {Function} validationCheck - Function that returns true if form is valid
  */
-export function setupSubmitButtonValidation(buttonId, validationCheck) {
+function setupSubmitButtonValidation(buttonId, validationCheck) {
     const button = document.getElementById(buttonId);
     if (!button) return;
     
@@ -175,7 +172,7 @@ export function setupSubmitButtonValidation(buttonId, validationCheck) {
  * @param {number} cardNumber - Card number (1, 2, or 3)
  * @returns {Object} - {valid: boolean, grader: string, grade: string, error: string}
  */
-export function validateCardInput(cardNumber) {
+function validateCardInput(cardNumber) {
     const graderInput = document.getElementById(`card${cardNumber}-grader`);
     const gradeInput = document.getElementById(`card${cardNumber}-grade`);
     
@@ -209,7 +206,7 @@ export function validateCardInput(cardNumber) {
  * @param {boolean} isValid - Whether input is valid
  * @param {string} message - Message to display (optional)
  */
-export function showInputValidation(inputId, isValid, message = '') {
+function showInputValidation(inputId, isValid, message = '') {
     const input = document.getElementById(inputId);
     if (!input) return;
     
@@ -245,7 +242,7 @@ export function showInputValidation(inputId, isValid, message = '') {
  * Clear validation feedback on an input
  * @param {string} inputId - ID of input element
  */
-export function clearInputValidation(inputId) {
+function clearInputValidation(inputId) {
     const input = document.getElementById(inputId);
     if (!input) return;
     

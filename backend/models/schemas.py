@@ -102,6 +102,17 @@ class CompsResponse(BaseModel):
     market_intelligence: Optional[Dict] = None
 
 
+class PriceTier(BaseModel):
+    """Price tier information for dynamic content selection."""
+    tier_id: Optional[str] = None
+    tier_emoji: Optional[str] = None
+    tier_name: Optional[str] = None
+    tier_range: Optional[str] = None
+    tier_color: Optional[str] = None
+    price_used: Optional[float] = None
+    price_source: Optional[str] = None  # "fmv" or "avg_listing"
+
+
 class FmvResponse(BaseModel):
     fmv_low: Optional[float] = None
     fmv_high: Optional[float] = None
@@ -112,3 +123,19 @@ class FmvResponse(BaseModel):
     patient_sale: Optional[float] = None
     volume_confidence: Optional[str] = None
     count: int
+    price_tier: Optional[PriceTier] = None  # NEW: Price tier information
+
+
+class MarketMessageRequest(BaseModel):
+    """Request model for market message endpoint."""
+    fmv: Optional[float] = None
+    avg_listing_price: Optional[float] = None
+    market_pressure: float
+    liquidity_score: float
+    market_confidence: float
+    absorption_below: Optional[float] = None
+    absorption_above: Optional[float] = None
+    below_fmv_count: int = 0
+    above_fmv_count: int = 0
+    sales_below: int = 0
+    sales_above: int = 0

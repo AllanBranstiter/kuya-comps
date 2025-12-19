@@ -3,6 +3,7 @@ let lastActiveData = null; // Store active listings data
 let lastMarketValue = null; // Store market value for filtering
 let priceDistributionChartTimeout = null; // Track pending chart draw
 let lastChartData = { soldData: null, activeData: null }; // Store data for chart redraws
+let currentPriceTier = null; // Store tier from most recent search
 
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -69,8 +70,200 @@ function escapeHtml(unsafe) {
     .replace(/'/g, "&#039;");
 }
 
+// ============================================================================
+// POPUP CONTENT RENDERING UTILITIES
+// ============================================================================
+
+/**
+ * Render popup sections from content object
+ * @param {Array} sections - Array of section objects from JSON
+ * @returns {string} HTML string
+ */
+function renderPopupSections(sections) {
+    if (!sections || !Array.isArray(sections)) {
+        return '';
+    }
+    
+    return sections.map(section => {
+        let html = '';
+        
+        if (section.type === 'header') {
+            html = `<h3 style="font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 1rem; color: var(--text-color);">${section.content}</h3>`;
+        } else if (section.type === 'text') {
+            html = `<p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">${section.content}</p>`;
+        } else if (section.type === 'formula') {
+            html = `
+                <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
+                        ${section.content}
+                    </code>
+                </div>
+            `;
+        } else if (section.type === 'bands') {
+            html = '<div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">';
+            section.items.forEach(band => {
+                const borderColor = band.color || '#d1d1d6';
+                const bgColor = getBandBackgroundColor(band.color);
+                html += `
+                    <div style="background: ${bgColor}; padding: 1rem; border-radius: 8px; border-left: 4px solid ${borderColor};">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span style="font-size: 1.2rem;">${band.icon}</span>
+                            <strong style="color: ${band.color};">${band.title}</strong>
+                        </div>
+                        <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                            <strong>What it means:</strong> ${band.meaning}<br>
+                            <strong>What to do:</strong> ${band.action}
+                        </p>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        } else if (section.type === 'list') {
+            html = '<ul style="margin: 0.5rem 0 1.5rem 0; padding-left: 1.5rem; font-size: 0.85rem; color: #333; line-height: 1.4;">';
+            section.items.forEach(item => {
+                html += `<li style="margin-bottom: 0.25rem;">${item}</li>`;
+            });
+            html += '</ul>';
+        }
+        
+        return html;
+    }).join('');
+}
+
+/**
+ * Get background gradient for interpretation bands based on color
+ * @param {string} color - Band color hex code
+ * @returns {string} CSS gradient
+ */
+function getBandBackgroundColor(color) {
+    const colorMap = {
+        '#34c759': 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)',
+        '#007aff': 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)',
+        '#ff9500': 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)',
+        '#ff3b30': 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)',
+        '#5856d6': 'linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%)'
+    };
+    return colorMap[color] || 'linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%)';
+}
+
+// ============================================================================
+// FALLBACK POPUP CONTENT (mirrors current hardcoded content)
+// ============================================================================
+
+const FALLBACK_POPUP_MARKET_PRESSURE = {
+    title: "📊 Understanding Market Pressure",
+    sections: [
+        { type: "text", content: "Market Pressure compares what sellers are <strong>asking today</strong> to what buyers <strong>recently paid</strong>. It does not affect Fair Market Value." },
+        { type: "header", content: "Formula" },
+        { type: "formula", content: "(Median Asking Price - FMV) / FMV × 100" },
+        { type: "text", content: "<em>Note: Outlier prices are filtered using IQR method for accuracy.</em>" },
+        { type: "header", content: "Interpretation Bands" },
+        {
+            type: "bands",
+            items: [
+                { icon: "🟢", title: "0% to 15% (HEALTHY)", color: "#34c759", meaning: "Normal pricing friction. Sellers price slightly above recent sales to leave room for negotiation.", action: "Fair pricing - safe to buy at asking prices or make small offers." },
+                { icon: "🔵", title: "15% to 30% (OPTIMISTIC)", color: "#007aff", meaning: "Seller optimism. Prices drifting above recent buyer behavior.", action: "Make offers 10-20% below asking - sellers are likely open to negotiation." },
+                { icon: "🟠", title: "30% to 50% (RESISTANCE)", color: "#ff9500", meaning: "Overpriced market. Clear resistance between buyers and sellers.", action: "Be patient. Sellers will likely need to lower prices or accept significantly lower offers (20-30% below ask)." },
+                { icon: "🔴", title: "50%+ (UNREALISTIC)", color: "#ff3b30", meaning: "Unrealistic asking prices. Listings unlikely to transact near current levels.", action: "Wait for price corrections or look for better-priced alternatives. These sellers are detached from market reality." },
+                { icon: "🟣", title: "Negative % (BELOW FMV)", color: "#5856d6", meaning: "Opportunity! Sellers are asking less than recent sale prices.", action: "Act fast - these may be undervalued or motivated sellers." }
+            ]
+        },
+        { type: "header", content: "💡 Quick Tip" },
+        { type: "text", content: "Market Pressure above 30% suggests waiting for price corrections or making significantly lower offers. Below 0% indicates potential buying opportunities." },
+        { type: "header", content: "📝 Example" },
+        { type: "text", content: "If cards recently sold for <strong>$100</strong> (FMV), but current listings ask <strong>$140</strong>, that's <strong>+40% Market Pressure</strong> (Resistance) = sellers are asking too much." },
+        { type: "header", content: "📊 Data Confidence" },
+        {
+            type: "list",
+            items: [
+                "<strong>High:</strong> 10+ active listings",
+                "<strong>Medium:</strong> 5-9 active listings",
+                "<strong>Low:</strong> Less than 5 active listings (use with caution)"
+            ]
+        }
+    ]
+};
+
+const FALLBACK_POPUP_MARKET_CONFIDENCE = {
+    title: "🎯 Understanding Market Confidence",
+    sections: [
+        { type: "text", content: "Market Confidence measures how <strong>consistent</strong> prices are in the market. Higher consistency = more reliable data and clearer pricing signals." },
+        { type: "header", content: "Formula" },
+        { type: "formula", content: "100 / (1 + Coefficient of Variation / 100)" },
+        { type: "text", content: "<em>Coefficient of Variation = (Standard Deviation ÷ Average Price) × 100</em>" },
+        { type: "header", content: "Confidence Bands" },
+        {
+            type: "bands",
+            items: [
+                { icon: "🟢", title: "70-100 (HIGH CONFIDENCE)", color: "#34c759", meaning: "Prices are very consistent - strong market consensus on value.", action: "FMV estimates are highly reliable. Safe to use for pricing decisions." },
+                { icon: "🔵", title: "40-69 (MODERATE CONFIDENCE)", color: "#007aff", meaning: "Some price variation but overall market is functional.", action: "FMV estimates are reasonably reliable. Consider using price ranges." },
+                { icon: "🟠", title: "20-39 (LOW CONFIDENCE)", color: "#ff9500", meaning: "High price variation - market is less certain.", action: "Use caution with FMV estimates. Consider refining search terms or gathering more data." },
+                { icon: "🔴", title: "0-19 (VERY LOW CONFIDENCE)", color: "#ff3b30", meaning: "Extreme price variation - unreliable market signals.", action: "FMV estimates may not be accurate. Refine search or check for data quality issues." }
+            ]
+        },
+        { type: "header", content: "💡 Key Principle" },
+        { type: "text", content: "Market Confidence tells you how <strong>reliable</strong> the data is, not what the value is. High confidence means prices are clustered together. Low confidence means prices are scattered and unpredictable." },
+        { type: "header", content: "📝 Example" },
+        { type: "text", content: "If 20 cards sold between $95-$105 (tight range), confidence is <strong>HIGH (80+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>." },
+        { type: "header", content: "🔧 Improve Confidence" },
+        {
+            type: "list",
+            items: [
+                "Make search terms more specific (exact card number, parallel type)",
+                "Filter out unrelated variations (use \"Base Only\" or exclude parallels)",
+                "Exclude lots and multi-card listings",
+                "Check for grading consistency (don't mix raw with graded)"
+            ]
+        }
+    ]
+};
+
+const FALLBACK_POPUP_LIQUIDITY_RISK = {
+    title: "💧 Understanding Liquidity Risk",
+    sections: [
+        { type: "text", content: "Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value." },
+        { type: "header", content: "Absorption Ratio" },
+        { type: "formula", content: "Completed Sales / Active Listings" },
+        { type: "text", content: "<em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>" },
+        { type: "header", content: "Liquidity Bands" },
+        {
+            type: "bands",
+            items: [
+                { icon: "🟢", title: "Ratio ≥ 1.0 (HIGH LIQUIDITY)", color: "#34c759", meaning: "Demand exceeds supply - cards sell quickly.", action: "Price competitively to capture demand. Quick exits are likely." },
+                { icon: "🔵", title: "Ratio 0.5-1.0 (MODERATE)", color: "#007aff", meaning: "Balanced market with healthy liquidity.", action: "Normal market conditions - expect reasonable sell time." },
+                { icon: "🟠", title: "Ratio 0.2-0.5 (LOW LIQUIDITY)", color: "#ff9500", meaning: "Slow absorption - elevated exit risk.", action: "May need patience or competitive pricing to attract buyers." },
+                { icon: "🔴", title: "Ratio < 0.2 (VERY LOW)", color: "#ff3b30", meaning: "Illiquid market - high exit risk.", action: "Consider pricing at or below FMV to attract buyers." }
+            ]
+        },
+        { type: "header", content: "💡 Key Principle" },
+        { type: "text", content: "Liquidity Risk does NOT modify FMV. It tells you how easy it will be to sell at that price. High FMV with low liquidity means the card is valuable but may take time to sell." },
+        { type: "header", content: "📊 Data Confidence" },
+        {
+            type: "list",
+            items: [
+                "<strong>High:</strong> 10+ sales AND 10+ active listings",
+                "<strong>Medium:</strong> 5+ sales AND 5+ active listings",
+                "<strong>Low:</strong> Below medium thresholds (use with caution)"
+            ]
+        }
+    ]
+};
+
+// ============================================================================
+// INFO POPUP FUNCTIONS
+// ============================================================================
+
 // Show Market Pressure info popup
-function showMarketPressureInfo() {
+async function showMarketPressureInfo() {
+    // Load content
+    let popupContent;
+    try {
+        popupContent = await window.contentLoader.getPopup('marketPressure');
+    } catch (error) {
+        console.error('[showMarketPressureInfo] Failed to load content:', error);
+        // Use hardcoded fallback
+        popupContent = FALLBACK_POPUP_MARKET_PRESSURE;
+    }
     const overlay = document.createElement('div');
     overlay.id = 'market-pressure-overlay';
     overlay.style.cssText = `
@@ -101,111 +294,13 @@ function showMarketPressureInfo() {
         animation: slideUp 0.3s ease;
     `;
     
+    // Build HTML from loaded content
     popup.innerHTML = `
         <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
         
-        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">📊 Understanding Market Pressure</h2>
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">${popupContent.title}</h2>
         
-        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
-            Market Pressure compares what sellers are <strong>asking today</strong> to what buyers <strong>recently paid</strong>. It does not affect Fair Market Value.
-        </p>
-        
-        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <strong style="color: var(--text-color);">Formula:</strong><br>
-            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
-                (Median Asking Price - FMV) / FMV × 100
-            </code>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
-                <em>Note: Outlier prices are filtered using IQR method for accuracy.</em>
-            </p>
-        </div>
-        
-        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📈 Interpretation Bands</h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <!-- Healthy Band -->
-            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟢</span>
-                    <strong style="color: #34c759;">0% to 15% (HEALTHY)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Normal pricing friction. Sellers price slightly above recent sales to leave room for negotiation.<br>
-                    <strong>What to do:</strong> Fair pricing - safe to buy at asking prices or make small offers.
-                </p>
-            </div>
-            
-            <!-- Optimistic Band -->
-            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔵</span>
-                    <strong style="color: #007aff;">15% to 30% (OPTIMISTIC)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Seller optimism. Prices drifting above recent buyer behavior.<br>
-                    <strong>What to do:</strong> Make offers 10-20% below asking - sellers are likely open to negotiation.
-                </p>
-            </div>
-            
-            <!-- Resistance Band -->
-            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟠</span>
-                    <strong style="color: #ff9500;">30% to 50% (RESISTANCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Overpriced market. Clear resistance between buyers and sellers.<br>
-                    <strong>What to do:</strong> Be patient. Sellers will likely need to lower prices or accept significantly lower offers (20-30% below ask).
-                </p>
-            </div>
-            
-            <!-- Unrealistic Band -->
-            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔴</span>
-                    <strong style="color: #ff3b30;">50%+ (UNREALISTIC)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Unrealistic asking prices. Listings unlikely to transact near current levels.<br>
-                    <strong>What to do:</strong> Wait for price corrections or look for better-priced alternatives. These sellers are detached from market reality.
-                </p>
-            </div>
-            
-            <!-- Below FMV Band -->
-            <div style="background: linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #5856d6;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟣</span>
-                    <strong style="color: #5856d6;">Negative % (BELOW FMV)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Opportunity! Sellers are asking less than recent sale prices.<br>
-                    <strong>What to do:</strong> Act fast - these may be undervalued or motivated sellers.
-                </p>
-            </div>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
-            <strong style="color: var(--text-color);">💡 Quick Tip:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                Market Pressure above 30% suggests waiting for price corrections or making significantly lower offers. Below 0% indicates potential buying opportunities.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-            <strong style="color: var(--text-color);">📝 Example:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                If cards recently sold for <strong>$100</strong> (FMV), but current listings ask <strong>$140</strong>, that's <strong>+40% Market Pressure</strong> (Resistance) = sellers are asking too much.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
-            <strong style="color: var(--text-color);">📊 Data Confidence:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
-                • <strong>High:</strong> 10+ active listings<br>
-                • <strong>Medium:</strong> 5-9 active listings<br>
-                • <strong>Low:</strong> Less than 5 active listings (use with caution)
-            </p>
-        </div>
+        ${renderPopupSections(popupContent.sections)}
     `;
     
     overlay.appendChild(popup);
@@ -231,7 +326,16 @@ function showMarketPressureInfo() {
 }
 
 // Show Market Confidence info popup
-function showMarketConfidenceInfo() {
+async function showMarketConfidenceInfo() {
+    // Load content
+    let popupContent;
+    try {
+        popupContent = await window.contentLoader.getPopup('marketConfidence');
+    } catch (error) {
+        console.error('[showMarketConfidenceInfo] Failed to load content:', error);
+        // Use hardcoded fallback
+        popupContent = FALLBACK_POPUP_MARKET_CONFIDENCE;
+    }
     const overlay = document.createElement('div');
     overlay.id = 'market-confidence-overlay';
     overlay.style.cssText = `
@@ -262,100 +366,13 @@ function showMarketConfidenceInfo() {
         animation: slideUp 0.3s ease;
     `;
     
+    // Build HTML from loaded content
     popup.innerHTML = `
         <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
         
-        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">🎯 Understanding Market Confidence</h2>
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">${popupContent.title}</h2>
         
-        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
-            Market Confidence measures how <strong>consistent</strong> prices are in the market. Higher consistency = more reliable data and clearer pricing signals.
-        </p>
-        
-        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <strong style="color: var(--text-color);">Formula:</strong><br>
-            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
-                100 / (1 + Coefficient of Variation / 100)
-            </code>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
-                <em>Coefficient of Variation = (Standard Deviation ÷ Average Price) × 100</em>
-            </p>
-        </div>
-        
-        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📊 Confidence Bands</h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <!-- High Confidence Band -->
-            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟢</span>
-                    <strong style="color: #34c759;">70-100 (HIGH CONFIDENCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Prices are very consistent - strong market consensus on value.<br>
-                    <strong>What to do:</strong> FMV estimates are highly reliable. Safe to use for pricing decisions.
-                </p>
-            </div>
-            
-            <!-- Moderate Confidence Band -->
-            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔵</span>
-                    <strong style="color: #007aff;">40-69 (MODERATE CONFIDENCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Some price variation but overall market is functional.<br>
-                    <strong>What to do:</strong> FMV estimates are reasonably reliable. Consider using price ranges.
-                </p>
-            </div>
-            
-            <!-- Low Confidence Band -->
-            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟠</span>
-                    <strong style="color: #ff9500;">20-39 (LOW CONFIDENCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> High price variation - market is less certain.<br>
-                    <strong>What to do:</strong> Use caution with FMV estimates. Consider refining search terms or gathering more data.
-                </p>
-            </div>
-            
-            <!-- Very Low Confidence Band -->
-            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔴</span>
-                    <strong style="color: #ff3b30;">0-19 (VERY LOW CONFIDENCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Extreme price variation - unreliable market signals.<br>
-                    <strong>What to do:</strong> FMV estimates may not be accurate. Refine search or check for data quality issues.
-                </p>
-            </div>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
-            <strong style="color: var(--text-color);">💡 Key Principle:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                Market Confidence tells you how <strong>reliable</strong> the data is, not what the value is. High confidence means prices are clustered together. Low confidence means prices are scattered and unpredictable.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-            <strong style="color: var(--text-color);">📝 Example:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                If 20 cards sold between $95-$105 (tight range), confidence is <strong>HIGH (80+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
-            <strong style="color: var(--text-color);">🔧 Improve Confidence:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
-                • Make search terms more specific (exact card number, parallel type)<br>
-                • Filter out unrelated variations (use "Base Only" or exclude parallels)<br>
-                • Exclude lots and multi-card listings<br>
-                • Check for grading consistency (don't mix raw with graded)
-            </p>
-        </div>
+        ${renderPopupSections(popupContent.sections)}
     `;
     
     overlay.appendChild(popup);
@@ -381,7 +398,33 @@ function showMarketConfidenceInfo() {
 }
 
 // Show Liquidity Risk info popup
-function showLiquidityRiskInfo() {
+async function showLiquidityRiskInfo() {
+    const tier = currentPriceTier;
+    
+    // Load main popup content
+    let popupContent;
+    try {
+        popupContent = await window.contentLoader.getPopup('liquidityRisk');
+    } catch (error) {
+        console.error('[showLiquidityRiskInfo] Failed to load content:', error);
+        // Use hardcoded fallback
+        popupContent = FALLBACK_POPUP_LIQUIDITY_RISK;
+    }
+    
+    // Fetch tier-specific popup content if we have a tier
+    let tierContent = null;
+    if (tier && tier.tier_id) {
+        try {
+            const response = await fetch(`/liquidity-popup/${tier.tier_id}`);
+            if (response.ok) {
+                const data = await response.json();
+                tierContent = data.content;
+            }
+        } catch (error) {
+            console.error('[LIQUIDITY POPUP] Error fetching tier content:', error);
+        }
+    }
+    
     const overlay = document.createElement('div');
     overlay.id = 'liquidity-risk-overlay';
     overlay.style.cssText = `
@@ -412,92 +455,33 @@ function showLiquidityRiskInfo() {
         animation: slideUp 0.3s ease;
     `;
     
+    // Build HTML from loaded content with tier badge if available
     popup.innerHTML = `
         <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
         
-        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">💧 Understanding Liquidity Risk</h2>
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">${popupContent.title}</h2>
         
-        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
-            Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value.
-        </p>
+        ${tier && tier.tier_name ? `
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem;
+                    background: ${tier.tier_color}15;
+                    padding: 0.5rem 1rem;
+                    border-radius: 8px;
+                    border: 1px solid ${tier.tier_color}40;
+                    margin-bottom: 1.5rem;">
+            <span style="font-size: 1.25rem;">${tier.tier_emoji}</span>
+            <strong style="color: ${tier.tier_color};">${tier.tier_name}</strong>
+        </div>
+        ` : ''}
         
+        ${tierContent ? `
         <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <strong style="color: var(--text-color);">Absorption Ratio:</strong><br>
-            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
-                Completed Sales / Active Listings
-            </code>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
-                <em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>
+            <p style="margin: 0; font-size: 0.95rem; color: var(--text-color); line-height: 1.6;">
+                ${tierContent}
             </p>
         </div>
+        ` : ''}
         
-        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📊 Liquidity Bands</h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <!-- High Liquidity Band -->
-            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟢</span>
-                    <strong style="color: #34c759;">Ratio ≥ 1.0 (HIGH LIQUIDITY)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Demand exceeds supply - cards sell quickly.<br>
-                    <strong>What to do:</strong> Price competitively to capture demand. Quick exits are likely.
-                </p>
-            </div>
-            
-            <!-- Moderate Liquidity Band -->
-            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔵</span>
-                    <strong style="color: #007aff;">Ratio 0.5-1.0 (MODERATE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Balanced market with healthy liquidity.<br>
-                    <strong>What to do:</strong> Normal market conditions - expect reasonable sell time.
-                </p>
-            </div>
-            
-            <!-- Low Liquidity Band -->
-            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟠</span>
-                    <strong style="color: #ff9500;">Ratio 0.2-0.5 (LOW LIQUIDITY)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Slow absorption - elevated exit risk.<br>
-                    <strong>What to do:</strong> May need patience or competitive pricing to attract buyers.
-                </p>
-            </div>
-            
-            <!-- Very Low Liquidity Band -->
-            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔴</span>
-                    <strong style="color: #ff3b30;">Ratio < 0.2 (VERY LOW)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Illiquid market - high exit risk.<br>
-                    <strong>What to do:</strong> Consider pricing at or below FMV to attract buyers.
-                </p>
-            </div>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
-            <strong style="color: var(--text-color);">💡 Key Principle:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                Liquidity Risk does NOT modify FMV. It tells you how easy it will be to sell at that price. High FMV with low liquidity means the card is valuable but may take time to sell.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
-            <strong style="color: var(--text-color);">📊 Data Confidence:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
-                • <strong>High:</strong> 10+ sales AND 10+ active listings<br>
-                • <strong>Medium:</strong> 5+ sales AND 5+ active listings<br>
-                • <strong>Low:</strong> Below medium thresholds (use with caution)
-            </p>
-        </div>
+        ${renderPopupSections(popupContent.sections)}
     `;
     
     overlay.appendChild(popup);
@@ -1301,7 +1285,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                 secondDataItemCount: secondData?.items?.length || 0,
                 secondDataKeys: secondData ? Object.keys(secondData) : []
             });
-            renderAnalysisDashboard(data, fmvData, secondData);
+            await renderAnalysisDashboard(data, fmvData, secondData);
         } catch (error) {
             console.error('[ERROR] Failed to render Analysis Dashboard, but Comps data is still available:', error);
             // Don't throw - let the Comps data display normally
@@ -2340,8 +2324,388 @@ function getVelocityStatement(absorptionRatio, scenario) {
     return `${scenario}: 4+ weeks expected (slow absorption)`;
 }
 
+/**
+ * Render price tier badge showing which tier this card is in
+ */
+function renderPriceTierBadge(tier) {
+    if (!tier || !tier.tier_name) {
+        return '';
+    }
+    
+    const priceSourceLabel = tier.price_source === 'fmv'
+        ? 'Fair Market Value'
+        : 'Average Listing Price';
+    
+    return `
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem;
+                    background: ${tier.tier_color}15;
+                    padding: 0.5rem 1rem;
+                    border-radius: 8px;
+                    border: 1px solid ${tier.tier_color}40;
+                    margin-bottom: 1rem;">
+            <span style="font-size: 1.25rem;">${tier.tier_emoji}</span>
+            <strong style="color: ${tier.tier_color};">${tier.tier_name}</strong>
+            <span style="font-size: 0.8rem; color: #666;">
+                (Based on ${priceSourceLabel})
+            </span>
+        </div>
+    `;
+}
+
+/**
+ * Render persona-specific advice from API message or JSON content
+ * Handles both string format (from API) and array format (from JSON)
+ */
+function renderPersonaAdvice(advice) {
+    if (!advice) {
+        return '';
+    }
+    
+    // Check if we have any advice to display
+    const hasCollector = advice.collector && (Array.isArray(advice.collector) ? advice.collector.length > 0 : true);
+    const hasSeller = advice.seller && (Array.isArray(advice.seller) ? advice.seller.length > 0 : true);
+    const hasFlipper = advice.flipper && (Array.isArray(advice.flipper) ? advice.flipper.length > 0 : true);
+    const hasBuyer = advice.buyer;
+    const hasInvestor = advice.investor;
+    
+    if (!hasCollector && !hasSeller && !hasFlipper && !hasBuyer && !hasInvestor) {
+        return '';
+    }
+    
+    let html = '<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1);">';
+    
+    // 1. Long-term Collector (collector or buyer)
+    if (hasCollector) {
+        const collectorAdvice = Array.isArray(advice.collector) ? advice.collector : [advice.collector];
+        html += `
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(0, 122, 255, 0.2); border-radius: 6px; background: rgba(0, 122, 255, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #007aff; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(0, 122, 255, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Long-term Collector
+                </summary>
+                <ul style="margin: 0 0 0.75rem 0; padding: 0.5rem 1rem 0.5rem 2.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+                    ${collectorAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
+                </ul>
+            </details>
+        `;
+    } else if (hasBuyer) {
+        html += `
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(0, 122, 255, 0.2); border-radius: 6px; background: rgba(0, 122, 255, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #007aff; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(0, 122, 255, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Long-term Collector
+                </summary>
+                <p style="margin: 0; padding: 0.5rem 1rem 0.75rem 1rem; font-size: 0.85rem; color: #333; line-height: 1.5;">${advice.buyer}</p>
+            </details>
+        `;
+    }
+    
+    // 2. Short-term Flipper (flipper or investor)
+    if (hasFlipper) {
+        const flipperAdvice = Array.isArray(advice.flipper) ? advice.flipper : [advice.flipper];
+        html += `
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(88, 86, 214, 0.2); border-radius: 6px; background: rgba(88, 86, 214, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #5856d6; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(88, 86, 214, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Short-term Flipper
+                </summary>
+                <ul style="margin: 0 0 0.75rem 0; padding: 0.5rem 1rem 0.5rem 2.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+                    ${flipperAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
+                </ul>
+            </details>
+        `;
+    } else if (hasInvestor) {
+        html += `
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(88, 86, 214, 0.2); border-radius: 6px; background: rgba(88, 86, 214, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #5856d6; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(88, 86, 214, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Short-term Flipper
+                </summary>
+                <p style="margin: 0; padding: 0.5rem 1rem 0.75rem 1rem; font-size: 0.85rem; color: #333; line-height: 1.5;">${advice.investor}</p>
+            </details>
+        `;
+    }
+    
+    // 3. Seller
+    if (hasSeller) {
+        const sellerAdvice = Array.isArray(advice.seller) ? advice.seller : [advice.seller];
+        html += `
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(52, 199, 89, 0.2); border-radius: 6px; background: rgba(52, 199, 89, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #34c759; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(52, 199, 89, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Seller
+                </summary>
+                <ul style="margin: 0 0 0.75rem 0; padding: 0.5rem 1rem 0.5rem 2.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+                    ${sellerAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
+                </ul>
+            </details>
+        `;
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+/**
+ * Render market assessment using API response
+ */
+function renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData, marketConfidence) {
+    const { tier, message } = apiResponse;
+    const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
+    
+    // Get gradient/border from message color
+    const colorMap = {
+        '#ff3b30': { gradient: 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)', border: '#ff9999' },
+        '#ff9500': { gradient: 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)', border: '#ffd699' },
+        '#5856d6': { gradient: 'linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%)', border: '#d6b3ff' },
+        '#34c759': { gradient: 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)', border: '#99ff99' },
+        '#007aff': { gradient: 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)', border: '#99daff' }
+    };
+    
+    const styling = colorMap[message.color] || colorMap['#007aff'];
+    
+    // Store tier globally for liquidity popup
+    window.currentPriceTier = tier;
+    currentPriceTier = tier;
+    
+    return `
+        <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+            <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
+            
+            ${renderPriceTierBadge(tier)}
+            
+            <div style="background: ${styling.gradient}; padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${styling.border};">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                    <span style="font-size: 2rem;">${message.icon}</span>
+                    <strong style="font-size: 1.1rem; color: ${message.color};">${message.title}</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
+                    ${message.content}
+                </p>
+                ${renderPersonaAdvice(message.advice)}
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
+                    <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
+                    <strong>Activity:</strong> ${getDominantBandStatement(priceBands.belowFMV, priceBands.atFMV, priceBands.aboveFMV, priceBands.absorptionBelow, priceBands.absorptionAt, priceBands.absorptionAbove)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render fallback Market Assessment when API is unavailable
+ * Uses basic heuristics for market condition assessment
+ */
+function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData) {
+    console.log('[FALLBACK ASSESSMENT] Called with:', {
+        marketPressure,
+        liquidityRisk: liquidityRisk?.score || null,
+        marketConfidence,
+        hasPriceBands: !!priceBands,
+        hasData: !!data,
+        hasActiveData: !!activeData
+    });
+    
+    if (marketPressure === null || !liquidityRisk || liquidityRisk.score === null) {
+        console.log('[FALLBACK ASSESSMENT] Missing required data, returning empty');
+        return '';
+    }
+    
+    const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
+    const liquidityScore = liquidityRisk.score || 0;
+    
+    // Determine message and advice based on simple heuristics
+    let icon, title, message, color, gradient, border, advice;
+    
+    // High risk conditions
+    if (marketPressure > 30 && liquidityScore < 50) {
+        icon = '🚨';
+        title = 'High Risk Market Conditions';
+        color = '#ff3b30';
+        gradient = 'linear-gradient(135deg, #ffe6e6 0%, #fff0f0 100%)';
+        border = '#ffb3b3';
+        message = `Sellers are asking ${marketPressure.toFixed(1)}% above Fair Market Value, but buyer demand is limited (liquidity: ${liquidityScore}/100). Consider waiting for better conditions or looking elsewhere.`;
+        advice = {
+            collector: ['Waiting often pays off here.', 'Markets like this tend to cool down.', 'Patience can lead to better entry prices later.'],
+            seller: ['This is a tough environment to sell in.', 'Expect slow sales or price drops.', 'If you need to sell, pricing below the crowd helps.'],
+            flipper: ['This is usually a bad setup.', 'High prices plus low demand leave little room for profit.', 'Better opportunities exist elsewhere.']
+        };
+    }
+    // Overpriced but active
+    else if (marketPressure > 30 && liquidityScore >= 50) {
+        icon = '🔥';
+        title = 'Overpriced but Active Market';
+        color = '#ff9500';
+        gradient = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
+        border = '#ffd699';
+        message = `Asking prices are ${marketPressure.toFixed(1)}% above Fair Market Value, but strong liquidity (${liquidityScore}/100) suggests buyers are accepting higher prices. Market is hot but expensive.`;
+        advice = {
+            collector: ['You\'re paying extra to get a card immediately.', 'If you don\'t need the card now, waiting is usually safer.', 'Great cards often come back down once hype fades.'],
+            seller: ['This is a strong selling window.', 'Buyers are accepting higher prices right now.', 'Consider selling while demand is hot.'],
+            flipper: ['Flips are possible, but timing matters.', 'You need to buy and resell quickly.', 'Miss the timing, and you risk holding overpriced inventory.']
+        };
+    }
+    // Good buying opportunity
+    else if (marketPressure < 0 && liquidityScore >= 50) {
+        icon = '💎';
+        title = 'Strong Buy Opportunity';
+        color = '#34c759';
+        gradient = 'linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)';
+        border = '#99e6b8';
+        message = `Cards are priced ${Math.abs(marketPressure).toFixed(1)}% below Fair Market Value with strong demand (liquidity: ${liquidityScore}/100). This is a favorable buying opportunity.`;
+        advice = {
+            collector: ['This is one of the better times to buy if you\'re optimistic about the player\'s potential', 'You\'re entering below fair value in a market with real demand.', 'Acting sooner usually beats waiting in conditions like this.'],
+            seller: ['You could be leaving money on the table at current prices—consider your opinion of the player\'s potential', 'Expect fast sales, even if you raise your price slightly.', 'If you\'re listing now, consider pricing closer to fair value—or just above it.'],
+            flipper: ['This is an excellent setup.', 'Buy quickly at current prices and aim for fast resale.', 'Delays matter here—once sellers adjust, margins shrink.']
+        };
+    }
+    // Healthy market
+    else if (marketPressure >= 0 && marketPressure <= 15 && liquidityScore >= 50) {
+        icon = '✅';
+        title = 'Healthy Market Conditions';
+        color = '#34c759';
+        gradient = 'linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)';
+        border = '#99e6b8';
+        message = `Fair pricing (${marketPressure.toFixed(1)}% vs FMV) with good liquidity (${liquidityScore}/100). Balanced market conditions for both buyers and sellers.`;
+        advice = {
+            collector: ['A comfortable, low-stress time to buy.', 'You\'re unlikely to overpay or miss out by waiting briefly.', 'Buy based on preference, not fear of price movement.'],
+            seller: ['Fair pricing is being rewarded with steady sales.', 'No need to overthink timing—this is a good environment to list.', 'Well-presented listings should move at reasonable prices.'],
+            flipper: ['Opportunities exist, but they\'re not automatic.', 'Profits depend on buying well, not on market imbalance.', 'Focus on small edges rather than big swings.']
+        };
+    }
+    // Fair pricing, limited demand
+    else if (marketPressure >= 0 && marketPressure <= 15 && liquidityScore < 50) {
+        icon = '⚡';
+        title = 'Fair Pricing, Limited Demand';
+        color = '#ff9500';
+        gradient = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
+        border = '#ffd699';
+        message = `Prices are reasonable (${marketPressure.toFixed(1)}% vs FMV), but demand is moderate (liquidity: ${liquidityScore}/100). Sales may be slower than usual.`;
+        advice = {
+            collector: ['This can be a great quiet buying opportunity.', 'Fair prices without hype often age well.', 'Especially attractive for iconic or historically stable cards.'],
+            seller: ['Slow sales are likely, even at fair prices.', 'If you want quicker action, slight discounts can help.', 'Otherwise, patience is required.'],
+            flipper: ['Not ideal for quick flips.', 'Even good deals may take time to resell.', 'Only buy if you expect a future catalyst.']
+        };
+    }
+    // Balanced/neutral
+    else {
+        icon = '📊';
+        title = 'Balanced Market';
+        color = '#007aff';
+        gradient = 'linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%)';
+        border = '#99c9ff';
+        message = `Market pressure at ${marketPressure.toFixed(1)}% with liquidity score of ${liquidityScore}/100. Standard market conditions.`;
+        advice = {
+            collector: [],
+            seller: [],
+            flipper: []
+        };
+    }
+    
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove } = priceBands;
+    
+    const html = `
+        <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+            <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
+            
+            <div style="background: ${gradient}; padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${border};">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                    <span style="font-size: 2rem;">${icon}</span>
+                    <strong style="font-size: 1.1rem; color: ${color};">${title}</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
+                    ${message}
+                </p>
+                ${renderPersonaAdvice(advice)}
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
+                    <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
+                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    console.log('[FALLBACK ASSESSMENT] Generated HTML length:', html.length, 'chars');
+    return html;
+}
+
+/**
+ * Render market assessment with tier-based messaging
+ * Calls API for tier-specific messages, falls back to hardcoded logic
+ */
+async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData) {
+    if (marketPressure === null || !liquidityRisk || liquidityRisk.score === null) {
+        return '';
+    }
+    
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
+    
+    // Try to fetch tier-specific message from backend
+    const apiResponse = await fetchTierMarketMessage({
+        fmv: marketValueGlobal,
+        avg_listing_price: activeData?.avg_price || null,
+        market_pressure: marketPressure,
+        liquidity_score: liquidityRisk.score,
+        market_confidence: marketConfidence,
+        absorption_below: parseFloat(absorptionBelow) || null,
+        absorption_above: parseFloat(absorptionAbove) || null,
+        below_fmv_count: belowFMV,
+        above_fmv_count: aboveFMV,
+        sales_below: salesBelow,
+        sales_above: salesAbove
+    });
+    
+    // Use API response if available
+    if (apiResponse && apiResponse.message) {
+        return renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData, marketConfidence);
+    }
+    
+    // FALLBACK: Generate basic Market Assessment when API fails
+    console.log('[TIER MESSAGE] Using fallback hardcoded assessment');
+    return renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData);
+}
+
+/**
+ * Fetch tier-specific market message from backend API
+ * @param {Object} params - Market metrics
+ * @returns {Promise} API response with tier and message data
+ */
+async function fetchTierMarketMessage(params) {
+    try {
+        console.log('[TIER MESSAGE] Fetching with params:', params);
+        
+        const response = await fetch('/market-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                fmv: params.fmv || null,
+                avg_listing_price: params.avg_listing_price || null,
+                market_pressure: params.market_pressure || 0,
+                liquidity_score: params.liquidity_score || 0,
+                market_confidence: params.market_confidence || 0,
+                absorption_below: params.absorption_below || null,
+                absorption_above: params.absorption_above || null,
+                below_fmv_count: params.below_fmv_count || 0,
+                above_fmv_count: params.above_fmv_count || 0,
+                sales_below: params.sales_below || 0,
+                sales_above: params.sales_above || 0
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API returned ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('[TIER MESSAGE] Received:', data);
+        
+        return data;
+    } catch (error) {
+        console.error('[TIER MESSAGE] Error fetching:', error);
+        // Return null to allow fallback to current hardcoded logic
+        return null;
+    }
+}
+
 // Render Analytics Dashboard for the Analysis sub-tab
-function renderAnalysisDashboard(data, fmvData, activeData) {
+async function renderAnalysisDashboard(data, fmvData, activeData) {
     console.log('[renderAnalysisDashboard] Function called with parameters:', {
         hasData: !!data,
         hasFmvData: !!fmvData,
@@ -2580,16 +2944,23 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             ${getSampleSizeWarning(data.items.length, activeData?.items?.length || 0, sampleSize)}
             
             <!-- Market Risk Assessment (moved to top) -->
-            ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ?
-                renderMarketAssessment(
-                    marketPressure,
-                    liquidityRisk,
-                    { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
-                    marketConfidence,
-                    data,
-                    activeData
-                )
-            : ''}
+            ${await (async () => {
+                if (marketPressure !== null && liquidityRisk && liquidityRisk.score !== null) {
+                    const assessmentHTML = await renderMarketAssessment(
+                        marketPressure,
+                        liquidityRisk,
+                        { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
+                        marketConfidence,
+                        data,
+                        activeData
+                    );
+                    console.log('[DASHBOARD] Market Assessment HTML length:', assessmentHTML?.length || 0, 'chars');
+                    return assessmentHTML || '';
+                } else {
+                    console.log('[DASHBOARD] Skipping Market Assessment - missing required data');
+                    return '';
+                }
+            })()}
             
             <!-- Key Indicators Grid -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">

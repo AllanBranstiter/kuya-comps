@@ -4,7 +4,7 @@
  */
 
 // API Configuration
-export const API_ENDPOINTS = {
+const API_ENDPOINTS = {
     COMPS: '/comps',
     ACTIVE: '/active',
     FMV: '/fmv',
@@ -12,7 +12,7 @@ export const API_ENDPOINTS = {
 };
 
 // Timeout values (milliseconds)
-export const TIMEOUTS = {
+const TIMEOUTS = {
     API_REQUEST: 30000,  // 30 seconds
     CHART_DRAW_DELAY: 100,
     CHART_REDRAW_DELAY: 50,
@@ -20,7 +20,7 @@ export const TIMEOUTS = {
 };
 
 // UI Constants
-export const UI_CONSTANTS = {
+const UI_CONSTANTS = {
     MAX_QUERY_LENGTH: 500,
     MIN_QUERY_LENGTH: 1,
     MAX_PAGES: 10,
@@ -57,7 +57,7 @@ export const UI_CONSTANTS = {
 };
 
 // Color schemes
-export const COLORS = {
+const COLORS = {
     PRIMARY_BLUE: '#007aff',
     PRIMARY_BLUE_HOVER: '#0056b3',
     ACCENT_PURPLE: '#5856d6',
@@ -83,12 +83,12 @@ export const COLORS = {
 };
 
 // Device detection
-export const DEVICE = {
+const DEVICE = {
     isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
     isIOS: /iPhone|iPad|iPod/i.test(navigator.userAgent)
 };
 
 // Default values
-export const DEFAULTS = {
+const DEFAULTS = {
     API_KEY: 'backend-handled'
 };
