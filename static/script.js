@@ -80,8 +80,200 @@ function escapeHtml(unsafe) {
     .replace(/'/g, "&#039;");
 }
 
+// ============================================================================
+// POPUP CONTENT RENDERING UTILITIES
+// ============================================================================
+
+/**
+ * Render popup sections from content object
+ * @param {Array} sections - Array of section objects from JSON
+ * @returns {string} HTML string
+ */
+function renderPopupSections(sections) {
+    if (!sections || !Array.isArray(sections)) {
+        return '';
+    }
+    
+    return sections.map(section => {
+        let html = '';
+        
+        if (section.type === 'header') {
+            html = `<h3 style="font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 1rem; color: var(--text-color);">${section.content}</h3>`;
+        } else if (section.type === 'text') {
+            html = `<p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">${section.content}</p>`;
+        } else if (section.type === 'formula') {
+            html = `
+                <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
+                        ${section.content}
+                    </code>
+                </div>
+            `;
+        } else if (section.type === 'bands') {
+            html = '<div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">';
+            section.items.forEach(band => {
+                const borderColor = band.color || '#d1d1d6';
+                const bgColor = getBandBackgroundColor(band.color);
+                html += `
+                    <div style="background: ${bgColor}; padding: 1rem; border-radius: 8px; border-left: 4px solid ${borderColor};">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span style="font-size: 1.2rem;">${band.icon}</span>
+                            <strong style="color: ${band.color};">${band.title}</strong>
+                        </div>
+                        <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
+                            <strong>What it means:</strong> ${band.meaning}<br>
+                            <strong>What to do:</strong> ${band.action}
+                        </p>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        } else if (section.type === 'list') {
+            html = '<ul style="margin: 0.5rem 0 1.5rem 0; padding-left: 1.5rem; font-size: 0.85rem; color: #333; line-height: 1.4;">';
+            section.items.forEach(item => {
+                html += `<li style="margin-bottom: 0.25rem;">${item}</li>`;
+            });
+            html += '</ul>';
+        }
+        
+        return html;
+    }).join('');
+}
+
+/**
+ * Get background gradient for interpretation bands based on color
+ * @param {string} color - Band color hex code
+ * @returns {string} CSS gradient
+ */
+function getBandBackgroundColor(color) {
+    const colorMap = {
+        '#34c759': 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)',
+        '#007aff': 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)',
+        '#ff9500': 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)',
+        '#ff3b30': 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)',
+        '#5856d6': 'linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%)'
+    };
+    return colorMap[color] || 'linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%)';
+}
+
+// ============================================================================
+// FALLBACK POPUP CONTENT (mirrors current hardcoded content)
+// ============================================================================
+
+const FALLBACK_POPUP_MARKET_PRESSURE = {
+    title: "📊 Understanding Market Pressure",
+    sections: [
+        { type: "text", content: "Market Pressure compares what sellers are <strong>asking today</strong> to what buyers <strong>recently paid</strong>. It does not affect Fair Market Value." },
+        { type: "header", content: "Formula" },
+        { type: "formula", content: "(Median Asking Price - FMV) / FMV × 100" },
+        { type: "text", content: "<em>Note: Outlier prices are filtered using IQR method for accuracy.</em>" },
+        { type: "header", content: "Interpretation Bands" },
+        {
+            type: "bands",
+            items: [
+                { icon: "🟢", title: "0% to 15% (HEALTHY)", color: "#34c759", meaning: "Normal pricing friction. Sellers price slightly above recent sales to leave room for negotiation.", action: "Fair pricing - safe to buy at asking prices or make small offers." },
+                { icon: "🔵", title: "15% to 30% (OPTIMISTIC)", color: "#007aff", meaning: "Seller optimism. Prices drifting above recent buyer behavior.", action: "Make offers 10-20% below asking - sellers are likely open to negotiation." },
+                { icon: "🟠", title: "30% to 50% (RESISTANCE)", color: "#ff9500", meaning: "Overpriced market. Clear resistance between buyers and sellers.", action: "Be patient. Sellers will likely need to lower prices or accept significantly lower offers (20-30% below ask)." },
+                { icon: "🔴", title: "50%+ (UNREALISTIC)", color: "#ff3b30", meaning: "Unrealistic asking prices. Listings unlikely to transact near current levels.", action: "Wait for price corrections or look for better-priced alternatives. These sellers are detached from market reality." },
+                { icon: "🟣", title: "Negative % (BELOW FMV)", color: "#5856d6", meaning: "Opportunity! Sellers are asking less than recent sale prices.", action: "Act fast - these may be undervalued or motivated sellers." }
+            ]
+        },
+        { type: "header", content: "💡 Quick Tip" },
+        { type: "text", content: "Market Pressure above 30% suggests waiting for price corrections or making significantly lower offers. Below 0% indicates potential buying opportunities." },
+        { type: "header", content: "📝 Example" },
+        { type: "text", content: "If cards recently sold for <strong>$100</strong> (FMV), but current listings ask <strong>$140</strong>, that's <strong>+40% Market Pressure</strong> (Resistance) = sellers are asking too much." },
+        { type: "header", content: "📊 Data Confidence" },
+        {
+            type: "list",
+            items: [
+                "<strong>High:</strong> 10+ active listings",
+                "<strong>Medium:</strong> 5-9 active listings",
+                "<strong>Low:</strong> Less than 5 active listings (use with caution)"
+            ]
+        }
+    ]
+};
+
+const FALLBACK_POPUP_MARKET_CONFIDENCE = {
+    title: "🎯 Understanding Market Confidence",
+    sections: [
+        { type: "text", content: "Market Confidence measures how <strong>consistent</strong> prices are in the market. Higher consistency = more reliable data and clearer pricing signals." },
+        { type: "header", content: "Formula" },
+        { type: "formula", content: "100 / (1 + Coefficient of Variation / 100)" },
+        { type: "text", content: "<em>Coefficient of Variation = (Standard Deviation ÷ Average Price) × 100</em>" },
+        { type: "header", content: "Confidence Bands" },
+        {
+            type: "bands",
+            items: [
+                { icon: "🟢", title: "70-100 (HIGH CONFIDENCE)", color: "#34c759", meaning: "Prices are very consistent - strong market consensus on value.", action: "FMV estimates are highly reliable. Safe to use for pricing decisions." },
+                { icon: "🔵", title: "40-69 (MODERATE CONFIDENCE)", color: "#007aff", meaning: "Some price variation but overall market is functional.", action: "FMV estimates are reasonably reliable. Consider using price ranges." },
+                { icon: "🟠", title: "20-39 (LOW CONFIDENCE)", color: "#ff9500", meaning: "High price variation - market is less certain.", action: "Use caution with FMV estimates. Consider refining search terms or gathering more data." },
+                { icon: "🔴", title: "0-19 (VERY LOW CONFIDENCE)", color: "#ff3b30", meaning: "Extreme price variation - unreliable market signals.", action: "FMV estimates may not be accurate. Refine search or check for data quality issues." }
+            ]
+        },
+        { type: "header", content: "💡 Key Principle" },
+        { type: "text", content: "Market Confidence tells you how <strong>reliable</strong> the data is, not what the value is. High confidence means prices are clustered together. Low confidence means prices are scattered and unpredictable." },
+        { type: "header", content: "📝 Example" },
+        { type: "text", content: "If 20 cards sold between $95-$105 (tight range), confidence is <strong>HIGH (80+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>." },
+        { type: "header", content: "🔧 Improve Confidence" },
+        {
+            type: "list",
+            items: [
+                "Make search terms more specific (exact card number, parallel type)",
+                "Filter out unrelated variations (use \"Base Only\" or exclude parallels)",
+                "Exclude lots and multi-card listings",
+                "Check for grading consistency (don't mix raw with graded)"
+            ]
+        }
+    ]
+};
+
+const FALLBACK_POPUP_LIQUIDITY_RISK = {
+    title: "💧 Understanding Liquidity Risk",
+    sections: [
+        { type: "text", content: "Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value." },
+        { type: "header", content: "Absorption Ratio" },
+        { type: "formula", content: "Completed Sales / Active Listings" },
+        { type: "text", content: "<em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>" },
+        { type: "header", content: "Liquidity Bands" },
+        {
+            type: "bands",
+            items: [
+                { icon: "🟢", title: "Ratio ≥ 1.0 (HIGH LIQUIDITY)", color: "#34c759", meaning: "Demand exceeds supply - cards sell quickly.", action: "Price competitively to capture demand. Quick exits are likely." },
+                { icon: "🔵", title: "Ratio 0.5-1.0 (MODERATE)", color: "#007aff", meaning: "Balanced market with healthy liquidity.", action: "Normal market conditions - expect reasonable sell time." },
+                { icon: "🟠", title: "Ratio 0.2-0.5 (LOW LIQUIDITY)", color: "#ff9500", meaning: "Slow absorption - elevated exit risk.", action: "May need patience or competitive pricing to attract buyers." },
+                { icon: "🔴", title: "Ratio < 0.2 (VERY LOW)", color: "#ff3b30", meaning: "Illiquid market - high exit risk.", action: "Consider pricing at or below FMV to attract buyers." }
+            ]
+        },
+        { type: "header", content: "💡 Key Principle" },
+        { type: "text", content: "Liquidity Risk does NOT modify FMV. It tells you how easy it will be to sell at that price. High FMV with low liquidity means the card is valuable but may take time to sell." },
+        { type: "header", content: "📊 Data Confidence" },
+        {
+            type: "list",
+            items: [
+                "<strong>High:</strong> 10+ sales AND 10+ active listings",
+                "<strong>Medium:</strong> 5+ sales AND 5+ active listings",
+                "<strong>Low:</strong> Below medium thresholds (use with caution)"
+            ]
+        }
+    ]
+};
+
+// ============================================================================
+// INFO POPUP FUNCTIONS
+// ============================================================================
+
 // Show Market Pressure info popup
-function showMarketPressureInfo() {
+async function showMarketPressureInfo() {
+    // Load content
+    let popupContent;
+    try {
+        popupContent = await window.contentLoader.getPopup('marketPressure');
+    } catch (error) {
+        console.error('[showMarketPressureInfo] Failed to load content:', error);
+        // Use hardcoded fallback
+        popupContent = FALLBACK_POPUP_MARKET_PRESSURE;
+    }
     const overlay = document.createElement('div');
     overlay.id = 'market-pressure-overlay';
     overlay.style.cssText = `
@@ -112,111 +304,13 @@ function showMarketPressureInfo() {
         animation: slideUp 0.3s ease;
     `;
     
+    // Build HTML from loaded content
     popup.innerHTML = `
         <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
         
-        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">📊 Understanding Market Pressure</h2>
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">${popupContent.title}</h2>
         
-        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
-            Market Pressure compares what sellers are <strong>asking today</strong> to what buyers <strong>recently paid</strong>. It does not affect Fair Market Value.
-        </p>
-        
-        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <strong style="color: var(--text-color);">Formula:</strong><br>
-            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
-                (Median Asking Price - FMV) / FMV × 100
-            </code>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
-                <em>Note: Outlier prices are filtered using IQR method for accuracy.</em>
-            </p>
-        </div>
-        
-        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📈 Interpretation Bands</h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <!-- Healthy Band -->
-            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟢</span>
-                    <strong style="color: #34c759;">0% to 15% (HEALTHY)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Normal pricing friction. Sellers price slightly above recent sales to leave room for negotiation.<br>
-                    <strong>What to do:</strong> Fair pricing - safe to buy at asking prices or make small offers.
-                </p>
-            </div>
-            
-            <!-- Optimistic Band -->
-            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔵</span>
-                    <strong style="color: #007aff;">15% to 30% (OPTIMISTIC)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Seller optimism. Prices drifting above recent buyer behavior.<br>
-                    <strong>What to do:</strong> Make offers 10-20% below asking - sellers are likely open to negotiation.
-                </p>
-            </div>
-            
-            <!-- Resistance Band -->
-            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟠</span>
-                    <strong style="color: #ff9500;">30% to 50% (RESISTANCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Overpriced market. Clear resistance between buyers and sellers.<br>
-                    <strong>What to do:</strong> Be patient. Sellers will likely need to lower prices or accept significantly lower offers (20-30% below ask).
-                </p>
-            </div>
-            
-            <!-- Unrealistic Band -->
-            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔴</span>
-                    <strong style="color: #ff3b30;">50%+ (UNREALISTIC)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Unrealistic asking prices. Listings unlikely to transact near current levels.<br>
-                    <strong>What to do:</strong> Wait for price corrections or look for better-priced alternatives. These sellers are detached from market reality.
-                </p>
-            </div>
-            
-            <!-- Below FMV Band -->
-            <div style="background: linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #5856d6;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟣</span>
-                    <strong style="color: #5856d6;">Negative % (BELOW FMV)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Opportunity! Sellers are asking less than recent sale prices.<br>
-                    <strong>What to do:</strong> Act fast - these may be undervalued or motivated sellers.
-                </p>
-            </div>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
-            <strong style="color: var(--text-color);">💡 Quick Tip:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                Market Pressure above 30% suggests waiting for price corrections or making significantly lower offers. Below 0% indicates potential buying opportunities.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-            <strong style="color: var(--text-color);">📝 Example:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                If cards recently sold for <strong>$100</strong> (FMV), but current listings ask <strong>$140</strong>, that's <strong>+40% Market Pressure</strong> (Resistance) = sellers are asking too much.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
-            <strong style="color: var(--text-color);">📊 Data Confidence:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
-                • <strong>High:</strong> 10+ active listings<br>
-                • <strong>Medium:</strong> 5-9 active listings<br>
-                • <strong>Low:</strong> Less than 5 active listings (use with caution)
-            </p>
-        </div>
+        ${renderPopupSections(popupContent.sections)}
     `;
     
     overlay.appendChild(popup);
@@ -242,7 +336,16 @@ function showMarketPressureInfo() {
 }
 
 // Show Market Confidence info popup
-function showMarketConfidenceInfo() {
+async function showMarketConfidenceInfo() {
+    // Load content
+    let popupContent;
+    try {
+        popupContent = await window.contentLoader.getPopup('marketConfidence');
+    } catch (error) {
+        console.error('[showMarketConfidenceInfo] Failed to load content:', error);
+        // Use hardcoded fallback
+        popupContent = FALLBACK_POPUP_MARKET_CONFIDENCE;
+    }
     const overlay = document.createElement('div');
     overlay.id = 'market-confidence-overlay';
     overlay.style.cssText = `
@@ -273,100 +376,13 @@ function showMarketConfidenceInfo() {
         animation: slideUp 0.3s ease;
     `;
     
+    // Build HTML from loaded content
     popup.innerHTML = `
         <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
         
-        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">🎯 Understanding Market Confidence</h2>
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">${popupContent.title}</h2>
         
-        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
-            Market Confidence measures how <strong>consistent</strong> prices are in the market. Higher consistency = more reliable data and clearer pricing signals.
-        </p>
-        
-        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <strong style="color: var(--text-color);">Formula:</strong><br>
-            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
-                100 / (1 + Coefficient of Variation / 100)
-            </code>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
-                <em>Coefficient of Variation = (Standard Deviation ÷ Average Price) × 100</em>
-            </p>
-        </div>
-        
-        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📊 Confidence Bands</h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <!-- High Confidence Band -->
-            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟢</span>
-                    <strong style="color: #34c759;">70-100 (HIGH CONFIDENCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Prices are very consistent - strong market consensus on value.<br>
-                    <strong>What to do:</strong> FMV estimates are highly reliable. Safe to use for pricing decisions.
-                </p>
-            </div>
-            
-            <!-- Moderate Confidence Band -->
-            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔵</span>
-                    <strong style="color: #007aff;">40-69 (MODERATE CONFIDENCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Some price variation but overall market is functional.<br>
-                    <strong>What to do:</strong> FMV estimates are reasonably reliable. Consider using price ranges.
-                </p>
-            </div>
-            
-            <!-- Low Confidence Band -->
-            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟠</span>
-                    <strong style="color: #ff9500;">20-39 (LOW CONFIDENCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> High price variation - market is less certain.<br>
-                    <strong>What to do:</strong> Use caution with FMV estimates. Consider refining search terms or gathering more data.
-                </p>
-            </div>
-            
-            <!-- Very Low Confidence Band -->
-            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔴</span>
-                    <strong style="color: #ff3b30;">0-19 (VERY LOW CONFIDENCE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Extreme price variation - unreliable market signals.<br>
-                    <strong>What to do:</strong> FMV estimates may not be accurate. Refine search or check for data quality issues.
-                </p>
-            </div>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
-            <strong style="color: var(--text-color);">💡 Key Principle:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                Market Confidence tells you how <strong>reliable</strong> the data is, not what the value is. High confidence means prices are clustered together. Low confidence means prices are scattered and unpredictable.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-            <strong style="color: var(--text-color);">📝 Example:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                If 20 cards sold between $95-$105 (tight range), confidence is <strong>HIGH (80+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
-            <strong style="color: var(--text-color);">🔧 Improve Confidence:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
-                • Make search terms more specific (exact card number, parallel type)<br>
-                • Filter out unrelated variations (use "Base Only" or exclude parallels)<br>
-                • Exclude lots and multi-card listings<br>
-                • Check for grading consistency (don't mix raw with graded)
-            </p>
-        </div>
+        ${renderPopupSections(popupContent.sections)}
     `;
     
     overlay.appendChild(popup);
@@ -394,6 +410,16 @@ function showMarketConfidenceInfo() {
 // Show Liquidity Risk info popup
 async function showLiquidityRiskInfo() {
     const tier = currentPriceTier;
+    
+    // Load main popup content
+    let popupContent;
+    try {
+        popupContent = await window.contentLoader.getPopup('liquidityRisk');
+    } catch (error) {
+        console.error('[showLiquidityRiskInfo] Failed to load content:', error);
+        // Use hardcoded fallback
+        popupContent = FALLBACK_POPUP_LIQUIDITY_RISK;
+    }
     
     // Fetch tier-specific popup content if we have a tier
     let tierContent = null;
@@ -439,10 +465,11 @@ async function showLiquidityRiskInfo() {
         animation: slideUp 0.3s ease;
     `;
     
+    // Build HTML from loaded content with tier badge if available
     popup.innerHTML = `
         <button id="close-popup" style="position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0.25rem 0.5rem; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='var(--border-color)'" onmouseout="this.style.background='transparent'">×</button>
         
-        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">💧 Understanding Liquidity Risk</h2>
+        <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">${popupContent.title}</h2>
         
         ${tier && tier.tier_name ? `
         <div style="display: inline-flex; align-items: center; gap: 0.5rem;
@@ -464,11 +491,7 @@ async function showLiquidityRiskInfo() {
         </div>
         ` : ''}
         
-        <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
-            Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value.
-        </p>
-        
-        ${getExistingLiquidityBandsHTML()}
+        ${renderPopupSections(popupContent.sections)}
     `;
     
     overlay.appendChild(popup);
@@ -491,89 +514,6 @@ async function showLiquidityRiskInfo() {
         }
     };
     document.addEventListener('keydown', escHandler);
-}
-
-// Extract existing liquidity bands HTML into helper
-function getExistingLiquidityBandsHTML() {
-    return `
-        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <strong style="color: var(--text-color);">Absorption Ratio:</strong><br>
-            <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
-                Completed Sales / Active Listings
-            </code>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
-                <em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>
-            </p>
-        </div>
-        
-        <h3 style="font-size: 1.1rem; margin-bottom: 1rem; color: var(--text-color);">📊 Liquidity Bands</h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <!-- High Liquidity Band -->
-            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #34c759;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟢</span>
-                    <strong style="color: #34c759;">Ratio ≥ 1.0 (HIGH LIQUIDITY)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Demand exceeds supply - cards sell quickly.<br>
-                    <strong>What to do:</strong> Price competitively to capture demand. Quick exits are likely.
-                </p>
-            </div>
-            
-            <!-- Moderate Liquidity Band -->
-            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #007aff;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔵</span>
-                    <strong style="color: #007aff;">Ratio 0.5-1.0 (MODERATE)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Balanced market with healthy liquidity.<br>
-                    <strong>What to do:</strong> Normal market conditions - expect reasonable sell time.
-                </p>
-            </div>
-            
-            <!-- Low Liquidity Band -->
-            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9500;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🟠</span>
-                    <strong style="color: #ff9500;">Ratio 0.2-0.5 (LOW LIQUIDITY)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Slow absorption - elevated exit risk.<br>
-                    <strong>What to do:</strong> May need patience or competitive pricing to attract buyers.
-                </p>
-            </div>
-            
-            <!-- Very Low Liquidity Band -->
-            <div style="background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); padding: 1rem; border-radius: 8px; border-left: 4px solid #ff3b30;">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <span style="font-size: 1.2rem;">🔴</span>
-                    <strong style="color: #ff3b30;">Ratio < 0.2 (VERY LOW)</strong>
-                </div>
-                <p style="margin: 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                    <strong>What it means:</strong> Illiquid market - high exit risk.<br>
-                    <strong>What to do:</strong> Consider pricing at or below FMV to attract buyers.
-                </p>
-            </div>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1rem; border-radius: 8px; margin-top: 1.5rem; border-left: 4px solid #ff9500;">
-            <strong style="color: var(--text-color);">💡 Key Principle:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #333; line-height: 1.5;">
-                Liquidity Risk does NOT modify FMV. It tells you how easy it will be to sell at that price. High FMV with low liquidity means the card is valuable but may take time to sell.
-            </p>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid #007aff;">
-            <strong style="color: var(--text-color);">📊 Data Confidence:</strong><br>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.4;">
-                • <strong>High:</strong> 10+ sales AND 10+ active listings<br>
-                • <strong>Medium:</strong> 5+ sales AND 5+ active listings<br>
-                • <strong>Low:</strong> Below medium thresholds (use with caution)
-            </p>
-        </div>
-    `;
 }
 
 // Calculate Liquidity Risk Score based on Absorption Ratio
