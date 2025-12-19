@@ -2451,7 +2451,17 @@ function renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData
  * Uses basic heuristics for market condition assessment
  */
 function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData) {
+    console.log('[FALLBACK ASSESSMENT] Called with:', {
+        marketPressure,
+        liquidityRisk: liquidityRisk?.score || null,
+        marketConfidence,
+        hasPriceBands: !!priceBands,
+        hasData: !!data,
+        hasActiveData: !!activeData
+    });
+    
     if (marketPressure === null || !liquidityRisk || liquidityRisk.score === null) {
+        console.log('[FALLBACK ASSESSMENT] Missing required data, returning empty');
         return '';
     }
     
