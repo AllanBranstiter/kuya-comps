@@ -2679,24 +2679,33 @@ async function fetchTierMarketMessage(params) {
     try {
         console.log('[TIER MESSAGE] Fetching with params:', params);
         
+        // Ensure all required numeric fields are valid numbers
+        const market_pressure = typeof params.market_pressure === 'number' && !isNaN(params.market_pressure) ? params.market_pressure : 0;
+        const liquidity_score = typeof params.liquidity_score === 'number' && !isNaN(params.liquidity_score) ? params.liquidity_score : 0;
+        const market_confidence = typeof params.market_confidence === 'number' && !isNaN(params.market_confidence) ? params.market_confidence : 0;
+        
+        const requestBody = {
+            fmv: params.fmv || null,
+            avg_listing_price: params.avg_listing_price || null,
+            market_pressure: market_pressure,
+            liquidity_score: liquidity_score,
+            market_confidence: market_confidence,
+            absorption_below: params.absorption_below || null,
+            absorption_above: params.absorption_above || null,
+            below_fmv_count: params.below_fmv_count || 0,
+            above_fmv_count: params.above_fmv_count || 0,
+            sales_below: params.sales_below || 0,
+            sales_above: params.sales_above || 0
+        };
+        
+        console.log('[TIER MESSAGE] Request body:', requestBody);
+        
         const response = await fetch('/market-message', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                fmv: params.fmv || null,
-                avg_listing_price: params.avg_listing_price || null,
-                market_pressure: params.market_pressure || 0,
-                liquidity_score: params.liquidity_score || 0,
-                market_confidence: params.market_confidence || 0,
-                absorption_below: params.absorption_below || null,
-                absorption_above: params.absorption_above || null,
-                below_fmv_count: params.below_fmv_count || 0,
-                above_fmv_count: params.above_fmv_count || 0,
-                sales_below: params.sales_below || 0,
-                sales_above: params.sales_above || 0
-            })
+            body: JSON.stringify(requestBody)
         });
         
         if (!response.ok) {
