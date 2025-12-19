@@ -2684,14 +2684,22 @@ async function fetchTierMarketMessage(params) {
         const liquidity_score = typeof params.liquidity_score === 'number' && !isNaN(params.liquidity_score) ? params.liquidity_score : 0;
         const market_confidence = typeof params.market_confidence === 'number' && !isNaN(params.market_confidence) ? params.market_confidence : 0;
         
+        // Helper function to convert absorption values (could be number, string "N/A", or null) to valid float or null
+        const parseAbsorption = (value) => {
+            if (value === null || value === undefined) return null;
+            if (typeof value === 'string' && value === 'N/A') return null;
+            const parsed = parseFloat(value);
+            return !isNaN(parsed) ? parsed : null;
+        };
+        
         const requestBody = {
             fmv: params.fmv || null,
             avg_listing_price: params.avg_listing_price || null,
             market_pressure: market_pressure,
             liquidity_score: liquidity_score,
             market_confidence: market_confidence,
-            absorption_below: params.absorption_below || null,
-            absorption_above: params.absorption_above || null,
+            absorption_below: parseAbsorption(params.absorption_below),
+            absorption_above: parseAbsorption(params.absorption_above),
             below_fmv_count: params.below_fmv_count || 0,
             above_fmv_count: params.above_fmv_count || 0,
             sales_below: params.sales_below || 0,
