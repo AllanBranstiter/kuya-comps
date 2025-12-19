@@ -138,7 +138,7 @@ def get_log_format() -> str:
     Returns:
         Log format (json or text)
     """
-    return os.getenv('LOG_FORMAT', 'text' if is_development() else 'json').lower()
+    return os.getenv('LOG_FORMAT', 'text').lower()
 
 
 # ============================================================================
