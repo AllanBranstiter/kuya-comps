@@ -3,6 +3,7 @@ let lastActiveData = null; // Store active listings data
 let lastMarketValue = null; // Store market value for filtering
 let priceDistributionChartTimeout = null; // Track pending chart draw
 let lastChartData = { soldData: null, activeData: null }; // Store data for chart redraws
+let currentPriceTier = null; // Store tier from most recent search
 
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -391,7 +392,23 @@ function showMarketConfidenceInfo() {
 }
 
 // Show Liquidity Risk info popup
-function showLiquidityRiskInfo() {
+async function showLiquidityRiskInfo() {
+    const tier = currentPriceTier;
+    
+    // Fetch tier-specific popup content if we have a tier
+    let tierContent = null;
+    if (tier && tier.tier_id) {
+        try {
+            const response = await fetch(`/liquidity-popup/${tier.tier_id}`);
+            if (response.ok) {
+                const data = await response.json();
+                tierContent = data.content;
+            }
+        } catch (error) {
+            console.error('[LIQUIDITY POPUP] Error fetching tier content:', error);
+        }
+    }
+    
     const overlay = document.createElement('div');
     overlay.id = 'liquidity-risk-overlay';
     overlay.style.cssText = `
@@ -427,10 +444,58 @@ function showLiquidityRiskInfo() {
         
         <h2 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-color);">💧 Understanding Liquidity Risk</h2>
         
+        ${tier && tier.tier_name ? `
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem;
+                    background: ${tier.tier_color}15;
+                    padding: 0.5rem 1rem;
+                    border-radius: 8px;
+                    border: 1px solid ${tier.tier_color}40;
+                    margin-bottom: 1.5rem;">
+            <span style="font-size: 1.25rem;">${tier.tier_emoji}</span>
+            <strong style="color: ${tier.tier_color};">${tier.tier_name}</strong>
+        </div>
+        ` : ''}
+        
+        ${tierContent ? `
+        <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <p style="margin: 0; font-size: 0.95rem; color: var(--text-color); line-height: 1.6;">
+                ${tierContent}
+            </p>
+        </div>
+        ` : ''}
+        
         <p style="font-size: 0.95rem; color: var(--text-color); line-height: 1.6; margin-bottom: 1.5rem;">
             Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value.
         </p>
         
+        ${getExistingLiquidityBandsHTML()}
+    `;
+    
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+    
+    // Close on overlay click or close button
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay || e.target.id === 'close-popup') {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+        }
+    });
+    
+    // Close on Escape key
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+// Extract existing liquidity bands HTML into helper
+function getExistingLiquidityBandsHTML() {
+    return `
         <div style="background: linear-gradient(135deg, #f0f0f0 0%, #f8f8f8 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
             <strong style="color: var(--text-color);">Absorption Ratio:</strong><br>
             <code style="background: white; padding: 0.5rem; border-radius: 4px; display: inline-block; margin-top: 0.5rem; font-size: 0.9rem;">
@@ -509,27 +574,6 @@ function showLiquidityRiskInfo() {
             </p>
         </div>
     `;
-    
-    overlay.appendChild(popup);
-    document.body.appendChild(overlay);
-    
-    // Close on overlay click or close button
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay || e.target.id === 'close-popup') {
-            overlay.style.animation = 'fadeOut 0.2s ease';
-            setTimeout(() => overlay.remove(), 200);
-        }
-    });
-    
-    // Close on Escape key
-    const escHandler = (e) => {
-        if (e.key === 'Escape') {
-            overlay.style.animation = 'fadeOut 0.2s ease';
-            setTimeout(() => overlay.remove(), 200);
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
 }
 
 // Calculate Liquidity Risk Score based on Absorption Ratio
@@ -1311,7 +1355,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                 secondDataItemCount: secondData?.items?.length || 0,
                 secondDataKeys: secondData ? Object.keys(secondData) : []
             });
-            renderAnalysisDashboard(data, fmvData, secondData);
+            await renderAnalysisDashboard(data, fmvData, secondData);
         } catch (error) {
             console.error('[ERROR] Failed to render Analysis Dashboard, but Comps data is still available:', error);
             // Don't throw - let the Comps data display normally
@@ -2350,8 +2394,201 @@ function getVelocityStatement(absorptionRatio, scenario) {
     return `${scenario}: 4+ weeks expected (slow absorption)`;
 }
 
+/**
+ * Render price tier badge showing which tier this card is in
+ */
+function renderPriceTierBadge(tier) {
+    if (!tier || !tier.tier_name) {
+        return '';
+    }
+    
+    const priceSourceLabel = tier.price_source === 'fmv'
+        ? 'Fair Market Value'
+        : 'Average Listing Price';
+    
+    return `
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem;
+                    background: ${tier.tier_color}15;
+                    padding: 0.5rem 1rem;
+                    border-radius: 8px;
+                    border: 1px solid ${tier.tier_color}40;
+                    margin-bottom: 1rem;">
+            <span style="font-size: 1.25rem;">${tier.tier_emoji}</span>
+            <strong style="color: ${tier.tier_color};">${tier.tier_name}</strong>
+            <span style="font-size: 0.8rem; color: #666;">
+                (Based on ${priceSourceLabel})
+            </span>
+        </div>
+    `;
+}
+
+/**
+ * Render persona-specific advice from API message
+ */
+function renderPersonaAdvice(advice) {
+    if (!advice || (!advice.buyer && !advice.seller && !advice.investor)) {
+        return '';
+    }
+    
+    let html = '<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1);">';
+    
+    if (advice.buyer) {
+        html += `
+            <div style="margin-bottom: 0.5rem;">
+                <strong style="color: #007aff;">🛒 Buyer:</strong> ${advice.buyer}
+            </div>
+        `;
+    }
+    
+    if (advice.seller) {
+        html += `
+            <div style="margin-bottom: 0.5rem;">
+                <strong style="color: #34c759;">💰 Seller:</strong> ${advice.seller}
+            </div>
+        `;
+    }
+    
+    if (advice.investor) {
+        html += `
+            <div style="margin-bottom: 0.5rem;">
+                <strong style="color: #5856d6;">📈 Investor:</strong> ${advice.investor}
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+/**
+ * Render market assessment using API response
+ */
+function renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData, marketConfidence) {
+    const { tier, message } = apiResponse;
+    const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
+    
+    // Get gradient/border from message color
+    const colorMap = {
+        '#ff3b30': { gradient: 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)', border: '#ff9999' },
+        '#ff9500': { gradient: 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)', border: '#ffd699' },
+        '#5856d6': { gradient: 'linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%)', border: '#d6b3ff' },
+        '#34c759': { gradient: 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)', border: '#99ff99' },
+        '#007aff': { gradient: 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)', border: '#99daff' }
+    };
+    
+    const styling = colorMap[message.color] || colorMap['#007aff'];
+    
+    // Store tier globally for liquidity popup
+    window.currentPriceTier = tier;
+    currentPriceTier = tier;
+    
+    return `
+        <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+            <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
+            
+            ${renderPriceTierBadge(tier)}
+            
+            <div style="background: ${styling.gradient}; padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${styling.border};">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                    <span style="font-size: 2rem;">${message.icon}</span>
+                    <strong style="font-size: 1.1rem; color: ${message.color};">${message.title}</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
+                    ${message.content}
+                </p>
+                ${renderPersonaAdvice(message.advice)}
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
+                    <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
+                    <strong>Activity:</strong> ${getDominantBandStatement(priceBands.belowFMV, priceBands.atFMV, priceBands.aboveFMV, priceBands.absorptionBelow, priceBands.absorptionAt, priceBands.absorptionAbove)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render market assessment with tier-based messaging
+ * Calls API for tier-specific messages, falls back to hardcoded logic
+ */
+async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData) {
+    if (marketPressure === null || !liquidityRisk || liquidityRisk.score === null) {
+        return '';
+    }
+    
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
+    
+    // Try to fetch tier-specific message from backend
+    const apiResponse = await fetchTierMarketMessage({
+        fmv: marketValueGlobal,
+        avg_listing_price: activeData?.avg_price || null,
+        market_pressure: marketPressure,
+        liquidity_score: liquidityRisk.score,
+        market_confidence: marketConfidence,
+        absorption_below: parseFloat(absorptionBelow) || null,
+        absorption_above: parseFloat(absorptionAbove) || null,
+        below_fmv_count: belowFMV,
+        above_fmv_count: aboveFMV,
+        sales_below: salesBelow,
+        sales_above: salesAbove
+    });
+    
+    // Use API response if available
+    if (apiResponse && apiResponse.message) {
+        return renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData, marketConfidence);
+    }
+    
+    // FALLBACK: Original hardcoded logic
+    // (keeping existing behavior if API fails)
+    console.log('[TIER MESSAGE] Using fallback hardcoded assessment');
+    return ''; // Existing code will handle the assessment
+}
+
+/**
+ * Fetch tier-specific market message from backend API
+ * @param {Object} params - Market metrics
+ * @returns {Promise} API response with tier and message data
+ */
+async function fetchTierMarketMessage(params) {
+    try {
+        console.log('[TIER MESSAGE] Fetching with params:', params);
+        
+        const response = await fetch('/market-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                fmv: params.fmv || null,
+                avg_listing_price: params.avg_listing_price || null,
+                market_pressure: params.market_pressure || 0,
+                liquidity_score: params.liquidity_score || 0,
+                market_confidence: params.market_confidence || 0,
+                absorption_below: params.absorption_below || null,
+                absorption_above: params.absorption_above || null,
+                below_fmv_count: params.below_fmv_count || 0,
+                above_fmv_count: params.above_fmv_count || 0,
+                sales_below: params.sales_below || 0,
+                sales_above: params.sales_above || 0
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API returned ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('[TIER MESSAGE] Received:', data);
+        
+        return data;
+    } catch (error) {
+        console.error('[TIER MESSAGE] Error fetching:', error);
+        // Return null to allow fallback to current hardcoded logic
+        return null;
+    }
+}
+
 // Render Analytics Dashboard for the Analysis sub-tab
-function renderAnalysisDashboard(data, fmvData, activeData) {
+async function renderAnalysisDashboard(data, fmvData, activeData) {
     console.log('[renderAnalysisDashboard] Function called with parameters:', {
         hasData: !!data,
         hasFmvData: !!fmvData,
@@ -2591,7 +2828,7 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             
             <!-- Market Risk Assessment (moved to top) -->
             ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ?
-                renderMarketAssessment(
+                await renderMarketAssessment(
                     marketPressure,
                     liquidityRisk,
                     { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
