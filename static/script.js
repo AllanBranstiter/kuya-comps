@@ -1051,7 +1051,7 @@ async function renderData(data, secondData = null, marketValue = null) {
             </tr>
           </thead>
           <tbody>
-          ${data.items.map(item => {
+          ${data.items && data.items.length > 0 ? data.items.map(item => {
             // Use deep link on mobile devices, standard link otherwise
             const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
             
@@ -1079,7 +1079,13 @@ async function renderData(data, secondData = null, marketValue = null) {
               <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Sold listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">${escapeHtml(item.item_id)}</a></td>
             </tr>
             `;
-          }).join('')}
+          }).join('') : `
+            <tr>
+              <td colspan="3" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                No recently sold listings found
+              </td>
+            </tr>
+          `}
           </tbody>
         </table>
       </div>
@@ -1173,7 +1179,7 @@ async function renderData(data, secondData = null, marketValue = null) {
               <span>See All</span>
             </label>
           </div>
-          ${!hasMarketValue ? `
+          ${!hasMarketValue && filteredItems.length > 0 ? `
           <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #ff9500;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <span style="font-size: 1.2rem;">ℹ️</span>
