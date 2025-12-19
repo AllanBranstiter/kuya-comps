@@ -5,8 +5,9 @@ Fair Market Value (FMV) calculation service.
 This module contains all logic for calculating volume-weighted FMV
 and related statistics for card valuations.
 """
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 import numpy as np
+from backend.services.price_tier_service import get_price_tier
 from backend.config import (
     IQR_OUTLIER_MULTIPLIER,
     MIN_ITEMS_FOR_OUTLIER_DETECTION,
@@ -40,7 +41,8 @@ class FMVResult:
         quick_sale: Optional[float] = None,
         patient_sale: Optional[float] = None,
         volume_confidence: Optional[str] = None,
-        count: int = 0
+        count: int = 0,
+        price_tier: Optional[Dict] = None
     ):
         self.fmv_low = fmv_low
         self.fmv_high = fmv_high
@@ -51,6 +53,7 @@ class FMVResult:
         self.patient_sale = patient_sale
         self.volume_confidence = volume_confidence
         self.count = count
+        self.price_tier = price_tier
     
     def to_dict(self) -> dict:
         """Convert to dictionary format for API response."""
@@ -64,6 +67,7 @@ class FMVResult:
             'patient_sale': self.patient_sale,
             'volume_confidence': self.volume_confidence,
             'count': self.count,
+            'price_tier': self.price_tier,
         }
 
 
@@ -282,6 +286,9 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     print(f"[FMV] Volume-weighted mean: ${weighted_mean:.2f}, std: ${weighted_std:.2f}")
     print(f"[FMV] High-weight sales: {high_weight_count}/{len(weights)} ({volume_confidence} confidence)")
 
+    # Calculate price tier based on market_value
+    tier_data = get_price_tier(fmv=market_value, avg_listing_price=None)
+
     return FMVResult(
         fmv_low=fmv_low,
         fmv_high=fmv_high,
@@ -291,5 +298,6 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         quick_sale=quick_sale,
         patient_sale=patient_sale,
         volume_confidence=volume_confidence,
-        count=len(inliers)
+        count=len(inliers),
+        price_tier=tier_data
     )

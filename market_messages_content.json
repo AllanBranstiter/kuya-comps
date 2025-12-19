@@ -1,0 +1,326 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2024-12-19",
+  "messages": {
+    "high_pressure_low_liquidity": {
+      "message_id": 3,
+      "title": "High Risk Market Conditions",
+      "icon": "🚨",
+      "base_color": "#ff3b30",
+      "tier_1": {
+        "content": "Sellers want {marketPressure}% more than what cards recently sold for, but not many people are buying (buyer interest score: {liquidityScore}/100). This means the cards are overpriced. Better deals exist elsewhere.",
+        "advice_seller": [
+          "You'll probably wait a long time unless you drop your price"
+        ],
+        "advice_buyer": [
+          "Pass on this one—your money is better spent elsewhere"
+        ],
+        "advice_collector": null
+      },
+      "tier_2": {
+        "content": "Sellers want {marketPressure}% more than recent sale prices, but buyers aren't interested (buyer interest score: {liquidityScore}/100). The cards are priced too high. Wait for prices to come down or find better options.",
+        "advice_seller": null,
+        "advice_buyer": [
+          "Wait it out. Prices will likely drop"
+        ],
+        "advice_collector": [
+          "If you want it for your collection: Wait it out. Prices will likely drop"
+        ]
+      },
+      "tier_3": {
+        "content": "Sellers want {marketPressure}% more than recent sales, but buyers aren't biting (buyer interest score: {liquidityScore}/100). At this price range, buyers do their homework and won't overpay. These asking prices will probably drop or sit unsold for months.",
+        "advice_seller": [
+          "Price it fairly from the start",
+          "At this price level, overpriced cards sit forever"
+        ],
+        "advice_buyer": [
+          "Be patient. These prices will come down"
+        ],
+        "advice_collector": null
+      },
+      "tier_4": {
+        "content": "Sellers want {marketPressure}% more than what these cards recently sold for, and not many buyers are looking ({liquidityScore}/100 buyer interest). For expensive cards like this, it's normal to have fewer buyers—but when you combine that with inflated prices, it means sellers are testing the market and will probably need to lower their expectations.",
+        "advice_seller": [
+          "Price it right from the start",
+          "Experienced buyers at this level know the market and won't chase overpriced cards"
+        ],
+        "advice_buyer": null,
+        "advice_collector": [
+          "Wait it out. Expensive cards often get cheaper when sellers realize nobody's paying their asking price"
+        ]
+      },
+      "tier_5": {
+        "content": "eBay listings are {marketPressure}% higher than what similar cards sold for at auctions, and not many people are watching ({liquidityScore}/100). For really expensive cards, there are fewer eBay sales—lots of trophy cards sell through auction houses instead. These sellers might be hoping someone pays extra to buy on eBay instead of waiting for an auction.",
+        "advice_seller": null,
+        "advice_buyer": null,
+        "advice_collector": [
+          "Check what these cards sold for at Heritage, PWCC, or Goldin auctions first",
+          "Big auction sales are usually more reliable for pricing trophy cards than eBay listings"
+        ]
+      }
+    },
+    "fair_price_low_liquidity": {
+      "message_id": 5,
+      "title": "Fair Pricing, Limited Demand",
+      "icon": "⚡",
+      "base_color": "#ff9500",
+      "tier_1": {
+        "content": "Prices are pretty normal (only {marketPressure}% vs. recent sales), but not many people are buying (buyer interest: {liquidityScore}/100). Even though prices are fair, the cards aren't selling well. Probably means the card is losing popularity or too many copies are for sale.",
+        "advice_seller": [
+          "Expect slow sales",
+          "Even with fair prices, cheap cards need lots of buyers to move"
+        ],
+        "advice_buyer": [
+          "No rush—these will still be here"
+        ],
+        "advice_collector": null
+      },
+      "tier_2": {
+        "content": "Prices are reasonable ({marketPressure}% vs. recent sales), but sales are slow (buyer interest: {liquidityScore}/100). Even at fair prices, cards aren't moving. Could mean buyer interest is fading or too many are available.",
+        "advice_seller": null,
+        "advice_buyer": [
+          "Not ideal for flips. Even good deals might take a while to resell"
+        ],
+        "advice_collector": [
+          "Could be a quiet buying opportunity",
+          "Fair prices without hype often age well"
+        ]
+      },
+      "tier_3": {
+        "content": "Prices look reasonable ({marketPressure}% vs. recent sales), with moderate buyer activity ({liquidityScore}/100). At this price range, fewer people can afford $500-$2K cards, so slower sales are normal. This isn't necessarily 'people losing interest'—it's just that the pool of buyers is naturally smaller.",
+        "advice_seller": null,
+        "advice_buyer": [
+          "Expect to hold it for 30-60 days even at a fair price",
+          "Factor that wait time into your plans"
+        ],
+        "advice_collector": [
+          "This is often a good situation—fair prices without crazy hype",
+          "If it's a historically important card or proven star, slow and steady is actually good"
+        ]
+      },
+      "tier_4": {
+        "content": "Prices are fair ({marketPressure}% vs. recent sales), with moderate buyer activity ({liquidityScore}/100). For expensive cards, slower buying is normal and expected. Fewer people can spend $2K-$10K, and those who can take their time deciding.",
+        "advice_seller": [
+          "At this level, waiting 60-120+ days to sell is typical for fairly-priced cards",
+          "Fair pricing helps, but patience is required"
+        ],
+        "advice_buyer": null,
+        "advice_collector": [
+          "Great environment. Fair prices + low drama = healthy long-term investment"
+        ]
+      },
+      "tier_5": {
+        "content": "Prices match recent sales ({marketPressure}% vs. recent sales), with limited but serious buyer interest ({liquidityScore}/100). Trophy-level cards don't sell often. When they do, it's usually through auction houses or private sales, not eBay.",
+        "advice_seller": [
+          "eBay might not be the best place",
+          "Major auction houses (Heritage, PWCC, Goldin) usually find better buyers for expensive cards"
+        ],
+        "advice_buyer": null,
+        "advice_collector": [
+          "Fair prices on trophy cards are rare opportunities",
+          "Make absolutely sure the card is real and in the condition claimed"
+        ]
+      }
+    },
+    "normal_market": {
+      "message_id": 8,
+      "title": "Normal, Stable Market",
+      "icon": "📊",
+      "base_color": "#007aff",
+      "tier_1": {
+        "content": "Prices are in the middle range ({marketPressure}% vs. recent sales) and buyers seem moderately active ({liquidityScore}/100). This is a normal, stable market. Nothing special happening—use your normal judgment.",
+        "advice_seller": null,
+        "advice_buyer": null,
+        "advice_collector": null
+      },
+      "tier_2": {
+        "content": "Prices are in the middle range ({marketPressure}% vs. recent sales) and buyers seem moderately interested ({liquidityScore}/100). This is a normal, stable market. Not hot, not cold—good for patient buyers and sellers with fair prices.",
+        "advice_seller": null,
+        "advice_buyer": null,
+        "advice_collector": null
+      },
+      "tier_3": {
+        "content": "Prices are in the middle range ({marketPressure}% vs. recent sales) and buyer interest is moderate ({liquidityScore}/100). For cards at this price, moderate buyer interest is typical—there just aren't as many people buying $500-$2K cards as there are buying $50 cards. That's normal.",
+        "advice_seller": [
+          "If you're selling, expect to wait 30-60 days to find a buyer"
+        ],
+        "advice_buyer": null,
+        "advice_collector": null
+      },
+      "tier_4": {
+        "content": "Prices are in the middle range ({marketPressure}% vs. recent sales) with moderate buyer interest ({liquidityScore}/100). At this price level, 'moderate' buyer interest is actually healthy—serious buyers exist, but they take their time.",
+        "advice_seller": [
+          "If you're listing a card, expect 60-120+ days to be normal",
+          "That's not a red flag—it's just how this price range works"
+        ],
+        "advice_buyer": null,
+        "advice_collector": null
+      },
+      "tier_5": {
+        "content": "Prices match recent comparables ({marketPressure}% vs. recent sales) with measured interest ({liquidityScore}/100). For trophy cards, eBay sales only tell part of the story—many sales happen through auction houses or privately. Use this eBay data as one piece of information, not the whole picture.",
+        "advice_seller": null,
+        "advice_buyer": null,
+        "advice_collector": [
+          "Check recent Heritage, PWCC, or Goldin auction results for additional price confirmation at this level"
+        ]
+      }
+    },
+    "data_quality_warning": {
+      "message_id": 1,
+      "title": "Data Quality Warning",
+      "icon": "⚠️",
+      "base_color": "#ff9500",
+      "tier_1": {
+        "content": "The prices are all over the place (confidence: {confidence}/100) and asking prices are {marketPressure}% vs FMV. This usually means your search is mixing different card types, conditions, or variations together. Try making your search more specific to get better results.",
+        "advice_seller": [
+          "Be careful pricing your card based on outliers",
+          "Buyers will question your price and negotiate aggressively",
+          "Before listing, tighten your search to match your exact card"
+        ],
+        "advice_buyer": [
+          "Only buy if the deal is obviously mispriced and easy to verify",
+          "Otherwise, the risk outweighs the reward"
+        ],
+        "advice_collector": [
+          "This is a 'pause and research' moment",
+          "Waiting for cleaner data usually leads to better buying decisions",
+          "No need to rush unless the card is extremely scarce"
+        ]
+      },
+      "tier_2": null,
+      "tier_3": null,
+      "tier_4": null,
+      "tier_5": null
+    },
+    "two_tier_market": {
+      "message_id": 2,
+      "title": "Two-Tier Market Detected",
+      "icon": "🔀",
+      "base_color": "#5856d6",
+      "tier_1": {
+        "content": "Cards priced below FMV are selling {absorptionBelow}x faster than new listings appear ({salesBelow} sales vs {belowFMV} listings), while higher-priced cards aren't selling quickly ({absorptionAbove} absorption, {salesAbove} sales vs {aboveFMV} listings). Average asking price is {marketPressure}% vs FMV.",
+        "advice_seller": [
+          "Cards priced near or below fair value sell much faster",
+          "Overpricing usually leads to long wait times",
+          "If you want a quick sale, price competitively"
+        ],
+        "advice_buyer": [
+          "This is a good buying setup",
+          "Buy below fair value and sell close to it",
+          "Avoid premium pricing—those listings tend to stall"
+        ],
+        "advice_collector": [
+          "A solid time to buy if you stick to fair prices",
+          "Ignore overpriced listings; they don't reflect real demand",
+          "Patient buyers have the advantage here"
+        ]
+      },
+      "tier_2": null,
+      "tier_3": null,
+      "tier_4": null,
+      "tier_5": null
+    },
+    "overpriced_active_market": {
+      "message_id": 4,
+      "title": "Overpriced but Active Market",
+      "icon": "🔥",
+      "base_color": "#ff9500",
+      "tier_1": {
+        "content": "The market for this card is very hot. Asking prices are {marketPressure}% above FMV, and are supported by strong demand and good liquidity ({liquidityScore}/100). Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.",
+        "advice_seller": [
+          "This is a strong selling window",
+          "Buyers are accepting higher prices right now",
+          "Consider selling while demand is hot"
+        ],
+        "advice_buyer": [
+          "Flips are possible, but timing matters",
+          "You need to buy and resell quickly",
+          "Miss the timing, and you risk holding overpriced inventory"
+        ],
+        "advice_collector": [
+          "You're paying extra to get a card immediately",
+          "If you don't need the card now, waiting is usually safer",
+          "Great cards often come back down once hype fades"
+        ]
+      },
+      "tier_2": null,
+      "tier_3": null,
+      "tier_4": null,
+      "tier_5": null
+    },
+    "strong_buy_opportunity": {
+      "message_id": 6,
+      "title": "Strong Buy Opportunity",
+      "icon": "💎",
+      "base_color": "#34c759",
+      "tier_1": {
+        "content": "Available cards are priced {absMarketPressure}% below FMV and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: cards are underpriced and selling fast. This could mean a player is breaking out or performing well.",
+        "advice_seller": [
+          "You could be leaving money on the table at current prices—consider your opinion of the player's potential",
+          "Expect fast sales, even if you raise your price slightly",
+          "If you're listing now, consider pricing closer to fair value—or just above it"
+        ],
+        "advice_buyer": [
+          "This is an excellent setup",
+          "Buy quickly at current prices and aim for fast resale",
+          "Delays matter here—once sellers adjust, margins shrink"
+        ],
+        "advice_collector": [
+          "This is one of the better times to buy if you're optimistic about the player's potential",
+          "You're entering below fair value in a market with real demand",
+          "Acting sooner usually beats waiting in conditions like this"
+        ]
+      },
+      "tier_2": null,
+      "tier_3": null,
+      "tier_4": null,
+      "tier_5": null
+    },
+    "healthy_market_conditions": {
+      "message_id": 7,
+      "title": "Healthy Market Conditions",
+      "icon": "✅",
+      "base_color": "#34c759",
+      "tier_1": {
+        "content": "Prices are fair ({marketPressure}% vs FMV) and there's plenty of buyer activity (liquidity: {liquidityScore}/100). This is a healthy, well-functioning market where both buyers and sellers are active. Prices accurately reflect current demand: good conditions for both buying and selling.",
+        "advice_seller": [
+          "Fair pricing is being rewarded with steady sales",
+          "No need to overthink timing—this is a good environment to list",
+          "Well-presented listings should move at reasonable prices"
+        ],
+        "advice_buyer": [
+          "Opportunities exist, but they're not automatic",
+          "Profits depend on buying well, not on market imbalance",
+          "Focus on small edges rather than big swings"
+        ],
+        "advice_collector": [
+          "A comfortable, low-stress time to buy",
+          "You're unlikely to overpay or miss out by waiting briefly",
+          "Buy based on preference, not fear of price movement"
+        ]
+      },
+      "tier_2": null,
+      "tier_3": null,
+      "tier_4": null,
+      "tier_5": null
+    }
+  },
+  "liquidity_popup": {
+    "title": "How Easy Is It to Sell This Card?",
+    "tier_1": {
+      "content": "This score shows how hard or easy it might be to **sell your card** at a fair price. For cheap cards, a high score is normal—low scores usually mean people are losing interest in the card."
+    },
+    "tier_2": {
+      "content": "This score shows how hard or easy it might be to **sell your card** at a fair price. This price range has lots of buying and selling activity—your score directly relates to how fast you can expect to sell."
+    },
+    "tier_3": {
+      "content": "This score shows how hard or easy it might be to **sell your card** at a fair price. At this price level, lower scores are expected—fewer people can spend $500-$2K, and they take longer to decide. A medium score is normal and healthy."
+    },
+    "tier_4": {
+      "content": "This score shows how realistic eBay is as a place to sell your card. For expensive cards, many sales happen through auction houses or private deals, not eBay. A lower eBay score doesn't mean the card is hard to sell—just that eBay might not be the main marketplace."
+    },
+    "tier_5": {
+      "content": "This score only reflects eBay activity, which is just a small part of the trophy card market. Major auction houses (Heritage, PWCC, Goldin) often work better for finding buyers at this price level. Use these scores as extra information, not the main story."
+    }
+  }
+}
