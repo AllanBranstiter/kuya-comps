@@ -544,6 +544,55 @@ function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
 // ============================================================================
 
 /**
+ * Render persona-based advice sections
+ * @param {Object} personaAdvice - Object with seller, flipper, collector arrays
+ * @returns {string} HTML string for persona sections
+ */
+function renderPersonaAdvice(personaAdvice) {
+    if (!personaAdvice) return '';
+    
+    const sections = [
+        {
+            key: 'seller',
+            label: "If you're a seller",
+            color: '#007aff',
+            bg: 'rgba(0, 122, 255, 0.05)'
+        },
+        {
+            key: 'flipper',
+            label: "If you're flipping",
+            color: '#ff9500',
+            bg: 'rgba(255, 149, 0, 0.05)'
+        },
+        {
+            key: 'collector',
+            label: "If you're collecting long-term",
+            color: '#5ac8fa',
+            bg: 'rgba(90, 200, 250, 0.05)'
+        }
+    ];
+    
+    let html = '<div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">';
+    
+    sections.forEach(section => {
+        const advice = personaAdvice[section.key];
+        if (advice && advice.length > 0) {
+            html += `
+                <div style="background: ${section.bg}; padding: 0.75rem 1rem; border-radius: 8px; border-left: 3px solid ${section.color};">
+                    <strong style="color: ${section.color}; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">${section.label}</strong>
+                    <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.85rem; line-height: 1.6; color: #333;">
+                        ${advice.map(point => `<li style="margin-bottom: 0.25rem;">${point}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+/**
  * Render market assessment warning section
  * @param {number} marketPressure - Market pressure percentage
  * @param {Object} liquidityRisk - Liquidity risk metrics
@@ -558,141 +607,260 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
         return '';
     }
     
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
+    
+    // MESSAGE CONTENT DEFINITIONS WITH PERSONA ADVICE
+    const messageContent = {
+        dataQualityWarning: {
+            message: `The prices are all over the place (confidence: ${marketConfidence}/100) and asking prices are ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV. This usually means your search is mixing different card types, conditions, or variations together. Try making your search more specific to get better results.`,
+            personaAdvice: {
+                seller: [
+                    "Be careful pricing your card based on outliers",
+                    "Buyers will question your price and negotiate aggressively",
+                    "Before listing, tighten your search to match your exact card"
+                ],
+                flipper: [
+                    "This isn't a reliable market for consistent flips",
+                    "Only buy if the deal is obviously mispriced and easy to verify",
+                    "Otherwise, the risk outweighs the reward"
+                ],
+                collector: [
+                    "This is a 'pause and research' moment",
+                    "Waiting for clean data usually leads to better buying decisions",
+                    "No need to rush unless the card is extremely scarce"
+                ]
+            }
+        },
+        
+        twoTierMarket: {
+            message: `This market has two different speeds: Cards priced below FMV are selling <strong>${absorptionBelow}x faster</strong> than new listings appear (${salesBelow} sales vs ${belowFMV} listings), while higher-priced cards aren't selling quickly (${absorptionAbove} absorption, ${salesAbove} sales vs ${aboveFMV} listings). Average asking price is ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV.`,
+            personaAdvice: {
+                seller: [
+                    "Cards priced near or below fair value sell much faster",
+                    "Overpricing usually leads to long wait times",
+                    "If you want a quick sale, price competitively"
+                ],
+                flipper: [
+                    "This is a good flipping setup",
+                    "Buy below fair value and sell close to it",
+                    "Avoid premium pricing—those listings tend to stall"
+                ],
+                collector: [
+                    "A solid time to buy if you stick to fair prices",
+                    "Ignore overpriced listings; they don't reflect real demand",
+                    "Patient buyers have the advantage here"
+                ]
+            }
+        },
+        
+        highRiskConditions: {
+            message: `Sellers are asking <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but there aren't many buyers interested (liquidity: ${liquidityRisk.score}/100). This means listings are overpriced compared to what buyers are actually willing to pay. It may be better to wait for sellers to lower prices or look for better deals elsewhere.`,
+            personaAdvice: {
+                seller: [
+                    "This is a tough environment to sell in",
+                    "Expect slow sales or price drops",
+                    "If you need to sell, pricing below the crowd helps"
+                ],
+                flipper: [
+                    "This is usually a bad setup",
+                    "High prices plus low demand leave little room for profit",
+                    "Better opportunities exist elsewhere"
+                ],
+                collector: [
+                    "Waiting often pays off here",
+                    "Markets like this tend to cool down",
+                    "Patience can lead to better entry prices later"
+                ]
+            }
+        },
+        
+        overpricedActiveMarket: {
+            message: `The market for this card is very hot. Asking prices are <strong>${marketPressure.toFixed(1)}% above FMV</strong>, and are supported by strong demand and good liquidity (${liquidityRisk.score}/100). Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.`,
+            personaAdvice: {
+                seller: [
+                    "This is a strong selling window",
+                    "Buyers are accepting higher prices right now",
+                    "Consider selling while demand is hot"
+                ],
+                flipper: [
+                    "Flips are possible, but timing matters",
+                    "You need to buy and resell quickly",
+                    "Miss the timing, and you risk holding overpriced inventory"
+                ],
+                collector: [
+                    "You're paying extra to get a card immediately",
+                    "If you don't need the card now, waiting is usually safer",
+                    "Great cards often come back down once hype fades"
+                ]
+            }
+        },
+        
+        fairPricingLimitedDemand: {
+            message: `Prices are fairly reasonable (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV), but not many buyers are interested (liquidity: ${liquidityRisk.score}/100). Even though prices are fair, cards aren't selling well. This could mean the card is losing popularity or buyer interest is fading. If this card is from a recent release, this could also mean the number of cards available for sale (supply) is starting to outstrip the number of interested buyers (demand).`,
+            personaAdvice: {
+                seller: [
+                    "Slow sales are likely, even at fair prices",
+                    "If you want quicker action, slight discounts can help",
+                    "Otherwise, patience is required"
+                ],
+                flipper: [
+                    "Not ideal for quick flips",
+                    "Even good deals may take time to resell",
+                    "Only buy if you expect a future catalyst"
+                ],
+                collector: [
+                    "This can be a great quiet buying opportunity",
+                    "Fair prices without hype often age well",
+                    "Especially attractive for iconic or historically stable cards"
+                ]
+            }
+        },
+        
+        strongBuyOpportunity: {
+            message: `Available cards are priced <strong>${Math.abs(marketPressure).toFixed(1)}% below FMV</strong> and lots of buyers are active (liquidity: ${liquidityRisk.score}/100). This is a rare opportunity: cards are underpriced and selling fast. This could mean a player is breaking out or performing well.`,
+            personaAdvice: {
+                seller: [
+                    "You could be leaving money on the table at current prices—consider your opinion of the player's potential",
+                    "Expect fast sales, even if you raise your price slightly",
+                    "If you're listing now, consider pricing closer to fair value—or just above it"
+                ],
+                flipper: [
+                    "This is an excellent setup",
+                    "Buy quickly at current prices and aim for fast resale",
+                    "Delays matter here—once sellers adjust, margins shrink"
+                ],
+                collector: [
+                    "This is one of the better times to buy if you're optimistic about the player's potential",
+                    "You're entering below fair value in a market with real demand",
+                    "Acting sooner usually beats waiting in conditions like this"
+                ]
+            }
+        },
+        
+        healthyMarketConditions: {
+            message: `Prices are fair (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) and there's plenty of buyer activity (liquidity: ${liquidityRisk.score}/100). This is a healthy, well-functioning market where both buyers and sellers are active. Prices accurately reflect current demand: good conditions for both buying and selling.`,
+            personaAdvice: {
+                seller: [
+                    "Fair pricing is being rewarded with steady sales",
+                    "No need to overthink timing—this is a good environment to list",
+                    "Well-presented listings should move at reasonable prices"
+                ],
+                flipper: [
+                    "Opportunities exist, but they're not automatic",
+                    "Profits depend on buying well, not on market imbalance",
+                    "Focus on small edges rather than big swings"
+                ],
+                collector: [
+                    "A comfortable, low-stress time to buy",
+                    "You're unlikely to overpay or miss out by waiting briefly",
+                    "Buy based on preference, not fear of price movement"
+                ]
+            }
+        },
+        
+        balancedMarket: {
+            message: `Prices are in the middle range (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) with moderate buyer activity (liquidity: ${liquidityRisk.score}/100). This is a normal, stable market: nothing particularly remarkable happening. Use your normal judgment when buying or selling.`,
+            personaAdvice: null  // No persona advice for balanced market
+        }
+    };
+    
+    // SELECT APPROPRIATE MESSAGE BASED ON CONDITIONS
+    let selectedScenario = null;
     let warningLevel = 'info';
     let warningColor = '#007aff';
     let warningBg = 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)';
     let warningBorder = '#99daff';
     let warningIcon = 'ℹ️';
     let warningTitle = 'Market Analysis';
-    let warningMessage = '';
-    
-    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
     
     // Edge Case 1: Data Quality Warning
     if (marketConfidence < 30 && Math.abs(marketPressure) > 20) {
+        selectedScenario = 'dataQualityWarning';
         warningLevel = 'warning';
         warningColor = '#ff9500';
         warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
         warningBorder = '#ffd699';
         warningIcon = '⚠️';
         warningTitle = 'Data Quality Warning';
-        
-        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-        warningMessage = `The prices are all over the place (confidence: ${marketConfidence}/100) and asking prices are ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV. This usually means your search is mixing different card types, conditions, or variations together. Try making your search more specific to get better results.<br><br>
-        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-        <strong>Recommendation:</strong> Use more specific search terms, filter by condition/grade, or exclude variants`;
     }
     // Edge Case 2: Two-Tier Market
     else if (absorptionBelow !== 'N/A' && absorptionAbove !== 'N/A' &&
              parseFloat(absorptionBelow) >= 1.5 && parseFloat(absorptionAbove) < 0.3 &&
              belowFMV > 0 && aboveFMV > 0) {
+        selectedScenario = 'twoTierMarket';
         warningLevel = 'info';
         warningColor = '#5856d6';
         warningBg = 'linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%)';
         warningBorder = '#d6b3ff';
         warningIcon = '🔀';
         warningTitle = 'Two-Tier Market Detected';
-        
-        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-        warningMessage = `This market has two different speeds: Cards priced below FMV are selling <strong>${absorptionBelow}x faster</strong> than new listings appear (${salesBelow} sales vs ${belowFMV} listings), while premium-priced cards barely move (${absorptionAbove} absorption, ${salesAbove} sales vs ${aboveFMV} listings). Average asking price is ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV.<br><br>
-        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-        <strong>Insight:</strong> Buyers are active but only for cards priced at or below fair value. Premium pricing faces strong resistance.`;
     }
-    // Standard message logic continues with other scenarios...
+    // High Risk
     else if (marketPressure > 30 && liquidityRisk.score < 50) {
+        selectedScenario = 'highRiskConditions';
         warningLevel = 'danger';
         warningColor = '#ff3b30';
         warningBg = 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)';
         warningBorder = '#ff9999';
         warningIcon = '🚨';
         warningTitle = 'High Risk Market Conditions';
-        
-        let baseMessage = `Sellers are asking <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but there aren't many buyers interested (liquidity: ${liquidityRisk.score}/100). This means listings are overpriced compared to what buyers are actually willing to pay. It may be better to wait for sellers to lower prices or look for better deals elsewhere.`;
-        
-        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-        warningMessage = baseMessage + `<br><br>
-        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
-        ${absorptionAbove !== 'N/A' ? `<br>${getVelocityStatement(absorptionAbove, 'Premium-priced cards')}` : ''}`;
     }
+    // Overpriced but Active
     else if (marketPressure > 30 && liquidityRisk.score >= 50) {
+        selectedScenario = 'overpricedActiveMarket';
         warningLevel = 'warning';
         warningColor = '#ff9500';
         warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
         warningBorder = '#ffd699';
-        warningIcon = '⚠️';
+        warningIcon = '🔥';
         warningTitle = 'Overpriced but Active Market';
-        
-        let baseMessage = `Asking prices are <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but the market shows <strong>good liquidity (${liquidityRisk.score}/100)</strong>. Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.`;
-        
-        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-        warningMessage = baseMessage + `<br><br>
-        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
     }
+    // Fair Pricing, Limited Demand
     else if (marketPressure <= 15 && liquidityRisk.score < 50) {
+        selectedScenario = 'fairPricingLimitedDemand';
         warningLevel = 'warning';
         warningColor = '#ff9500';
         warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
         warningBorder = '#ffd699';
         warningIcon = '⚡';
         warningTitle = 'Fair Pricing, Limited Demand';
-        
-        let baseMessage = `Prices are fairly reasonable (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV), but <strong>not many buyers are interested (liquidity: ${liquidityRisk.score}/100)</strong>. Even though prices are fair, cards aren't selling well. This could mean the card is losing popularity or buyer interest is fading. Be careful when buying.`;
-        
-        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-        warningMessage = baseMessage + `<br><br>
-        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
     }
+    // Strong Buy Opportunity
     else if (marketPressure < 0 && liquidityRisk.score >= 70) {
+        selectedScenario = 'strongBuyOpportunity';
         warningLevel = 'success';
         warningColor = '#34c759';
         warningBg = 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)';
         warningBorder = '#99ff99';
         warningIcon = '💎';
         warningTitle = 'Strong Buy Opportunity';
-        
-        let baseMessage = `Available cards are priced <strong>${Math.abs(marketPressure).toFixed(1)}% below FMV</strong> and lots of buyers are active (liquidity: ${liquidityRisk.score}/100). This is a rare opportunity - cards are underpriced and selling fast. If you're interested, act quickly before sellers realize they can charge more.`;
-        
-        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-        warningMessage = baseMessage + `<br><br>
-        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
-        ${absorptionBelow !== 'N/A' ? `<br>${getVelocityStatement(absorptionBelow, 'Underpriced cards')}` : ''}`;
     }
+    // Healthy Market
     else if (marketPressure >= 0 && marketPressure <= 15 && liquidityRisk.score >= 70) {
+        selectedScenario = 'healthyMarketConditions';
         warningLevel = 'success';
         warningColor = '#34c759';
         warningBg = 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)';
         warningBorder = '#99ff99';
         warningIcon = '✅';
         warningTitle = 'Healthy Market Conditions';
-        
-        let baseMessage = `Prices are fair (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) and there's plenty of buyer activity (liquidity: ${liquidityRisk.score}/100). This is a healthy, well-functioning market where both buyers and sellers are active. Prices accurately reflect current demand - good conditions for both buying and selling.`;
-        
-        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-        warningMessage = baseMessage + `<br><br>
-        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
-        ${absorptionAt !== 'N/A' ? `<br>${getVelocityStatement(absorptionAt, 'FMV-priced cards')}` : ''}`;
     }
+    // Balanced Market (default)
     else {
+        selectedScenario = 'balancedMarket';
         warningLevel = 'info';
         warningColor = '#007aff';
         warningBg = 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)';
         warningBorder = '#99daff';
         warningIcon = '📊';
         warningTitle = 'Balanced Market';
-        
-        let baseMessage = `Prices are in the middle range (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) with moderate buyer activity (liquidity: ${liquidityRisk.score}/100). This is a normal, stable market - nothing particularly remarkable happening. Use your normal judgment when buying or selling.`;
-        
-        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-        warningMessage = baseMessage + `<br><br>
-        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
     }
     
+    // Get the selected message content
+    const content = messageContent[selectedScenario];
+    const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
+    
+    // BUILD HTML WITH PERSONA ADVICE
     return `
         <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
             <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
@@ -703,8 +871,13 @@ function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marke
                     <strong style="font-size: 1.1rem; color: ${warningColor};">${warningTitle}</strong>
                 </div>
                 <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
-                    ${warningMessage}
+                    ${content.message}
                 </p>
+                ${renderPersonaAdvice(content.personaAdvice)}
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
+                    <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
+                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
+                </div>
             </div>
         </div>
     `;
