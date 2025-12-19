@@ -1041,7 +1041,7 @@ async function renderData(data, secondData = null, marketValue = null) {
             </tr>
           </thead>
           <tbody>
-          ${data.items.map(item => {
+          ${data.items && data.items.length > 0 ? data.items.map(item => {
             // Use deep link on mobile devices, standard link otherwise
             const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
             
@@ -1069,7 +1069,13 @@ async function renderData(data, secondData = null, marketValue = null) {
               <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Sold listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">${escapeHtml(item.item_id)}</a></td>
             </tr>
             `;
-          }).join('')}
+          }).join('') : `
+            <tr>
+              <td colspan="3" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                No recently sold listings found
+              </td>
+            </tr>
+          `}
           </tbody>
         </table>
       </div>
@@ -1084,7 +1090,7 @@ async function renderData(data, secondData = null, marketValue = null) {
         marketValue: marketValue
     });
     
-    if (secondData && secondData.items && marketValue) {
+    if (secondData && secondData.items) {
         console.log('[DEBUG renderData] Starting to filter active listings. Total items:', secondData.items.length);
         
         // Get checkbox state (default to unchecked on first render)
@@ -1093,10 +1099,12 @@ async function renderData(data, secondData = null, marketValue = null) {
         
         console.log('[DEBUG renderData] See All checkbox state:', showAllListings);
         
-        // Filter active listings based on checkbox state
+        // Filter active listings based on checkbox state and FMV availability
         let filteredItems;
-        if (showAllListings) {
-            // Show all Buy It Now items, sorted by price
+        if (showAllListings || !marketValue) {
+            // Show all Buy It Now items when:
+            // 1. "See All" is checked, OR
+            // 2. No market value available (can't filter by price)
             filteredItems = secondData.items.filter(item => {
                 const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const buyingFormat = (item.buying_format || '').toLowerCase();
@@ -1146,21 +1154,36 @@ async function renderData(data, secondData = null, marketValue = null) {
             return priceA - priceB;
         });
         
+        // Determine header text and checkbox state based on FMV availability
+        const hasMarketValue = marketValue !== null && marketValue !== undefined;
+        const headerText = hasMarketValue
+            ? (showAllListings ? 'Active Listings' : 'Active Listings Below Fair Market Value')
+            : 'Active Listings';
+        const checkboxDisabled = !hasMarketValue;
+        
         html += `
           <div style="margin-bottom: 1rem; margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; color: var(--text-color);">Active Listings ${showAllListings ? '' : 'Below Fair Market Value'}</h3>
-            <label style="font-size: 0.95rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;">
-              <input type="checkbox" id="see-all-active-listings" style="transform: scale(1.3); cursor: pointer;" onchange="toggleActiveListingsView()" ${showAllListings ? 'checked' : ''}>
+            <h3 style="margin: 0; color: var(--text-color);">${headerText}</h3>
+            <label style="font-size: 0.95rem; font-weight: 500; cursor: ${checkboxDisabled ? 'not-allowed' : 'pointer'}; display: inline-flex; align-items: center; gap: 0.5rem; opacity: ${checkboxDisabled ? '0.5' : '1'};">
+              <input type="checkbox" id="see-all-active-listings" style="transform: scale(1.3); cursor: ${checkboxDisabled ? 'not-allowed' : 'pointer'};" onchange="toggleActiveListingsView()" ${showAllListings ? 'checked' : ''} ${checkboxDisabled ? 'disabled' : ''}>
               <span>See All</span>
             </label>
           </div>
+          ${!hasMarketValue && filteredItems.length > 0 ? `
+          <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #ff9500;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">ℹ️</span>
+              <span style="font-size: 0.85rem; color: #333;">No recent sales found - showing all active listings (Fair Market Value unavailable)</span>
+            </div>
+          </div>
+          ` : ''}
           <div id="active-listings-table" class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
             <table>
               <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <tr>
                   <th>Title</th>
                   <th>Price</th>
-                  <th>Discount</th>
+                  ${hasMarketValue ? '<th>Discount</th>' : ''}
                   <th>Type</th>
                   <th>Item ID</th>
                 </tr>
@@ -1172,10 +1195,15 @@ async function renderData(data, secondData = null, marketValue = null) {
                 
                 // Calculate price with fallback - use total_price from API if available
                 const itemPrice = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-                // Calculate discount (may be negative if above FMV)
-                const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
-                const discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
-                const discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                
+                // Calculate discount only if market value is available
+                let discountDisplay = '';
+                let discountColor = '';
+                if (hasMarketValue) {
+                  const discount = ((marketValue - itemPrice) / marketValue * 100).toFixed(0);
+                  discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
+                  discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                }
                 
                 // Debug logging for price calculation
                 console.log('[ACTIVE LISTING PRICE]', {
@@ -1213,15 +1241,17 @@ async function renderData(data, secondData = null, marketValue = null) {
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(itemPrice)}</td>
-                    <td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>
+                    ${hasMarketValue ? `<td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>` : ''}
                     <td>${escapeHtml(displayType)}</td>
                     <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
                   </tr>
                 `;
               }).join('') : `
                 <tr>
-                  <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
-                    ${showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value'}
+                  <td colspan="${hasMarketValue ? '5' : '4'}" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                    ${hasMarketValue
+                      ? (showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value')
+                      : 'No active listings found'}
                   </td>
                 </tr>
               `}
@@ -1292,7 +1322,7 @@ function toggleActiveListingsView() {
     console.log('[DEBUG] Toggle active listings view called');
     
     // Re-render the active listings table with the new checkbox state
-    if (lastData && lastActiveData && lastMarketValue) {
+    if (lastData && lastActiveData) {
         console.log('[DEBUG] Re-rendering active listings with stored data');
         
         // Get checkbox state
@@ -1301,10 +1331,15 @@ function toggleActiveListingsView() {
         
         console.log('[DEBUG] Checkbox state:', showAllListings);
         
-        // Filter active listings based on checkbox state
+        // Check if market value is available
+        const hasMarketValue = lastMarketValue !== null && lastMarketValue !== undefined;
+        
+        // Filter active listings based on checkbox state and FMV availability
         let filteredItems;
-        if (showAllListings) {
-            // Show all Buy It Now items, sorted by price
+        if (showAllListings || !hasMarketValue) {
+            // Show all Buy It Now items when:
+            // 1. "See All" is checked, OR
+            // 2. No market value available (can't filter by price)
             filteredItems = lastActiveData.items.filter(item => {
                 const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const buyingFormat = (item.buying_format || '').toLowerCase();
@@ -1336,7 +1371,7 @@ function toggleActiveListingsView() {
             <tr>
               <th>Title</th>
               <th>Price</th>
-              <th>Discount</th>
+              ${hasMarketValue ? '<th>Discount</th>' : ''}
               <th>Type</th>
               <th>Item ID</th>
             </tr>
@@ -1348,9 +1383,15 @@ function toggleActiveListingsView() {
             filteredItems.forEach(item => {
                 const displayType = 'Buy It Now';
                 const itemPrice = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-                const discount = ((lastMarketValue - itemPrice) / lastMarketValue * 100).toFixed(0);
-                const discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
-                const discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                
+                // Calculate discount only if market value is available
+                let discountDisplay = '';
+                let discountColor = '';
+                if (hasMarketValue) {
+                  const discount = ((lastMarketValue - itemPrice) / lastMarketValue * 100).toFixed(0);
+                  discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
+                  discountColor = discount > 0 ? '#34c759' : '#ff3b30';
+                }
                 
                 const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
                 const targetAttr = isIOS ? '' : ' target="_blank"';
@@ -1360,7 +1401,7 @@ function toggleActiveListingsView() {
                   <tr>
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(itemPrice)}</td>
-                    <td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>
+                    ${hasMarketValue ? `<td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>` : ''}
                     <td>${escapeHtml(displayType)}</td>
                     <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Active listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">See Listing</a></td>
                   </tr>
@@ -1369,8 +1410,10 @@ function toggleActiveListingsView() {
         } else {
             tableHtml += `
               <tr>
-                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
-                  ${showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value'}
+                <td colspan="${hasMarketValue ? '5' : '4'}" style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">
+                  ${hasMarketValue
+                    ? (showAllListings ? 'No active listings found' : 'No active listings found below Fair Market Value')
+                    : 'No active listings found'}
                 </td>
               </tr>
             `;
@@ -1387,10 +1430,13 @@ function toggleActiveListingsView() {
             }
         }
         
-        // Update the heading
+        // Update the heading based on FMV availability
         const headingContainer = tableContainer?.previousElementSibling?.previousElementSibling;
         if (headingContainer && headingContainer.querySelector('h3')) {
-            headingContainer.querySelector('h3').textContent = `Active Listings ${showAllListings ? '' : 'Below Fair Market Value'}`;
+            const headerText = hasMarketValue
+                ? (showAllListings ? 'Active Listings' : 'Active Listings Below Fair Market Value')
+                : 'Active Listings';
+            headingContainer.querySelector('h3').textContent = headerText;
         }
         
         console.log('[DEBUG] Active listings table updated');
@@ -2534,169 +2580,16 @@ function renderAnalysisDashboard(data, fmvData, activeData) {
             ${getSampleSizeWarning(data.items.length, activeData?.items?.length || 0, sampleSize)}
             
             <!-- Market Risk Assessment (moved to top) -->
-            ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ? `
-            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
-                
-                ${(() => {
-                    // Determine combined risk scenario
-                    let warningLevel = 'info';
-                    let warningColor = '#007aff';
-                    let warningBg = 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)';
-                    let warningBorder = '#99daff';
-                    let warningIcon = 'ℹ️';
-                    let warningTitle = 'Market Analysis';
-                    let warningMessage = '';
-                    
-                    // PHASE 3: Edge Case Detection (check BEFORE standard 7-message logic)
-                    
-                    // Edge Case 1: Data Quality Warning - Low confidence + extreme pressure
-                    if (marketConfidence < 30 && Math.abs(marketPressure) > 20) {
-                        warningLevel = 'warning';
-                        warningColor = '#ff9500';
-                        warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
-                        warningBorder = '#ffd699';
-                        warningIcon = '⚠️';
-                        warningTitle = 'Data Quality Warning';
-                        
-                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-                        warningMessage = `The prices are all over the place (confidence: ${marketConfidence}/100) and asking prices are ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV. This usually means your search is mixing different card types, conditions, or variations together. Try making your search more specific to get better results.<br><br>
-                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                        <strong>Recommendation:</strong> Use more specific search terms, filter by condition/grade, or exclude variants`;
-                    }
-                    // Edge Case 2: Two-Tier Market - High absorption below + low above
-                    else if (absorptionBelow !== 'N/A' && absorptionAbove !== 'N/A' &&
-                             parseFloat(absorptionBelow) >= 1.5 && parseFloat(absorptionAbove) < 0.3 &&
-                             belowFMV > 0 && aboveFMV > 0) {
-                        warningLevel = 'info';
-                        warningColor = '#5856d6';
-                        warningBg = 'linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%)';
-                        warningBorder = '#d6b3ff';
-                        warningIcon = '🔀';
-                        warningTitle = 'Two-Tier Market Detected';
-                        
-                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-                        warningMessage = `This market has two different speeds: Cards priced below FMV are selling <strong>${absorptionBelow}x faster</strong> than new listings appear (${salesBelow} sales vs ${belowFMV} listings), while premium-priced cards barely move (${absorptionAbove} absorption, ${salesAbove} sales vs ${aboveFMV} listings). Average asking price is ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV.<br><br>
-                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                        <strong>Insight:</strong> Buyers are active but only for cards priced at or below fair value. Premium pricing faces strong resistance.`;
-                    }
-                    // Standard 7-message logic
-                    // High pressure + Low liquidity = DANGER
-                    else if (marketPressure > 30 && liquidityRisk.score < 50) {
-                        warningLevel = 'danger';
-                        warningColor = '#ff3b30';
-                        warningBg = 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)';
-                        warningBorder = '#ff9999';
-                        warningIcon = '🚨';
-                        warningTitle = 'High Risk Market Conditions';
-                        
-                        // Base message
-                        let baseMessage = `Sellers are asking <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but there aren't many buyers interested (liquidity: ${liquidityRisk.score}/100). This means listings are overpriced compared to what buyers are actually willing to pay. It may be better to wait for sellers to lower prices or look for better deals elsewhere.`;
-                        
-                        // Phase 1 & 2: Add context qualifiers and velocity
-                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-                        warningMessage = baseMessage + `<br><br>
-                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
-                        ${absorptionAbove !== 'N/A' ? `<br>${getVelocityStatement(absorptionAbove, 'Premium-priced cards')}` : ''}`;
-                    }
-                    // High pressure + High liquidity = CAUTION
-                    else if (marketPressure > 30 && liquidityRisk.score >= 50) {
-                        warningLevel = 'warning';
-                        warningColor = '#ff9500';
-                        warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
-                        warningBorder = '#ffd699';
-                        warningIcon = '⚠️';
-                        warningTitle = 'Overpriced but Active Market';
-                        
-                        let baseMessage = `Asking prices are <strong>${marketPressure.toFixed(1)}% above FMV</strong>, but the market shows <strong>good liquidity (${liquidityRisk.score}/100)</strong>. Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.`;
-                        
-                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-                        warningMessage = baseMessage + `<br><br>
-                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
-                    }
-                    // Low pressure + Low liquidity = CONCERN
-                    else if (marketPressure <= 15 && liquidityRisk.score < 50) {
-                        warningLevel = 'warning';
-                        warningColor = '#ff9500';
-                        warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
-                        warningBorder = '#ffd699';
-                        warningIcon = '⚡';
-                        warningTitle = 'Fair Pricing, Limited Demand';
-                        
-                        let baseMessage = `Prices are fairly reasonable (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV), but <strong>not many buyers are interested (liquidity: ${liquidityRisk.score}/100)</strong>. Even though prices are fair, cards aren't selling well. This could mean the card is losing popularity or buyer interest is fading. Be careful when buying.`;
-                        
-                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-                        warningMessage = baseMessage + `<br><br>
-                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
-                    }
-                    // Low pressure + High liquidity = OPPORTUNITY
-                    else if (marketPressure < 0 && liquidityRisk.score >= 70) {
-                        warningLevel = 'success';
-                        warningColor = '#34c759';
-                        warningBg = 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)';
-                        warningBorder = '#99ff99';
-                        warningIcon = '💎';
-                        warningTitle = 'Strong Buy Opportunity';
-                        
-                        let baseMessage = `Available cards are priced <strong>${Math.abs(marketPressure).toFixed(1)}% below FMV</strong> and lots of buyers are active (liquidity: ${liquidityRisk.score}/100). This is a rare opportunity - cards are underpriced and selling fast. If you're interested, act quickly before sellers realize they can charge more.`;
-                        
-                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-                        warningMessage = baseMessage + `<br><br>
-                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
-                        ${absorptionBelow !== 'N/A' ? `<br>${getVelocityStatement(absorptionBelow, 'Underpriced cards')}` : ''}`;
-                    }
-                    // Good pricing + Good liquidity = HEALTHY
-                    else if (marketPressure >= 0 && marketPressure <= 15 && liquidityRisk.score >= 70) {
-                        warningLevel = 'success';
-                        warningColor = '#34c759';
-                        warningBg = 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)';
-                        warningBorder = '#99ff99';
-                        warningIcon = '✅';
-                        warningTitle = 'Healthy Market Conditions';
-                        
-                        let baseMessage = `Prices are fair (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) and there's plenty of buyer activity (liquidity: ${liquidityRisk.score}/100). This is a healthy, well-functioning market where both buyers and sellers are active. Prices accurately reflect current demand - good conditions for both buying and selling.`;
-                        
-                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-                        warningMessage = baseMessage + `<br><br>
-                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
-                        ${absorptionAt !== 'N/A' ? `<br>${getVelocityStatement(absorptionAt, 'FMV-priced cards')}` : ''}`;
-                    }
-                    // Moderate across both = BALANCED
-                    else {
-                        warningLevel = 'info';
-                        warningColor = '#007aff';
-                        warningBg = 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)';
-                        warningBorder = '#99daff';
-                        warningIcon = '📊';
-                        warningTitle = 'Balanced Market';
-                        
-                        let baseMessage = `Prices are in the middle range (${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}% vs FMV) with moderate buyer activity (liquidity: ${liquidityRisk.score}/100). This is a normal, stable market - nothing particularly remarkable happening. Use your normal judgment when buying or selling.`;
-                        
-                        const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
-                        warningMessage = baseMessage + `<br><br>
-                        <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                        <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}`;
-                    }
-                    
-                    return `
-                        <div style="background: ${warningBg}; padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${warningBorder};">
-                            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                                <span style="font-size: 2rem;">${warningIcon}</span>
-                                <strong style="font-size: 1.1rem; color: ${warningColor};">${warningTitle}</strong>
-                            </div>
-                            <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
-                                ${warningMessage}
-                            </p>
-                        </div>
-                    `;
-                })()}
-            </div>
-            ` : ''}
+            ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ?
+                renderMarketAssessment(
+                    marketPressure,
+                    liquidityRisk,
+                    { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
+                    marketConfidence,
+                    data,
+                    activeData
+                )
+            : ''}
             
             <!-- Key Indicators Grid -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
