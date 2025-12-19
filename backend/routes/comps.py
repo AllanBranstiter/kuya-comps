@@ -90,15 +90,15 @@ async def get_comps(
         "query": params.query,
         "api_source": "finding_api" if use_ebay_finding_api() else "search_api",
         "enrichment_enabled": enable_browse_enrichment() if use_ebay_finding_api() else False,
-        "pages": params.pages,
-        "sort_by": params.sort_by,
+        "pages": params.pages or 1,
+        "sort_by": params.sort_by or 'best_match',
         "buying_format": params.buying_format,
         "condition": params.condition,
         "price_min": params.price_min,
         "price_max": params.price_max,
-        "raw_only": params.raw_only,
-        "base_only": params.base_only,
-        "exclude_autographs": params.exclude_autographs
+        "raw_only": params.raw_only or False,
+        "base_only": params.base_only or False,
+        "exclude_autographs": params.exclude_autographs or False,
     }
     cache_key = CacheService.generate_cache_key("kuya_comps:sold", cache_params)
     
