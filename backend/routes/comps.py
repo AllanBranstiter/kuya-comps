@@ -551,6 +551,12 @@ async def get_comps(
         )
         if cache_stored:
             print(f"[CACHE SET] ✓ Stored sold listings in cache: {params.query} (TTL: 30 min)")
+            # DIAGNOSTIC: Verify cache entry immediately after setting
+            retrieved_value = await cache_service.get(cache_key)
+            if retrieved_value:
+                print(f"[CACHE VERIFY] ✓ Successfully retrieved cache key immediately after setting.")
+            else:
+                print(f"[CACHE VERIFY] ✗ FAILED to retrieve cache key immediately after setting - cache may be volatile or misconfigured!")
         else:
             print(f"[CACHE SET] ✗ FAILED to store in cache - Redis unavailable!")
             print(f"[CACHE SET] ⚠️ This means ALL subsequent searches will hit eBay API (causing rate limits)")
