@@ -2363,35 +2363,76 @@ function renderPriceTierBadge(tier) {
 }
 
 /**
- * Render persona-specific advice from API message
+ * Render persona-specific advice from API message or JSON content
+ * Handles both string format (from API) and array format (from JSON)
  */
 function renderPersonaAdvice(advice) {
-    if (!advice || (!advice.buyer && !advice.seller && !advice.investor)) {
+    if (!advice) {
+        return '';
+    }
+    
+    // Check if we have any advice to display
+    const hasCollector = advice.collector && (Array.isArray(advice.collector) ? advice.collector.length > 0 : true);
+    const hasSeller = advice.seller && (Array.isArray(advice.seller) ? advice.seller.length > 0 : true);
+    const hasFlipper = advice.flipper && (Array.isArray(advice.flipper) ? advice.flipper.length > 0 : true);
+    const hasBuyer = advice.buyer;
+    const hasInvestor = advice.investor;
+    
+    if (!hasCollector && !hasSeller && !hasFlipper && !hasBuyer && !hasInvestor) {
         return '';
     }
     
     let html = '<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1);">';
     
-    if (advice.buyer) {
+    // Handle collector (array format from JSON) or buyer (string format from API)
+    if (hasCollector) {
+        const collectorAdvice = Array.isArray(advice.collector) ? advice.collector : [advice.collector];
         html += `
-            <div style="margin-bottom: 0.5rem;">
-                <strong style="color: #007aff;">🛒 Buyer:</strong> ${advice.buyer}
+            <div style="margin-bottom: 0.75rem;">
+                <strong style="color: #007aff; font-size: 0.9rem;">🛒 Long-term Buyer:</strong>
+                <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+                    ${collectorAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    } else if (hasBuyer) {
+        html += `
+            <div style="margin-bottom: 0.75rem;">
+                <strong style="color: #007aff; font-size: 0.9rem;">🛒 Buyer:</strong>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.5;">${advice.buyer}</p>
             </div>
         `;
     }
     
-    if (advice.seller) {
+    // Handle seller (array or string format)
+    if (hasSeller) {
+        const sellerAdvice = Array.isArray(advice.seller) ? advice.seller : [advice.seller];
         html += `
-            <div style="margin-bottom: 0.5rem;">
-                <strong style="color: #34c759;">💰 Seller:</strong> ${advice.seller}
+            <div style="margin-bottom: 0.75rem;">
+                <strong style="color: #34c759; font-size: 0.9rem;">💰 Seller:</strong>
+                <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+                    ${sellerAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
+                </ul>
             </div>
         `;
     }
     
-    if (advice.investor) {
+    // Handle flipper (array format from JSON) or investor (string format from API)
+    if (hasFlipper) {
+        const flipperAdvice = Array.isArray(advice.flipper) ? advice.flipper : [advice.flipper];
         html += `
-            <div style="margin-bottom: 0.5rem;">
-                <strong style="color: #5856d6;">📈 Investor:</strong> ${advice.investor}
+            <div style="margin-bottom: 0.75rem;">
+                <strong style="color: #5856d6; font-size: 0.9rem;">📈 Short-term Buyer:</strong>
+                <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+                    ${flipperAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    } else if (hasInvestor) {
+        html += `
+            <div style="margin-bottom: 0.75rem;">
+                <strong style="color: #5856d6; font-size: 0.9rem;">📈 Investor:</strong>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.5;">${advice.investor}</p>
             </div>
         `;
     }
@@ -2468,8 +2509,8 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
     const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
     const liquidityScore = liquidityRisk.score || 0;
     
-    // Determine message based on simple heuristics
-    let icon, title, message, color, gradient, border;
+    // Determine message and advice based on simple heuristics
+    let icon, title, message, color, gradient, border, advice;
     
     // High risk conditions
     if (marketPressure > 30 && liquidityScore < 50) {
@@ -2479,6 +2520,11 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
         gradient = 'linear-gradient(135deg, #ffe6e6 0%, #fff0f0 100%)';
         border = '#ffb3b3';
         message = `Sellers are asking ${marketPressure.toFixed(1)}% above Fair Market Value, but buyer demand is limited (liquidity: ${liquidityScore}/100). Consider waiting for better conditions or looking elsewhere.`;
+        advice = {
+            collector: ['Waiting often pays off here.', 'Markets like this tend to cool down.', 'Patience can lead to better entry prices later.'],
+            seller: ['This is a tough environment to sell in.', 'Expect slow sales or price drops.', 'If you need to sell, pricing below the crowd helps.'],
+            flipper: ['This is usually a bad setup.', 'High prices plus low demand leave little room for profit.', 'Better opportunities exist elsewhere.']
+        };
     }
     // Overpriced but active
     else if (marketPressure > 30 && liquidityScore >= 50) {
@@ -2488,6 +2534,11 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
         gradient = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
         border = '#ffd699';
         message = `Asking prices are ${marketPressure.toFixed(1)}% above Fair Market Value, but strong liquidity (${liquidityScore}/100) suggests buyers are accepting higher prices. Market is hot but expensive.`;
+        advice = {
+            collector: ['You\'re paying extra to get a card immediately.', 'If you don\'t need the card now, waiting is usually safer.', 'Great cards often come back down once hype fades.'],
+            seller: ['This is a strong selling window.', 'Buyers are accepting higher prices right now.', 'Consider selling while demand is hot.'],
+            flipper: ['Flips are possible, but timing matters.', 'You need to buy and resell quickly.', 'Miss the timing, and you risk holding overpriced inventory.']
+        };
     }
     // Good buying opportunity
     else if (marketPressure < 0 && liquidityScore >= 50) {
@@ -2497,6 +2548,11 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
         gradient = 'linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)';
         border = '#99e6b8';
         message = `Cards are priced ${Math.abs(marketPressure).toFixed(1)}% below Fair Market Value with strong demand (liquidity: ${liquidityScore}/100). This is a favorable buying opportunity.`;
+        advice = {
+            collector: ['This is one of the better times to buy if you\'re optimistic about the player\'s potential', 'You\'re entering below fair value in a market with real demand.', 'Acting sooner usually beats waiting in conditions like this.'],
+            seller: ['You could be leaving money on the table at current prices—consider your opinion of the player\'s potential', 'Expect fast sales, even if you raise your price slightly.', 'If you\'re listing now, consider pricing closer to fair value—or just above it.'],
+            flipper: ['This is an excellent setup.', 'Buy quickly at current prices and aim for fast resale.', 'Delays matter here—once sellers adjust, margins shrink.']
+        };
     }
     // Healthy market
     else if (marketPressure >= 0 && marketPressure <= 15 && liquidityScore >= 50) {
@@ -2506,6 +2562,11 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
         gradient = 'linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)';
         border = '#99e6b8';
         message = `Fair pricing (${marketPressure.toFixed(1)}% vs FMV) with good liquidity (${liquidityScore}/100). Balanced market conditions for both buyers and sellers.`;
+        advice = {
+            collector: ['A comfortable, low-stress time to buy.', 'You\'re unlikely to overpay or miss out by waiting briefly.', 'Buy based on preference, not fear of price movement.'],
+            seller: ['Fair pricing is being rewarded with steady sales.', 'No need to overthink timing—this is a good environment to list.', 'Well-presented listings should move at reasonable prices.'],
+            flipper: ['Opportunities exist, but they\'re not automatic.', 'Profits depend on buying well, not on market imbalance.', 'Focus on small edges rather than big swings.']
+        };
     }
     // Fair pricing, limited demand
     else if (marketPressure >= 0 && marketPressure <= 15 && liquidityScore < 50) {
@@ -2515,6 +2576,11 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
         gradient = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
         border = '#ffd699';
         message = `Prices are reasonable (${marketPressure.toFixed(1)}% vs FMV), but demand is moderate (liquidity: ${liquidityScore}/100). Sales may be slower than usual.`;
+        advice = {
+            collector: ['This can be a great quiet buying opportunity.', 'Fair prices without hype often age well.', 'Especially attractive for iconic or historically stable cards.'],
+            seller: ['Slow sales are likely, even at fair prices.', 'If you want quicker action, slight discounts can help.', 'Otherwise, patience is required.'],
+            flipper: ['Not ideal for quick flips.', 'Even good deals may take time to resell.', 'Only buy if you expect a future catalyst.']
+        };
     }
     // Balanced/neutral
     else {
@@ -2524,6 +2590,11 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
         gradient = 'linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%)';
         border = '#99c9ff';
         message = `Market pressure at ${marketPressure.toFixed(1)}% with liquidity score of ${liquidityScore}/100. Standard market conditions.`;
+        advice = {
+            collector: [],
+            seller: [],
+            flipper: []
+        };
     }
     
     const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove } = priceBands;
@@ -2540,6 +2611,7 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
                 <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
                     ${message}
                 </p>
+                ${renderPersonaAdvice(advice)}
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
                     <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
                     <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
