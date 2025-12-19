@@ -2384,56 +2384,66 @@ function renderPersonaAdvice(advice) {
     
     let html = '<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1);">';
     
-    // Handle collector (array format from JSON) or buyer (string format from API)
+    // 1. Long-term Collector (collector or buyer)
     if (hasCollector) {
         const collectorAdvice = Array.isArray(advice.collector) ? advice.collector : [advice.collector];
         html += `
-            <div style="margin-bottom: 0.75rem;">
-                <strong style="color: #007aff; font-size: 0.9rem;">🛒 Long-term Buyer:</strong>
-                <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(0, 122, 255, 0.2); border-radius: 6px; background: rgba(0, 122, 255, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #007aff; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(0, 122, 255, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Long-term Collector
+                </summary>
+                <ul style="margin: 0 0 0.75rem 0; padding: 0.5rem 1rem 0.5rem 2.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
                     ${collectorAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
                 </ul>
-            </div>
+            </details>
         `;
     } else if (hasBuyer) {
         html += `
-            <div style="margin-bottom: 0.75rem;">
-                <strong style="color: #007aff; font-size: 0.9rem;">🛒 Buyer:</strong>
-                <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.5;">${advice.buyer}</p>
-            </div>
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(0, 122, 255, 0.2); border-radius: 6px; background: rgba(0, 122, 255, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #007aff; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(0, 122, 255, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Long-term Collector
+                </summary>
+                <p style="margin: 0; padding: 0.5rem 1rem 0.75rem 1rem; font-size: 0.85rem; color: #333; line-height: 1.5;">${advice.buyer}</p>
+            </details>
         `;
     }
     
-    // Handle seller (array or string format)
-    if (hasSeller) {
-        const sellerAdvice = Array.isArray(advice.seller) ? advice.seller : [advice.seller];
-        html += `
-            <div style="margin-bottom: 0.75rem;">
-                <strong style="color: #34c759; font-size: 0.9rem;">💰 Seller:</strong>
-                <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
-                    ${sellerAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
-                </ul>
-            </div>
-        `;
-    }
-    
-    // Handle flipper (array format from JSON) or investor (string format from API)
+    // 2. Short-term Flipper (flipper or investor)
     if (hasFlipper) {
         const flipperAdvice = Array.isArray(advice.flipper) ? advice.flipper : [advice.flipper];
         html += `
-            <div style="margin-bottom: 0.75rem;">
-                <strong style="color: #5856d6; font-size: 0.9rem;">📈 Short-term Buyer:</strong>
-                <ul style="margin: 0.5rem 0 0 0; padding-left: 1.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(88, 86, 214, 0.2); border-radius: 6px; background: rgba(88, 86, 214, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #5856d6; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(88, 86, 214, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Short-term Flipper
+                </summary>
+                <ul style="margin: 0 0 0.75rem 0; padding: 0.5rem 1rem 0.5rem 2.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
                     ${flipperAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
                 </ul>
-            </div>
+            </details>
         `;
     } else if (hasInvestor) {
         html += `
-            <div style="margin-bottom: 0.75rem;">
-                <strong style="color: #5856d6; font-size: 0.9rem;">📈 Investor:</strong>
-                <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #333; line-height: 1.5;">${advice.investor}</p>
-            </div>
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(88, 86, 214, 0.2); border-radius: 6px; background: rgba(88, 86, 214, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #5856d6; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(88, 86, 214, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Short-term Flipper
+                </summary>
+                <p style="margin: 0; padding: 0.5rem 1rem 0.75rem 1rem; font-size: 0.85rem; color: #333; line-height: 1.5;">${advice.investor}</p>
+            </details>
+        `;
+    }
+    
+    // 3. Seller
+    if (hasSeller) {
+        const sellerAdvice = Array.isArray(advice.seller) ? advice.seller : [advice.seller];
+        html += `
+            <details style="margin-bottom: 0.5rem; border: 1px solid rgba(52, 199, 89, 0.2); border-radius: 6px; background: rgba(52, 199, 89, 0.05);">
+                <summary style="padding: 0.75rem; cursor: pointer; font-weight: 600; color: #34c759; font-size: 0.9rem; user-select: none; list-style: none; transition: background 0.2s;" onmouseover="this.style.background='rgba(52, 199, 89, 0.1)'" onmouseout="this.style.background='transparent'">
+                    <span style="display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;">▶</span> Seller
+                </summary>
+                <ul style="margin: 0 0 0.75rem 0; padding: 0.5rem 1rem 0.5rem 2.5rem; font-size: 0.85rem; color: #333; line-height: 1.5;">
+                    ${sellerAdvice.map(tip => `<li style="margin-bottom: 0.25rem;">${tip}</li>`).join('')}
+                </ul>
+            </details>
         `;
     }
     
