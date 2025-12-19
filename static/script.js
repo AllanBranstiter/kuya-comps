@@ -2447,6 +2447,99 @@ function renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData
 }
 
 /**
+ * Render fallback Market Assessment when API is unavailable
+ * Uses basic heuristics for market condition assessment
+ */
+function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData) {
+    if (marketPressure === null || !liquidityRisk || liquidityRisk.score === null) {
+        return '';
+    }
+    
+    const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
+    const liquidityScore = liquidityRisk.score || 0;
+    
+    // Determine message based on simple heuristics
+    let icon, title, message, color, gradient, border;
+    
+    // High risk conditions
+    if (marketPressure > 30 && liquidityScore < 50) {
+        icon = '🚨';
+        title = 'High Risk Market Conditions';
+        color = '#ff3b30';
+        gradient = 'linear-gradient(135deg, #ffe6e6 0%, #fff0f0 100%)';
+        border = '#ffb3b3';
+        message = `Sellers are asking ${marketPressure.toFixed(1)}% above Fair Market Value, but buyer demand is limited (liquidity: ${liquidityScore}/100). Consider waiting for better conditions or looking elsewhere.`;
+    }
+    // Overpriced but active
+    else if (marketPressure > 30 && liquidityScore >= 50) {
+        icon = '🔥';
+        title = 'Overpriced but Active Market';
+        color = '#ff9500';
+        gradient = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
+        border = '#ffd699';
+        message = `Asking prices are ${marketPressure.toFixed(1)}% above Fair Market Value, but strong liquidity (${liquidityScore}/100) suggests buyers are accepting higher prices. Market is hot but expensive.`;
+    }
+    // Good buying opportunity
+    else if (marketPressure < 0 && liquidityScore >= 50) {
+        icon = '💎';
+        title = 'Strong Buy Opportunity';
+        color = '#34c759';
+        gradient = 'linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)';
+        border = '#99e6b8';
+        message = `Cards are priced ${Math.abs(marketPressure).toFixed(1)}% below Fair Market Value with strong demand (liquidity: ${liquidityScore}/100). This is a favorable buying opportunity.`;
+    }
+    // Healthy market
+    else if (marketPressure >= 0 && marketPressure <= 15 && liquidityScore >= 50) {
+        icon = '✅';
+        title = 'Healthy Market Conditions';
+        color = '#34c759';
+        gradient = 'linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)';
+        border = '#99e6b8';
+        message = `Fair pricing (${marketPressure.toFixed(1)}% vs FMV) with good liquidity (${liquidityScore}/100). Balanced market conditions for both buyers and sellers.`;
+    }
+    // Fair pricing, limited demand
+    else if (marketPressure >= 0 && marketPressure <= 15 && liquidityScore < 50) {
+        icon = '⚡';
+        title = 'Fair Pricing, Limited Demand';
+        color = '#ff9500';
+        gradient = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
+        border = '#ffd699';
+        message = `Prices are reasonable (${marketPressure.toFixed(1)}% vs FMV), but demand is moderate (liquidity: ${liquidityScore}/100). Sales may be slower than usual.`;
+    }
+    // Balanced/neutral
+    else {
+        icon = '📊';
+        title = 'Balanced Market';
+        color = '#007aff';
+        gradient = 'linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%)';
+        border = '#99c9ff';
+        message = `Market pressure at ${marketPressure.toFixed(1)}% with liquidity score of ${liquidityScore}/100. Standard market conditions.`;
+    }
+    
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove } = priceBands;
+    
+    return `
+        <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+            <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
+            
+            <div style="background: ${gradient}; padding: 1.5rem; border-radius: 12px; border-left: 4px solid ${border};">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                    <span style="font-size: 2rem;">${icon}</span>
+                    <strong style="font-size: 1.1rem; color: ${color};">${title}</strong>
+                </div>
+                <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
+                    ${message}
+                </p>
+                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
+                    <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
+                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
  * Render market assessment with tier-based messaging
  * Calls API for tier-specific messages, falls back to hardcoded logic
  */
@@ -2477,10 +2570,9 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
         return renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData, marketConfidence);
     }
     
-    // FALLBACK: Original hardcoded logic
-    // (keeping existing behavior if API fails)
+    // FALLBACK: Generate basic Market Assessment when API fails
     console.log('[TIER MESSAGE] Using fallback hardcoded assessment');
-    return ''; // Existing code will handle the assessment
+    return renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData);
 }
 
 /**
