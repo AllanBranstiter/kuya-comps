@@ -177,42 +177,58 @@ async def get_comps(
             )
             # Log warning but continue - don't block the request yet
     
-    # Check if we're currently rate limited
+    # Check if we're currently rate limited (timestamp-based, not just key existence)
     rate_limit_key = "rate_limit:ebay:finding_api"
     if redis_available:
         rate_limit_data = await cache_service.get(rate_limit_key)
+        
+        # CRITICAL FIX: Check timestamp instead of just key existence
+        # This prevents race condition where TTL expires but eBay is still rate limiting
         if rate_limit_data:
-            # We're currently rate limited
-            retry_after = rate_limit_data.get('retry_after', 300)
-            limited_until = rate_limit_data.get('limited_until', time.time() + retry_after)
-            remaining = max(0, int(limited_until - time.time()))
-            backoff_level = rate_limit_data.get('backoff_level', 0)
+            limited_until = rate_limit_data.get('limited_until', 0)
+            current_time = time.time()
             
-            print(f"[RATE LIMIT] Still rate limited - {remaining} seconds remaining")
-            
-            # Get usage stats for enhanced error response (Phase 5)
-            usage_stats = await api_tracker.get_stats('ebay_finding_api')
-            circuit_state = await circuit_breaker.get_state('ebay_finding_api')
-            
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "error": "RATE_LIMIT_ACTIVE",
-                    "message": f"eBay API rate limit is active. Please wait {remaining} seconds before searching again.",
-                    "retry_after": remaining,
-                    "limited_until": limited_until,
-                    "backoff_level": backoff_level,
-                    "usage": {
-                        "daily_calls": usage_stats.get('daily_calls', 0),
-                        "daily_limit": EBAY_DAILY_CALL_LIMIT,
-                        "hourly_calls": usage_stats.get('hourly_calls', 0),
-                        "percentage_used": f"{(usage_stats.get('daily_calls', 0)/EBAY_DAILY_CALL_LIMIT)*100:.1f}%",
-                        "rate_limited_calls": usage_stats.get('rate_limited_calls', 0)
-                    },
-                    "circuit_state": circuit_state,
-                    "correlation_id": correlation_id
-                }
-            )
+            # Only block if we're actually still within the rate limit window
+            if current_time < limited_until:
+                remaining = max(0, int(limited_until - current_time))
+                retry_after = rate_limit_data.get('retry_after', 300)
+                backoff_level = rate_limit_data.get('backoff_level', 0)
+                triggered_at = rate_limit_data.get('triggered_at', current_time)
+                
+                print(f"[RATE LIMIT CHECK] Currently rate limited:")
+                print(f"  - Triggered at: {triggered_at}")
+                print(f"  - Limited until: {limited_until}")
+                print(f"  - Current time: {current_time}")
+                print(f"  - Remaining: {remaining}s")
+                print(f"  - Backoff level: {backoff_level}")
+                
+                # Get usage stats for enhanced error response (Phase 5)
+                usage_stats = await api_tracker.get_stats('ebay_finding_api')
+                circuit_state = await circuit_breaker.get_state('ebay_finding_api')
+                
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "error": "RATE_LIMIT_ACTIVE",
+                        "message": f"eBay API rate limit is active. Please wait {remaining} seconds before searching again.",
+                        "retry_after": remaining,
+                        "limited_until": limited_until,
+                        "backoff_level": backoff_level,
+                        "usage": {
+                            "daily_calls": usage_stats.get('daily_calls', 0),
+                            "daily_limit": EBAY_DAILY_CALL_LIMIT,
+                            "hourly_calls": usage_stats.get('hourly_calls', 0),
+                            "percentage_used": f"{(usage_stats.get('daily_calls', 0)/EBAY_DAILY_CALL_LIMIT)*100:.1f}%",
+                            "rate_limited_calls": usage_stats.get('rate_limited_calls', 0)
+                        },
+                        "circuit_state": circuit_state,
+                        "correlation_id": correlation_id
+                    }
+                )
+            else:
+                # Rate limit window has expired, clean up the stale key
+                print(f"[RATE LIMIT CHECK] Rate limit window expired (expired {int(current_time - limited_until)}s ago), cleaning up stale key")
+                await cache_service.delete(rate_limit_key)
     
     # Try to get from cache first (skip cache in test mode)
     if not params.test_mode:
@@ -408,9 +424,11 @@ async def get_comps(
         backoff_level = await circuit_breaker.get_backoff_level('ebay_finding_api')
         limited_until = current_time + backoff_duration
         
-        print(f"[DIAGNOSTIC] ⚠️ RATE LIMIT HIT at {current_time}")
-        print(f"[DIAGNOSTIC] Exponential backoff: {backoff_duration} seconds (level: {backoff_level})")
-        print(f"[DIAGNOSTIC] Rate limited until: {limited_until}")
+        print(f"[RATE LIMIT HIT] ⚠️ eBay API rate limit triggered")
+        print(f"  - Timestamp: {current_time}")
+        print(f"  - Backoff duration: {backoff_duration}s (level: {backoff_level})")
+        print(f"  - Limited until: {limited_until}")
+        print(f"  - Retry after: {int((limited_until - current_time) / 60)} minutes")
         
         # Force open circuit breaker (Phase 4)
         await circuit_breaker.force_open('ebay_finding_api', backoff_duration)
@@ -419,7 +437,9 @@ async def get_comps(
         usage_stats = await api_tracker.get_stats('ebay_finding_api')
         circuit_state = await circuit_breaker.get_state('ebay_finding_api')
         
-        # Store rate limit state in Redis with exponential backoff (Phase 4)
+        # CRITICAL FIX: Store rate limit state with extended TTL to prevent premature expiration
+        # Use 2x backoff duration to ensure key doesn't expire before rate limit window ends
+        # This prevents race condition where Redis TTL expires but eBay is still rate limiting
         rate_limit_key = "rate_limit:ebay:finding_api"
         rate_limit_data = {
             "retry_after": backoff_duration,
@@ -428,14 +448,27 @@ async def get_comps(
             "backoff_level": backoff_level
         }
         
+        # Extended TTL = 2x backoff duration + 60s buffer
+        extended_ttl = (backoff_duration * 2) + 60
+        
         if await cache_service._ensure_connection():
-            stored = await cache_service.set(rate_limit_key, rate_limit_data, ttl=backoff_duration)
+            stored = await cache_service.set(rate_limit_key, rate_limit_data, ttl=extended_ttl)
             if stored:
-                print(f"[RATE LIMIT] ✓ Stored rate limit state in Redis (TTL: {backoff_duration}s, level: {backoff_level})")
+                print(f"[RATE LIMIT STORAGE] ✓ Stored rate limit state in Redis")
+                print(f"  - TTL: {extended_ttl}s (2x backoff + 60s buffer)")
+                print(f"  - Backoff level: {backoff_level}")
+                print(f"  - Key will expire at: {current_time + extended_ttl}")
+                
+                # Verify the store was successful
+                verify = await cache_service.get(rate_limit_key)
+                if verify:
+                    print(f"[RATE LIMIT STORAGE] ✓ Verified: Rate limit state successfully stored")
+                else:
+                    print(f"[RATE LIMIT STORAGE] ✗ WARNING: Failed to verify rate limit state!")
             else:
-                print(f"[RATE LIMIT] ✗ Failed to store rate limit state in Redis")
+                print(f"[RATE LIMIT STORAGE] ✗ Failed to store rate limit state in Redis")
         else:
-            print(f"[RATE LIMIT] ⚠️ Redis unavailable - rate limit state not stored (retries won't be blocked!)")
+            print(f"[RATE LIMIT STORAGE] ⚠️ Redis unavailable - rate limit state not stored (retries won't be blocked!)")
         
         # Handle eBay rate limit specifically with user-friendly message (Phase 4)
         log_with_context(
