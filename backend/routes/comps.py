@@ -108,6 +108,29 @@ async def get_comps(
     if not redis_available:
         print(f"[DIAGNOSTIC] ⚠️ WARNING: Redis is UNAVAILABLE - all searches will hit eBay API directly!")
     
+    # Check if we're currently rate limited
+    rate_limit_key = "rate_limit:ebay:finding_api"
+    if redis_available:
+        rate_limit_data = await cache_service.get(rate_limit_key)
+        if rate_limit_data:
+            # We're currently rate limited
+            retry_after = rate_limit_data.get('retry_after', 300)
+            limited_until = rate_limit_data.get('limited_until', time.time() + retry_after)
+            remaining = max(0, int(limited_until - time.time()))
+            
+            print(f"[RATE LIMIT] Still rate limited - {remaining} seconds remaining")
+            
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "RATE_LIMIT_ACTIVE",
+                    "message": f"eBay API rate limit is active. Please wait {remaining} seconds before searching again.",
+                    "retry_after": remaining,
+                    "limited_until": limited_until,
+                    "correlation_id": correlation_id
+                }
+            )
+    
     # Try to get from cache first (skip cache in test mode)
     if not params.test_mode:
         cached_response = await cache_service.get(cache_key)
@@ -271,12 +294,30 @@ async def get_comps(
         
     except RateLimitError as e:
         # DIAGNOSTIC: Log rate limit details
-        print(f"[DIAGNOSTIC] ⚠️ RATE LIMIT HIT at {time.time()}")
-        print(f"[DIAGNOSTIC] Rate limit retry_after: {e.retry_after} seconds")
+        current_time = time.time()
+        retry_after = e.retry_after or 300  # Default 5 minutes
+        limited_until = current_time + retry_after
         
-        # TODO: Store rate limit state in Redis with expiry
-        # This would prevent immediate retries and show user countdown
-        # Example: await cache_service.set("rate_limit:ebay", True, ttl=e.retry_after)
+        print(f"[DIAGNOSTIC] ⚠️ RATE LIMIT HIT at {current_time}")
+        print(f"[DIAGNOSTIC] Rate limit retry_after: {retry_after} seconds")
+        print(f"[DIAGNOSTIC] Rate limited until: {limited_until}")
+        
+        # Store rate limit state in Redis to prevent immediate retries
+        rate_limit_key = "rate_limit:ebay:finding_api"
+        rate_limit_data = {
+            "retry_after": retry_after,
+            "limited_until": limited_until,
+            "triggered_at": current_time
+        }
+        
+        if await cache_service._ensure_connection():
+            stored = await cache_service.set(rate_limit_key, rate_limit_data, ttl=retry_after)
+            if stored:
+                print(f"[RATE LIMIT] ✓ Stored rate limit state in Redis (TTL: {retry_after}s)")
+            else:
+                print(f"[RATE LIMIT] ✗ Failed to store rate limit state in Redis")
+        else:
+            print(f"[RATE LIMIT] ⚠️ Redis unavailable - rate limit state not stored (retries won't be blocked!)")
         
         # Handle eBay rate limit specifically with user-friendly message
         log_with_context(
@@ -287,14 +328,15 @@ async def get_comps(
             endpoint='/comps',
             query=params.query,
             error=str(e),
-            retry_after=e.retry_after
+            retry_after=retry_after
         )
         raise HTTPException(
             status_code=429,
             detail={
                 "error": "RATE_LIMIT_EXCEEDED",
                 "message": str(e),
-                "retry_after": e.retry_after,
+                "retry_after": retry_after,
+                "limited_until": limited_until,
                 "correlation_id": correlation_id
             }
         )
@@ -569,6 +611,28 @@ async def get_active_listings(
         cache_key=cache_key
     )
     print(f"[CACHE MISS] Scraping fresh data for active listings: {params.query}")
+    
+    # Check if we're currently rate limited (eBay Browse API also has rate limits)
+    rate_limit_key = "rate_limit:ebay:browse_api"
+    if await cache_service._ensure_connection():
+        rate_limit_data = await cache_service.get(rate_limit_key)
+        if rate_limit_data:
+            retry_after = rate_limit_data.get('retry_after', 300)
+            limited_until = rate_limit_data.get('limited_until', time.time() + retry_after)
+            remaining = max(0, int(limited_until - time.time()))
+            
+            print(f"[RATE LIMIT] Browse API rate limited - {remaining} seconds remaining")
+            
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "RATE_LIMIT_ACTIVE",
+                    "message": f"eBay Browse API rate limit is active. Please wait {remaining} seconds before searching again.",
+                    "retry_after": remaining,
+                    "limited_until": limited_until,
+                    "correlation_id": correlation_id
+                }
+            )
     
     try:
         # Always use official eBay Browse API for active listings

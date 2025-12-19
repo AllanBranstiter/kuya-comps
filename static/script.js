@@ -2017,18 +2017,39 @@ async function runSearchInternal() {
           try {
             const errorJson = JSON.parse(errorText);
             const retryAfter = errorJson.detail?.retry_after || 300;
-            const retryMinutes = Math.ceil(retryAfter / 60);
+            const limitedUntil = errorJson.detail?.limited_until || (Date.now() / 1000 + retryAfter);
+            const errorType = errorJson.detail?.error || 'RATE_LIMIT_EXCEEDED';
             
-            throw new Error(
-              `⏰ eBay API Rate Limit Exceeded\n\n` +
-              `The eBay API has temporarily blocked searches due to too many requests.\n\n` +
-              `Please wait ${retryMinutes} minutes before searching again.\n\n` +
-              `💡 Tip: This usually happens when:\n` +
-              `• Multiple searches are made in quick succession\n` +
-              `• The app's Redis cache is unavailable (causing every search to hit eBay's API)\n` +
-              `• Failed searches retry multiple times\n\n` +
-              `The limit will reset automatically in a few minutes.`
-            );
+            // Store rate limit info globally for potential countdown display
+            window.rateLimitInfo = {
+              retryAfter: retryAfter,
+              limitedUntil: limitedUntil,
+              triggeredAt: Date.now() / 1000
+            };
+            
+            const retryMinutes = Math.ceil(retryAfter / 60);
+            const retrySeconds = retryAfter % 60;
+            const timeDisplay = retryMinutes > 0
+              ? `${retryMinutes} minute${retryMinutes > 1 ? 's' : ''}${retrySeconds > 0 ? ` ${retrySeconds} seconds` : ''}`
+              : `${retrySeconds} seconds`;
+            
+            let message = `⏰ eBay API Rate Limit ${errorType === 'RATE_LIMIT_ACTIVE' ? 'Active' : 'Exceeded'}\n\n`;
+            
+            if (errorType === 'RATE_LIMIT_ACTIVE') {
+              message += `A previous search triggered the rate limit.\n\n` +
+                `Please wait ${timeDisplay} before searching again.\n\n` +
+                `The limit will automatically reset at ${new Date(limitedUntil * 1000).toLocaleTimeString()}.`;
+            } else {
+              message += `The eBay API has temporarily blocked searches due to too many requests.\n\n` +
+                `Please wait ${timeDisplay} before searching again.\n\n` +
+                `💡 Tip: This usually happens when:\n` +
+                `• Multiple searches are made in quick succession\n` +
+                `• The app's Redis cache is unavailable (causing every search to hit eBay's API)\n` +
+                `• Failed searches retry multiple times\n\n` +
+                `The limit will reset automatically at ${new Date(limitedUntil * 1000).toLocaleTimeString()}.`;
+            }
+            
+            throw new Error(message);
           } catch (parseError) {
             if (parseError.message.includes('Rate Limit')) {
               throw parseError;
