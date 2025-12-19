@@ -10,6 +10,15 @@ import logging
 from typing import Any, Optional
 from redis import asyncio as aioredis
 
+# Import query normalizer for better cache key consistency
+try:
+    from backend.services.query_normalizer import QueryNormalizer
+    NORMALIZER_AVAILABLE = True
+except ImportError:
+    NORMALIZER_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("QueryNormalizer not available, cache keys will not be normalized")
+
 logger = logging.getLogger(__name__)
 
 # Import metrics for tracking cache hit/miss
@@ -174,6 +183,9 @@ class CacheService:
         """
         Generate a cache key from parameters.
         
+        Normalizes query parameters before hashing to improve cache hit rates
+        for semantically identical queries (e.g., "PSA10" vs "psa 10").
+        
         Args:
             prefix: Key prefix (e.g., 'kuya_comps:sold')
             params: Dictionary of parameters to hash
@@ -181,7 +193,13 @@ class CacheService:
         Returns:
             Cache key string
         """
+        # Normalize parameters to improve cache hit rate
+        if NORMALIZER_AVAILABLE and params:
+            normalized_params = QueryNormalizer.normalize_params(params)
+        else:
+            normalized_params = params
+        
         # Sort keys to ensure consistent hashing
-        param_str = json.dumps(params, sort_keys=True)
+        param_str = json.dumps(normalized_params, sort_keys=True)
         hash_value = hashlib.md5(param_str.encode()).hexdigest()
         return f"{prefix}:{hash_value}"

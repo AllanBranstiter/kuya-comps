@@ -28,9 +28,13 @@ from backend.config import (
     get_enrichment_threshold,
     get_enrichment_max_concurrent,
     CACHE_TTL_SOLD,
-    CACHE_TTL_ACTIVE
+    CACHE_TTL_ACTIVE,
+    EBAY_DAILY_CALL_LIMIT,
+    RATE_LIMIT_WARNING_THRESHOLD
 )
 from backend.services.intelligence_service import analyze_market_intelligence
+from backend.services.api_usage_tracker import APIUsageTracker
+from backend.services.circuit_breaker import CircuitBreaker
 from backend.models.schemas import CompItem, CompsResponse
 from backend.utils import generate_ebay_deep_link, load_test_data
 from scraper import scrape_sold_comps, scrape_sold_comps_finding_api, scrape_active_listings_ebay_api
@@ -52,12 +56,28 @@ def get_cache_service(request: Request) -> CacheService:
     return request.app.state.cache_service
 
 
+def get_api_tracker(request: Request) -> APIUsageTracker:
+    """Dependency to get API usage tracker from cache service."""
+    cache_service = request.app.state.cache_service
+    # Pass the Redis client from cache service to tracker
+    return APIUsageTracker(redis_client=cache_service.redis if cache_service._is_available else None)
+
+
+def get_circuit_breaker(request: Request) -> CircuitBreaker:
+    """Dependency to get circuit breaker from cache service."""
+    cache_service = request.app.state.cache_service
+    # Pass the Redis client from cache service to circuit breaker
+    return CircuitBreaker(redis_client=cache_service.redis if cache_service._is_available else None)
+
+
 @router.get("/comps", response_model=CompsResponse)
 @limiter.limit("10/minute")
 async def get_comps(
     request: Request,
     params: QueryValidator = Depends(),
-    cache_service: CacheService = Depends(get_cache_service)
+    cache_service: CacheService = Depends(get_cache_service),
+    api_tracker: APIUsageTracker = Depends(get_api_tracker),
+    circuit_breaker: CircuitBreaker = Depends(get_circuit_breaker)
 ):
     """
     Scrape eBay SOLD/COMPLETED listings for a given query and return:
@@ -116,6 +136,47 @@ async def get_comps(
         redis_available=redis_available,
     )
     
+    # Multi-layer rate limit protection (Phase 4)
+    if use_ebay_finding_api() and not params.test_mode:
+        # 1. Check circuit breaker state
+        can_proceed, reason = await circuit_breaker.can_proceed('ebay_finding_api')
+        if not can_proceed:
+            logger.warning(f"Circuit breaker blocking request: {reason}", extra={"correlation_id": correlation_id})
+            
+            # Get usage stats for enhanced error response (Phase 5)
+            usage_stats = await api_tracker.get_stats('ebay_finding_api')
+            circuit_state = await circuit_breaker.get_state('ebay_finding_api')
+            backoff_level = await circuit_breaker.get_backoff_level('ebay_finding_api')
+            
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "CIRCUIT_OPEN",
+                    "message": reason,
+                    "usage": {
+                        "daily_calls": usage_stats.get('daily_calls', 0),
+                        "daily_limit": EBAY_DAILY_CALL_LIMIT,
+                        "hourly_calls": usage_stats.get('hourly_calls', 0),
+                        "percentage_used": f"{(usage_stats.get('daily_calls', 0)/EBAY_DAILY_CALL_LIMIT)*100:.1f}%",
+                        "rate_limited_calls": usage_stats.get('rate_limited_calls', 0)
+                    },
+                    "circuit_state": circuit_state,
+                    "backoff_level": backoff_level,
+                    "correlation_id": correlation_id
+                }
+            )
+        
+        # 2. Check daily usage limit
+        daily_usage = await api_tracker.get_daily_usage('ebay_finding_api')
+        if await api_tracker.is_near_limit('ebay_finding_api', daily_limit=EBAY_DAILY_CALL_LIMIT, threshold=RATE_LIMIT_WARNING_THRESHOLD):
+            usage_stats = await api_tracker.get_stats('ebay_finding_api')
+            logger.warning(
+                f"Approaching eBay API daily limit: {daily_usage}/{EBAY_DAILY_CALL_LIMIT} calls "
+                f"({(daily_usage/EBAY_DAILY_CALL_LIMIT)*100:.1f}%)",
+                extra={"correlation_id": correlation_id}
+            )
+            # Log warning but continue - don't block the request yet
+    
     # Check if we're currently rate limited
     rate_limit_key = "rate_limit:ebay:finding_api"
     if redis_available:
@@ -125,8 +186,13 @@ async def get_comps(
             retry_after = rate_limit_data.get('retry_after', 300)
             limited_until = rate_limit_data.get('limited_until', time.time() + retry_after)
             remaining = max(0, int(limited_until - time.time()))
+            backoff_level = rate_limit_data.get('backoff_level', 0)
             
             print(f"[RATE LIMIT] Still rate limited - {remaining} seconds remaining")
+            
+            # Get usage stats for enhanced error response (Phase 5)
+            usage_stats = await api_tracker.get_stats('ebay_finding_api')
+            circuit_state = await circuit_breaker.get_state('ebay_finding_api')
             
             raise HTTPException(
                 status_code=429,
@@ -135,6 +201,15 @@ async def get_comps(
                     "message": f"eBay API rate limit is active. Please wait {remaining} seconds before searching again.",
                     "retry_after": remaining,
                     "limited_until": limited_until,
+                    "backoff_level": backoff_level,
+                    "usage": {
+                        "daily_calls": usage_stats.get('daily_calls', 0),
+                        "daily_limit": EBAY_DAILY_CALL_LIMIT,
+                        "hourly_calls": usage_stats.get('hourly_calls', 0),
+                        "percentage_used": f"{(usage_stats.get('daily_calls', 0)/EBAY_DAILY_CALL_LIMIT)*100:.1f}%",
+                        "rate_limited_calls": usage_stats.get('rate_limited_calls', 0)
+                    },
+                    "circuit_state": circuit_state,
                     "correlation_id": correlation_id
                 }
             )
@@ -182,15 +257,37 @@ async def get_comps(
             if params.raw_only:
                 modified_query = f"{modified_query} -PSA -BGS -SGC -CSG -HGA -graded -grade -gem -mint"
             
-            raw_items = await scrape_sold_comps_finding_api(
-                query=modified_query,
-                max_pages=params.pages,
-                sort_by=params.sort_by,
-                buying_format=params.buying_format,
-                condition=params.condition,
-                price_min=params.price_min,
-                price_max=params.price_max,
-            )
+            try:
+                raw_items = await scrape_sold_comps_finding_api(
+                    query=modified_query,
+                    max_pages=params.pages,
+                    sort_by=params.sort_by,
+                    buying_format=params.buying_format,
+                    condition=params.condition,
+                    price_min=params.price_min,
+                    price_max=params.price_max,
+                )
+                
+                # Record successful API call (Phase 4)
+                await api_tracker.record_call('ebay_finding_api', success=True, rate_limited=False)
+                await circuit_breaker.record_success('ebay_finding_api')
+                print(f"[API TRACKER] Recorded successful Finding API call")
+                print(f"[CIRCUIT BREAKER] Recorded success")
+                
+            except RateLimitError:
+                # Record rate-limited call before re-raising (Phase 4)
+                await api_tracker.record_call('ebay_finding_api', success=False, rate_limited=True)
+                await circuit_breaker.record_failure('ebay_finding_api', is_rate_limit=True)
+                print(f"[API TRACKER] Recorded rate-limited Finding API call")
+                print(f"[CIRCUIT BREAKER] Recorded rate limit failure")
+                raise
+            except Exception:
+                # Record failed call before re-raising (Phase 4)
+                await api_tracker.record_call('ebay_finding_api', success=False, rate_limited=False)
+                await circuit_breaker.record_failure('ebay_finding_api', is_rate_limit=False)
+                print(f"[API TRACKER] Recorded failed Finding API call")
+                print(f"[CIRCUIT BREAKER] Recorded failure")
+                raise
             
             # Enrich Finding API results with Browse API data if enabled
             # ENRICHMENT DISABLED: Removed to reduce API call volume
@@ -305,31 +402,42 @@ async def get_comps(
     except RateLimitError as e:
         # DIAGNOSTIC: Log rate limit details
         current_time = time.time()
-        retry_after = e.retry_after or 300  # Default 5 minutes
-        limited_until = current_time + retry_after
+        
+        # Get exponential backoff duration from circuit breaker (Phase 4)
+        backoff_duration = await circuit_breaker.get_backoff_duration('ebay_finding_api')
+        backoff_level = await circuit_breaker.get_backoff_level('ebay_finding_api')
+        limited_until = current_time + backoff_duration
         
         print(f"[DIAGNOSTIC] ⚠️ RATE LIMIT HIT at {current_time}")
-        print(f"[DIAGNOSTIC] Rate limit retry_after: {retry_after} seconds")
+        print(f"[DIAGNOSTIC] Exponential backoff: {backoff_duration} seconds (level: {backoff_level})")
         print(f"[DIAGNOSTIC] Rate limited until: {limited_until}")
         
-        # Store rate limit state in Redis to prevent immediate retries
+        # Force open circuit breaker (Phase 4)
+        await circuit_breaker.force_open('ebay_finding_api', backoff_duration)
+        
+        # Get usage stats for error response
+        usage_stats = await api_tracker.get_stats('ebay_finding_api')
+        circuit_state = await circuit_breaker.get_state('ebay_finding_api')
+        
+        # Store rate limit state in Redis with exponential backoff (Phase 4)
         rate_limit_key = "rate_limit:ebay:finding_api"
         rate_limit_data = {
-            "retry_after": retry_after,
+            "retry_after": backoff_duration,
             "limited_until": limited_until,
-            "triggered_at": current_time
+            "triggered_at": current_time,
+            "backoff_level": backoff_level
         }
         
         if await cache_service._ensure_connection():
-            stored = await cache_service.set(rate_limit_key, rate_limit_data, ttl=retry_after)
+            stored = await cache_service.set(rate_limit_key, rate_limit_data, ttl=backoff_duration)
             if stored:
-                print(f"[RATE LIMIT] ✓ Stored rate limit state in Redis (TTL: {retry_after}s)")
+                print(f"[RATE LIMIT] ✓ Stored rate limit state in Redis (TTL: {backoff_duration}s, level: {backoff_level})")
             else:
                 print(f"[RATE LIMIT] ✗ Failed to store rate limit state in Redis")
         else:
             print(f"[RATE LIMIT] ⚠️ Redis unavailable - rate limit state not stored (retries won't be blocked!)")
         
-        # Handle eBay rate limit specifically with user-friendly message
+        # Handle eBay rate limit specifically with user-friendly message (Phase 4)
         log_with_context(
             logger,
             'error',
@@ -338,15 +446,28 @@ async def get_comps(
             endpoint='/comps',
             query=params.query,
             error=str(e),
-            retry_after=retry_after
+            retry_after=backoff_duration,
+            backoff_level=backoff_level,
+            daily_calls=usage_stats.get('daily_calls', 0),
+            hourly_calls=usage_stats.get('hourly_calls', 0),
+            circuit_state=circuit_state
         )
         raise HTTPException(
             status_code=429,
             detail={
                 "error": "RATE_LIMIT_EXCEEDED",
                 "message": str(e),
-                "retry_after": retry_after,
+                "retry_after": backoff_duration,
                 "limited_until": limited_until,
+                "backoff_level": backoff_level,
+                "usage": {
+                    "daily_calls": usage_stats.get('daily_calls', 0),
+                    "daily_limit": EBAY_DAILY_CALL_LIMIT,
+                    "hourly_calls": usage_stats.get('hourly_calls', 0),
+                    "percentage_used": f"{(usage_stats.get('daily_calls', 0)/EBAY_DAILY_CALL_LIMIT)*100:.1f}%",
+                    "rate_limited_calls": usage_stats.get('rate_limited_calls', 0)
+                },
+                "circuit_state": circuit_state,
                 "correlation_id": correlation_id
             }
         )
@@ -833,3 +954,50 @@ async def get_active_listings(
         print(f"[CACHE SET] Failed to store active listings in cache (continuing without cache)")
     
     return response_data
+
+
+@router.get("/api/usage-stats")
+async def get_api_usage_stats(
+    request: Request,
+    api_tracker: APIUsageTracker = Depends(get_api_tracker),
+    circuit_breaker: CircuitBreaker = Depends(get_circuit_breaker)
+):
+    """
+    Get current API usage statistics for monitoring (Phase 4 enhanced).
+    
+    Returns usage data for eBay Finding API including:
+    - Daily and hourly call counts
+    - Rate limited calls
+    - Failed calls
+    - Percentage of daily limit used
+    - Circuit breaker state
+    """
+    stats = await api_tracker.get_stats('ebay_finding_api')
+    circuit_state = await circuit_breaker.get_state('ebay_finding_api')
+    backoff_level = await circuit_breaker.get_backoff_level('ebay_finding_api')
+    
+    return {
+        "ebay_finding_api": {
+            "usage": {
+                "daily_calls": stats.get('daily_calls', 0),
+                "hourly_calls": stats.get('hourly_calls', 0),
+                "rate_limited_calls": stats.get('rate_limited_calls', 0),
+                "failed_calls": stats.get('failed_calls', 0),
+                "current_date": stats.get('current_date'),
+                "current_hour": stats.get('current_hour')
+            },
+            "circuit": {
+                "state": circuit_state,
+                "backoff_level": backoff_level
+            },
+            "limits": {
+                "daily": EBAY_DAILY_CALL_LIMIT,
+                "warning_threshold": RATE_LIMIT_WARNING_THRESHOLD
+            },
+            "status": {
+                "redis_available": stats.get('redis_available', False),
+                "percentage_used": f"{(stats.get('daily_calls', 0)/EBAY_DAILY_CALL_LIMIT)*100:.1f}%",
+                "is_near_limit": stats.get('daily_calls', 0) >= (EBAY_DAILY_CALL_LIMIT * RATE_LIMIT_WARNING_THRESHOLD)
+            }
+        }
+    }

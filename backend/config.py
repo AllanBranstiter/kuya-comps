@@ -280,6 +280,33 @@ RATE_LIMIT_PER_MINUTE = 10
 RATE_LIMIT_STRING = f"{RATE_LIMIT_PER_MINUTE}/minute"
 """Rate limit in slowapi format."""
 
+# eBay API Rate Limits
+EBAY_DAILY_CALL_LIMIT = 5000
+"""Maximum eBay Finding API calls allowed per day."""
+
+EBAY_HOURLY_CALL_LIMIT = 500
+"""Conservative estimate for maximum eBay API calls per hour."""
+
+RATE_LIMIT_WARNING_THRESHOLD = 0.8
+"""Threshold for warning about approaching rate limits (80%)."""
+
+
+# ============================================================================
+# Circuit Breaker Configuration
+# ============================================================================
+
+CIRCUIT_FAILURE_THRESHOLD = 3
+"""Number of consecutive failures before opening the circuit."""
+
+CIRCUIT_BASE_TIMEOUT = 300
+"""Base timeout in seconds when circuit opens (5 minutes)."""
+
+CIRCUIT_MAX_TIMEOUT = 3600
+"""Maximum timeout in seconds for exponential backoff (1 hour)."""
+
+CIRCUIT_HALF_OPEN_REQUESTS = 1
+"""Number of test requests allowed in HALF_OPEN state."""
+
 
 # ============================================================================
 # Scraper Configuration
