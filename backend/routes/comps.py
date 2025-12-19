@@ -102,6 +102,12 @@ async def get_comps(
     }
     cache_key = CacheService.generate_cache_key("kuya_comps:sold", cache_params)
     
+    # DIAGNOSTIC: Check Redis connection status
+    redis_available = await cache_service._ensure_connection()
+    print(f"[DIAGNOSTIC] Redis connection available: {redis_available}")
+    if not redis_available:
+        print(f"[DIAGNOSTIC] ⚠️ WARNING: Redis is UNAVAILABLE - all searches will hit eBay API directly!")
+    
     # Try to get from cache first (skip cache in test mode)
     if not params.test_mode:
         cached_response = await cache_service.get(cache_key)
@@ -264,6 +270,14 @@ async def get_comps(
             raw_items = filtered_items
         
     except RateLimitError as e:
+        # DIAGNOSTIC: Log rate limit details
+        print(f"[DIAGNOSTIC] ⚠️ RATE LIMIT HIT at {time.time()}")
+        print(f"[DIAGNOSTIC] Rate limit retry_after: {e.retry_after} seconds")
+        
+        # TODO: Store rate limit state in Redis with expiry
+        # This would prevent immediate retries and show user countdown
+        # Example: await cache_service.set("rate_limit:ebay", True, ttl=e.retry_after)
+        
         # Handle eBay rate limit specifically with user-friendly message
         log_with_context(
             logger,
@@ -481,9 +495,10 @@ async def get_comps(
             ttl=CACHE_TTL_SOLD
         )
         if cache_stored:
-            print(f"[CACHE SET] Stored sold listings in cache: {params.query} (TTL: 30 min)")
+            print(f"[CACHE SET] ✓ Stored sold listings in cache: {params.query} (TTL: 30 min)")
         else:
-            print(f"[CACHE SET] Failed to store sold listings in cache (continuing without cache)")
+            print(f"[CACHE SET] ✗ FAILED to store in cache - Redis unavailable!")
+            print(f"[CACHE SET] ⚠️ This means ALL subsequent searches will hit eBay API (causing rate limits)")
     
     return response_data
 
