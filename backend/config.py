@@ -43,6 +43,46 @@ def get_search_api_key() -> Optional[str]:
     return os.getenv('SEARCH_API_KEY')
 
 
+def use_ebay_finding_api() -> bool:
+    """Check if Finding API should be used instead of SearchAPI."""
+    return os.getenv('USE_EBAY_FINDING_API', 'false').lower() == 'true'
+
+
+def enable_browse_enrichment() -> bool:
+    """Enable Browse API enrichment for sold listings from Finding API."""
+    return os.getenv('ENABLE_BROWSE_ENRICHMENT', 'false').lower() == 'true'
+
+
+def get_max_enrichment_count() -> int:
+    """Maximum items to enrich per request."""
+    try:
+        return int(os.getenv('MAX_ENRICHMENT_COUNT', '20'))
+    except ValueError:
+        return 20
+
+
+def get_enrichment_threshold() -> float:
+    """
+    Enrichment threshold for price filtering (0.0 - 1.0).
+    Only enrich items in the top X% of price range.
+    Default: 0.8 (top 80% of price range)
+    """
+    try:
+        value = float(os.getenv('ENRICHMENT_THRESHOLD', '0.8'))
+        # Clamp to valid range
+        return max(0.0, min(1.0, value))
+    except ValueError:
+        return 0.8
+
+
+def get_enrichment_max_concurrent() -> int:
+    """Maximum concurrent Browse API requests for enrichment."""
+    try:
+        return int(os.getenv('ENRICHMENT_MAX_CONCURRENT', '3'))
+    except ValueError:
+        return 3
+
+
 def get_redis_url() -> str:
     """Get Redis URL from environment with fallback."""
     return os.getenv('REDIS_URL', 'redis://localhost:6379')
@@ -150,18 +190,25 @@ def validate_config() -> None:
     """
     errors = []
     
-    # Check required API keys
-    if not get_search_api_key():
-        errors.append("SEARCH_API_KEY is required")
-    
-    # Check eBay credentials (optional but recommended)
+    # Check eBay credentials
     ebay_app_id = os.getenv('EBAY_APP_ID')
     ebay_dev_id = os.getenv('EBAY_DEV_ID')
     ebay_cert_id = os.getenv('EBAY_CERT_ID')
     
-    if not all([ebay_app_id, ebay_dev_id, ebay_cert_id]):
-        # Just warn, don't fail - app can run with SearchAPI only
-        print("[WARNING] eBay API credentials not fully configured. Active listings may not work.")
+    # Conditional API key validation based on feature flag
+    if use_ebay_finding_api():
+        # Finding API mode - require eBay credentials
+        if not all([ebay_app_id, ebay_cert_id]):
+            errors.append("eBay API credentials (EBAY_APP_ID, EBAY_CERT_ID) required when USE_EBAY_FINDING_API=true")
+        if not get_search_api_key():
+            print("[WARNING] SEARCH_API_KEY not set. Finding API is primary, but SearchAPI fallback unavailable.")
+    else:
+        # SearchAPI mode - require SearchAPI key
+        if not get_search_api_key():
+            errors.append("SEARCH_API_KEY is required when USE_EBAY_FINDING_API=false")
+        if not all([ebay_app_id, ebay_dev_id, ebay_cert_id]):
+            # Just warn, don't fail - app can run with SearchAPI only
+            print("[WARNING] eBay API credentials not fully configured. Active listings may not work.")
     
     # Validate environment name
     env = get_environment()
@@ -201,6 +248,19 @@ def validate_config() -> None:
     print(f"[CONFIG] Log Format: {get_log_format()}")
     print(f"[CONFIG] Redis URL: {get_redis_url()}")
     print(f"[CONFIG] CORS Origins: {', '.join(get_cors_origins())}")
+    
+    # Print API source information
+    if use_ebay_finding_api():
+        print(f"[CONFIG] Sold Listings API: eBay Finding API")
+        if enable_browse_enrichment():
+            print(f"[CONFIG] Browse API Enrichment: Enabled (max {get_max_enrichment_count()} items)")
+        else:
+            print(f"[CONFIG] Browse API Enrichment: Disabled")
+    else:
+        print(f"[CONFIG] Sold Listings API: SearchAPI.io")
+    
+    print(f"[CONFIG] Active Listings API: eBay Browse API")
+    
     if is_production() and get_sentry_dsn():
         print(f"[CONFIG] Sentry: Enabled")
     print()

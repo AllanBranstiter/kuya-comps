@@ -19,8 +19,7 @@ This guide covers deploying Kuya Comps to production environments.
 Before deploying, ensure you have:
 
 1. **API Keys**:
-   - SearchAPI.io API key (required)
-   - eBay API credentials: App ID, Dev ID, Cert ID (recommended)
+   - eBay API credentials: App ID, Dev ID, Cert ID (required)
    - Sentry DSN (optional but recommended for production)
 
 2. **Infrastructure**:
@@ -43,12 +42,16 @@ All required environment variables are documented in `.env.example`. The minimum
 # Environment
 ENVIRONMENT=production
 
-# API Keys
-SEARCH_API_KEY=your_actual_searchapi_key
+# eBay API Configuration (REQUIRED)
 EBAY_APP_ID=your_ebay_app_id
 EBAY_DEV_ID=your_ebay_dev_id
 EBAY_CERT_ID=your_ebay_cert_id
 EBAY_ENVIRONMENT=production
+
+# Finding API Configuration (Primary for sold listings)
+USE_EBAY_FINDING_API=true
+ENABLE_BROWSE_ENRICHMENT=true
+MAX_ENRICHMENT_COUNT=20
 
 # Redis (provided by hosting platform)
 REDIS_URL=redis://user:password@host:port
@@ -212,10 +215,11 @@ docker build -t kuya-comps .
 # Run container
 docker run -d \
   -p 8000:8000 \
-  -e SEARCH_API_KEY=your_key \
   -e EBAY_APP_ID=your_app_id \
   -e EBAY_DEV_ID=your_dev_id \
   -e EBAY_CERT_ID=your_cert_id \
+  -e USE_EBAY_FINDING_API=true \
+  -e ENABLE_BROWSE_ENRICHMENT=true \
   -e REDIS_URL=redis://redis:6379 \
   -e ENVIRONMENT=production \
   --name kuya-comps \
@@ -237,10 +241,11 @@ services:
     environment:
       - ENVIRONMENT=production
       - REDIS_URL=redis://redis:6379
-      - SEARCH_API_KEY=${SEARCH_API_KEY}
       - EBAY_APP_ID=${EBAY_APP_ID}
       - EBAY_DEV_ID=${EBAY_DEV_ID}
       - EBAY_CERT_ID=${EBAY_CERT_ID}
+      - USE_EBAY_FINDING_API=true
+      - ENABLE_BROWSE_ENRICHMENT=true
       - SENTRY_DSN=${SENTRY_DSN}
     depends_on:
       - redis

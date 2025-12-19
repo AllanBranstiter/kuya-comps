@@ -20,11 +20,20 @@ from backend.exceptions import (
 )
 from backend.logging_config import get_logger, log_with_context
 from backend.cache import CacheService
-from backend.config import get_search_api_key, CACHE_TTL_SOLD, CACHE_TTL_ACTIVE
+from backend.config import (
+    get_search_api_key,
+    use_ebay_finding_api,
+    enable_browse_enrichment,
+    get_max_enrichment_count,
+    get_enrichment_threshold,
+    get_enrichment_max_concurrent,
+    CACHE_TTL_SOLD,
+    CACHE_TTL_ACTIVE
+)
 from backend.services.intelligence_service import analyze_market_intelligence
 from backend.models.schemas import CompItem, CompsResponse
 from backend.utils import generate_ebay_deep_link, load_test_data
-from scraper import scrape_sold_comps, scrape_active_listings_ebay_api
+from scraper import scrape_sold_comps, scrape_sold_comps_finding_api, scrape_active_listings_ebay_api
 
 
 # Initialize router
@@ -75,9 +84,11 @@ async def get_comps(
         test_mode=params.test_mode
     )
     
-    # Generate cache key from all query parameters
+    # Generate cache key from all query parameters including API source and enrichment settings
     cache_params = {
         "query": params.query,
+        "api_source": "finding_api" if use_ebay_finding_api() else "search_api",
+        "enrichment_enabled": enable_browse_enrichment() if use_ebay_finding_api() else False,
         "pages": params.pages,
         "sort_by": params.sort_by,
         "buying_format": params.buying_format,
@@ -124,7 +135,62 @@ async def get_comps(
         if params.test_mode:
             print("[INFO] Using test mode with CSV data")
             raw_items = load_test_data()
+        elif use_ebay_finding_api():
+            # NEW: Use Finding API
+            print("[INFO] Using eBay Finding API for sold listings")
+            
+            # Modify query based on filters
+            modified_query = params.query
+            if params.raw_only:
+                modified_query = f"{modified_query} -PSA -BGS -SGC -CSG -HGA -graded -grade -gem -mint"
+            
+            raw_items = await scrape_sold_comps_finding_api(
+                query=modified_query,
+                max_pages=params.pages,
+                sort_by=params.sort_by,
+                buying_format=params.buying_format,
+                condition=params.condition,
+                price_min=params.price_min,
+                price_max=params.price_max,
+            )
+            
+            # Enrich Finding API results with Browse API data if enabled
+            if enable_browse_enrichment() and raw_items:
+                try:
+                    from backend.services.ebay_enrichment_service import enrich_items_with_browse_api
+                    
+                    enrichment_count = get_max_enrichment_count()
+                    enrichment_threshold = get_enrichment_threshold()
+                    enrichment_concurrent = get_enrichment_max_concurrent()
+                    
+                    print(f"[ENRICHMENT] Enriching up to {enrichment_count} items (threshold: {enrichment_threshold*100:.0f}%, concurrent: {enrichment_concurrent})")
+                    
+                    raw_items = await enrich_items_with_browse_api(
+                        items=raw_items,
+                        max_enrich=enrichment_count,
+                        enrich_threshold=enrichment_threshold,
+                        max_concurrent=enrichment_concurrent
+                    )
+                    
+                    enriched_count = sum(1 for item in raw_items if item.get('browse_enriched', False))
+                    print(f"[ENRICHMENT] Successfully enriched {enriched_count} items with Browse API data")
+                    
+                except Exception as e:
+                    # Log enrichment failure but continue - don't break the request
+                    print(f"[ENRICHMENT] Warning: Enrichment failed, continuing with Finding API data only: {e}")
+                    log_with_context(
+                        logger,
+                        'warning',
+                        'Browse API enrichment failed',
+                        correlation_id=correlation_id,
+                        endpoint='/comps',
+                        query=params.query,
+                        error=str(e)
+                    )
         else:
+            # EXISTING: Use SearchAPI
+            print("[INFO] Using SearchAPI.io for sold listings")
+            
             # Check if API key is configured
             api_key = get_search_api_key()
             if not api_key:

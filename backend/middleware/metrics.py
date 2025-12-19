@@ -37,6 +37,7 @@ class MetricsCollector:
         self.cache_misses: int = 0
         self.active_requests: int = 0
         self.errors_count: Dict[str, int] = defaultdict(int)
+        self.api_source_calls: Dict[str, int] = defaultdict(int)  # Track API source usage
     
     def record_request(self, endpoint: str, status_code: int, duration: float):
         """
@@ -68,6 +69,15 @@ class MetricsCollector:
     def record_cache_miss(self):
         """Record a cache miss."""
         self.cache_misses += 1
+    
+    def record_api_call(self, api_source: str):
+        """
+        Record an API call by source.
+        
+        Args:
+            api_source: API source identifier (e.g., 'finding_api', 'search_api', 'browse_api')
+        """
+        self.api_source_calls[api_source] += 1
     
     def get_cache_hit_rate(self) -> float:
         """
@@ -141,6 +151,7 @@ class MetricsCollector:
                 "hit_rate": round(self.get_cache_hit_rate(), 2),
             },
             "active_requests": self.active_requests,
+            "api_sources": dict(self.api_source_calls),
         }
     
     def reset(self):

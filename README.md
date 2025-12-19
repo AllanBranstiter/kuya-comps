@@ -20,10 +20,10 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 ### Backend
 *   **Framework**: Python with [FastAPI](https://fastapi.tiangolo.com/)
 *   **Server**: uvicorn (development) / gunicorn (production)
-*   **Data Source**: [SearchAPI.io](https://www.searchapi.io/) for eBay listings scraping
+*   **Data Source**: eBay Finding API (sold listings) + eBay Browse API (active listings + enrichment)
 *   **Caching**: Redis with aioredis for aggressive API cost optimization
 *   **Rate Limiting**: slowapi (10 requests/minute per IP)
-*   **Monitoring**: Sentry (production), custom `/metrics` endpoint
+*   **Monitoring**: Sentry (production), custom `/metrics` endpoint with API source tracking
 *   **ML/Analytics**: scikit-learn, numpy, pandas for price analysis and FMV calculations
 
 ### Frontend
@@ -39,7 +39,7 @@ A web application for scraping and analyzing eBay baseball card sold/active list
     - `/fmv` - Fair market value calculations with quick/patient sale ranges
 *   **Middleware Chain**: RequestID → Metrics → SecurityHeaders (execution in reverse order of definition)
 *   **Static File Serving**: Frontend served from root path (must be mounted last in FastAPI)
-*   **Caching Strategy**: Redis layer minimizes SearchAPI.io costs and improves response times
+*   **Caching Strategy**: Redis layer minimizes eBay API calls (5,000/day Finding API limit) and improves response times
 
 ## Directory Structure
 
@@ -57,8 +57,7 @@ kuya-comps/
 ├── tests/             # Test suite
 ├── main.py            # FastAPI application entry point
 ├── requirements.txt   # Python dependencies
-├── Procfile           # Production deployment configuration
-└── .gitleaks.toml     # Secret scanning configuration
+└── Procfile           # Production deployment configuration
 ```
 
 ## Setup and Running
@@ -73,7 +72,7 @@ kuya-comps/
 2.  **Set up Environment Variables:**
     ```bash
     cp .env.example .env
-    # Edit .env and add your SearchAPI.io API key
+    # Edit .env and add your eBay API credentials
     ```
 
 3.  **Run the application:**
@@ -92,12 +91,13 @@ kuya-comps/
 
 2.  **Deploy on Railway:**
     - Connect your GitHub repository to Railway
-    - Set environment variable: `SEARCH_API_KEY=your_searchapi_io_key`
+    - Set environment variables for eBay API credentials
     - Railway will automatically detect the Python app and deploy using the Procfile
 
 3.  **Environment Variables Required:**
-    - `SEARCH_API_KEY`: Your SearchAPI.io API key (required)
-    - `EBAY_APP_ID`, `EBAY_DEV_ID`, `EBAY_CERT_ID`: eBay API credentials (recommended)
+    - `EBAY_APP_ID`, `EBAY_DEV_ID`, `EBAY_CERT_ID`: eBay API credentials (required)
+    - `USE_EBAY_FINDING_API`: Set to `true` (default, recommended)
+    - `ENABLE_BROWSE_ENRICHMENT`: Set to `true` for enhanced item details (optional)
     - `ENVIRONMENT`: Set to `production`
     - `SENTRY_DSN`: Error monitoring (optional but recommended)
     - `REDIS_URL`: Automatically provided by Railway/Render for caching
@@ -136,9 +136,8 @@ All endpoints support comprehensive filtering and include rate limiting (10 requ
 
 🔒 **Important**: This project includes multiple layers of protection to prevent secrets from being committed to Git.
 
-- **Automated Secret Scanning**: Pre-commit hook using [gitleaks](https://github.com/gitleaks/gitleaks) scans for API keys before every commit
 - **Comprehensive `.gitignore`**: Excludes `.env` files, credentials, private keys, and other sensitive data
-- **Custom Detection Rules**: Project-specific patterns in `.gitleaks.toml` detect eBay API, SearchAPI, and other keys
+- **GitHub Actions Security**: CI pipeline includes security scanning with bandit and dependency vulnerability checks
 - **Environment Variables**: API keys are handled securely on the backend via environment variables
 - **Password Protection**: Prevents unauthorized access to the application
 - **Secure API Routing**: All API calls are routed through the backend, never exposing keys to the frontend
@@ -153,19 +152,21 @@ All endpoints support comprehensive filtering and include rate limiting (10 requ
 
 The application implements several strategies to manage API costs and maintain performance:
 
-*   **Aggressive Caching**: Redis caching layer reduces SearchAPI.io requests (pay-per-request model)
+*   **Aggressive Caching**: Redis caching layer reduces eBay API calls (Finding API: 5,000/day limit)
 *   **Rate Limiting**: 10 requests/minute per IP prevents abuse and manages API costs
 *   **Smart FMV Calculations**: ML-powered analytics reduce need for redundant searches
 *   **Auction Detection**: Intelligent parsing using "bid", "bids", or "auction" in buying format field
+*   **Browse API Enrichment**: Optional, limited to top items to control API usage
 *   **Middleware Optimization**: Execution order matters—reverse of [`add_middleware()`](main.py) calls
 
 ## Important Technical Notes
 
 *   **API Keys**: Always server-side only; frontend never touches credentials
-*   **Scraping Method**: SearchAPI.io is the canonical source; eBay API only for FMV cross-validation
+*   **API Architecture**: eBay Finding API for sold listings + Browse API for active listings and enrichment
 *   **Middleware Order**: Execution is reverse of definition order in code
 *   **Redis Requirement**: Required for production efficiency and cost management
-*   **Security Scanning**: gitleaks pre-commit hook scans for leaked secrets; `.env` never committed
+*   **Security**: `.env` files excluded via `.gitignore`; CI pipeline includes security scanning
+*   **API Source Toggle**: `USE_EBAY_FINDING_API` flag enables Finding API (default: true)
 
 ## Version History
 

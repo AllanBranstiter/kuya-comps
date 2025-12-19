@@ -64,6 +64,14 @@ except ImportError:
     EBAY_API_AVAILABLE = False
     print("[WARNING] eBay Browse API client not available. Install required dependencies.")
 
+# Try to import eBay Finding API client
+try:
+    from backend.ebay_finding_client import eBayFindingClient, normalize_finding_api_item
+    EBAY_FINDING_API_AVAILABLE = True
+except ImportError:
+    EBAY_FINDING_API_AVAILABLE = False
+    print("[WARNING] eBay Finding API client not available. Install required dependencies.")
+
 
 
 
@@ -273,6 +281,106 @@ async def scrape_sold_comps(
     
     logger.info(f"[scraper] Completed scraping. Final total: {len(all_items)} items across {len(successful_results)} successful pages")
     return all_items
+
+
+async def scrape_sold_comps_finding_api(
+    query: str,
+    max_pages: int = 3,
+    sort_by: str = "EndTimeSoonest",
+    buying_format: Optional[str] = None,
+    condition: Optional[str] = None,
+    price_min: Optional[float] = None,
+    price_max: Optional[float] = None,
+) -> List[Dict]:
+    """
+    Fetch sold listings using eBay Finding API (async wrapper).
+    
+    This function wraps the eBay Finding API client and provides a consistent
+    interface matching the SearchAPI scraper. It uses concurrent page fetching
+    for performance.
+    
+    Args:
+        query: Search query string
+        max_pages: Number of pages to fetch (default 3, max 100 items per page)
+        sort_by: Sort order - maps to Finding API sort values
+        buying_format: Filter by format - "auction", "buy_it_now", "best_offer"
+        condition: Filter by condition name
+        price_min: Minimum price filter
+        price_max: Maximum price filter
+    
+    Returns:
+        List of normalized item dictionaries matching CompItem schema
+    
+    Raises:
+        RuntimeError: If Finding API client is not available
+    """
+    logger.info(f"[scrape_sold_comps_finding_api] Called with query='{query}', max_pages={max_pages}")
+    logger.info(f"[scrape_sold_comps_finding_api] EBAY_FINDING_API_AVAILABLE={EBAY_FINDING_API_AVAILABLE}")
+    
+    if not EBAY_FINDING_API_AVAILABLE:
+        raise RuntimeError(
+            "eBay Finding API client not available. "
+            "Make sure backend/ebay_finding_client.py exists and credentials are set."
+        )
+    
+    logger.info("[scrape_sold_comps_finding_api] Creating eBayFindingClient...")
+    try:
+        client = eBayFindingClient()
+        logger.info(f"[scrape_sold_comps_finding_api] Client created successfully. Environment: {client.environment}")
+    except Exception as e:
+        logger.error(f"[scrape_sold_comps_finding_api] FAILED to create client: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+    
+    # Map sort_by parameter to Finding API sort order
+    sort_map = {
+        'best_match': 'BestMatch',
+        'time_newly_listed': 'EndTimeSoonest',
+        'price_low_to_high': 'PricePlusShippingLowest',
+        'price_high_to_low': 'PricePlusShippingHighest',
+        'EndTimeSoonest': 'EndTimeSoonest',  # Allow direct API values
+        'BestMatch': 'BestMatch',
+        'PricePlusShippingLowest': 'PricePlusShippingLowest',
+        'PricePlusShippingHighest': 'PricePlusShippingHighest',
+    }
+    finding_api_sort = sort_map.get(sort_by, 'EndTimeSoonest')
+    
+    # Fetch all pages using the Finding API client
+    logger.info(f"[Finding API] Fetching {max_pages} pages for query: '{query}'")
+    logger.info(f"[Finding API] Sort: {finding_api_sort}, Filters: buying_format={buying_format}, condition={condition}")
+    
+    try:
+        raw_items = await client.get_all_completed_items(
+            keywords=query,
+            max_pages=max_pages,
+            sort_order=finding_api_sort,
+            buying_format=buying_format,
+            condition=condition,
+            price_min=price_min,
+            price_max=price_max,
+        )
+        
+        logger.info(f"[Finding API] Raw items fetched: {len(raw_items)}")
+        
+        # Normalize all items to Kuya Comps format
+        normalized_items = []
+        for item in raw_items:
+            try:
+                normalized = normalize_finding_api_item(item)
+                normalized_items.append(normalized)
+            except Exception as e:
+                logger.error(f"[Finding API] Failed to normalize item: {e}")
+                continue
+        
+        logger.info(f"[Finding API] Normalized items: {len(normalized_items)}")
+        return normalized_items
+        
+    except Exception as e:
+        logger.error(f"[Finding API] Error fetching sold comps: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def scrape_active_listings(
