@@ -15,6 +15,13 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+class RateLimitError(Exception):
+    """Raised when eBay API rate limit is exceeded."""
+    def __init__(self, message: str, retry_after: Optional[int] = None):
+        self.retry_after = retry_after
+        super().__init__(message)
+
+
 class eBayFindingClient:
     """
     eBay Finding API client for searching sold/completed listings.
@@ -153,6 +160,27 @@ class eBayFindingClient:
                 
                 async with httpx.AsyncClient(timeout=15) as client:
                     response = await client.get(self.base_url, params=params)
+                    
+                    # Check for rate limit before raising for status
+                    if response.status_code == 500:
+                        # Parse error response to check for rate limit
+                        try:
+                            error_data = response.json()
+                            error_msg = error_data.get('errorMessage', [{}])[0]
+                            error_obj = error_msg.get('error', [{}])[0]
+                            error_id = error_obj.get('errorId', [''])[0]
+                            error_text = error_obj.get('message', [''])[0]
+                            
+                            # Error 10001 is rate limit
+                            if error_id == '10001':
+                                logger.error(f"[Finding API] Rate limit exceeded: {error_text}")
+                                raise RateLimitError(
+                                    "eBay API rate limit exceeded. Please wait a few minutes before searching again.",
+                                    retry_after=300  # Suggest 5 minutes
+                                )
+                        except (ValueError, KeyError, IndexError):
+                            pass  # Fall through to normal error handling
+                    
                     response.raise_for_status()
                     
                     data = response.json()
@@ -162,7 +190,18 @@ class eBayFindingClient:
                     
                     if ack == 'Failure':
                         error_msg = data.get('findCompletedItemsResponse', [{}])[0].get('errorMessage', [{}])[0]
-                        error_text = error_msg.get('error', [{}])[0].get('message', ['Unknown error'])[0]
+                        error_obj = error_msg.get('error', [{}])[0]
+                        error_id = error_obj.get('errorId', [''])[0]
+                        error_text = error_obj.get('message', ['Unknown error'])[0]
+                        
+                        # Check for rate limit in failure response
+                        if error_id == '10001':
+                            logger.error(f"[Finding API] Rate limit exceeded: {error_text}")
+                            raise RateLimitError(
+                                "eBay API rate limit exceeded. Please wait a few minutes before searching again.",
+                                retry_after=300
+                            )
+                        
                         logger.error(f"[Finding API] Request failed: {error_text}")
                         raise ValueError(f"eBay API Error: {error_text}")
                     
@@ -191,6 +230,11 @@ class eBayFindingClient:
                         },
                         'ack': ack
                     }
+                
+            except RateLimitError:
+                # Don't retry on rate limit - immediately fail
+                logger.error("[Finding API] Rate limit detected - stopping retries")
+                raise
                 
             except httpx.HTTPStatusError as e:
                 last_error = e

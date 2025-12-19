@@ -8,7 +8,7 @@ card prices from eBay's sold and active listings.
 import time
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -34,6 +34,7 @@ from backend.services.intelligence_service import analyze_market_intelligence
 from backend.models.schemas import CompItem, CompsResponse
 from backend.utils import generate_ebay_deep_link, load_test_data
 from scraper import scrape_sold_comps, scrape_sold_comps_finding_api, scrape_active_listings_ebay_api
+from backend.ebay_finding_client import RateLimitError
 
 
 # Initialize router
@@ -262,6 +263,27 @@ async def get_comps(
 
             raw_items = filtered_items
         
+    except RateLimitError as e:
+        # Handle eBay rate limit specifically with user-friendly message
+        log_with_context(
+            logger,
+            'error',
+            'eBay API rate limit exceeded',
+            correlation_id=correlation_id,
+            endpoint='/comps',
+            query=params.query,
+            error=str(e),
+            retry_after=e.retry_after
+        )
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "RATE_LIMIT_EXCEEDED",
+                "message": str(e),
+                "retry_after": e.retry_after,
+                "correlation_id": correlation_id
+            }
+        )
     except APIKeyMissingError as e:
         # Log and re-raise custom exceptions
         log_with_context(

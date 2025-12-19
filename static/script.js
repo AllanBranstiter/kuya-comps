@@ -2012,6 +2012,35 @@ async function runSearchInternal() {
       if (!resp.ok) {
         const errorText = await resp.text();
         
+        // Check for rate limit error (429)
+        if (resp.status === 429) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            const retryAfter = errorJson.detail?.retry_after || 300;
+            const retryMinutes = Math.ceil(retryAfter / 60);
+            
+            throw new Error(
+              `⏰ eBay API Rate Limit Exceeded\n\n` +
+              `The eBay API has temporarily blocked searches due to too many requests.\n\n` +
+              `Please wait ${retryMinutes} minutes before searching again.\n\n` +
+              `💡 Tip: This usually happens when:\n` +
+              `• Multiple searches are made in quick succession\n` +
+              `• The app's Redis cache is unavailable (causing every search to hit eBay's API)\n` +
+              `• Failed searches retry multiple times\n\n` +
+              `The limit will reset automatically in a few minutes.`
+            );
+          } catch (parseError) {
+            if (parseError.message.includes('Rate Limit')) {
+              throw parseError;
+            }
+            // Fallback rate limit message
+            throw new Error(
+              `⏰ eBay API Rate Limit Exceeded\n\n` +
+              `Too many requests. Please wait 5-10 minutes before searching again.`
+            );
+          }
+        }
+        
         // Check for query length validation error (422)
         if (resp.status === 422) {
           try {
@@ -2110,6 +2139,14 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
             const errorText = await secondResp.text();
             console.error('[DEBUG] Active listings request failed:', secondResp.status, errorText);
             
+            // Check for rate limit error (429)
+            if (secondResp.status === 429) {
+                console.warn('[DEBUG] Active listings hit rate limit - gracefully degrading');
+                // Don't throw - just log and continue without active data
+                // This allows sold data to still be displayed
+                throw new Error(`Active listings unavailable (rate limit) - showing sold data only`);
+            }
+            
             // Check for query length validation error (422)
             if (secondResp.status === 422) {
                 try {
@@ -2196,12 +2233,17 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
     currentBeeswarmPrices = data.items.map(item => item.total_price);
 
     } catch (err) {
+      // Enhanced error display with better formatting for rate limit errors
+      const isRateLimit = err.message.includes('Rate Limit');
+      const errorIcon = isRateLimit ? '⏰' : '⚠️';
+      const errorTitle = isRateLimit ? 'Rate Limit Exceeded' : 'Search Failed';
+      
       const errorHtml = `
-        <div class="error-container">
-          <div class="error-icon">⚠️</div>
+        <div class="error-container" style="background: ${isRateLimit ? 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)' : 'linear-gradient(135deg, #ffebee 0%, #fff5f5 100%)'}; padding: 2rem; border-radius: 12px; border: 2px solid ${isRateLimit ? '#ffd699' : '#ff9999'}; max-width: 600px; margin: 2rem auto;">
+          <div class="error-icon" style="font-size: 3rem; text-align: center; margin-bottom: 1rem;">${errorIcon}</div>
           <div class="error-content">
-            <h4>Search Failed</h4>
-            <p>${err.message}</p>
+            <h4 style="margin: 0 0 1rem 0; color: ${isRateLimit ? '#ff9500' : '#ff3b30'}; text-align: center; font-size: 1.25rem;">${errorTitle}</h4>
+            <p style="margin: 0; color: #333; line-height: 1.6; white-space: pre-line; text-align: ${isRateLimit ? 'left' : 'center'};">${escapeHtml(err.message)}</p>
           </div>
         </div>
       `;
