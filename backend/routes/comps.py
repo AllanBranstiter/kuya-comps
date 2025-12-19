@@ -107,6 +107,14 @@ async def get_comps(
     print(f"[DIAGNOSTIC] Redis connection available: {redis_available}")
     if not redis_available:
         print(f"[DIAGNOSTIC] ⚠️ WARNING: Redis is UNAVAILABLE - all searches will hit eBay API directly!")
+    log_with_context(
+        logger,
+        "debug",
+        "Generated cache key",
+        cache_key=cache_key,
+        cache_params=cache_params,
+        redis_available=redis_available,
+    )
     
     # Check if we're currently rate limited
     rate_limit_key = "rate_limit:ebay:finding_api"
