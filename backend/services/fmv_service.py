@@ -186,7 +186,7 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     4. Determines confidence based on proportion of high-weight sales
     
     Args:
-        items: List of CompItem objects with total_price and auction data
+        items: List of CompItem objects with extracted_price and auction data
     
     Returns:
         FMVResult: Object containing FMV ranges and confidence metrics
@@ -196,17 +196,19 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         - market_value: Volume-weighted mean (true market price)
         - patient_sale: 75th weighted percentile (wait for top dollar)
         - fmv_low/high: Market value ± 1 weighted std dev
+    # NOTE: FMV calculations use extracted_price (item price only, no shipping)
+    # This reduces API call volume by eliminating the need for enrichment
     """
     # Prepare data for volume weighting
     price_weight_pairs = []
     
     for item in items:
-        if item.total_price is None or item.total_price <= 0:
+        if item.extracted_price is None or item.extracted_price <= 0:
             continue
             
         # Calculate volume weight based on auction activity
         weight = calculate_volume_weight(item)
-        price_weight_pairs.append((item.total_price, weight))
+        price_weight_pairs.append((item.extracted_price, weight))
     
     if len(price_weight_pairs) < MIN_ITEMS_FOR_FMV:
         return FMVResult(count=len(price_weight_pairs))
@@ -280,7 +282,9 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     else:
         volume_confidence = "Low"
     
-    # Count items within FMV range
+    # NOTE: FMV calculations use extracted_price (item price only, no shipping)
+    # This reduces API call volume by eliminating the need for enrichment
+    # Count items within item-price-based FMV range
     inliers = [price for price in prices if fmv_low <= price <= fmv_high]
     
     print(f"[FMV] Volume-weighted mean: ${weighted_mean:.2f}, std: ${weighted_std:.2f}")

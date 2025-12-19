@@ -1025,6 +1025,9 @@ async function renderData(data, secondData = null, marketValue = null) {
     // Create first table
     let html = `
       <h3 style="margin-bottom: 1rem; color: var(--text-color);">Recently Sold Listings</h3>
+      <p style="font-size: 0.9em; color: #666; margin-top: 0.5rem;">
+        <strong>Note:</strong> Prices shown are item prices only and do not include shipping costs.
+      </p>
       <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
         <table>
           <thead style="position: sticky; top: 0; background: var(--card-background); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -1158,6 +1161,9 @@ async function renderData(data, secondData = null, marketValue = null) {
         html += `
           <div style="margin-bottom: 1rem; margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
             <h3 style="margin: 0; color: var(--text-color);">${headerText}</h3>
+             <p style="font-size: 0.9em; color: #666; margin-top: 0.5rem;">
+                <strong>Note:</strong> Prices shown are item prices only and do not include shipping costs.
+             </p>
             <label style="font-size: 0.95rem; font-weight: 500; cursor: ${checkboxDisabled ? 'not-allowed' : 'pointer'}; display: inline-flex; align-items: center; gap: 0.5rem; opacity: ${checkboxDisabled ? '0.5' : '1'};">
               <input type="checkbox" id="see-all-active-listings" style="transform: scale(1.3); cursor: ${checkboxDisabled ? 'not-allowed' : 'pointer'};" onchange="toggleActiveListingsView()" ${showAllListings ? 'checked' : ''} ${checkboxDisabled ? 'disabled' : ''}>
               <span>See All</span>

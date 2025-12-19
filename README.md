@@ -2,6 +2,18 @@
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
+## Pricing Information
+
+**Important:** All prices displayed in Kuya Comps represent **item prices only** and **do not include shipping costs**.
+
+This change was implemented to reduce eBay API call volume and prevent rate limiting issues. Fair Market Value (FMV) calculations are based on item prices, which means:
+
+- ✅ More stable API performance
+- ⚠️ FMV may be lower than actual out-of-pocket cost
+- ⚠️ Users should factor in shipping when evaluating deals
+
+For most cards, shipping costs are relatively consistent ($3-5), so relative price comparisons remain accurate.
+
 ## Features
 
 *   **Dual Search Display**: Automatically shows both sold listings and active listings below FMV
@@ -274,7 +286,7 @@ Version 0.4.0 represents a major evolution of the application with professional 
   - "Base Only" filter excludes parallels, refractors, and special variants
   - "Exclude Autographs" filter removes auto/signed cards
   - Combined filtering support when multiple filters selected
-- **Combined Search Workflow**: New "Find Deals" button that runs both comps + deals searches automatically
+- **Combined Search Workflow**: New "Find Deals" a button that runs both comps + deals searches automatically
 - **UI/UX Improvements**:
   - Larger, more prominent filter checkboxes
   - Separate deals results section preserving sold listings visibility

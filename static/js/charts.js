@@ -546,7 +546,7 @@ function drawPriceDistributionChart(soldData, activeData) {
         ctx.fillStyle = "#1d1d1f";
         ctx.font = "bold 14px " + getComputedStyle(document.body).fontFamily;
         ctx.textAlign = "center";
-        ctx.fillText("Price", width / 2, height - 10);
+        ctx.fillText("Item Price (excl. shipping)", width / 2, height - 10);
         
         // Draw Y-axis ticks
         const yTicks = 5;

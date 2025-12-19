@@ -62,7 +62,7 @@ async def get_comps(
     """
     Scrape eBay SOLD/COMPLETED listings for a given query and return:
       - Basic stats on item price (no shipping)
-      - FMV metrics based on total price (item + shipping)
+      - FMV metrics based on item price (no shipping)
       - Full list of items
     
     Note: Uses SearchAPI.io because the official eBay Browse API does NOT support
@@ -185,38 +185,40 @@ async def get_comps(
             )
             
             # Enrich Finding API results with Browse API data if enabled
-            if enable_browse_enrichment() and raw_items:
-                try:
-                    from backend.services.ebay_enrichment_service import enrich_items_with_browse_api
-                    
-                    enrichment_count = get_max_enrichment_count()
-                    enrichment_threshold = get_enrichment_threshold()
-                    enrichment_concurrent = get_enrichment_max_concurrent()
-                    
-                    print(f"[ENRICHMENT] Enriching up to {enrichment_count} items (threshold: {enrichment_threshold*100:.0f}%, concurrent: {enrichment_concurrent})")
-                    
-                    raw_items = await enrich_items_with_browse_api(
-                        items=raw_items,
-                        max_enrich=enrichment_count,
-                        enrich_threshold=enrichment_threshold,
-                        max_concurrent=enrichment_concurrent
-                    )
-                    
-                    enriched_count = sum(1 for item in raw_items if item.get('browse_enriched', False))
-                    print(f"[ENRICHMENT] Successfully enriched {enriched_count} items with Browse API data")
-                    
-                except Exception as e:
-                    # Log enrichment failure but continue - don't break the request
-                    print(f"[ENRICHMENT] Warning: Enrichment failed, continuing with Finding API data only: {e}")
-                    log_with_context(
-                        logger,
-                        'warning',
-                        'Browse API enrichment failed',
-                        correlation_id=correlation_id,
-                        endpoint='/comps',
-                        query=params.query,
-                        error=str(e)
-                    )
+            # ENRICHMENT DISABLED: Removed to reduce API call volume
+            # Shipping data is no longer fetched or displayed
+            # if enable_browse_enrichment() and raw_items:
+            #     try:
+            #         from backend.services.ebay_enrichment_service import enrich_items_with_browse_api
+            #         
+            #         enrichment_count = get_max_enrichment_count()
+            #         enrichment_threshold = get_enrichment_threshold()
+            #         enrichment_concurrent = get_enrichment_max_concurrent()
+            #         
+            #         print(f"[ENRICHMENT] Enriching up to {enrichment_count} items (threshold: {enrichment_threshold*100:.0f}%, concurrent: {enrichment_concurrent})")
+            #         
+            #         raw_items = await enrich_items_with_browse_api(
+            #             items=raw_items,
+            #             max_enrich=enrichment_count,
+            #             enrich_threshold=enrichment_threshold,
+            #             max_concurrent=enrichment_concurrent
+            #         )
+            #         
+            #         enriched_count = sum(1 for item in raw_items if item.get('browse_enriched', False))
+            #         print(f"[ENRICHMENT] Successfully enriched {enriched_count} items with Browse API data")
+            #         
+            #     except Exception as e:
+            #         # Log enrichment failure but continue - don't break the request
+            #         print(f"[ENRICHMENT] Warning: Enrichment failed, continuing with Finding API data only: {e}")
+            #         log_with_context(
+            #             logger,
+            #             'warning',
+            #             'Browse API enrichment failed',
+            #             correlation_id=correlation_id,
+            #             endpoint='/comps',
+            #             query=params.query,
+            #             error=str(e)
+            #         )
         else:
             # EXISTING: Use SearchAPI
             print("[INFO] Using SearchAPI.io for sold listings")
@@ -481,12 +483,15 @@ async def get_comps(
             print(f"[SOLD LISTING] WARNING: No item_id for item: {item.get('title', 'N/A')[:50]}")
             item['deep_link'] = None
         
+        # PRICING POLICY: total_price now equals extracted_price (shipping excluded)
+        # This change was made to reduce eBay Browse API enrichment calls
         comp_items.append(CompItem(**item))
 
-    # Use total_price from data if available, otherwise calculate it
+    # PRICING POLICY: total_price now equals extracted_price (shipping excluded)
+    # This change was made to reduce eBay Browse API enrichment calls
     for item in comp_items:
         if item.total_price is None:
-            item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
+            item.total_price = item.extracted_price or 0
 
     prices = [item.total_price for item in comp_items if item.total_price is not None]
     min_price = min(prices) if prices else None
@@ -555,6 +560,7 @@ async def get_active_listings(
     """
     Scrape eBay ACTIVE listings (not sold) for a given query.
     Uses official eBay Browse API for all active listing searches.
+    Prices are item price only (shipping excluded).
     """
     # Generate correlation ID for request tracking
     correlation_id = str(uuid.uuid4())
@@ -753,13 +759,16 @@ async def get_active_listings(
         else:
             print(f"[ACTIVE LISTING] WARNING: No item_id for item: {item.get('title', 'N/A')[:50]}")
             item['deep_link'] = None
-        
+
+        # PRICING POLICY: total_price now equals extracted_price (shipping excluded)
+        # This change was made to reduce eBay Browse API enrichment calls
         comp_items.append(CompItem(**item))
 
-    # Use total_price from data if available, otherwise calculate it
+    # PRICING POLICY: total_price now equals extracted_price (shipping excluded)
+    # This change was made to reduce eBay Browse API enrichment calls
     for item in comp_items:
         if item.total_price is None:
-            item.total_price = (item.extracted_price or 0) + (item.extracted_shipping or 0)
+            item.total_price = item.extracted_price or 0
 
     prices = [item.total_price for item in comp_items if item.total_price is not None]
     min_price = min(prices) if prices else None

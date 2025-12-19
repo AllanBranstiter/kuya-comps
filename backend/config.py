@@ -49,7 +49,11 @@ def use_ebay_finding_api() -> bool:
 
 
 def enable_browse_enrichment() -> bool:
-    """Enable Browse API enrichment for sold listings from Finding API."""
+    """
+    Enable Browse API enrichment for sold listings from Finding API.
+
+    NOTE: This is now disabled by default to reduce API call volume.
+    """
     return os.getenv('ENABLE_BROWSE_ENRICHMENT', 'false').lower() == 'true'
 
 
