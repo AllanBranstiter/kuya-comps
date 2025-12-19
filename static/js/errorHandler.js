@@ -3,12 +3,10 @@
  * Centralized error display with user-friendly messages and different styles
  */
 
-import { UI_CONSTANTS } from './config.js';
-
 /**
  * Error types for different styling
  */
-export const ErrorType = {
+const ErrorType = {
     ERROR: 'error',
     WARNING: 'warning',
     INFO: 'info',
@@ -55,7 +53,7 @@ function getErrorStyles(type) {
  * @param {string} type - Error type (error, warning, info, success)
  * @param {number} duration - How long to show message (ms), 0 = permanent
  */
-export function showError(message, type = ErrorType.ERROR, duration = UI_CONSTANTS.ERROR_MESSAGE_DURATION) {
+function showError(message, type = ErrorType.ERROR, duration = UI_CONSTANTS.ERROR_MESSAGE_DURATION) {
     const styles = getErrorStyles(type);
     
     const errorDiv = document.createElement('div');
@@ -105,7 +103,7 @@ export function showError(message, type = ErrorType.ERROR, duration = UI_CONSTAN
 /**
  * Clear all error messages
  */
-export function clearErrors() {
+function clearErrors() {
     document.querySelectorAll('.error-message').forEach(el => el.remove());
 }
 
@@ -114,7 +112,7 @@ export function clearErrors() {
  * @param {string} containerId - ID of container to show error in
  * @param {string} message - Error message
  */
-export function showContainerError(containerId, message) {
+function showContainerError(containerId, message) {
     const container = document.getElementById(containerId);
     if (!container) return;
     
@@ -153,7 +151,7 @@ function escapeHtml(unsafe) {
  * User-friendly error messages
  * Maps technical errors to user-friendly messages
  */
-export function getUserFriendlyMessage(error) {
+function getUserFriendlyMessage(error) {
     const errorString = String(error).toLowerCase();
     
     if (errorString.includes('network') || errorString.includes('fetch')) {
@@ -189,7 +187,7 @@ export function getUserFriendlyMessage(error) {
  * @param {Error|string} error - Error object or message
  * @param {string} context - Context where error occurred (for logging)
  */
-export function handleApiError(error, context = '') {
+function handleApiError(error, context = '') {
     console.error(`[API ERROR${context ? ' - ' + context : ''}]:`, error);
     
     const friendlyMessage = getUserFriendlyMessage(error);
@@ -200,7 +198,7 @@ export function handleApiError(error, context = '') {
  * Show validation error
  * @param {string} message - Validation error message
  */
-export function showValidationError(message) {
+function showValidationError(message) {
     showError(message, ErrorType.WARNING, UI_CONSTANTS.ERROR_MESSAGE_DURATION);
 }
 
@@ -209,7 +207,7 @@ export function showValidationError(message) {
  * @param {string} message - Success message
  * @param {number} duration - How long to show message
  */
-export function showSuccess(message, duration = 3000) {
+function showSuccess(message, duration = 3000) {
     showError(message, ErrorType.SUCCESS, duration);
 }
 
@@ -218,6 +216,6 @@ export function showSuccess(message, duration = 3000) {
  * @param {string} message - Info message
  * @param {number} duration - How long to show message
  */
-export function showInfo(message, duration = 5000) {
+function showInfo(message, duration = 5000) {
     showError(message, ErrorType.INFO, duration);
 }

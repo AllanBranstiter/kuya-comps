@@ -1,6 +1,6 @@
-# eBay Baseball Card Comps Tool v0.3
+# eBay Baseball Card Comps Tool v0.4
 
-This is a simple web application to scrape and display sold listings for baseball cards from eBay.
+A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
 ## Features
 
@@ -17,9 +17,49 @@ This is a simple web application to scrape and display sold listings for basebal
 
 ## Tech Stack
 
-*   **Backend**: Python with [FastAPI](https://fastapi.tiangolo.com/)
-*   **Frontend**: Vanilla HTML, CSS, and JavaScript
-*   **Scraping**: Uses [SearchAPI.io](https://www.searchapi.io/) to fetch eBay data.
+### Backend
+*   **Framework**: Python with [FastAPI](https://fastapi.tiangolo.com/)
+*   **Server**: uvicorn (development) / gunicorn (production)
+*   **Data Source**: [SearchAPI.io](https://www.searchapi.io/) for eBay listings scraping
+*   **Caching**: Redis with aioredis for aggressive API cost optimization
+*   **Rate Limiting**: slowapi (10 requests/minute per IP)
+*   **Monitoring**: Sentry (production), custom `/metrics` endpoint
+*   **ML/Analytics**: scikit-learn, numpy, pandas for price analysis and FMV calculations
+
+### Frontend
+*   **UI**: Vanilla HTML, CSS, and JavaScript (static files)
+*   **Visualization**: Interactive beeswarm charts for price distribution
+*   **Security**: Password-protected with session management
+
+### Architecture
+*   **Modular Backend**: Organized in [`/backend/`](backend/) directory with routes, services, models, middleware, config, and cache modules
+*   **API Endpoints**:
+    - `/comps` - Sold listings for market analysis
+    - `/active` - Current active listings
+    - `/fmv` - Fair market value calculations with quick/patient sale ranges
+*   **Middleware Chain**: RequestID → Metrics → SecurityHeaders (execution in reverse order of definition)
+*   **Static File Serving**: Frontend served from root path (must be mounted last in FastAPI)
+*   **Caching Strategy**: Redis layer minimizes SearchAPI.io costs and improves response times
+
+## Directory Structure
+
+```
+kuya-comps/
+├── backend/           # All server-side logic
+│   ├── routes/        # API endpoint handlers
+│   ├── services/      # Business logic and external API integration
+│   ├── models/        # Data models and schemas
+│   ├── middleware/    # Request processing chain
+│   ├── config/        # Configuration management
+│   └── cache/         # Redis caching layer
+├── static/            # Frontend UI files (served at root)
+├── docs/              # Documentation (including SECURITY.md)
+├── tests/             # Test suite
+├── main.py            # FastAPI application entry point
+├── requirements.txt   # Python dependencies
+├── Procfile           # Production deployment configuration
+└── .gitleaks.toml     # Secret scanning configuration
+```
 
 ## Setup and Running
 
@@ -67,12 +107,30 @@ This is a simple web application to scrape and display sold listings for basebal
 
 ## API
 
-The application exposes two main API endpoints:
+The application exposes three main API endpoints:
 
-*   `GET /comps` - Search sold listings for market analysis
-*   `GET /active` - Search active listings (all current market listings)
+*   **`GET /comps`** - Search sold listings for market analysis
+    - Returns historical sold data with price statistics
+    - Supports filtering: raw only, base only, exclude autographs
+    - Cached via Redis to minimize API costs
 
-Both endpoints support comprehensive filtering and modern analytics.
+*   **`GET /active`** - Search active listings (current market)
+    - Returns listings currently available on eBay
+    - Filtered to show only items at or below Fair Market Value
+    - Supports Buy It Now only filter
+    - Includes discount percentage calculations
+
+*   **`GET /fmv`** - Fair Market Value calculations
+    - Advanced price analysis using ML models
+    - Quick Sale vs Patient Sale ranges
+    - Volume-weighted price calculations
+    - PSA grade-specific analysis
+
+*   **`GET /metrics`** - Monitoring endpoint
+    - Custom metrics for observability
+    - Request counts and performance data
+
+All endpoints support comprehensive filtering and include rate limiting (10 requests/minute per IP).
 
 ## Security
 
@@ -91,9 +149,105 @@ Both endpoints support comprehensive filtering and modern analytics.
 - Testing the security setup
 - Best practices for production deployments
 
+## Performance & Cost Optimization
+
+The application implements several strategies to manage API costs and maintain performance:
+
+*   **Aggressive Caching**: Redis caching layer reduces SearchAPI.io requests (pay-per-request model)
+*   **Rate Limiting**: 10 requests/minute per IP prevents abuse and manages API costs
+*   **Smart FMV Calculations**: ML-powered analytics reduce need for redundant searches
+*   **Auction Detection**: Intelligent parsing using "bid", "bids", or "auction" in buying format field
+*   **Middleware Optimization**: Execution order matters—reverse of [`add_middleware()`](main.py) calls
+
+## Important Technical Notes
+
+*   **API Keys**: Always server-side only; frontend never touches credentials
+*   **Scraping Method**: SearchAPI.io is the canonical source; eBay API only for FMV cross-validation
+*   **Middleware Order**: Execution is reverse of definition order in code
+*   **Redis Requirement**: Required for production efficiency and cost management
+*   **Security Scanning**: gitleaks pre-commit hook scans for leaked secrets; `.env` never committed
+
 ## Version History
 
-### Version 0.3.0 (Current)
+### Version 0.4.0 (Current)
+
+Version 0.4.0 represents a major evolution of the application with professional infrastructure and enhanced user experience. Behind the scenes, the backend has been completely restructured into organized modules, making it easier to maintain and add new features. We've added intelligent caching to dramatically speed up searches and reduce costs, implemented smart rate limiting to prevent abuse, and integrated machine learning tools for more accurate price predictions. The app now includes professional monitoring and error tracking for reliability. On the user-facing side, the interface has been redesigned with mobile devices in mind, featuring a powerful new "Analytics Dashboard" that provides market pressure analysis, liquidity profiles, absorption ratios, and personalized pricing recommendations tailored to your selling strategy. There's also an upgraded "Grading Intelligence" tool that lets you compare different grading companies and grades side-by-side, better organized tabs for different analysis types, and improved search tips to help you find exactly what you're looking for. The entire frontend code has been reorganized into specialized modules for better performance and future enhancements. Whether you're accessing the site from your phone, tablet, or computer, you'll notice faster load times, smoother interactions, and a more polished experience overall.
+
+**Backend Infrastructure:**
+- **Architecture Overhaul**: Complete modular restructure with organized [`/backend/`](backend/) directory
+  - Separated concerns: routes, services, models, middleware, config, cache modules
+  - Enhanced maintainability and scalability with clear separation of responsibilities
+- **Redis Caching Layer**: Aggressive caching implementation to minimize SearchAPI.io costs
+  - aioredis integration for async operations
+  - Significantly improved response times and reduced API expenses
+  - Required for production efficiency
+- **Advanced Rate Limiting**: slowapi implementation (10 requests/minute per IP)
+  - Prevents abuse and manages API costs
+  - Per-IP tracking for fair usage across all endpoints
+- **ML/Analytics Integration**: Professional-grade price analysis
+  - scikit-learn, numpy, pandas integration for statistical modeling
+  - Sophisticated FMV calculations with Quick Sale/Patient Sale ranges
+  - Volume-weighted price analysis for accurate market valuation
+- **Production Monitoring**: Sentry error tracking and custom metrics
+  - [`/metrics`](main.py) endpoint for observability
+  - Request counts and performance monitoring
+  - Production-ready error reporting and alerting
+- **Middleware Chain**: Professional request processing pipeline
+  - RequestID → Metrics → SecurityHeaders (reverse execution order)
+  - Comprehensive request tracking and security headers
+  - Proper middleware ordering for optimal performance
+- **FMV Endpoint**: Dedicated Fair Market Value calculations
+  - PSA grade-specific analysis and comparison
+  - Advanced statistical modeling for price predictions
+  - Quick Sale vs Patient Sale market segmentation
+
+**Frontend Enhancements:**
+- **Modular JavaScript Architecture**: Organized code into specialized modules
+  - [`config.js`](static/js/config.js) - Centralized configuration constants
+  - [`errorHandler.js`](static/js/errorHandler.js) - Error handling and user feedback
+  - [`validation.js`](static/js/validation.js) - Input validation logic
+  - [`loadingStates.js`](static/js/loadingStates.js) - Loading state management
+  - [`rendering.js`](static/js/rendering.js) - UI rendering functions
+  - [`charts.js`](static/js/charts.js) - Beeswarm chart visualization
+  - [`analysis.js`](static/js/analysis.js) - Market analysis features
+- **Grading Intelligence Tab**: New dedicated interface for comparing graded cards
+  - Compare up to 3 cards simultaneously with different graders (PSA, BGS, SGC) and grades
+  - Card-specific search with grading parameter inputs
+  - Side-by-side price comparison across different grades
+- **Advanced Analytics Dashboard**: Comprehensive market analysis system
+  - **Market Pressure Analysis**: Calculates median asking price vs FMV with confidence scoring
+  - **Liquidity Profile**: Three-tier price band analysis (below/at/above FMV) with absorption ratios
+  - **Absorption Ratios**: Shows how fast cards sell at different price points (sales vs listings)
+  - **Pricing Recommendations**: AI-generated strategies for quick sale, fair market, and premium pricing
+  - **Market Assessment**: Intelligent scenario detection with persona-based advice
+  - **Persona-Based Guidance**: Tailored recommendations for sellers, flippers, and collectors
+  - **Data Quality Scoring**: 0-100 confidence score with sample size warnings
+  - **Velocity Statements**: Estimated sell times based on current market absorption
+- **Sub-Tab Navigation**: Improved organization of analysis features
+  - Comps sub-tab for sold listings and statistics
+  - Analysis sub-tab for advanced market intelligence and analytics dashboard
+- **Enhanced Search Tips**: Expandable collapsible search guidance
+  - Beginner-friendly examples with visual formatting
+  - Advanced eBay search operators (quotes, exclusions, card numbers)
+  - Context-specific tips for both Comps and Intelligence tabs
+- **Mobile-First Responsive Design**: Comprehensive responsive layouts
+  - Optimized for phones (< 768px), tablets (769-1024px), and desktops (> 1024px)
+  - Touch-friendly button sizes (48px minimum) and spacing
+  - Landscape phone optimization
+  - Customized grid layouts for different screen sizes
+- **SEO Enhancements**: Professional search engine optimization
+  - Structured data markup (Schema.org WebApplication)
+  - Open Graph and Twitter Card meta tags
+  - Semantic HTML with proper headings and alt text
+  - FAQ section with rich content for search indexing
+- **UI/UX Polish**: Modern interface refinements
+  - Gradient backgrounds and smooth animations
+  - Hover effects and transitions throughout
+  - Consistent color system with CSS custom properties
+  - Accessibility improvements (reduced motion support)
+  - High DPI display optimizations
+
+### Version 0.3.0
 - **Major UI Redesign**: Replaced single "Find Deals" button with automatic dual-search display
 - **New Active Listings Table**:
   - Automatically searches and displays active listings below Fair Market Value
@@ -106,7 +260,7 @@ Both endpoints support comprehensive filtering and modern analytics.
 - **Expanded Year Support**: Validation now accepts years from 1800-2099 (vintage to modern cards)
 - **Better Search Validation**: Improved handling of quoted search terms
 - **Cleaner Labels**: Simplified table headers for better user experience
-- **Backend Enhancement**: New `/active` endpoint for active listing searches
+- **Backend Enhancement**: New [`/active`](backend/routes/) endpoint for active listing searches
 - **Code Cleanup**: Removed ~320 lines of deprecated Find Deals code
 
 ### Version 0.2.1

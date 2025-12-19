@@ -1560,6 +1560,15 @@
         font-size: 0.7rem;
       }
     }
+
+    /* Persona advice collapsible styling */
+    details[open] summary span:first-of-type {
+      transform: rotate(90deg);
+    }
+    
+    details summary::-webkit-details-marker {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -1909,6 +1918,7 @@
 <script src="js/loadingStates.js"></script>
 <script src="js/rendering.js"></script>
 <script src="js/charts.js"></script>
+<script src="js/contentLoader.js"></script>
 <script src="js/analysis.js"></script>
 <script src="script.js"></script>
 
