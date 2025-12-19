@@ -2528,7 +2528,7 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
     
     const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove } = priceBands;
     
-    return `
+    const html = `
         <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
             <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
             
@@ -2547,6 +2547,9 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
             </div>
         </div>
     `;
+    
+    console.log('[FALLBACK ASSESSMENT] Generated HTML length:', html.length, 'chars');
+    return html;
 }
 
 /**
@@ -2869,16 +2872,23 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             ${getSampleSizeWarning(data.items.length, activeData?.items?.length || 0, sampleSize)}
             
             <!-- Market Risk Assessment (moved to top) -->
-            ${marketPressure !== null && liquidityRisk && liquidityRisk.score !== null ?
-                await renderMarketAssessment(
-                    marketPressure,
-                    liquidityRisk,
-                    { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
-                    marketConfidence,
-                    data,
-                    activeData
-                )
-            : ''}
+            ${await (async () => {
+                if (marketPressure !== null && liquidityRisk && liquidityRisk.score !== null) {
+                    const assessmentHTML = await renderMarketAssessment(
+                        marketPressure,
+                        liquidityRisk,
+                        { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
+                        marketConfidence,
+                        data,
+                        activeData
+                    );
+                    console.log('[DASHBOARD] Market Assessment HTML length:', assessmentHTML?.length || 0, 'chars');
+                    return assessmentHTML || '';
+                } else {
+                    console.log('[DASHBOARD] Skipping Market Assessment - missing required data');
+                    return '';
+                }
+            })()}
             
             <!-- Key Indicators Grid -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
