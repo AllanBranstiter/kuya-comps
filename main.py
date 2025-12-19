@@ -64,7 +64,7 @@ from backend.middleware import RequestIDMiddleware, MetricsMiddleware, SecurityH
 from backend.middleware.metrics import metrics
 
 # Import routers
-from backend.routes import health, comps, fmv, market_messages
+from backend.routes import health, comps, fmv, market_messages, admin
 
 # Initialize logger for this module
 logger = get_logger(__name__)
@@ -157,6 +157,9 @@ app.include_router(fmv.router, tags=["FMV"])
 
 # Market messages endpoints (/market-message and /liquidity-popup/<tier_id>)
 app.include_router(market_messages.router, tags=["Market Messages"])
+
+# Admin endpoints (/admin/clear-rate-limit and /admin/rate-limit-status)
+app.include_router(admin.router, tags=["Admin"])
 
 
 # ============================================================================
