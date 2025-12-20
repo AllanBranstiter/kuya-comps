@@ -62,7 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const feedbackContainer = document.createElement('div');
     feedbackContainer.innerHTML = `
         <button class="feedback-fab">
-            <div class="feedback-fab-icon">🪲</div>
+            <span class="feedback-fab-icon">💬</span>
+            <span class="feedback-fab-text">Leave Feedback</span>
         </button>
         
         <!-- Annotation Overlay -->
@@ -310,8 +311,58 @@ document.addEventListener('DOMContentLoaded', () => {
         showAnnotationUI();
     };
 
-    // 6. Event Listeners
-    fab.addEventListener('click', startFeedbackFlow);
+    // 6. Expandable FAB behavior
+    let isExpanded = false;
+    let expandTimeout = null;
+
+    const expandFAB = () => {
+        fab.classList.add('expanded');
+        isExpanded = true;
+    };
+
+    const collapseFAB = () => {
+        fab.classList.remove('expanded');
+        isExpanded = false;
+        if (expandTimeout) {
+            clearTimeout(expandTimeout);
+            expandTimeout = null;
+        }
+    };
+
+    // Handle FAB click/tap
+    fab.addEventListener('click', (e) => {
+        if (!isExpanded) {
+            e.preventDefault();
+            e.stopPropagation();
+            expandFAB();
+            
+            // Auto-collapse after 3 seconds on mobile
+            if (window.innerWidth <= 768) {
+                expandTimeout = setTimeout(collapseFAB, 3000);
+            }
+        } else {
+            // If already expanded, proceed with feedback flow
+            startFeedbackFlow();
+        }
+    });
+
+    // Collapse on scroll
+    let scrollTimeout;
+    window.addEventListener('scroll', () => {
+        if (isExpanded) {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(collapseFAB, 100);
+        }
+    });
+
+    // Collapse when clicking outside
+    document.addEventListener('click', (e) => {
+        if (isExpanded && !fab.contains(e.target)) {
+            collapseFAB();
+        }
+    });
+
+    // 7. Original Event Listeners
     
     skipAnnotationButton.addEventListener('click', () => {
         hideAnnotationUI();
@@ -342,7 +393,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 hideAnnotationUI();
                 closeModal();
             } else {
-                startFeedbackFlow();
+                // Expand button and start feedback flow
+                expandFAB();
+                setTimeout(() => {
+                    startFeedbackFlow();
+                }, 300); // Wait for expand animation
             }
         }
     });
