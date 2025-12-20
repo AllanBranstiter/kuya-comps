@@ -795,11 +795,25 @@ async function runIntelligenceSearch() {
                 let fmvLow = null;
                 let fmvHigh = null;
                 if (data.items && data.items.length > 0) {
+                    console.log('[INTELLIGENCE FMV DIAGNOSTIC] Sending to /fmv:', {
+                        itemCount: data.items.length,
+                        firstItemDateScraped: data.items[0]?.date_scraped,
+                        typeOfDate: typeof data.items[0]?.date_scraped
+                    });
+                    
                     const fmvResp = await fetch('/fmv', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data.items)
                     });
+                    
+                    if (!fmvResp.ok) {
+                        const errorText = await fmvResp.text();
+                        console.error('[INTELLIGENCE FMV ERROR] Status:', fmvResp.status);
+                        console.error('[INTELLIGENCE FMV ERROR] Response:', errorText);
+                        throw new Error(`FMV failed: ${errorText.substring(0, 100)}`);
+                    }
+                    
                     const fmvData = await fmvResp.json();
                     marketValue = fmvData.market_value;
                     fmvLow = fmvData.quick_sale || fmvData.expected_low;
@@ -2100,11 +2114,49 @@ async function runSearchInternal() {
 
     // Calculate Fair Market Value first
     console.log('[DEBUG] Calculating Fair Market Value...');
+    console.log('[FMV DIAGNOSTIC] Sending items to /fmv:', {
+        itemCount: data.items.length,
+        firstItemSample: data.items[0] ? {
+            item_id: data.items[0].item_id,
+            title: data.items[0].title?.substring(0, 50),
+            total_price: data.items[0].total_price,
+            date_scraped: data.items[0].date_scraped,
+            typeOfDateScraped: typeof data.items[0].date_scraped
+        } : null
+    });
+    
     const fmvResp = await fetch('/fmv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data.items)
     });
+    
+    console.log('[FMV DIAGNOSTIC] Response status:', fmvResp.status, fmvResp.ok);
+    
+    if (!fmvResp.ok) {
+        const errorText = await fmvResp.text();
+        console.error('[FMV ERROR] Status:', fmvResp.status);
+        console.error('[FMV ERROR] Response text:', errorText);
+        try {
+            const errorJson = JSON.parse(errorText);
+            console.error('[FMV ERROR] Parsed error:', errorJson);
+            if (errorJson.detail && Array.isArray(errorJson.detail)) {
+                console.error('[FMV ERROR] Validation errors:', errorJson.detail);
+                errorJson.detail.forEach((err, idx) => {
+                    console.error(`[FMV ERROR] Error ${idx}:`, {
+                        location: err.loc,
+                        message: err.msg,
+                        type: err.type,
+                        input: err.input
+                    });
+                });
+            }
+        } catch (e) {
+            console.error('[FMV ERROR] Could not parse error as JSON');
+        }
+        throw new Error(`FMV calculation failed with status ${fmvResp.status}: ${errorText.substring(0, 200)}`);
+    }
+    
     const fmvData = await fmvResp.json();
     const marketValue = fmvData.market_value || fmvData.expected_high;
     console.log('[DEBUG] Calculated Market Value:', formatMoney(marketValue));

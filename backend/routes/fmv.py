@@ -40,6 +40,14 @@ def get_fmv(items: List[CompItem], active_items: Optional[List[CompItem]] = None
     Returns:
         FmvResponse: FMV calculations and confidence metrics
     """
+    print(f"[FMV ENDPOINT] Received request with {len(items)} items")
+    if len(items) > 0:
+        print(f"[FMV ENDPOINT] First item sample:")
+        print(f"  - item_id: {items[0].item_id}")
+        print(f"  - title: {items[0].title[:50] if items[0].title else 'None'}")
+        print(f"  - total_price: {items[0].total_price}")
+        print(f"  - date_scraped: {items[0].date_scraped} (type: {type(items[0].date_scraped)})")
+    
     try:
         # Calculate base FMV from sold listings
         result = calculate_fmv(items)
