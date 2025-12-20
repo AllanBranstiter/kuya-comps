@@ -804,7 +804,7 @@ async function runIntelligenceSearch() {
                     const fmvResp = await fetch('/fmv', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data.items)
+                        body: JSON.stringify({ items: data.items })
                     });
                     
                     if (!fmvResp.ok) {
@@ -2128,7 +2128,7 @@ async function runSearchInternal() {
     const fmvResp = await fetch('/fmv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data.items)
+        body: JSON.stringify({ items: data.items })
     });
     
     console.log('[FMV DIAGNOSTIC] Response status:', fmvResp.status, fmvResp.ok);
