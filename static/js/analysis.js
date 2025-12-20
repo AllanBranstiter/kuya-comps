@@ -439,29 +439,55 @@ function getConfidenceStatement(confidence, sampleSize) {
 
 /**
  * Generate dominant band statement showing where most activity occurs
+ * Now uses plain language instead of technical absorption ratio
  * @param {number} below - Listings below FMV
  * @param {number} at - Listings at FMV
  * @param {number} above - Listings above FMV
  * @param {string} absBelow - Absorption ratio below FMV
  * @param {string} absAt - Absorption ratio at FMV
  * @param {string} absAbove - Absorption ratio above FMV
+ * @param {number} salesBelow - Sales below FMV
+ * @param {number} salesAt - Sales at FMV
+ * @param {number} salesAbove - Sales above FMV
  * @returns {string} Dominant band statement
  */
-function getDominantBandStatement(below, at, above, absBelow, absAt, absAbove) {
+function getDominantBandStatement(below, at, above, absBelow, absAt, absAbove, salesBelow, salesAt, salesAbove) {
     const total = below + at + above;
     if (total === 0) return '';
     
     const maxListings = Math.max(below, at, above);
     let location = '';
-    if (below === maxListings) location = 'below FMV';
-    else if (at === maxListings) location = 'at FMV';
-    else location = 'above FMV';
+    let absorption = 0;
+    let sales = 0;
+    let listings = 0;
     
-    let absorption = absBelow;
-    if (at === maxListings) absorption = absAt;
-    if (above === maxListings) absorption = absAbove;
+    if (below === maxListings) {
+        location = 'below FMV';
+        absorption = absBelow !== 'N/A' ? parseFloat(absBelow) : 0;
+        sales = salesBelow || 0;
+        listings = below;
+    } else if (at === maxListings) {
+        location = 'at FMV';
+        absorption = absAt !== 'N/A' ? parseFloat(absAt) : 0;
+        sales = salesAt || 0;
+        listings = at;
+    } else {
+        location = 'above FMV';
+        absorption = absAbove !== 'N/A' ? parseFloat(absAbove) : 0;
+        sales = salesAbove || 0;
+        listings = above;
+    }
     
-    return `Most listings concentrated ${location} with ${absorption} absorption ratio`;
+    // Plain language version with actual numbers
+    if (absorption >= 1.5) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (selling very fast)`;
+    } else if (absorption >= 0.5) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (normal pace)`;
+    } else if (absorption > 0) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (selling slowly)`;
+    } else {
+        return `Most activity ${location} — ${listings} current listings, no recent sales data`;
+    }
 }
 
 /**
@@ -1009,7 +1035,7 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
                 ${renderPersonaAdvice(content.personaAdvice, marketValue, quickSale, patientSale)}
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
                     <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
+                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove)}
                 </div>
             </div>
         </div>

@@ -226,7 +226,18 @@ const FALLBACK_POPUP_LIQUIDITY_RISK = {
         { type: "text", content: "Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value." },
         { type: "header", content: "Absorption Ratio" },
         { type: "formula", content: "Completed Sales / Active Listings" },
-        { type: "text", content: "<em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>" },
+        { type: "text", content: "<em>Measures demand vs supply based on recent completed sales and current Buy It Now listings.</em>" },
+        { type: "header", content: "How Absorption Converts to Liquidity Score" },
+        { type: "text", content: "The 0-100 liquidity score is calculated from the absorption ratio:" },
+        {
+            type: "list",
+            items: [
+                "<strong>Ratio ≥ 1.0:</strong> Score ranges from 80-100 (increases by 20 points per 1.0 ratio increase)",
+                "<strong>Ratio 0.5-1.0:</strong> Score ranges from 50-79 (linear scale)",
+                "<strong>Ratio 0.2-0.5:</strong> Score ranges from 25-49 (linear scale)",
+                "<strong>Ratio < 0.2:</strong> Score ranges from 10-24 (linear scale down to minimum of 10)"
+            ]
+        },
         { type: "header", content: "Liquidity Bands" },
         {
             type: "bands",
@@ -2380,24 +2391,46 @@ function getConfidenceStatement(confidence, sampleSize) {
 
 /**
  * Generate dominant band statement showing where most activity occurs
+ * Now uses plain language instead of technical absorption ratio
  */
-function getDominantBandStatement(below, at, above, absBelow, absAt, absAbove) {
+function getDominantBandStatement(below, at, above, absBelow, absAt, absAbove, salesBelow, salesAt, salesAbove) {
     const total = below + at + above;
     if (total === 0) return '';
     
     // Find where most volume is
     const maxListings = Math.max(below, at, above);
     let location = '';
-    if (below === maxListings) location = 'below FMV';
-    else if (at === maxListings) location = 'at FMV';
-    else location = 'above FMV';
+    let absorption = 0;
+    let sales = 0;
+    let listings = 0;
     
-    // Get absorption for that band
-    let absorption = absBelow;
-    if (at === maxListings) absorption = absAt;
-    if (above === maxListings) absorption = absAbove;
+    if (below === maxListings) {
+        location = 'below FMV';
+        absorption = absBelow !== 'N/A' ? parseFloat(absBelow) : 0;
+        sales = salesBelow || 0;
+        listings = below;
+    } else if (at === maxListings) {
+        location = 'at FMV';
+        absorption = absAt !== 'N/A' ? parseFloat(absAt) : 0;
+        sales = salesAt || 0;
+        listings = at;
+    } else {
+        location = 'above FMV';
+        absorption = absAbove !== 'N/A' ? parseFloat(absAbove) : 0;
+        sales = salesAbove || 0;
+        listings = above;
+    }
     
-    return `Most listings concentrated ${location} with ${absorption} absorption ratio`;
+    // Plain language version with actual numbers
+    if (absorption >= 1.5) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (selling very fast)`;
+    } else if (absorption >= 0.5) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (normal pace)`;
+    } else if (absorption > 0) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (selling slowly)`;
+    } else {
+        return `Most activity ${location} — ${listings} current listings, no recent sales data`;
+    }
 }
 
 /**
@@ -2569,7 +2602,7 @@ function renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData
                 ${renderPersonaAdvice(message.advice)}
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
                     <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                    <strong>Activity:</strong> ${getDominantBandStatement(priceBands.belowFMV, priceBands.atFMV, priceBands.aboveFMV, priceBands.absorptionBelow, priceBands.absorptionAt, priceBands.absorptionAbove)}
+                    <strong>Activity:</strong> ${getDominantBandStatement(priceBands.belowFMV, priceBands.atFMV, priceBands.aboveFMV, priceBands.absorptionBelow, priceBands.absorptionAt, priceBands.absorptionAbove, priceBands.salesBelow, priceBands.salesAt, priceBands.salesAbove)}
                 </div>
             </div>
         </div>
@@ -2703,7 +2736,7 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
                 ${renderPersonaAdvice(advice)}
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
                     <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
+                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove)}
                 </div>
             </div>
         </div>
