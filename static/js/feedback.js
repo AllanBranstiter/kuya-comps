@@ -555,6 +555,19 @@ feedbackContainer.innerHTML = `
         }
     });
     
+    // Helper function to extract only necessary fields from listings
+    function slimListingItem(item) {
+        return {
+            title: item.title || '',
+            price: item.extracted_price || 0,
+            shipping: item.extracted_shipping || 0,
+            total_price: item.total_price || 0,
+            bids: item.total_bids || item.bids || 0,
+            is_auction: item.is_auction || false,
+            has_best_offer: item.has_best_offer || false
+        };
+    }
+    
     // Export search data function
     function exportSearchData() {
         try {
@@ -577,6 +590,10 @@ feedbackContainer.innerHTML = `
                 return;
             }
             
+            // Slim down items to only include fields used by backend analysis
+            const soldItems = (window.lastData?.items || []).map(slimListingItem);
+            const activeItems = (window.lastActiveData?.items || []).map(slimListingItem);
+            
             // Gather all available data
             const exportData = {
                 metadata: {
@@ -586,8 +603,8 @@ feedbackContainer.innerHTML = `
                     version: '1.0.0'
                 },
                 soldListings: {
-                    raw: window.lastData?.items || [],
-                    count: window.lastData?.items?.length || 0,
+                    raw: soldItems,
+                    count: soldItems.length,
                     statistics: {
                         min_price: window.lastData?.min_price,
                         max_price: window.lastData?.max_price,
@@ -595,8 +612,8 @@ feedbackContainer.innerHTML = `
                     }
                 },
                 activeListings: {
-                    raw: window.lastActiveData?.items || [],
-                    count: window.lastActiveData?.items?.length || 0,
+                    raw: activeItems,
+                    count: activeItems.length,
                     statistics: {
                         min_price: window.lastActiveData?.min_price,
                         max_price: window.lastActiveData?.max_price,
