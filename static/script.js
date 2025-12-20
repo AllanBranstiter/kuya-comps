@@ -2778,6 +2778,8 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     
     // FMV vs Average comparison
     const marketValue = fmvData?.market_value || data.avg_price;
+    const quickSale = fmvData?.quick_sale || fmvData?.expected_low || marketValue * 0.85;
+    const patientSale = fmvData?.patient_sale || fmvData?.expected_high || marketValue * 1.15;
     const fmvVsAvg = ((marketValue - data.avg_price) / data.avg_price * 100);
     
     // Calculate Market Pressure % using active listings
@@ -2989,7 +2991,10 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                         { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
                         marketConfidence,
                         data,
-                        activeData
+                        activeData,
+                        marketValue,
+                        quickSale,
+                        patientSale
                     );
                     console.log('[DASHBOARD] Market Assessment HTML length:', assessmentHTML?.length || 0, 'chars');
                     return assessmentHTML || '';
@@ -3112,107 +3117,27 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             </div>
             
             
-            <!-- Price Band Liquidity Analysis -->
-            ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? `
-            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Liquidity Profile</h4>
+            <!-- Price Band Liquidity Analysis & Pricing Recommendations -->
+            ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? (() => {
+                // Render liquidity profile
+                const liquidityHTML = renderLiquidityProfile(
+                    { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
+                    marketConfidence,
+                    marketValue,
+                    quickSale,
+                    patientSale
+                );
                 
-                ${(() => {
-                    // Use already-calculated band data from above (no need to recalculate)
-                    return `
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-                            <!-- Below FMV Band -->
-                            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99ff99;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">10% or More Below FMV</div>
-                                <div style="font-size: 1.75rem; font-weight: 700; color: #34c759; margin-bottom: 0.5rem;">
-                                    ${belowFMV}
-                                </div>
-                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                                    Active listings<br>
-                                    <strong>Absorption:</strong> ${absorptionBelow}<br>
-                                    <strong>Sales:</strong> ${salesBelow} in 90 days
-                                </div>
-                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${getAbsorptionRatioInterpretation(absorptionBelow, 'below')}
-                                </div>
-                            </div>
-                            
-                            <!-- At FMV Band -->
-                            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99daff;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">±10% of FMV</div>
-                                <div style="font-size: 1.75rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem;">
-                                    ${atFMV}
-                                </div>
-                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                                    Active listings<br>
-                                    <strong>Absorption:</strong> ${absorptionAt}<br>
-                                    <strong>Sales:</strong> ${salesAt} in 90 days
-                                </div>
-                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${getAbsorptionRatioInterpretation(absorptionAt, 'at')}
-                                </div>
-                            </div>
-                            
-                            <!-- Above FMV Band -->
-                            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #ffd699;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">10% or More Above FMV</div>
-                                <div style="font-size: 1.75rem; font-weight: 700; color: #ff9500; margin-bottom: 0.5rem;">
-                                    ${aboveFMV}
-                                </div>
-                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                                    Active listings<br>
-                                    <strong>Absorption:</strong> ${absorptionAbove}<br>
-                                    <strong>Sales:</strong> ${salesAbove} in 90 days
-                                </div>
-                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${getAbsorptionRatioInterpretation(absorptionAbove, 'above')}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        ${(() => {
-                            const belowHot = absorptionBelow !== 'N/A' && parseFloat(absorptionBelow) >= 1.5;
-                            const aboveCold = absorptionAbove !== 'N/A' && parseFloat(absorptionAbove) < 0.3;
-                            const isBimodal = belowHot && aboveCold && belowFMV > 0 && aboveFMV > 0 && marketConfidence >= 55 && marketConfidence < 70;
-                            
-                            if (isBimodal) {
-                                return `
-                                  <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-radius: 8px; border-left: 4px solid #ff9500;">
-                                    <strong style="color: #ff9500;">🔀 Bimodal Market Pattern Detected</strong>
-                                    <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                                      This market has two distinct buyer segments: value hunters concentrating below FMV (${absorptionBelow}:1 absorption) and hype buyers above FMV (${absorptionAbove}:1 absorption). Market Confidence of ${marketConfidence}/100 confirms price fragmentation. Consider targeting the high-absorption zone for faster sales.
-                                    </p>
-                                  </div>
-                                `;
-                            }
-                            return '';
-                        })()}
-                        
-                        <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
-                            <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                                <strong>💡 Insight:</strong> Absorption ratios show how fast cards sell at different prices. High ratios (1.0+) = fast sales with strong buyer demand. Moderate (0.5-1.0) = steady market activity. Low (below 0.5) = slow sales with fewer buyers than listings.
-                            </p>
-                        </div>
-                    `;
-                })()}
-            </div>
-            
-            <!-- Pricing Recommendations (Phase 2.2) -->
-            ${(() => {
-                if (!activeData || !activeData.items || activeData.items.length === 0) {
-                    return '';
-                }
-                
-                // Use already-calculated band data from above (no need to recalculate)
+                // Render pricing recommendations
                 const bands = {
                     belowFMV: { count: belowFMV, absorption: absorptionBelow, sales: salesBelow },
                     atFMV: { count: atFMV, absorption: absorptionAt, sales: salesAt },
                     aboveFMV: { count: aboveFMV, absorption: absorptionAbove, sales: salesAbove }
                 };
+                const pricingHTML = getPricingRecommendations(bands, marketValue, marketPressure, liquidityRisk?.score || 0);
                 
-                return getPricingRecommendations(bands, marketValue, marketPressure, liquidityRisk?.score || 0);
-            })()}
-            ` : ''}
+                return liquidityHTML + pricingHTML;
+            })() : ''}
         </div>
     `;
     

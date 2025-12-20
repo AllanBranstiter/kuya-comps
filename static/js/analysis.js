@@ -73,6 +73,104 @@ function filterOutliers(prices) {
     return prices.filter(price => price >= lowerBound && price <= upperBound);
 }
 
+/**
+ * Convert absorption ratio to user-friendly speed indicator
+ * @param {string|number} absorption - Absorption ratio
+ * @returns {Object} Speed indicator with emoji, label, timeline, color, bg
+ */
+function getSpeedFromAbsorption(absorption) {
+    if (absorption === 'N/A' || absorption === null) {
+        return {
+            emoji: '📭',
+            label: 'NO DATA',
+            timeline: 'No listings',
+            color: '#8e8e93',
+            bg: '#fafafa'
+        };
+    }
+    
+    const ratio = parseFloat(absorption);
+    
+    if (ratio >= 1.5) {
+        return {
+            emoji: '🔥',
+            label: 'FAST',
+            timeline: '1-5 days',
+            color: '#34c759',
+            bg: '#f0fff0'
+        };
+    } else if (ratio >= 0.5) {
+        return {
+            emoji: '✅',
+            label: 'NORMAL',
+            timeline: '1-2 weeks',
+            color: '#007aff',
+            bg: '#f0f9ff'
+        };
+    } else {
+        return {
+            emoji: '🐌',
+            label: 'SLOW',
+            timeline: '3+ weeks',
+            color: '#ff9500',
+            bg: '#fffaf0'
+        };
+    }
+}
+
+/**
+ * Generate seller quick tip based on speed zones
+ */
+function getSellerQuickTip(belowSpeed, belowRange, atRange) {
+    if (belowSpeed.label === 'FAST') {
+        return `${belowRange} for quick sale OR ${atRange} for fair value`;
+    } else if (belowSpeed.label === 'NORMAL' || belowSpeed.label === 'NO DATA') {
+        return `${atRange} for standard timeline`;
+    } else {
+        return `Price competitively—market moving slowly`;
+    }
+}
+
+/**
+ * Generate flipper quick tip
+ */
+function getFlipperQuickTip(belowSpeed, belowRange, fmvFormatted) {
+    if (belowSpeed.label === 'FAST') {
+        return `Buy ${belowRange}, flip at ${fmvFormatted} (${belowSpeed.timeline})`;
+    } else {
+        return `Look for deals 20%+ below ${fmvFormatted}`;
+    }
+}
+
+/**
+ * Generate collector quick tip
+ */
+function getCollectorQuickTip(atSpeed, atRange) {
+    if (atSpeed.label === 'FAST' || atSpeed.label === 'NORMAL') {
+        return `${atRange} offers fair value (${atSpeed.timeline})`;
+    } else {
+        return `Market slow—negotiate below asking`;
+    }
+}
+
+/**
+ * Calculate number of price clusters in the data
+ * @param {Array} prices - Array of prices
+ * @returns {number} Number of distinct price clusters
+ */
+function calculatePriceClusters(prices) {
+    if (!prices || prices.length === 0) return 0;
+    
+    // Count unique price points (rounded to nearest dollar to identify clusters)
+    const priceCounts = {};
+    prices.forEach(price => {
+        const roundedPrice = Math.round(price);
+        priceCounts[roundedPrice] = (priceCounts[roundedPrice] || 0) + 1;
+    });
+    
+    return Object.keys(priceCounts).length;
+}
+
 // ============================================================================
 // MARKET PRESSURE CALCULATION
 // ============================================================================
@@ -268,27 +366,44 @@ function calculateDataQuality(soldCount, activeCount, confidence) {
  * @returns {string} HTML string for warning banner
  */
 function getSampleSizeWarning(soldCount, activeCount, pressureSampleSize) {
-    const lowSoldData = soldCount < 10;
+    const criticallyLow = soldCount < 5;
+    const warningLow = soldCount >= 5 && soldCount < 10;
     const lowActiveData = activeCount < 5;
     const lowPressureData = pressureSampleSize < 5;
     
-    if (!lowSoldData && !lowActiveData && !lowPressureData) {
+    if (!criticallyLow && !warningLow && !lowActiveData && !lowPressureData) {
         return '';
     }
     
+    // Determine severity
+    const severity = criticallyLow ? 'critical' : 'warning';
+    const icon = criticallyLow ? '🚨' : '⚠️';
+    const bgColor = criticallyLow ? '#ffebee' : '#fff5e6';
+    const borderColor = criticallyLow ? '#ff3b30' : '#ff9500';
+    const textColor = criticallyLow ? '#ff3b30' : '#ff9500';
+    const title = criticallyLow ? 'Critically Limited Data' : 'Limited Data Available';
+    
     const issues = [];
-    if (lowSoldData) issues.push(`${soldCount} recent sales`);
+    if (criticallyLow) {
+        issues.push(`Only ${soldCount} sales (need 10+ for reliability)`);
+    } else if (warningLow) {
+        issues.push(`${soldCount} recent sales (10+ recommended)`);
+    }
     if (lowActiveData) issues.push(`${activeCount} active listings`);
     if (lowPressureData && pressureSampleSize > 0) issues.push(`${pressureSampleSize} sellers sampled`);
     
+    const adviceText = criticallyLow
+        ? 'Refine search or wait for more sales data.'
+        : 'Consider refining your search terms or checking back later for more data.';
+    
     return `
-        <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #ff9500; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.15);">
+        <div style="background: ${bgColor}; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid ${borderColor}; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.15);">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <span style="font-size: 1.5rem;">⚠️</span>
+                <span style="font-size: 1.5rem;">${icon}</span>
                 <div style="flex: 1;">
-                    <strong style="color: #ff9500; font-size: 0.95rem;">Limited Data Available</strong>
+                    <strong style="color: ${textColor}; font-size: 0.95rem;">${title}</strong>
                     <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.4;">
-                        ${issues.join(' • ')} — Results may vary. Consider refining your search terms or checking back later for more data.
+                        ${issues.join(' • ')} — Results may vary significantly. ${adviceText}
                     </p>
                 </div>
             </div>
@@ -550,52 +665,59 @@ function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
 // ============================================================================
 
 /**
- * Render persona-based advice sections
- * @param {Object} personaAdvice - Object with seller, flipper, collector arrays
+ * Render persona-based advice sections with one-liner format
+ * @param {Object} personaAdvice - Object with seller, flipper, collector strings (not arrays)
+ * @param {number} fmv - Fair market value for placeholder replacement
+ * @param {number} quickSale - Quick sale price
+ * @param {number} patientSale - Patient sale price
  * @returns {string} HTML string for persona sections
  */
-function renderPersonaAdvice(personaAdvice) {
+function renderPersonaAdvice(personaAdvice, fmv, quickSale, patientSale) {
     if (!personaAdvice) return '';
     
-    const sections = [
-        {
-            key: 'seller',
-            label: "If you're a seller",
-            color: '#007aff',
-            bg: 'rgba(0, 122, 255, 0.05)'
-        },
-        {
-            key: 'flipper',
-            label: "If you're flipping",
-            color: '#ff9500',
-            bg: 'rgba(255, 149, 0, 0.05)'
-        },
-        {
-            key: 'collector',
-            label: "If you're collecting long-term",
-            color: '#5ac8fa',
-            bg: 'rgba(90, 200, 250, 0.05)'
-        }
-    ];
+    // Build one-liner advice with actual dollar amounts
+    const sellerAdvice = (personaAdvice.seller || '')
+        .replace(/{quick_sale}/g, formatMoney(quickSale))
+        .replace(/{patient_sale}/g, formatMoney(patientSale))
+        .replace(/{fmv}/g, formatMoney(fmv));
     
-    let html = '<div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">';
+    const flipperAdvice = (personaAdvice.flipper || '')
+        .replace(/{quick_sale}/g, formatMoney(quickSale))
+        .replace(/{fmv}/g, formatMoney(fmv))
+        .replace(/{patient_sale}/g, formatMoney(patientSale));
     
-    sections.forEach(section => {
-        const advice = personaAdvice[section.key];
-        if (advice && advice.length > 0) {
-            html += `
-                <div style="background: ${section.bg}; padding: 0.75rem 1rem; border-radius: 8px; border-left: 3px solid ${section.color};">
-                    <strong style="color: ${section.color}; font-size: 0.85rem; display: block; margin-bottom: 0.5rem;">${section.label}</strong>
-                    <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.85rem; line-height: 1.6; color: #333;">
-                        ${advice.map(point => `<li style="margin-bottom: 0.25rem;">${point}</li>`).join('')}
-                    </ul>
+    const collectorAdvice = (personaAdvice.collector || '')
+        .replace(/{fmv}/g, formatMoney(fmv))
+        .replace(/{quick_sale}/g, formatMoney(quickSale))
+        .replace(/{patient_sale}/g, formatMoney(patientSale));
+    
+    return `
+        <div style="margin-top: 1.25rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="display: grid; gap: 0.75rem; font-size: 0.9rem;">
+                <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                    <span style="font-size: 1.2rem; flex-shrink: 0;">👤</span>
+                    <div style="flex: 1;">
+                        <strong style="color: #007aff; font-size: 0.95rem;">Selling?</strong>
+                        <span style="color: #333; display: block; margin-top: 0.25rem; line-height: 1.5;">${sellerAdvice}</span>
+                    </div>
                 </div>
-            `;
-        }
-    });
-    
-    html += '</div>';
-    return html;
+                <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                    <span style="font-size: 1.2rem; flex-shrink: 0;">💼</span>
+                    <div style="flex: 1;">
+                        <strong style="color: #ff9500; font-size: 0.95rem;">Flipping?</strong>
+                        <span style="color: #333; display: block; margin-top: 0.25rem; line-height: 1.5;">${flipperAdvice}</span>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                    <span style="font-size: 1.2rem; flex-shrink: 0;">🏆</span>
+                    <div style="flex: 1;">
+                        <strong style="color: #5ac8fa; font-size: 0.95rem;">Holding?</strong>
+                        <span style="color: #333; display: block; margin-top: 0.25rem; line-height: 1.5;">${collectorAdvice}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 // ============================================================================
@@ -608,155 +730,75 @@ function renderPersonaAdvice(personaAdvice) {
  */
 const FALLBACK_MESSAGE_CONTENT = {
         dataQualityWarning: {
-            message: `The prices are all over the place (confidence: {confidence}/100) and asking prices are {marketPressure}% vs FMV. This usually means your search is mixing different card types, conditions, or variations together. Try making your search more specific to get better results.`,
+            message: `Prices scattered (confidence: {confidence}/100). Search likely mixing different card types.`,
             personaAdvice: {
-                seller: [
-                    "Be careful pricing your card based on outliers",
-                    "Buyers will question your price and negotiate aggressively",
-                    "Before listing, tighten your search to match your exact card"
-                ],
-                flipper: [
-                    "This isn't a reliable market for consistent flips",
-                    "Only buy if the deal is obviously mispriced and easy to verify",
-                    "Otherwise, the risk outweighs the reward"
-                ],
-                collector: [
-                    "This is a 'pause and research' moment",
-                    "Waiting for clean data usually leads to better buying decisions",
-                    "No need to rush unless the card is extremely scarce"
-                ]
+                seller: "Refine search before pricing—buyers will question mixed comps",
+                flipper: "Skip—too risky with unreliable value estimates",
+                collector: "Wait for cleaner data to avoid overpaying"
             }
         },
         
         twoTierMarket: {
-            message: `This market has two different speeds: Cards priced below FMV are selling <strong>{absorptionBelow}x faster</strong> than new listings appear ({salesBelow} sales vs {belowFMV} listings), while higher-priced cards aren't selling quickly ({absorptionAbove} absorption, {salesAbove} sales vs {aboveFMV} listings). Average asking price is {marketPressure}% vs FMV.`,
+            message: `Fast sales below FMV ({absorptionBelow}:1), slow sales above ({absorptionAbove}:1)`,
             personaAdvice: {
-                seller: [
-                    "Cards priced near or below fair value sell much faster",
-                    "Overpricing usually leads to long wait times",
-                    "If you want a quick sale, price competitively"
-                ],
-                flipper: [
-                    "This is a good flipping setup",
-                    "Buy below fair value and sell close to it",
-                    "Avoid premium pricing—those listings tend to stall"
-                ],
-                collector: [
-                    "A solid time to buy if you stick to fair prices",
-                    "Ignore overpriced listings; they don't reflect real demand",
-                    "Patient buyers have the advantage here"
-                ]
+                seller: "List below {fmv} → fast | List above {fmv} → 3+ weeks",
+                flipper: "Buy below {quick_sale}, flip at {fmv} for quick profit",
+                collector: "Buy at {fmv}±10%, avoid overpriced premium listings"
             }
         },
         
         highRiskConditions: {
-            message: `Sellers are asking <strong>{marketPressure}% above FMV</strong>, but there aren't many buyers interested (liquidity: {liquidityScore}/100). This means listings are overpriced compared to what buyers are actually willing to pay. It may be better to wait for sellers to lower prices or look for better deals elsewhere.`,
+            message: `Asking {marketPressure}% above FMV but liquidity low ({liquidityScore}/100). Overpriced vs actual demand.`,
             personaAdvice: {
-                seller: [
-                    "This is a tough environment to sell in",
-                    "Expect slow sales or price drops",
-                    "If you need to sell, pricing below the crowd helps"
-                ],
-                flipper: [
-                    "This is usually a bad setup",
-                    "High prices plus low demand leave little room for profit",
-                    "Better opportunities exist elsewhere"
-                ],
-                collector: [
-                    "Waiting often pays off here",
-                    "Markets like this tend to cool down",
-                    "Patience can lead to better entry prices later"
-                ]
+                seller: "Price below crowd at {fmv} or expect slow sales",
+                flipper: "Skip—high prices + low demand = no profit margin",
+                collector: "Wait for prices to drop toward {fmv}"
             }
         },
         
         overpricedActiveMarket: {
-            message: `The market for this card is very hot. Asking prices are <strong>{marketPressure}% above FMV</strong>, and are supported by strong demand and good liquidity ({liquidityScore}/100). Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.`,
+            message: `Hot market: asking {marketPressure}% above FMV, supported by liquidity ({liquidityScore}/100).`,
             personaAdvice: {
-                seller: [
-                    "This is a strong selling window",
-                    "Buyers are accepting higher prices right now",
-                    "Consider selling while demand is hot"
-                ],
-                flipper: [
-                    "Flips are possible, but timing matters",
-                    "You need to buy and resell quickly",
-                    "Miss the timing, and you risk holding overpriced inventory"
-                ],
-                collector: [
-                    "You're paying extra to get a card immediately",
-                    "If you don't need the card now, waiting is usually safer",
-                    "Great cards often come back down once hype fades"
-                ]
+                seller: "Strong selling window—list at {patient_sale} while demand hot",
+                flipper: "Buy and flip quickly—market can cool fast",
+                collector: "Paying premium now or wait for hype to fade"
             }
         },
         
         fairPricingLimitedDemand: {
-            message: `Prices are fairly reasonable ({marketPressure}% vs FMV), but not many buyers are interested (liquidity: {liquidityScore}/100). Even though prices are fair, cards aren't selling well. This could mean the card is losing popularity or buyer interest is fading. If this card is from a recent release, this could also mean the number of cards available for sale (supply) is starting to outstrip the number of interested buyers (demand).`,
+            message: `Fair prices ({marketPressure}% vs FMV) but liquidity low ({liquidityScore}/100). Slow sales despite reasonable pricing.`,
             personaAdvice: {
-                seller: [
-                    "Slow sales are likely, even at fair prices",
-                    "If you want quicker action, slight discounts can help",
-                    "Otherwise, patience is required"
-                ],
-                flipper: [
-                    "Not ideal for quick flips",
-                    "Even good deals may take time to resell",
-                    "Only buy if you expect a future catalyst"
-                ],
-                collector: [
-                    "This can be a great quiet buying opportunity",
-                    "Fair prices without hype often age well",
-                    "Especially attractive for iconic or historically stable cards"
-                ]
+                seller: "Expect 2-3 weeks even at {fmv}. Discount to {quick_sale} speeds it up",
+                flipper: "Slow flips—only buy if expecting future catalyst",
+                collector: "Quiet buying opportunity—fair prices without hype"
             }
         },
         
         strongBuyOpportunity: {
-            message: `Available cards are priced <strong>{absMarketPressure}% below FMV</strong> and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: cards are underpriced and selling fast. This could mean a player is breaking out or performing well.`,
+            message: `Cards {absMarketPressure}% below FMV with strong liquidity ({liquidityScore}/100). Rare underpriced opportunity.`,
             personaAdvice: {
-                seller: [
-                    "You could be leaving money on the table at current prices—consider your opinion of the player's potential",
-                    "Expect fast sales, even if you raise your price slightly",
-                    "If you're listing now, consider pricing closer to fair value—or just above it"
-                ],
-                flipper: [
-                    "This is an excellent setup",
-                    "Buy quickly at current prices and aim for fast resale",
-                    "Delays matter here—once sellers adjust, margins shrink"
-                ],
-                collector: [
-                    "This is one of the better times to buy if you're optimistic about the player's potential",
-                    "You're entering below fair value in a market with real demand",
-                    "Acting sooner usually beats waiting in conditions like this"
-                ]
+                seller: "You're leaving money on table—price closer to {fmv}",
+                flipper: "Buy NOW at {quick_sale}, flip at {fmv} quickly",
+                collector: "Excellent entry at {quick_sale} ({absMarketPressure}% discount)"
             }
         },
         
         healthyMarketConditions: {
-            message: `Prices are fair ({marketPressure}% vs FMV) and there's plenty of buyer activity (liquidity: {liquidityScore}/100). This is a healthy, well-functioning market where both buyers and sellers are active. Prices accurately reflect current demand: good conditions for both buying and selling.`,
+            message: `Fair pricing ({marketPressure}% vs FMV) + good liquidity ({liquidityScore}/100). Balanced market.`,
             personaAdvice: {
-                seller: [
-                    "Fair pricing is being rewarded with steady sales",
-                    "No need to overthink timing—this is a good environment to list",
-                    "Well-presented listings should move at reasonable prices"
-                ],
-                flipper: [
-                    "Opportunities exist, but they're not automatic",
-                    "Profits depend on buying well, not on market imbalance",
-                    "Focus on small edges rather than big swings"
-                ],
-                collector: [
-                    "A comfortable, low-stress time to buy",
-                    "You're unlikely to overpay or miss out by waiting briefly",
-                    "Buy based on preference, not fear of price movement"
-                ]
+                seller: "List at {fmv}±5% → standard 7-10 day sale",
+                flipper: "Find deals below {quick_sale}, flip at {fmv}",
+                collector: "No rush—buy at {fmv} when you find good condition"
             }
         },
         
         balancedMarket: {
-            message: `Prices are in the middle range ({marketPressure}% vs FMV) with moderate buyer activity (liquidity: {liquidityScore}/100). This is a normal, stable market: nothing particularly remarkable happening. Use your normal judgment when buying or selling.`,
-            personaAdvice: null  // No persona advice for balanced market
+            message: `Normal market conditions ({marketPressure}% vs FMV, liquidity {liquidityScore}/100).`,
+            personaAdvice: {
+                seller: "List at {fmv} for typical sale timeline",
+                flipper: "Standard margins—buy {quick_sale}, sell {fmv}",
+                collector: "No market timing needed—buy when ready"
+            }
     }
 };
 
@@ -773,17 +815,19 @@ if (typeof window !== 'undefined' && window.contentLoader) {
  * Detect bimodal market pattern based on absorption ratios and confidence
  * @param {Object} priceBands - Price band data with absorption ratios
  * @param {number} marketConfidence - Market confidence score
+ * @param {number} clusterCount - Number of price clusters in the market
  * @returns {boolean} True if bimodal pattern detected
  */
-function detectBimodalPattern(priceBands, marketConfidence) {
+function detectBimodalPattern(priceBands, marketConfidence, clusterCount) {
     const { absorptionBelow, absorptionAbove, belowFMV, aboveFMV } = priceBands;
     
     return (
-        marketConfidence >= 55 && marketConfidence < 70 &&  // Moderate tier
+        marketConfidence >= 55 && marketConfidence < 70 &&
         absorptionBelow !== 'N/A' && absorptionAbove !== 'N/A' &&
-        parseFloat(absorptionBelow) >= 1.5 &&  // Hot below
-        parseFloat(absorptionAbove) < 0.3 &&   // Cold above
-        belowFMV > 0 && aboveFMV > 0
+        parseFloat(absorptionBelow) >= 1.8 &&  // TIGHTENED from 1.5
+        parseFloat(absorptionAbove) <= 0.25 && // TIGHTENED from 0.3
+        belowFMV > 0 && aboveFMV > 0 &&
+        clusterCount >= 2  // NEW: Must have 2+ price clusters
     );
 }
 
@@ -795,14 +839,21 @@ function detectBimodalPattern(priceBands, marketConfidence) {
  * @param {number} marketConfidence - Market confidence score
  * @param {Object} data - Sold data
  * @param {Object} activeData - Active listings data
+ * @param {number} marketValue - Fair market value for persona advice placeholders
+ * @param {number} quickSale - Quick sale price for persona advice placeholders
+ * @param {number} patientSale - Patient sale price for persona advice placeholders
  * @returns {Promise<string>} HTML for market assessment
  */
-async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData) {
+async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands, marketConfidence, data, activeData, marketValue, quickSale, patientSale) {
     if (marketPressure === null || !liquidityRisk || liquidityRisk.score === null) {
         return '';
     }
     
     const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
+    
+    // Calculate cluster count from sold data for bimodal detection
+    const soldPrices = data && data.items ? data.items.map(item => item.total_price).filter(p => p > 0) : [];
+    const clusterCount = calculatePriceClusters(soldPrices);
     
     // Load message content dynamically from JSON
     let messageContent;
@@ -840,7 +891,7 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
         warningTitle = 'Data Quality Warning';
     }
     // Edge Case 2: Bimodal Market Warning
-    else if (detectBimodalPattern(priceBands, marketConfidence)) {
+    else if (detectBimodalPattern(priceBands, marketConfidence, clusterCount)) {
         selectedScenario = 'bimodalMarketWarning';
         warningLevel = 'warning';
         warningColor = '#ff9500';
@@ -955,7 +1006,7 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
                 <p style="margin: 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
                     ${processedMessage}
                 </p>
-                ${renderPersonaAdvice(content.personaAdvice)}
+                ${renderPersonaAdvice(content.personaAdvice, marketValue, quickSale, patientSale)}
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
                     <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
                     <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
@@ -970,90 +1021,117 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
 // ============================================================================
 
 /**
- * Render liquidity profile grid section
+ * Render liquidity profile grid section with scannable table format
  * @param {Object} priceBands - Price band data
  * @param {number} marketConfidence - Market confidence score for bimodal detection
+ * @param {number} marketValue - Fair market value
+ * @param {number} quickSale - Quick sale price
+ * @param {number} patientSale - Patient sale price
  * @returns {string} HTML for liquidity profile
  */
-function renderLiquidityProfile(priceBands, marketConfidence) {
-    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
+function renderLiquidityProfile(priceBands, marketConfidence, marketValue, quickSale, patientSale) {
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove,
+            salesBelow, salesAt, salesAbove } = priceBands;
+    
+    // Calculate actual dollar ranges (±10% of FMV)
+    const belowRange = `Under ${formatMoney(marketValue * 0.9)}`;
+    const atRange = `${formatMoney(marketValue * 0.9)}-${formatMoney(marketValue * 1.1)}`;
+    const aboveRange = `Over ${formatMoney(marketValue * 1.1)}`;
+    
+    // Convert absorption ratios to user-friendly speed indicators
+    const belowSpeed = getSpeedFromAbsorption(absorptionBelow);
+    const atSpeed = getSpeedFromAbsorption(absorptionAt);
+    const aboveSpeed = getSpeedFromAbsorption(absorptionAbove);
     
     return `
         <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-            <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Liquidity Profile</h4>
+            <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">📊 Sales Speed by Price</h4>
             
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-                <!-- Below FMV Band -->
-                <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99ff99;">
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">10% or More Below FMV</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #34c759; margin-bottom: 0.5rem;">
-                        ${belowFMV}
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        Active listings<br>
-                        <strong>Absorption:</strong> ${absorptionBelow}<br>
-                        <strong>Sales:</strong> ${salesBelow} in 90 days
-                    </div>
-                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                        ${getAbsorptionRatioInterpretation(absorptionBelow, 'below')}
-                    </div>
-                </div>
-                
-                <!-- At FMV Band -->
-                <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99daff;">
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">±10% of FMV</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem;">
-                        ${atFMV}
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        Active listings<br>
-                        <strong>Absorption:</strong> ${absorptionAt}<br>
-                        <strong>Sales:</strong> ${salesAt} in 90 days
-                    </div>
-                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                        ${getAbsorptionRatioInterpretation(absorptionAt, 'at')}
-                    </div>
-                </div>
-                
-                <!-- Above FMV Band -->
-                <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #ffd699;">
-                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">10% or More Above FMV</div>
-                    <div style="font-size: 1.75rem; font-weight: 700; color: #ff9500; margin-bottom: 0.5rem;">
-                        ${aboveFMV}
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        Active listings<br>
-                        <strong>Absorption:</strong> ${absorptionAbove}<br>
-                        <strong>Sales:</strong> ${salesAbove} in 90 days
-                    </div>
-                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                        ${getAbsorptionRatioInterpretation(absorptionAbove, 'above')}
-                    </div>
-                </div>
+            <!-- Scannable Table -->
+            <div style="overflow-x: auto; margin-bottom: 1.5rem;">
+                <table style="width: 100%; border-collapse: collapse; min-width: 500px;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border-color);">
+                            <th style="text-align: left; padding: 0.75rem; font-size: 0.9rem; color: #666; font-weight: 600;">Price Range</th>
+                            <th style="text-align: center; padding: 0.75rem; font-size: 0.9rem; color: #666; font-weight: 600;">Listings</th>
+                            <th style="text-align: center; padding: 0.75rem; font-size: 0.9rem; color: #666; font-weight: 600;">Recent Sales</th>
+                            <th style="text-align: left; padding: 0.75rem; font-size: 0.9rem; color: #666; font-weight: 600;">Speed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Below FMV Row -->
+                        <tr style="border-bottom: 1px solid var(--border-color); background: ${belowSpeed.bg};">
+                            <td style="padding: 1rem; font-weight: 600; color: #333;">${belowRange}</td>
+                            <td style="text-align: center; padding: 1rem; color: #666;">${belowFMV}</td>
+                            <td style="text-align: center; padding: 1rem; color: #666;">${salesBelow}</td>
+                            <td style="padding: 1rem;">
+                                <span style="font-size: 1.2rem; margin-right: 0.5rem;">${belowSpeed.emoji}</span>
+                                <strong style="color: ${belowSpeed.color}; font-size: 0.95rem;">${belowSpeed.label}</strong>
+                                <span style="font-size: 0.85rem; color: #666; margin-left: 0.5rem;">(${belowSpeed.timeline})</span>
+                            </td>
+                        </tr>
+                        
+                        <!-- At FMV Row -->
+                        <tr style="border-bottom: 1px solid var(--border-color); background: ${atSpeed.bg};">
+                            <td style="padding: 1rem; font-weight: 600; color: #333;">${atRange}</td>
+                            <td style="text-align: center; padding: 1rem; color: #666;">${atFMV}</td>
+                            <td style="text-align: center; padding: 1rem; color: #666;">${salesAt}</td>
+                            <td style="padding: 1rem;">
+                                <span style="font-size: 1.2rem; margin-right: 0.5rem;">${atSpeed.emoji}</span>
+                                <strong style="color: ${atSpeed.color}; font-size: 0.95rem;">${atSpeed.label}</strong>
+                                <span style="font-size: 0.85rem; color: #666; margin-left: 0.5rem;">(${atSpeed.timeline})</span>
+                            </td>
+                        </tr>
+                        
+                        <!-- Above FMV Row -->
+                        <tr style="background: ${aboveSpeed.bg};">
+                            <td style="padding: 1rem; font-weight: 600; color: #333;">${aboveRange}</td>
+                            <td style="text-align: center; padding: 1rem; color: #666;">${aboveFMV}</td>
+                            <td style="text-align: center; padding: 1rem; color: #666;">${salesAbove}</td>
+                            <td style="padding: 1rem;">
+                                <span style="font-size: 1.2rem; margin-right: 0.5rem;">${aboveSpeed.emoji}</span>
+                                <strong style="color: ${aboveSpeed.color}; font-size: 0.95rem;">${aboveSpeed.label}</strong>
+                                <span style="font-size: 0.85rem; color: #666; margin-left: 0.5rem;">(${aboveSpeed.timeline})</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
             
-            ${(() => {
-                const belowHot = absorptionBelow !== 'N/A' && parseFloat(absorptionBelow) >= 1.5;
-                const aboveCold = absorptionAbove !== 'N/A' && parseFloat(absorptionAbove) < 0.3;
-                const isBimodal = belowHot && aboveCold && belowFMV > 0 && aboveFMV > 0 && marketConfidence >= 55 && marketConfidence < 70;
-                
-                if (isBimodal) {
-                    return `
-                      <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-radius: 8px; border-left: 4px solid #ff9500;">
-                        <strong style="color: #ff9500;">🔀 Bimodal Market Pattern Detected</strong>
-                        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                          This market has two distinct buyer segments: value hunters concentrating below FMV (${absorptionBelow}:1 absorption) and hype buyers above FMV (${absorptionAbove}:1 absorption). Market Confidence of ${marketConfidence}/100 confirms price fragmentation. Consider targeting the high-absorption zone for faster sales.
-                        </p>
-                      </div>
-                    `;
-                }
-                return '';
-            })()}
-            
-            <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
-                <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                    <strong>💡 Insight:</strong> Absorption ratios show how fast cards sell at different prices. High ratios (1.0+) = fast sales with strong buyer demand. Moderate (0.5-1.0) = steady market activity. Low (below 0.5) = slow sales with fewer buyers than listings.
-                </p>
+            <!-- Persona Quick Guide -->
+            <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div style="font-weight: 600; margin-bottom: 1rem; color: var(--text-color); font-size: 0.95rem;">
+                    💡 Quick Guide:
+                </div>
+                <div style="display: grid; gap: 0.65rem; font-size: 0.9rem;">
+                    <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                        <span style="font-size: 1.1rem; flex-shrink: 0;">👤</span>
+                        <div style="flex: 1;">
+                            <strong style="color: #007aff;">Selling?</strong>
+                            <span style="color: #333; margin-left: 0.5rem;">
+                                ${getSellerQuickTip(belowSpeed, belowRange, atRange)}
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                        <span style="font-size: 1.1rem; flex-shrink: 0;">💼</span>
+                        <div style="flex: 1;">
+                            <strong style="color: #ff9500;">Flipping?</strong>
+                            <span style="color: #333; margin-left: 0.5rem;">
+                                ${getFlipperQuickTip(belowSpeed, belowRange, formatMoney(marketValue))}
+                            </span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                        <span style="font-size: 1.1rem; flex-shrink: 0;">🏆</span>
+                        <div style="flex: 1;">
+                            <strong style="color: #5ac8fa;">Holding?</strong>
+                            <span style="color: #333; margin-left: 0.5rem;">
+                                ${getCollectorQuickTip(atSpeed, atRange)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     `;

@@ -7,6 +7,7 @@ and related statistics for card valuations.
 """
 from typing import List, Optional, Tuple, Dict
 import numpy as np
+from scipy.stats import skew
 from backend.services.price_tier_service import get_price_tier
 from backend.config import (
     IQR_OUTLIER_MULTIPLIER,
@@ -260,13 +261,26 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     weighted_variance = np.average((prices - weighted_mean) ** 2, weights=weights)
     weighted_std = np.sqrt(weighted_variance)
     
+    # Calculate skewness to detect asymmetric distributions
+    distribution_skewness = skew(prices, axis=0)
+    
+    # For highly skewed distributions, median is more representative than mean
+    if abs(distribution_skewness) > 1.5:
+        # Use weighted median instead of mean
+        median_value = find_weighted_percentile(sorted_prices, cumulative_weights, total_weight, 0.5)
+        market_value = median_value
+        print(f"[FMV] High skewness detected ({distribution_skewness:.2f})")
+        print(f"[FMV] Using weighted median ${median_value:.2f} instead of mean ${weighted_mean:.2f}")
+    else:
+        market_value = weighted_mean
+    
     # Define FMV ranges using volume-weighted statistics
     fmv_low = max(0, weighted_mean - weighted_std)
     fmv_high = weighted_mean + weighted_std
     
     # Volume-weighted market tiers
     quick_sale = max(0, percentile_25)      # 25th percentile - quick sale price
-    market_value = weighted_mean            # Volume-weighted average - true market
+    # market_value assigned above based on skewness
     patient_sale = percentile_75            # 75th percentile - patient seller price
     
     # Determine confidence based on high-weight sales
