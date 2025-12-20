@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Feedback System - Phase 3 (Complete)</title>
+  <link rel="stylesheet" href="css/feedback.css">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 2rem;
+      background: linear-gradient(135deg, #f8fafd 0%, #ebf3ff 100%);
+    }
+    .test-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #007aff;
+      margin-top: 0;
+    }
+    .test-content {
+      margin: 2rem 0;
+      line-height: 1.6;
+    }
+    .test-button {
+      background: linear-gradient(135deg, #007aff, #5856d6);
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 0.5rem;
+    }
+    .test-button:hover {
+      opacity: 0.9;
+    }
+    .instructions {
+      background: #f0f7ff;
+      padding: 1rem;
+      border-radius: 8px;
+      border-left: 4px solid #007aff;
+      margin: 1rem 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="test-container">
+  <h1>🧪 Feedback System Test - Phase 3 (Complete)</h1>
+  
+  <div class="instructions">
+    <h3>Test Instructions:</h3>
+    <ol>
+      <li><strong>Click the blue bug icon</strong> in the top-right corner OR press <kbd>Ctrl/Cmd + B</kbd></li>
+      <li>The system will capture a screenshot of the page</li>
+      <li>You'll see the annotation screen - <strong>draw a box</strong> around any area to highlight</li>
+      <li>Click "Continue" to proceed to the feedback form (or "Skip" to skip annotation)</li>
+      <li>Fill out the feedback form and submit</li>
+      <li>Check the browser console (F12) to see the captured data including screenshot, annotation, session ID, and API state</li>
+      <li><strong>Phase 3 Testing:</strong> Try the "Simulate API Call" button below to populate lastApiResponse, then submit a Bug Report to see state data included</li>
+    </ol>
+  </div>
+
+  <div class="test-content">
+    <h2>Sample Content for Testing</h2>
+    <p>This is some sample content that you can screenshot and annotate. Try drawing a box around this text when the annotation screen appears!</p>
+    
+    <div style="background: linear-gradient(135deg, #007aff, #5856d6); color: white; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;">
+      <h3 style="margin-top: 0;">Highlighted Section</h3>
+      <p style="margin-bottom: 0;">This colorful section is easy to highlight during annotation testing.</p>
+    </div>
+
+    <h3>Features Implemented:</h3>
+    
+    <h4>Phase 1: Basic Feedback Modal ✅</h4>
+    <ul>
+      <li>✅ Floating Action Button (FAB) with bug icon</li>
+      <li>✅ Modal with category dropdown and description textarea</li>
+      <li>✅ Keyboard shortcut support (Ctrl/Cmd + B)</li>
+      <li>✅ Automated data collection (browser, OS, resolution, URL, timestamp)</li>
+    </ul>
+
+    <h4>Phase 2: Screenshot and Annotation ✅</h4>
+    <ul>
+      <li>✅ Screenshot capture using html2canvas</li>
+      <li>✅ Annotation UI with mouse-based bounding box drawing</li>
+      <li>✅ Visual feedback with semi-transparent overlay and border</li>
+      <li>✅ Screenshot data (base64) included in feedback payload</li>
+      <li>✅ Annotation coordinates included in feedback payload</li>
+      <li>✅ Option to skip annotation step</li>
+    </ul>
+
+    <h4>Phase 3: State-Awareness and Refinements ✅ <span style="color: #007aff;">NEW!</span></h4>
+    <ul>
+      <li>✅ <strong>Client Session ID:</strong> Unique session identifier generated and stored</li>
+      <li>✅ <strong>API Response Capture:</strong> Automatic capture of API responses from /comps, /active, and /fmv endpoints</li>
+      <li>✅ <strong>Conditional State Data:</strong> lastApiResponse included only when category is "Bug Report"</li>
+      <li>✅ <strong>Persistent Session:</strong> Session ID stored in sessionStorage for session correlation</li>
+    </ul>
+
+    <h3>Data Captured:</h3>
+    <p>When you submit feedback, the following data is captured and logged to the console:</p>
+    <ul>
+      <li>Category, description (from form)</li>
+      <li>Browser, OS, screen resolution, viewport size</li>
+      <li>Current URL and timestamp</li>
+      <li>Screenshot (base64 PNG data URL)</li>
+      <li>Annotation coordinates (x, y, width, height)</li>
+      <li><strong style="color: #007aff;">NEW: Client Session ID (unique per session)</strong></li>
+      <li><strong style="color: #007aff;">NEW: Last API Response (only for Bug Reports)</strong></li>
+    </ul>
+  </div>
+
+  <div style="text-align: center; margin: 2rem 0;">
+    <p><strong>Testing Tools:</strong></p>
+    <button class="test-button" onclick="document.querySelector('.feedback-fab').click()">
+      Click FAB Programmatically
+    </button>
+    <button class="test-button" onclick="document.dispatchEvent(new KeyboardEvent('keydown', {key: 'b', metaKey: true}))">
+      Trigger Keyboard Shortcut
+    </button>
+  </div>
+  
+  <div style="background: #fff3cd; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #ff9500; margin: 1rem 0;">
+    <h3 style="margin-top: 0; color: #ff9500;">Phase 3 Testing</h3>
+    <p>To test the API response capture feature:</p>
+    <ol style="text-align: left;">
+      <li>Click the button below to simulate an API response</li>
+      <li>Open the feedback modal and submit a <strong>Bug Report</strong></li>
+      <li>Check the console - you should see the lastApiResponse included in the feedback data</li>
+      <li>Try submitting other categories - lastApiResponse should NOT be included</li>
+    </ol>
+    <div style="text-align: center; margin-top: 1rem;">
+      <button class="test-button" onclick="simulateApiCall()">
+        Simulate API Call
+      </button>
+      <button class="test-button" onclick="console.log('Current Session ID:', sessionStorage.getItem('feedbackSessionId'))">
+        Show Session ID
+      </button>
+    </div>
+  </div>
+  
+  <script>
+    function simulateApiCall() {
+      // Simulate an API response
+      window.lastApiResponse = {
+        url: '/comps?player=Shohei%20Ohtani&year=2023',
+        timestamp: new Date().toISOString(),
+        data: {
+          player: 'Shohei Ohtani',
+          year: 2023,
+          totalListings: 42,
+          averagePrice: 125.50,
+          priceRange: { min: 45.00, max: 350.00 },
+          fmv: 118.75
+        }
+      };
+      alert('API response simulated! Now submit a Bug Report to see it included in the feedback data.');
+      console.log('Simulated API Response:', window.lastApiResponse);
+    }
+  </script>
+</div>
+
+<!-- Load html2canvas library -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<!-- Load feedback system -->
+<script src="js/feedback.js"></script>
+
+</body>
+</html>
