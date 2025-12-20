@@ -1,7 +1,7 @@
 # Market Messages Content Guide
 
-**Version:** 1.1.0
-**Last Updated:** December 19, 2024
+**Version:** 1.2.0
+**Last Updated:** December 20, 2024
 **Purpose:** Editable content for all Market Assessment messages and More Info pop-ups
 
 ---
@@ -194,14 +194,14 @@ The following placeholders are replaced with calculated values:
 **Color:** #34c759 (Green)
 
 **Message:**
-> *Underpriced cards with strong buyer demand*
+> *Current sellers are asking {absMarketPressure}% below Fair Market Value*
 >
-> Available cards are priced {absMarketPressure}% below FMV and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: cards are underpriced and selling fast. This could mean a player is breaking out or performing well.
+> Active listings are priced below what cards recently sold for, and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: current asking prices are undervalued compared to recent sales. This could mean sellers haven't adjusted to rising demand, or a player is breaking out.
 
 **If you're a seller**
-- You could be leaving money on the table at current prices—consider your opinion of the player's potential
-- Expect fast sales, even if you raise your price slightly.
-- If you're listing now, consider pricing closer to fair value—or just above it.
+- Current market asks are below recent sales—you could price at Fair Market Value and still sell quickly
+- Expect fast sales even if you raise your price toward Fair Market Value
+- Consider pricing at Fair Market Value or just above it
 
 **If you're flipping**
 - This is an excellent setup.
@@ -415,7 +415,15 @@ Liquidity Risk measures how easy or difficult it may be to **SELL** a card at or
 ```
 Completed Sales / Active Listings
 ```
-*Measures demand vs supply based on 90-day sales and current Buy It Now listings.*
+*Measures demand vs supply based on recent completed sales and current Buy It Now listings.*
+
+### How Absorption Converts to Liquidity Score
+The 0-100 liquidity score is calculated from the absorption ratio:
+
+- **Ratio ≥ 1.0:** Score ranges from 80-100 (increases by 20 points per 1.0 ratio increase)
+- **Ratio 0.5-1.0:** Score ranges from 50-79 (linear scale)
+- **Ratio 0.2-0.5:** Score ranges from 25-49 (linear scale)
+- **Ratio < 0.2:** Score ranges from 10-24 (linear scale down to minimum of 10)
 
 ### Liquidity Bands
 
@@ -864,6 +872,15 @@ After editing this file:
 ---
 
 ## 📝 Version History
+
+### Version 1.2.0 (2024-12-20)
+- **Improved clarity and accuracy of user-facing messages:**
+  - Changed "90-day sales" to "recent completed sales" in Liquidity Risk popup (more accurate to implementation)
+  - Added detailed explanation of how Absorption Ratio converts to 0-100 Liquidity Score
+  - Updated Strong Buy Opportunity message to clarify it refers to current asking prices vs recent sales
+  - Revised seller advice in Strong Buy scenario to emphasize pricing opportunity
+  - Updated `getDominantBandStatement()` function to use plain language instead of technical "absorption ratio"
+  - Activity statements now show actual numbers (e.g., "12 recent sales vs 8 listings") with pace descriptors (fast/normal/slow)
 
 ### Version 1.1.0 (2024-12-19)
 - Added Price Tier Market Dynamics section with 5 comprehensive price tiers

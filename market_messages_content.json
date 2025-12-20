@@ -1,6 +1,6 @@
 {
-  "version": "1.1.0",
-  "last_updated": "2024-12-19",
+  "version": "1.2.0",
+  "last_updated": "2024-12-20",
   "messages": {
     "dataQualityWarning": {
       "title": "Data Quality Warning",
@@ -138,12 +138,12 @@
       "color": "#34c759",
       "gradient": "linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)",
       "border": "#99e6b8",
-      "message": "Underpriced cards with strong buyer demand\n\nAvailable cards are priced {absMarketPressure}% below FMV and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: cards are underpriced and selling fast. This could mean a player is breaking out or performing well.",
+      "message": "Current sellers are asking {absMarketPressure}% below Fair Market Value\n\nActive listings are priced below what cards recently sold for, and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: current asking prices are undervalued compared to recent sales. This could mean sellers haven't adjusted to rising demand, or a player is breaking out.",
       "personaAdvice": {
         "seller": [
-          "You could be leaving money on the table at current prices—consider your opinion of the player's potential",
-          "Expect fast sales, even if you raise your price slightly.",
-          "If you're listing now, consider pricing closer to fair value—or just above it."
+          "Current market asks are below recent sales—you could price at Fair Market Value and still sell quickly",
+          "Expect fast sales even if you raise your price toward Fair Market Value",
+          "Consider pricing at Fair Market Value or just above it"
         ],
         "flipper": [
           "This is an excellent setup.",
@@ -397,7 +397,24 @@
         },
         {
           "type": "text",
-          "content": "<em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>"
+          "content": "<em>Measures demand vs supply based on recent completed sales and current Buy It Now listings.</em>"
+        },
+        {
+          "type": "header",
+          "content": "How Absorption Converts to Liquidity Score"
+        },
+        {
+          "type": "text",
+          "content": "The 0-100 liquidity score is calculated from the absorption ratio:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "<strong>Ratio ≥ 1.0:</strong> Score ranges from 80-100 (increases by 20 points per 1.0 ratio increase)",
+            "<strong>Ratio 0.5-1.0:</strong> Score ranges from 50-79 (linear scale)",
+            "<strong>Ratio 0.2-0.5:</strong> Score ranges from 25-49 (linear scale)",
+            "<strong>Ratio < 0.2:</strong> Score ranges from 10-24 (linear scale down to minimum of 10)"
+          ]
         },
         {
           "type": "header",

@@ -195,16 +195,18 @@ const FALLBACK_POPUP_MARKET_CONFIDENCE = {
         {
             type: "bands",
             items: [
-                { icon: "🟢", title: "70-100 (HIGH CONFIDENCE)", color: "#34c759", meaning: "Prices are very consistent - strong market consensus on value.", action: "FMV estimates are highly reliable. Safe to use for pricing decisions." },
-                { icon: "🔵", title: "40-69 (MODERATE CONFIDENCE)", color: "#007aff", meaning: "Some price variation but overall market is functional.", action: "FMV estimates are reasonably reliable. Consider using price ranges." },
-                { icon: "🟠", title: "20-39 (LOW CONFIDENCE)", color: "#ff9500", meaning: "High price variation - market is less certain.", action: "Use caution with FMV estimates. Consider refining search terms or gathering more data." },
-                { icon: "🔴", title: "0-19 (VERY LOW CONFIDENCE)", color: "#ff3b30", meaning: "Extreme price variation - unreliable market signals.", action: "FMV estimates may not be accurate. Refine search or check for data quality issues." }
+                { icon: "🟢", title: "85-100 (EXCELLENT CONSENSUS)", color: "#34c759", meaning: "Exceptional price consistency with tight clustering - excellent market consensus on value.", action: "FMV estimates are highly reliable. Safe to use for pricing decisions." },
+                { icon: "🔵", title: "70-84 (GOOD CONSENSUS)", color: "#007aff", meaning: "Solid price consistency - market has good agreement on value.", action: "FMV estimates are reliable. Good for most pricing decisions." },
+                { icon: "🟡", title: "55-69 (MODERATE VARIATION)", color: "#ff9500", meaning: "Noticeable price variation but overall market is functional.", action: "FMV estimates are reasonably reliable. Consider using price ranges and watching for trends." },
+                { icon: "🟠", title: "40-54 (HIGH VARIATION)", color: "#ff9500", meaning: "High price variation - market shows significant uncertainty.", action: "Use caution with FMV estimates. Consider refining search terms or gathering more data." },
+                { icon: "🔴", title: "25-39 (VERY HIGH VARIATION)", color: "#ff3b30", meaning: "Very high price variation - unreliable market signals.", action: "FMV estimates may not be accurate. Refine search or check for data quality issues." },
+                { icon: "⚫", title: "0-24 (MARKET CHAOS)", color: "#1d1d1f", meaning: "Extreme price scatter - no market consensus.", action: "Data is unreliable. Check for miscategorized listings or search errors." }
             ]
         },
         { type: "header", content: "💡 Key Principle" },
         { type: "text", content: "Market Confidence tells you how <strong>reliable</strong> the data is, not what the value is. High confidence means prices are clustered together. Low confidence means prices are scattered and unpredictable." },
         { type: "header", content: "📝 Example" },
-        { type: "text", content: "If 20 cards sold between $95-$105 (tight range), confidence is <strong>HIGH (80+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>." },
+        { type: "text", content: "If 20 cards sold between $95-$105 (tight range), confidence is <strong>EXCELLENT (85+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>." },
         { type: "header", content: "🔧 Improve Confidence" },
         {
             type: "list",
@@ -224,7 +226,18 @@ const FALLBACK_POPUP_LIQUIDITY_RISK = {
         { type: "text", content: "Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value." },
         { type: "header", content: "Absorption Ratio" },
         { type: "formula", content: "Completed Sales / Active Listings" },
-        { type: "text", content: "<em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>" },
+        { type: "text", content: "<em>Measures demand vs supply based on recent completed sales and current Buy It Now listings.</em>" },
+        { type: "header", content: "How Absorption Converts to Liquidity Score" },
+        { type: "text", content: "The 0-100 liquidity score is calculated from the absorption ratio:" },
+        {
+            type: "list",
+            items: [
+                "<strong>Ratio ≥ 1.0:</strong> Score ranges from 80-100 (increases by 20 points per 1.0 ratio increase)",
+                "<strong>Ratio 0.5-1.0:</strong> Score ranges from 50-79 (linear scale)",
+                "<strong>Ratio 0.2-0.5:</strong> Score ranges from 25-49 (linear scale)",
+                "<strong>Ratio < 0.2:</strong> Score ranges from 10-24 (linear scale down to minimum of 10)"
+            ]
+        },
         { type: "header", content: "Liquidity Bands" },
         {
             type: "bands",
@@ -793,11 +806,25 @@ async function runIntelligenceSearch() {
                 let fmvLow = null;
                 let fmvHigh = null;
                 if (data.items && data.items.length > 0) {
+                    console.log('[INTELLIGENCE FMV DIAGNOSTIC] Sending to /fmv:', {
+                        itemCount: data.items.length,
+                        firstItemDateScraped: data.items[0]?.date_scraped,
+                        typeOfDate: typeof data.items[0]?.date_scraped
+                    });
+                    
                     const fmvResp = await fetch('/fmv', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data.items)
+                        body: JSON.stringify({ items: data.items })
                     });
+                    
+                    if (!fmvResp.ok) {
+                        const errorText = await fmvResp.text();
+                        console.error('[INTELLIGENCE FMV ERROR] Status:', fmvResp.status);
+                        console.error('[INTELLIGENCE FMV ERROR] Response:', errorText);
+                        throw new Error(`FMV failed: ${errorText.substring(0, 100)}`);
+                    }
+                    
                     const fmvData = await fmvResp.json();
                     marketValue = fmvData.market_value;
                     fmvLow = fmvData.quick_sale || fmvData.expected_low;
@@ -1011,6 +1038,17 @@ async function renderData(data, secondData = null, marketValue = null) {
     // Store active data and market value globally for checkbox toggle
     lastActiveData = secondData;
     lastMarketValue = marketValue;
+    
+    // Expose to window object for export functionality
+    window.lastActiveData = secondData;
+    window.lastMarketValue = marketValue;
+    
+    // DIAGNOSTIC: Check if these are accessible on window object
+    console.log('[EXPORT DIAGNOSTIC] After renderData storage:', {
+        'lastActiveData set (module)': !!lastActiveData,
+        'window.lastActiveData accessible': !!window.lastActiveData,
+        'Are they the same': lastActiveData === window.lastActiveData
+    });
     
     // Create first table
     let html = `
@@ -1478,6 +1516,13 @@ function clearSearch() {
     expectHighGlobal = null;
     marketValueGlobal = null;
     currentBeeswarmPrices = [];
+    
+    // Clear window object references too
+    window.lastData = null;
+    window.lastActiveData = null;
+    window.marketValueGlobal = null;
+    window.expectLowGlobal = null;
+    window.expectHighGlobal = null;
     
     // Focus on the query input
     document.getElementById("query").focus();
@@ -2067,14 +2112,62 @@ async function runSearchInternal() {
     console.log(`  - Min/Max/Avg prices: ${formatMoney(data.min_price)} / ${formatMoney(data.max_price)} / ${formatMoney(data.avg_price)}`);
 
     lastData = data;
+    
+    // Expose to window object for export functionality
+    window.lastData = data;
+    
+    // DIAGNOSTIC: Check if data is being stored correctly
+    console.log('[EXPORT DIAGNOSTIC] Data storage check:', {
+        'lastData set': !!lastData,
+        'window.lastData exists': !!window.lastData,
+        'Are they same object': lastData === window.lastData
+    });
 
     // Calculate Fair Market Value first
     console.log('[DEBUG] Calculating Fair Market Value...');
+    console.log('[FMV DIAGNOSTIC] Sending items to /fmv:', {
+        itemCount: data.items.length,
+        firstItemSample: data.items[0] ? {
+            item_id: data.items[0].item_id,
+            title: data.items[0].title?.substring(0, 50),
+            total_price: data.items[0].total_price,
+            date_scraped: data.items[0].date_scraped,
+            typeOfDateScraped: typeof data.items[0].date_scraped
+        } : null
+    });
+    
     const fmvResp = await fetch('/fmv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data.items)
+        body: JSON.stringify({ items: data.items })
     });
+    
+    console.log('[FMV DIAGNOSTIC] Response status:', fmvResp.status, fmvResp.ok);
+    
+    if (!fmvResp.ok) {
+        const errorText = await fmvResp.text();
+        console.error('[FMV ERROR] Status:', fmvResp.status);
+        console.error('[FMV ERROR] Response text:', errorText);
+        try {
+            const errorJson = JSON.parse(errorText);
+            console.error('[FMV ERROR] Parsed error:', errorJson);
+            if (errorJson.detail && Array.isArray(errorJson.detail)) {
+                console.error('[FMV ERROR] Validation errors:', errorJson.detail);
+                errorJson.detail.forEach((err, idx) => {
+                    console.error(`[FMV ERROR] Error ${idx}:`, {
+                        location: err.loc,
+                        message: err.msg,
+                        type: err.type,
+                        input: err.input
+                    });
+                });
+            }
+        } catch (e) {
+            console.error('[FMV ERROR] Could not parse error as JSON');
+        }
+        throw new Error(`FMV calculation failed with status ${fmvResp.status}: ${errorText.substring(0, 200)}`);
+    }
+    
     const fmvData = await fmvResp.json();
     const marketValue = fmvData.market_value || fmvData.expected_high;
     console.log('[DEBUG] Calculated Market Value:', formatMoney(marketValue));
@@ -2210,6 +2303,7 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
       }
       
       lastData = null;
+      window.lastData = null; // Clear window reference on error
       console.error('[ERROR] Search failed:', err);
     } finally {
       // Restore button state
@@ -2280,35 +2374,63 @@ function renderStats(data) {
  * Generate confidence statement based on market confidence score and sample size
  */
 function getConfidenceStatement(confidence, sampleSize) {
-    if (confidence >= 70) {
-        return `High price consistency (${confidence}/100) based on ${sampleSize} listings`;
-    } else if (confidence >= 40) {
+    if (confidence >= 85) {
+        return `Excellent price consistency (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 70) {
+        return `Good price consistency (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 55) {
         return `Moderate price variation (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 40) {
+        return `High price variation (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 25) {
+        return `⚠️ Very high price scatter (${confidence}/100) - consider refining search`;
     } else {
-        return `⚠️ High price scatter (${confidence}/100) - consider refining search`;
+        return `⚠️ Market chaos (${confidence}/100) - data unreliable`;
     }
 }
 
 /**
  * Generate dominant band statement showing where most activity occurs
+ * Now uses plain language instead of technical absorption ratio
  */
-function getDominantBandStatement(below, at, above, absBelow, absAt, absAbove) {
+function getDominantBandStatement(below, at, above, absBelow, absAt, absAbove, salesBelow, salesAt, salesAbove) {
     const total = below + at + above;
     if (total === 0) return '';
     
     // Find where most volume is
     const maxListings = Math.max(below, at, above);
     let location = '';
-    if (below === maxListings) location = 'below FMV';
-    else if (at === maxListings) location = 'at FMV';
-    else location = 'above FMV';
+    let absorption = 0;
+    let sales = 0;
+    let listings = 0;
     
-    // Get absorption for that band
-    let absorption = absBelow;
-    if (at === maxListings) absorption = absAt;
-    if (above === maxListings) absorption = absAbove;
+    if (below === maxListings) {
+        location = 'below FMV';
+        absorption = absBelow !== 'N/A' ? parseFloat(absBelow) : 0;
+        sales = salesBelow || 0;
+        listings = below;
+    } else if (at === maxListings) {
+        location = 'at FMV';
+        absorption = absAt !== 'N/A' ? parseFloat(absAt) : 0;
+        sales = salesAt || 0;
+        listings = at;
+    } else {
+        location = 'above FMV';
+        absorption = absAbove !== 'N/A' ? parseFloat(absAbove) : 0;
+        sales = salesAbove || 0;
+        listings = above;
+    }
     
-    return `Most listings concentrated ${location} with ${absorption} absorption ratio`;
+    // Plain language version with actual numbers
+    if (absorption >= 1.5) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (selling very fast)`;
+    } else if (absorption >= 0.5) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (normal pace)`;
+    } else if (absorption > 0) {
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (selling slowly)`;
+    } else {
+        return `Most activity ${location} — ${listings} current listings, no recent sales data`;
+    }
 }
 
 /**
@@ -2480,7 +2602,7 @@ function renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData
                 ${renderPersonaAdvice(message.advice)}
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
                     <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                    <strong>Activity:</strong> ${getDominantBandStatement(priceBands.belowFMV, priceBands.atFMV, priceBands.aboveFMV, priceBands.absorptionBelow, priceBands.absorptionAt, priceBands.absorptionAbove)}
+                    <strong>Activity:</strong> ${getDominantBandStatement(priceBands.belowFMV, priceBands.atFMV, priceBands.aboveFMV, priceBands.absorptionBelow, priceBands.absorptionAt, priceBands.absorptionAbove, priceBands.salesBelow, priceBands.salesAt, priceBands.salesAbove)}
                 </div>
             </div>
         </div>
@@ -2508,6 +2630,9 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
     
     const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
     const liquidityScore = liquidityRisk.score || 0;
+    
+    // Extract all price band data including sales counts
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
     
     // Determine message and advice based on simple heuristics
     let icon, title, message, color, gradient, border, advice;
@@ -2597,8 +2722,6 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
         };
     }
     
-    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove } = priceBands;
-    
     const html = `
         <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
             <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Market Assessment</h4>
@@ -2614,7 +2737,7 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
                 ${renderPersonaAdvice(advice)}
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.8rem; color: #666;">
                     <strong>Data Quality Score:</strong> ${dataQualityScore}/100<br>
-                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove)}
+                    <strong>Activity:</strong> ${getDominantBandStatement(belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove)}
                 </div>
             </div>
         </div>
@@ -2741,6 +2864,8 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     
     // FMV vs Average comparison
     const marketValue = fmvData?.market_value || data.avg_price;
+    const quickSale = fmvData?.quick_sale || fmvData?.expected_low || marketValue * 0.85;
+    const patientSale = fmvData?.patient_sale || fmvData?.expected_high || marketValue * 1.15;
     const fmvVsAvg = ((marketValue - data.avg_price) / data.avg_price * 100);
     
     // Calculate Market Pressure % using active listings
@@ -2952,7 +3077,10 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                         { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
                         marketConfidence,
                         data,
-                        activeData
+                        activeData,
+                        marketValue,
+                        quickSale,
+                        patientSale
                     );
                     console.log('[DASHBOARD] Market Assessment HTML length:', assessmentHTML?.length || 0, 'chars');
                     return assessmentHTML || '';
@@ -3009,7 +3137,7 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                         ${marketConfidence.toFixed(0)}/100
                     </div>
                     <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
-                        ${marketConfidence >= 70 ? 'Strong price consensus' : marketConfidence >= 40 ? 'Moderate price variation' : marketConfidence >= 20 ? 'High price variation' : 'Extreme price scatter'}
+                        ${marketConfidence >= 85 ? 'Excellent price consensus' : marketConfidence >= 70 ? 'Good price consensus' : marketConfidence >= 55 ? 'Moderate price variation' : marketConfidence >= 40 ? 'High price variation' : marketConfidence >= 25 ? 'Very high price variation' : 'Market chaos'}
                     </div>
                     <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
                         <strong>CoV:</strong> ${coefficientOfVariation.toFixed(1)}%<br>
@@ -3075,89 +3203,27 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             </div>
             
             
-            <!-- Price Band Liquidity Analysis -->
-            ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? `
-            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Liquidity Profile</h4>
+            <!-- Price Band Liquidity Analysis & Pricing Recommendations -->
+            ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? (() => {
+                // Render liquidity profile
+                const liquidityHTML = renderLiquidityProfile(
+                    { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
+                    marketConfidence,
+                    marketValue,
+                    quickSale,
+                    patientSale
+                );
                 
-                ${(() => {
-                    // Use already-calculated band data from above (no need to recalculate)
-                    return `
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-                            <!-- Below FMV Band -->
-                            <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99ff99;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">10% or More Below FMV</div>
-                                <div style="font-size: 1.75rem; font-weight: 700; color: #34c759; margin-bottom: 0.5rem;">
-                                    ${belowFMV}
-                                </div>
-                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                                    Active listings<br>
-                                    <strong>Absorption:</strong> ${absorptionBelow}<br>
-                                    <strong>Sales:</strong> ${salesBelow} in 90 days
-                                </div>
-                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${getAbsorptionRatioInterpretation(absorptionBelow, 'below')}
-                                </div>
-                            </div>
-                            
-                            <!-- At FMV Band -->
-                            <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #99daff;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">±10% of FMV</div>
-                                <div style="font-size: 1.75rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem;">
-                                    ${atFMV}
-                                </div>
-                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                                    Active listings<br>
-                                    <strong>Absorption:</strong> ${absorptionAt}<br>
-                                    <strong>Sales:</strong> ${salesAt} in 90 days
-                                </div>
-                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${getAbsorptionRatioInterpretation(absorptionAt, 'at')}
-                                </div>
-                            </div>
-                            
-                            <!-- Above FMV Band -->
-                            <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 1.25rem; border-radius: 12px; border: 1px solid #ffd699;">
-                                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem; font-weight: 500;">10% or More Above FMV</div>
-                                <div style="font-size: 1.75rem; font-weight: 700; color: #ff9500; margin-bottom: 0.5rem;">
-                                    ${aboveFMV}
-                                </div>
-                                <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                                    Active listings<br>
-                                    <strong>Absorption:</strong> ${absorptionAbove}<br>
-                                    <strong>Sales:</strong> ${salesAbove} in 90 days
-                                </div>
-                                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.1); font-size: 0.7rem; color: #333; line-height: 1.3;">
-                                    ${getAbsorptionRatioInterpretation(absorptionAbove, 'above')}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
-                            <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                                <strong>💡 Insight:</strong> Absorption ratios show how fast cards sell at different prices. High ratios (1.0+) = fast sales with strong buyer demand. Moderate (0.5-1.0) = steady market activity. Low (below 0.5) = slow sales with fewer buyers than listings.
-                            </p>
-                        </div>
-                    `;
-                })()}
-            </div>
-            
-            <!-- Pricing Recommendations (Phase 2.2) -->
-            ${(() => {
-                if (!activeData || !activeData.items || activeData.items.length === 0) {
-                    return '';
-                }
-                
-                // Use already-calculated band data from above (no need to recalculate)
+                // Render pricing recommendations
                 const bands = {
                     belowFMV: { count: belowFMV, absorption: absorptionBelow, sales: salesBelow },
                     atFMV: { count: atFMV, absorption: absorptionAt, sales: salesAt },
                     aboveFMV: { count: aboveFMV, absorption: absorptionAbove, sales: salesAbove }
                 };
+                const pricingHTML = getPricingRecommendations(bands, marketValue, marketPressure, liquidityRisk?.score || 0);
                 
-                return getPricingRecommendations(bands, marketValue, marketPressure, liquidityRisk?.score || 0);
-            })()}
-            ` : ''}
+                return liquidityHTML + pricingHTML;
+            })() : ''}
         </div>
     `;
     
@@ -3542,16 +3608,40 @@ function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, li
     }
     
     // Confidence insights
-    if (marketConfidence >= 70) {
+    if (marketConfidence >= 85) {
         insights.push(`
-            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); border-left: 4px solid #007aff; border-radius: 6px;">
-                <strong style="color: #007aff;">✓ High Confidence:</strong> Strong market consensus with consistent pricing (${marketConfidence.toFixed(0)}/100 confidence score).
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); border-left: 4px solid #34c759; border-radius: 6px;">
+                <strong style="color: #34c759;">✓ Excellent Consensus:</strong> Exceptional price consistency with tight clustering (${marketConfidence.toFixed(0)}/100 confidence score).
             </li>
         `);
-    } else if (marketConfidence < 40) {
+    } else if (marketConfidence >= 70) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); border-left: 4px solid #007aff; border-radius: 6px;">
+                <strong style="color: #007aff;">✓ Good Consensus:</strong> Solid price consistency in the market (${marketConfidence.toFixed(0)}/100 confidence score).
+            </li>
+        `);
+    } else if (marketConfidence >= 55) {
         insights.push(`
             <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
-                <strong style="color: #ff9500;">⚠ Lower Confidence:</strong> Inconsistent pricing (${marketConfidence.toFixed(0)}/100). Consider gathering more data or refining search terms.
+                <strong style="color: #ff9500;">📊 Moderate Variation:</strong> Noticeable price spread (${marketConfidence.toFixed(0)}/100). Watch for price trends and patterns.
+            </li>
+        `);
+    } else if (marketConfidence >= 40) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
+                <strong style="color: #ff9500;">⚠ High Variation:</strong> Significant price scatter (${marketConfidence.toFixed(0)}/100). Consider gathering more data or refining search terms.
+            </li>
+        `);
+    } else if (marketConfidence >= 25) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); border-left: 4px solid #ff3b30; border-radius: 6px;">
+                <strong style="color: #ff3b30;">⚠ Very High Variation:</strong> Extreme price scatter (${marketConfidence.toFixed(0)}/100). Refine search or check for data quality issues.
+            </li>
+        `);
+    } else {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); border-left: 4px solid #1d1d1f; border-radius: 6px;">
+                <strong style="color: #1d1d1f;">⚠ Market Chaos:</strong> No price consensus (${marketConfidence.toFixed(0)}/100). Data may be unreliable or miscategorized.
             </li>
         `);
     }
@@ -3624,7 +3714,7 @@ async function updateFmv(data) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data.items),
+      body: JSON.stringify({ items: data.items }),
     });
     const fmvData = await resp.json();
 
@@ -3639,6 +3729,11 @@ async function updateFmv(data) {
     expectLowGlobal = fmvData.expected_low;
     expectHighGlobal = fmvData.expected_high;
     marketValueGlobal = fmvData.market_value || fmvData.expected_high;
+    
+    // Expose to window object for export functionality
+    window.expectLowGlobal = fmvData.expected_low;
+    window.expectHighGlobal = fmvData.expected_high;
+    window.marketValueGlobal = fmvData.market_value || fmvData.expected_high;
 
     const listPrice = toNinetyNine(fmvData.expected_high);
 
@@ -3646,6 +3741,13 @@ async function updateFmv(data) {
     const marketValue = marketValueGlobal;
     const quickSale = fmvData.quick_sale || fmvData.expected_low;
     const patientSale = fmvData.patient_sale || fmvData.expected_high;
+
+    // Calculate market confidence for FMV caveat (Phase 2)
+    const prices = data.items.map(item => item.total_price).filter(p => p > 0);
+    const stdDev = calculateStdDev(prices);
+    const avgPrice = data.avg_price;
+    const coefficientOfVariation = (stdDev / avgPrice) * 100;
+    const marketConfidence = Math.round(100 / (1 + coefficientOfVariation / 100));
 
     const fmvHtml = `
       <div id="fmv">
@@ -3670,6 +3772,17 @@ async function updateFmv(data) {
         <p style="font-size: 0.8rem; text-align: center; color: var(--subtle-text-color); margin-top: 1.5rem;">
           Based on ${fmvData.count} recent sales
         </p>
+        ${marketConfidence && marketConfidence < 70 ? `
+          <div style="background: #fff5e6; padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; border-left: 3px solid #ff9500;">
+            <p style="margin: 0; font-size: 0.75rem; color: #666; line-height: 1.5;">
+              ⚠️ <strong>Price Uncertainty:</strong> Market Confidence is ${marketConfidence.toFixed(0)}/100 (${
+                marketConfidence >= 55 ? 'Moderate variation' :
+                marketConfidence >= 40 ? 'High variation' :
+                'Very high variation'
+              }). These FMV estimates have higher uncertainty due to price scatter.
+            </p>
+          </div>
+        ` : ''}
       </div>
     `;
     // Technical details hidden from UI: Auction sales weighted higher than Buy-It-Now • More bids = higher weight

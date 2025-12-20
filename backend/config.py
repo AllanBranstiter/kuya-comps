@@ -264,6 +264,56 @@ MIN_ITEMS_FOR_FMV = 2
 
 
 # ============================================================================
+# Price Concentration Detection
+# ============================================================================
+
+MIN_CONCENTRATION_RATIO = 0.25
+"""
+Minimum ratio of sales in one cluster to detect price concentration.
+If 25%+ of sales fall within a tight price range, use cluster center as FMV.
+"""
+
+PRICE_BIN_SIZE = 0.50
+"""Bin size in dollars for histogram-based clustering ($0.50 bins)."""
+
+
+# ============================================================================
+# Active Market Validation
+# ============================================================================
+
+ACTIVE_FLOOR_MULTIPLIER = 1.2
+"""
+Active floor must be 20%+ higher than calculated quick_sale to trigger adjustment.
+Prevents over-adjustment from sparse active data.
+"""
+
+ACTIVE_FLOOR_ADJUSTMENT = 1.15
+"""Adjust market_value to 115% of active floor when validation triggers."""
+
+
+# ============================================================================
+# Parallel Classification for Outliers
+# ============================================================================
+
+RARE_PARALLEL_THRESHOLD = 50
+"""Parallel numbering threshold - /50 or lower is considered rare."""
+
+AUTO_KEYWORDS = ['auto', 'au', 'autograph', 'signature', 'signed']
+"""Keywords indicating autograph cards for outlier classification."""
+
+
+# ============================================================================
+# Volatility Thresholds
+# ============================================================================
+
+HIGH_VOLATILITY_CV = 0.5
+"""
+Coefficient of variation threshold for high price volatility.
+CV > 0.5 indicates unstable market, downgrades confidence.
+"""
+
+
+# ============================================================================
 # Volume Weighting Configuration
 # ============================================================================
 
