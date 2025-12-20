@@ -1,9 +1,9 @@
-window.lastData = null;
-window.lastActiveData = null; // Store active listings data
-window.lastMarketValue = null; // Store market value for filtering
+let lastData = null;
+let lastActiveData = null; // Store active listings data
+let lastMarketValue = null; // Store market value for filtering
 let priceDistributionChartTimeout = null; // Track pending chart draw
 let lastChartData = { soldData: null, activeData: null }; // Store data for chart redraws
-window.currentPriceTier = null; // Store tier from most recent search
+let currentPriceTier = null; // Store tier from most recent search
 
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -55,9 +55,9 @@ if (isIOS) {
 }
 
 // globals for expected sale band so we can draw it on the beeswarm
-window.expectLowGlobal = null;
-window.expectHighGlobal = null;
-window.marketValueGlobal = null;
+let expectLowGlobal = null;
+let expectHighGlobal = null;
+let marketValueGlobal = null;
 
 // Security: HTML sanitization function to prevent XSS attacks
 function escapeHtml(unsafe) {
@@ -399,7 +399,7 @@ async function showMarketConfidenceInfo() {
 
 // Show Liquidity Risk info popup
 async function showLiquidityRiskInfo() {
-    const tier = window.currentPriceTier;
+    const tier = currentPriceTier;
     
     // Load main popup content
     let popupContent;
@@ -1009,8 +1009,8 @@ async function renderData(data, secondData = null, marketValue = null) {
     const resultsDiv = document.getElementById("results");
     
     // Store active data and market value globally for checkbox toggle
-    window.lastActiveData = secondData;
-    window.lastMarketValue = marketValue;
+    lastActiveData = secondData;
+    lastMarketValue = marketValue;
     
     // Create first table
     let html = `
@@ -1306,7 +1306,7 @@ function toggleActiveListingsView() {
     console.log('[DEBUG] Toggle active listings view called');
     
     // Re-render the active listings table with the new checkbox state
-    if (window.lastData && window.lastActiveData) {
+    if (lastData && lastActiveData) {
         console.log('[DEBUG] Re-rendering active listings with stored data');
         
         // Get checkbox state
@@ -1316,7 +1316,7 @@ function toggleActiveListingsView() {
         console.log('[DEBUG] Checkbox state:', showAllListings);
         
         // Check if market value is available
-        const hasMarketValue = window.lastMarketValue !== null && window.lastMarketValue !== undefined;
+        const hasMarketValue = lastMarketValue !== null && lastMarketValue !== undefined;
         
         // Filter active listings based on checkbox state and FMV availability
         let filteredItems;
@@ -1324,7 +1324,7 @@ function toggleActiveListingsView() {
             // Show all Buy It Now items when:
             // 1. "See All" is checked, OR
             // 2. No market value available (can't filter by price)
-            filteredItems = window.lastActiveData.items.filter(item => {
+            filteredItems = lastActiveData.items.filter(item => {
                 const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const buyingFormat = (item.buying_format || '').toLowerCase();
                 const hasBuyItNow = buyingFormat.includes('buy it now');
@@ -1332,11 +1332,11 @@ function toggleActiveListingsView() {
             });
         } else {
             // Show only Buy It Now items at or below market value
-            filteredItems = window.lastActiveData.items.filter(item => {
+            filteredItems = lastActiveData.items.filter(item => {
                 const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
                 const buyingFormat = (item.buying_format || '').toLowerCase();
                 const hasBuyItNow = buyingFormat.includes('buy it now');
-                return price > 0 && price <= window.lastMarketValue && hasBuyItNow;
+                return price > 0 && price <= lastMarketValue && hasBuyItNow;
             });
         }
         
@@ -1372,7 +1372,7 @@ function toggleActiveListingsView() {
                 let discountDisplay = '';
                 let discountColor = '';
                 if (hasMarketValue) {
-                  const discount = ((window.lastMarketValue - itemPrice) / window.lastMarketValue * 100).toFixed(0);
+                  const discount = ((lastMarketValue - itemPrice) / lastMarketValue * 100).toFixed(0);
                   discountDisplay = discount > 0 ? `-${discount}%` : `+${Math.abs(discount)}%`;
                   discountColor = discount > 0 ? '#34c759' : '#ff3b30';
                 }
@@ -1471,12 +1471,12 @@ function clearSearch() {
     clearBeeswarm();
     
     // Reset stored data
-    window.lastData = null;
-    window.lastActiveData = null;
-    window.lastMarketValue = null;
-    window.expectLowGlobal = null;
-    window.expectHighGlobal = null;
-    window.marketValueGlobal = null;
+    lastData = null;
+    lastActiveData = null;
+    lastMarketValue = null;
+    expectLowGlobal = null;
+    expectHighGlobal = null;
+    marketValueGlobal = null;
     currentBeeswarmPrices = [];
     
     // Focus on the query input
@@ -1988,8 +1988,8 @@ async function runSearchInternal() {
     }
 
   // reset globals
-  window.expectLowGlobal = null;
-  window.expectHighGlobal = null;
+  expectLowGlobal = null;
+  expectHighGlobal = null;
 
     try {
       // Set up timeout and abort controller
@@ -2066,7 +2066,7 @@ async function runSearchInternal() {
     console.log(`  - Final unique items: ${data.items.length}`);
     console.log(`  - Min/Max/Avg prices: ${formatMoney(data.min_price)} / ${formatMoney(data.max_price)} / ${formatMoney(data.avg_price)}`);
 
-    window.lastData = data;
+    lastData = data;
 
     // Calculate Fair Market Value first
     console.log('[DEBUG] Calculating Fair Market Value...');
@@ -2209,7 +2209,7 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
         `;
       }
       
-      window.lastData = null;
+      lastData = null;
       console.error('[ERROR] Search failed:', err);
     } finally {
       // Restore button state
@@ -2461,6 +2461,7 @@ function renderMarketAssessmentFromAPI(apiResponse, priceBands, data, activeData
     
     // Store tier globally for liquidity popup
     window.currentPriceTier = tier;
+    currentPriceTier = tier;
     
     return `
         <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
@@ -2636,7 +2637,7 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
     
     // Try to fetch tier-specific message from backend
     const apiResponse = await fetchTierMarketMessage({
-        fmv: window.marketValueGlobal,
+        fmv: marketValueGlobal,
         avg_listing_price: activeData?.avg_price || null,
         market_pressure: marketPressure,
         liquidity_score: liquidityRisk.score,
@@ -3635,14 +3636,14 @@ async function updateFmv(data) {
     }
 
     // store for beeswarm chart
-    window.expectLowGlobal = fmvData.expected_low;
-    window.expectHighGlobal = fmvData.expected_high;
-    window.marketValueGlobal = fmvData.market_value || fmvData.expected_high;
+    expectLowGlobal = fmvData.expected_low;
+    expectHighGlobal = fmvData.expected_high;
+    marketValueGlobal = fmvData.market_value || fmvData.expected_high;
 
     const listPrice = toNinetyNine(fmvData.expected_high);
 
     // Use new volume-weighted values with fallbacks
-    const marketValue = window.marketValueGlobal;
+    const marketValue = marketValueGlobal;
     const quickSale = fmvData.quick_sale || fmvData.expected_low;
     const patientSale = fmvData.patient_sale || fmvData.expected_high;
 
@@ -3812,10 +3813,10 @@ function drawBeeswarm(prices) {
   };
 
   // --- Draw Premium FMV Band ---
-  console.log('FMV values:', window.expectLowGlobal, window.expectHighGlobal, 'Price range:', priceRange);
-  if (window.expectLowGlobal !== null && window.expectHighGlobal !== null && priceRange > 0) {
-    const x1 = xScale(window.expectLowGlobal);
-    const x2 = xScale(window.expectHighGlobal);
+  console.log('FMV values:', expectLowGlobal, expectHighGlobal, 'Price range:', priceRange);
+  if (expectLowGlobal !== null && expectHighGlobal !== null && priceRange > 0) {
+    const x1 = xScale(expectLowGlobal);
+    const x2 = xScale(expectHighGlobal);
     
     // Create modern gradient for FMV band
     const gradient = ctx.createLinearGradient(x1, margin.top, x2, height - margin.bottom);
@@ -3870,10 +3871,10 @@ function drawBeeswarm(prices) {
     ctx.textAlign = "center";
     
     // FMV Low dollar value label (above bar)
-    ctx.fillText(formatMoney(window.expectLowGlobal), x1, margin.top - 8);
+    ctx.fillText(formatMoney(expectLowGlobal), x1, margin.top - 8);
     
     // FMV High dollar value label (above bar)
-    ctx.fillText(formatMoney(window.expectHighGlobal), x2, margin.top - 8);
+    ctx.fillText(formatMoney(expectHighGlobal), x2, margin.top - 8);
   }
 
   // --- Draw Points with improved collision detection ---
@@ -3973,8 +3974,8 @@ function drawBeeswarm(prices) {
     ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 30);
     
     // FMV marker with label
-    if (window.marketValueGlobal !== null && window.marketValueGlobal >= minPrice && window.marketValueGlobal <= maxPrice) {
-      const fmvX = xScale(window.marketValueGlobal);
+    if (marketValueGlobal !== null && marketValueGlobal >= minPrice && marketValueGlobal <= maxPrice) {
+      const fmvX = xScale(marketValueGlobal);
       
       // Draw vertical line for FMV
       ctx.beginPath();
@@ -3991,7 +3992,7 @@ function drawBeeswarm(prices) {
       ctx.fillText("FMV", fmvX, height - margin.bottom + 15);
       ctx.fillStyle = "#ff9500";
       ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
-      ctx.fillText(formatMoney(window.marketValueGlobal), fmvX, height - margin.bottom + 30);
+      ctx.fillText(formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 30);
     }
   } else {
     // All prices are the same
