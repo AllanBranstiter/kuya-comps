@@ -4573,31 +4573,17 @@ function drawPriceDistributionChart(soldData, activeData) {
   canvas.dataset.innerWidth = innerWidth;
   canvas.dataset.innerHeight = innerHeight;
   
-  // Add event listeners for interactive crosshair (remove old ones first)
-  const newCanvas = canvas.cloneNode(true);
-  canvas.parentNode.replaceChild(newCanvas, canvas);
+  // Remove old event listeners if they exist
+  canvas.removeEventListener('mousemove', handleVolumeProfileHover);
+  canvas.removeEventListener('mouseleave', handleVolumeProfileLeave);
+  canvas.removeEventListener('touchmove', handleVolumeProfileTouch);
+  canvas.removeEventListener('touchend', handleVolumeProfileLeave);
   
-  // Re-get the canvas after replacement
-  const interactiveCanvas = document.getElementById("priceDistributionCanvas");
-  if (interactiveCanvas) {
-      // Copy dataset back
-      interactiveCanvas.dataset.minPrice = minPrice;
-      interactiveCanvas.dataset.maxPrice = maxPrice;
-      interactiveCanvas.dataset.marginLeft = margin.left;
-      interactiveCanvas.dataset.marginRight = margin.right;
-      interactiveCanvas.dataset.marginTop = margin.top;
-      interactiveCanvas.dataset.marginBottom = margin.bottom;
-      interactiveCanvas.dataset.innerWidth = innerWidth;
-      interactiveCanvas.dataset.innerHeight = innerHeight;
-      
-      // Mouse events
-      interactiveCanvas.addEventListener('mousemove', handleVolumeProfileHover);
-      interactiveCanvas.addEventListener('mouseleave', handleVolumeProfileLeave);
-      
-      // Touch events
-      interactiveCanvas.addEventListener('touchmove', handleVolumeProfileTouch, { passive: false });
-      interactiveCanvas.addEventListener('touchend', handleVolumeProfileLeave);
-  }
+  // Add event listeners for interactive crosshair
+  canvas.addEventListener('mousemove', handleVolumeProfileHover);
+  canvas.addEventListener('mouseleave', handleVolumeProfileLeave);
+  canvas.addEventListener('touchmove', handleVolumeProfileTouch, { passive: false });
+  canvas.addEventListener('touchend', handleVolumeProfileLeave);
   
   console.log('[CHART] Price distribution chart drawing completed successfully!');
   console.log('[CHART] Final canvas state:', {
