@@ -1520,6 +1520,10 @@ function clearSearch() {
     marketValueGlobal = null;
     currentBeeswarmPrices = [];
     
+    // Clear crosshair positions
+    beeswarmCrosshairX = null;
+    volumeProfileCrosshairX = null;
+    
     // Clear window object references too
     window.lastData = null;
     window.lastActiveData = null;
@@ -1855,6 +1859,10 @@ async function runSearchInternal() {
     }
 
     let query = getSearchQueryWithExclusions(baseQuery);
+    
+    // Reset crosshair positions for new search
+    beeswarmCrosshairX = null;
+    volumeProfileCrosshairX = null;
 
     // Add loading styles if not present
     if (!document.getElementById('loading-styles')) {
@@ -4182,9 +4190,9 @@ function drawBeeswarm(prices) {
   canvas.addEventListener('touchmove', handleBeeswarmTouch, { passive: false });
   canvas.addEventListener('touchend', handleBeeswarmTouchEnd);
   
-  // Draw persisted crosshair if it exists
+  // Draw persisted crosshair if it exists (without recursive redraw)
   if (beeswarmCrosshairX !== null) {
-      drawBeeswarmCrosshair(canvas, beeswarmCrosshairX, true);
+      drawBeeswarmCrosshairDirect(canvas, beeswarmCrosshairX);
   }
 }
 
@@ -4629,9 +4637,9 @@ function drawPriceDistributionChart(soldData, activeData) {
   canvas.addEventListener('touchmove', handleVolumeProfileTouch, { passive: false });
   canvas.addEventListener('touchend', handleVolumeProfileTouchEnd);
   
-  // Draw persisted crosshair if it exists
+  // Draw persisted crosshair if it exists (without recursive redraw)
   if (volumeProfileCrosshairX !== null) {
-      drawVolumeProfileCrosshair(canvas, volumeProfileCrosshairX, true);
+      drawVolumeProfileCrosshairDirect(canvas, volumeProfileCrosshairX);
   }
   
   console.log('[CHART] Price distribution chart drawing completed successfully!');
@@ -4904,6 +4912,25 @@ function handleBeeswarmTouchEnd(e) {
  * Draw interactive crosshair on FMV beeswarm chart
  */
 function drawBeeswarmCrosshair(canvas, x, isPersisted) {
+    // Save the persisted position and clear it temporarily to avoid recursion
+    const savedCrosshair = beeswarmCrosshairX;
+    beeswarmCrosshairX = null;
+    
+    // Redraw chart first (without persisted crosshair)
+    const prices = currentBeeswarmPrices;
+    drawBeeswarm(prices);
+    
+    // Restore the persisted position
+    beeswarmCrosshairX = savedCrosshair;
+    
+    // Now draw the crosshair directly
+    drawBeeswarmCrosshairDirect(canvas, x, isPersisted);
+}
+
+/**
+ * Draw crosshair directly on canvas without redrawing the chart
+ */
+function drawBeeswarmCrosshairDirect(canvas, x, isPersisted = true) {
     const minPrice = parseFloat(canvas.dataset.minPrice);
     const maxPrice = parseFloat(canvas.dataset.maxPrice);
     const marginLeft = parseFloat(canvas.dataset.marginLeft);
@@ -4913,10 +4940,6 @@ function drawBeeswarmCrosshair(canvas, x, isPersisted) {
     
     const relativeX = x - marginLeft;
     const price = minPrice + (relativeX / innerWidth) * (maxPrice - minPrice);
-    
-    // Redraw chart first
-    const prices = currentBeeswarmPrices;
-    drawBeeswarm(prices);
     
     const ctx = canvas.getContext('2d');
     const height = canvas.height;
@@ -5012,6 +5035,24 @@ function handleVolumeProfileTouchEnd(e) {
  * Draw interactive crosshair on Volume Profile chart with persistence
  */
 function drawVolumeProfileCrosshair(canvas, x, isPersisted) {
+    // Save the persisted position and clear it temporarily to avoid recursion
+    const savedCrosshair = volumeProfileCrosshairX;
+    volumeProfileCrosshairX = null;
+    
+    // Redraw chart first (without persisted crosshair)
+    drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    
+    // Restore the persisted position
+    volumeProfileCrosshairX = savedCrosshair;
+    
+    // Now draw the crosshair directly
+    drawVolumeProfileCrosshairDirect(canvas, x, isPersisted);
+}
+
+/**
+ * Draw crosshair directly on canvas without redrawing the chart
+ */
+function drawVolumeProfileCrosshairDirect(canvas, x, isPersisted = true) {
     const minPrice = parseFloat(canvas.dataset.minPrice);
     const maxPrice = parseFloat(canvas.dataset.maxPrice);
     const marginLeft = parseFloat(canvas.dataset.marginLeft);
@@ -5021,9 +5062,6 @@ function drawVolumeProfileCrosshair(canvas, x, isPersisted) {
     
     const relativeX = x - marginLeft;
     const price = minPrice + (relativeX / innerWidth) * (maxPrice - minPrice);
-    
-    // Redraw chart first
-    drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
     
     const ctx = canvas.getContext('2d');
     const height = canvas.height;
