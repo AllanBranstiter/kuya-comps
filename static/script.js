@@ -4,6 +4,9 @@ let lastMarketValue = null; // Store market value for filtering
 let priceDistributionChartTimeout = null; // Track pending chart draw
 let lastChartData = { soldData: null, activeData: null }; // Store data for chart redraws
 let currentPriceTier = null; // Store tier from most recent search
+let volumeProfileBins = null; // Store current number of bins for Volume Profile chart (null = auto)
+let beeswarmCrosshairX = null; // Store crosshair position for FMV beeswarm chart (persists)
+let volumeProfileCrosshairX = null; // Store crosshair position for Volume Profile chart (persists)
 
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -1517,6 +1520,10 @@ function clearSearch() {
     marketValueGlobal = null;
     currentBeeswarmPrices = [];
     
+    // Clear crosshair positions
+    beeswarmCrosshairX = null;
+    volumeProfileCrosshairX = null;
+    
     // Clear window object references too
     window.lastData = null;
     window.lastActiveData = null;
@@ -1852,6 +1859,10 @@ async function runSearchInternal() {
     }
 
     let query = getSearchQueryWithExclusions(baseQuery);
+    
+    // Reset crosshair positions for new search
+    beeswarmCrosshairX = null;
+    volumeProfileCrosshairX = null;
 
     // Add loading styles if not present
     if (!document.getElementById('loading-styles')) {
@@ -3183,10 +3194,21 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             
             <!-- Price Distribution Analysis -->
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Volume Profile</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h4 style="margin: 0; color: var(--text-color);">Volume Profile</h4>
+                    
+                    <!-- Bin Count Controls -->
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 0.85rem; color: var(--subtle-text-color);">Bars:</span>
+                        <button onclick="adjustVolumeBins(-5)" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; font-weight: bold; color: var(--text-color); transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#d1d1d6'" onmouseout="this.style.background='var(--border-color)'">−</button>
+                        <span id="volumeBinCount" style="font-weight: 600; color: var(--text-color); min-width: 30px; text-align: center; font-size: 0.95rem;">${volumeProfileBins || (isMobileDevice ? 10 : 25)}</span>
+                        <button onclick="adjustVolumeBins(5)" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; font-weight: bold; color: var(--text-color); transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#d1d1d6'" onmouseout="this.style.background='var(--border-color)'">+</button>
+                        <button onclick="resetVolumeBins()" style="background: var(--border-color); border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.8rem; color: var(--text-color); transition: all 0.2s;" onmouseover="this.style.background='#d1d1d6'" onmouseout="this.style.background='var(--border-color)'" title="Reset to default">Reset</button>
+                    </div>
+                </div>
                 
                 <div style="width: 100%; position: relative; margin-bottom: 1rem;">
-                    <canvas id="priceDistributionCanvas" style="width: 100%; height: 300px; display: block;"></canvas>
+                    <canvas id="priceDistributionCanvas" style="width: 100%; height: 300px; display: block; cursor: crosshair;"></canvas>
                 </div>
                 
                 <!-- Legend -->
@@ -4143,6 +4165,35 @@ function drawBeeswarm(prices) {
   ctx.fillStyle = "#1d1d1f";
   ctx.textAlign = "left";
   ctx.fillText(legendText, legendX + rectWidth + spacing, legendY - 3);
+  
+  // Store chart metadata for interactive crosshair
+  canvas.dataset.minPrice = minPrice;
+  canvas.dataset.maxPrice = maxPrice;
+  canvas.dataset.marginLeft = margin.left;
+  canvas.dataset.marginRight = margin.right;
+  canvas.dataset.marginTop = margin.top;
+  canvas.dataset.marginBottom = margin.bottom;
+  canvas.dataset.innerWidth = innerWidth;
+  
+  // Make canvas interactive
+  canvas.style.cursor = 'crosshair';
+  
+  // Remove old event listeners if they exist
+  canvas.removeEventListener('mousemove', handleBeeswarmHover);
+  canvas.removeEventListener('click', handleBeeswarmClick);
+  canvas.removeEventListener('touchmove', handleBeeswarmTouch);
+  canvas.removeEventListener('touchend', handleBeeswarmTouchEnd);
+  
+  // Add event listeners for interactive crosshair
+  canvas.addEventListener('mousemove', handleBeeswarmHover);
+  canvas.addEventListener('click', handleBeeswarmClick);
+  canvas.addEventListener('touchmove', handleBeeswarmTouch, { passive: false });
+  canvas.addEventListener('touchend', handleBeeswarmTouchEnd);
+  
+  // Draw persisted crosshair if it exists (without recursive redraw)
+  if (beeswarmCrosshairX !== null) {
+      drawBeeswarmCrosshairDirect(canvas, beeswarmCrosshairX);
+  }
 }
 
 function drawComparisonBeeswarm(cardResults) {
@@ -4444,8 +4495,9 @@ function drawPriceDistributionChart(soldData, activeData) {
   const maxPrice = Math.max(...allPrices);
   const priceRange = maxPrice - minPrice;
   
-  // Create price bins (10 bins)
-  const numBins = 10;
+  // Create price bins - use user setting or default based on device
+  const defaultBins = isMobileDevice ? 10 : 25;
+  const numBins = volumeProfileBins || defaultBins;
   const binWidth = priceRange / numBins;
   
   // Initialize bins
@@ -4562,24 +4614,33 @@ function drawPriceDistributionChart(soldData, activeData) {
       }
   }
   
-  // Draw X-axis labels (price ranges)
-  ctx.fillStyle = "#6e6e73";
-  ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
-  ctx.textAlign = "center";
+  // X-axis labels removed - will be shown on hover/touch interaction
+  // Store chart metadata for interactive crosshair
+  canvas.dataset.minPrice = minPrice;
+  canvas.dataset.maxPrice = maxPrice;
+  canvas.dataset.marginLeft = margin.left;
+  canvas.dataset.marginRight = margin.right;
+  canvas.dataset.marginTop = margin.top;
+  canvas.dataset.marginBottom = margin.bottom;
+  canvas.dataset.innerWidth = innerWidth;
+  canvas.dataset.innerHeight = innerHeight;
   
-  // Show first, middle, and last tick
-  const tickIndices = [0, Math.floor(numBins / 2), numBins - 1];
-  tickIndices.forEach(i => {
-      const binStart = minPrice + (i * binWidth);
-      const binEnd = binStart + binWidth;
-      const x = margin.left + (i * barAreaWidth) + (barAreaWidth / 2);
-      
-      ctx.fillText(formatMoney(binStart), x, height - margin.bottom + 20);
-  });
+  // Remove old event listeners if they exist
+  canvas.removeEventListener('mousemove', handleVolumeProfileHover);
+  canvas.removeEventListener('mouseleave', handleVolumeProfileLeave);
+  canvas.removeEventListener('touchmove', handleVolumeProfileTouch);
+  canvas.removeEventListener('touchend', handleVolumeProfileLeave);
   
-  // Draw final price
-  const finalX = margin.left + (numBins * barAreaWidth);
-  ctx.fillText(formatMoney(maxPrice), finalX, height - margin.bottom + 20);
+  // Add event listeners for interactive crosshair
+  canvas.addEventListener('mousemove', handleVolumeProfileHover);
+  canvas.addEventListener('click', handleVolumeProfileClick);
+  canvas.addEventListener('touchmove', handleVolumeProfileTouch, { passive: false });
+  canvas.addEventListener('touchend', handleVolumeProfileTouchEnd);
+  
+  // Draw persisted crosshair if it exists (without recursive redraw)
+  if (volumeProfileCrosshairX !== null) {
+      drawVolumeProfileCrosshairDirect(canvas, volumeProfileCrosshairX);
+  }
   
   console.log('[CHART] Price distribution chart drawing completed successfully!');
   console.log('[CHART] Final canvas state:', {
@@ -4594,5 +4655,461 @@ function drawPriceDistributionChart(soldData, activeData) {
       console.error('[CHART ERROR] Stack trace:', error.stack);
       // Chart failure is graceful - won't block other functionality
   }
+}
+
+// ============================================================================
+// INTERACTIVE VOLUME PROFILE HANDLERS
+// ============================================================================
+
+/**
+ * Handle mouse movement over Volume Profile chart
+ * Shows interactive crosshair with price label
+ */
+function handleVolumeProfileHover(e) {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginRight = parseFloat(canvas.dataset.marginRight);
+    
+    // Only show crosshair within chart area
+    if (x >= marginLeft && x <= canvas.width - marginRight) {
+        drawVolumeProfileCrosshair(canvas, x);
+    }
+}
+
+/**
+ * Handle touch movement over Volume Profile chart
+ * Shows interactive crosshair with price label
+ */
+function handleVolumeProfileTouch(e) {
+    e.preventDefault();
+    const canvas = e.target;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginRight = parseFloat(canvas.dataset.marginRight);
+    
+    if (x >= marginLeft && x <= canvas.width - marginRight) {
+        drawVolumeProfileCrosshair(canvas, x);
+    }
+}
+
+/**
+ * Handle mouse/touch leave - redraw chart without crosshair
+ */
+function handleVolumeProfileLeave() {
+    // Redraw chart without crosshair
+    if (lastChartData.soldData) {
+        drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    }
+}
+
+/**
+ * Draw interactive crosshair on Volume Profile chart
+ * @param {HTMLCanvasElement} canvas - The canvas element
+ * @param {number} x - X coordinate of mouse/touch position
+ */
+function drawVolumeProfileCrosshair(canvas, x) {
+    // Recalculate price from x position
+    const minPrice = parseFloat(canvas.dataset.minPrice);
+    const maxPrice = parseFloat(canvas.dataset.maxPrice);
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginTop = parseFloat(canvas.dataset.marginTop);
+    const marginBottom = parseFloat(canvas.dataset.marginBottom);
+    const innerWidth = parseFloat(canvas.dataset.innerWidth);
+    
+    const relativeX = x - marginLeft;
+    const price = minPrice + (relativeX / innerWidth) * (maxPrice - minPrice);
+    
+    // Redraw chart first
+    drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    
+    const ctx = canvas.getContext('2d');
+    const height = canvas.height;
+    
+    // Draw crosshair line
+    ctx.strokeStyle = 'rgba(255, 149, 0, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x, marginTop);
+    ctx.lineTo(x, height - marginBottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw price tooltip
+    const priceText = formatMoney(price);
+    ctx.font = 'bold 14px sans-serif';
+    const textWidth = ctx.measureText(priceText).width;
+    const tooltipPadding = 8;
+    const tooltipWidth = textWidth + (tooltipPadding * 2);
+    const tooltipHeight = 28;
+    
+    // Position tooltip - keep it within canvas bounds
+    let tooltipX = x - (tooltipWidth / 2);
+    const minTooltipX = marginLeft;
+    const maxTooltipX = canvas.width - marginLeft - tooltipWidth;
+    tooltipX = Math.max(minTooltipX, Math.min(tooltipX, maxTooltipX));
+    
+    const tooltipY = marginTop - 10;
+    
+    // Draw tooltip background with rounded corners
+    ctx.fillStyle = 'rgba(255, 149, 0, 0.95)';
+    ctx.beginPath();
+    const radius = 4;
+    ctx.moveTo(tooltipX + radius, tooltipY - tooltipHeight);
+    ctx.lineTo(tooltipX + tooltipWidth - radius, tooltipY - tooltipHeight);
+    ctx.quadraticCurveTo(tooltipX + tooltipWidth, tooltipY - tooltipHeight, tooltipX + tooltipWidth, tooltipY - tooltipHeight + radius);
+    ctx.lineTo(tooltipX + tooltipWidth, tooltipY - radius);
+    ctx.quadraticCurveTo(tooltipX + tooltipWidth, tooltipY, tooltipX + tooltipWidth - radius, tooltipY);
+    ctx.lineTo(tooltipX + radius, tooltipY);
+    ctx.quadraticCurveTo(tooltipX, tooltipY, tooltipX, tooltipY - radius);
+    ctx.lineTo(tooltipX, tooltipY - tooltipHeight + radius);
+    ctx.quadraticCurveTo(tooltipX, tooltipY - tooltipHeight, tooltipX + radius, tooltipY - tooltipHeight);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw tooltip text
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(priceText, tooltipX + tooltipWidth / 2, tooltipY - 8);
+}
+
+/**
+ * Adjust the number of bins in the Volume Profile chart
+ * @param {number} delta - Amount to change (positive or negative)
+ */
+function adjustVolumeBins(delta) {
+    const defaultBins = isMobileDevice ? 10 : 25;
+    const currentBins = volumeProfileBins || defaultBins;
+    const newBins = currentBins + delta;
+    
+    // Enforce limits: minimum 5 bins, maximum 50 bins
+    if (newBins >= 5 && newBins <= 50) {
+        volumeProfileBins = newBins;
+        
+        // Update display
+        const binCountDisplay = document.getElementById('volumeBinCount');
+        if (binCountDisplay) {
+            binCountDisplay.textContent = newBins;
+        }
+        
+        // Redraw chart with new bin count
+        if (lastChartData.soldData) {
+            drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+        }
+        
+        console.log('[VOLUME PROFILE] Adjusted bins to:', newBins);
+    } else {
+        console.log('[VOLUME PROFILE] Bin adjustment blocked - would exceed limits (5-50)');
+    }
+}
+
+/**
+ * Reset Volume Profile bins to default based on device
+ */
+function resetVolumeBins() {
+    const defaultBins = isMobileDevice ? 10 : 25;
+    volumeProfileBins = null; // Reset to auto
+    
+    // Update display
+    const binCountDisplay = document.getElementById('volumeBinCount');
+    if (binCountDisplay) {
+        binCountDisplay.textContent = defaultBins;
+    }
+    
+    // Redraw chart with default bin count
+    if (lastChartData.soldData) {
+        drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    }
+    
+    console.log('[VOLUME PROFILE] Reset bins to default:', defaultBins);
+}
+
+// ============================================================================
+// INTERACTIVE FMV BEESWARM HANDLERS
+// ============================================================================
+
+/**
+ * Handle mouse movement over FMV beeswarm chart
+ */
+function handleBeeswarmHover(e) {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginRight = parseFloat(canvas.dataset.marginRight);
+    
+    if (x >= marginLeft && x <= canvas.width - marginRight) {
+        drawBeeswarmCrosshair(canvas, x, false);
+    }
+}
+
+/**
+ * Handle click on FMV beeswarm chart - persist crosshair
+ */
+function handleBeeswarmClick(e) {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginRight = parseFloat(canvas.dataset.marginRight);
+    
+    if (x >= marginLeft && x <= canvas.width - marginRight) {
+        beeswarmCrosshairX = x;
+        drawBeeswarmCrosshair(canvas, x, true);
+        console.log('[BEESWARM] Crosshair locked at x:', x);
+    }
+}
+
+/**
+ * Handle touch movement over FMV beeswarm chart
+ */
+function handleBeeswarmTouch(e) {
+    e.preventDefault();
+    const canvas = e.target;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginRight = parseFloat(canvas.dataset.marginRight);
+    
+    if (x >= marginLeft && x <= canvas.width - marginRight) {
+        drawBeeswarmCrosshair(canvas, x, false);
+    }
+}
+
+/**
+ * Handle touch end on FMV beeswarm chart - persist crosshair
+ */
+function handleBeeswarmTouchEnd(e) {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    
+    if (e.changedTouches && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const x = touch.clientX - rect.left;
+        
+        const marginLeft = parseFloat(canvas.dataset.marginLeft);
+        const marginRight = parseFloat(canvas.dataset.marginRight);
+        
+        if (x >= marginLeft && x <= canvas.width - marginRight) {
+            beeswarmCrosshairX = x;
+            drawBeeswarmCrosshair(canvas, x, true);
+            console.log('[BEESWARM] Crosshair locked at x:', x);
+        }
+    }
+}
+
+/**
+ * Draw interactive crosshair on FMV beeswarm chart
+ */
+function drawBeeswarmCrosshair(canvas, x, isPersisted) {
+    // Save the persisted position and clear it temporarily to avoid recursion
+    const savedCrosshair = beeswarmCrosshairX;
+    beeswarmCrosshairX = null;
+    
+    // Redraw chart first (without persisted crosshair)
+    const prices = currentBeeswarmPrices;
+    drawBeeswarm(prices);
+    
+    // Restore the persisted position
+    beeswarmCrosshairX = savedCrosshair;
+    
+    // Now draw the crosshair directly
+    drawBeeswarmCrosshairDirect(canvas, x, isPersisted);
+}
+
+/**
+ * Draw crosshair directly on canvas without redrawing the chart
+ */
+function drawBeeswarmCrosshairDirect(canvas, x, isPersisted = true) {
+    const minPrice = parseFloat(canvas.dataset.minPrice);
+    const maxPrice = parseFloat(canvas.dataset.maxPrice);
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginTop = parseFloat(canvas.dataset.marginTop);
+    const marginBottom = parseFloat(canvas.dataset.marginBottom);
+    const innerWidth = parseFloat(canvas.dataset.innerWidth);
+    
+    const relativeX = x - marginLeft;
+    const price = minPrice + (relativeX / innerWidth) * (maxPrice - minPrice);
+    
+    const ctx = canvas.getContext('2d');
+    const height = canvas.height;
+    
+    // Draw crosshair line (solid if persisted, dashed if temporary)
+    ctx.strokeStyle = isPersisted ? 'rgba(255, 149, 0, 1.0)' : 'rgba(255, 149, 0, 0.8)';
+    ctx.lineWidth = isPersisted ? 2.5 : 2;
+    ctx.setLineDash(isPersisted ? [] : [5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x, marginTop);
+    ctx.lineTo(x, height - marginBottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw price tooltip
+    const priceText = formatMoney(price);
+    ctx.font = 'bold 14px sans-serif';
+    const textWidth = ctx.measureText(priceText).width;
+    const tooltipPadding = 8;
+    const tooltipWidth = textWidth + (tooltipPadding * 2);
+    const tooltipHeight = 28;
+    
+    let tooltipX = x - (tooltipWidth / 2);
+    const minTooltipX = marginLeft;
+    const maxTooltipX = canvas.width - marginLeft - tooltipWidth;
+    tooltipX = Math.max(minTooltipX, Math.min(tooltipX, maxTooltipX));
+    
+    const tooltipY = marginTop - 10;
+    
+    // Draw tooltip background (more opaque if persisted)
+    ctx.fillStyle = isPersisted ? 'rgba(255, 149, 0, 1.0)' : 'rgba(255, 149, 0, 0.95)';
+    ctx.beginPath();
+    const radius = 4;
+    ctx.moveTo(tooltipX + radius, tooltipY - tooltipHeight);
+    ctx.lineTo(tooltipX + tooltipWidth - radius, tooltipY - tooltipHeight);
+    ctx.quadraticCurveTo(tooltipX + tooltipWidth, tooltipY - tooltipHeight, tooltipX + tooltipWidth, tooltipY - tooltipHeight + radius);
+    ctx.lineTo(tooltipX + tooltipWidth, tooltipY - radius);
+    ctx.quadraticCurveTo(tooltipX + tooltipWidth, tooltipY, tooltipX + tooltipWidth - radius, tooltipY);
+    ctx.lineTo(tooltipX + radius, tooltipY);
+    ctx.quadraticCurveTo(tooltipX, tooltipY, tooltipX, tooltipY - radius);
+    ctx.lineTo(tooltipX, tooltipY - tooltipHeight + radius);
+    ctx.quadraticCurveTo(tooltipX, tooltipY - tooltipHeight, tooltipX + radius, tooltipY - tooltipHeight);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw tooltip text
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(priceText, tooltipX + tooltipWidth / 2, tooltipY - 8);
+}
+
+/**
+ * Handle click on Volume Profile chart - persist crosshair
+ */
+function handleVolumeProfileClick(e) {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginRight = parseFloat(canvas.dataset.marginRight);
+    
+    if (x >= marginLeft && x <= canvas.width - marginRight) {
+        volumeProfileCrosshairX = x;
+        drawVolumeProfileCrosshair(canvas, x, true);
+        console.log('[VOLUME PROFILE] Crosshair locked at x:', x);
+    }
+}
+
+/**
+ * Handle touch end on Volume Profile chart - persist crosshair
+ */
+function handleVolumeProfileTouchEnd(e) {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    
+    if (e.changedTouches && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const x = touch.clientX - rect.left;
+        
+        const marginLeft = parseFloat(canvas.dataset.marginLeft);
+        const marginRight = parseFloat(canvas.dataset.marginRight);
+        
+        if (x >= marginLeft && x <= canvas.width - marginRight) {
+            volumeProfileCrosshairX = x;
+            drawVolumeProfileCrosshair(canvas, x, true);
+            console.log('[VOLUME PROFILE] Crosshair locked at x:', x);
+        }
+    }
+}
+
+/**
+ * Draw interactive crosshair on Volume Profile chart with persistence
+ */
+function drawVolumeProfileCrosshair(canvas, x, isPersisted) {
+    // Save the persisted position and clear it temporarily to avoid recursion
+    const savedCrosshair = volumeProfileCrosshairX;
+    volumeProfileCrosshairX = null;
+    
+    // Redraw chart first (without persisted crosshair)
+    drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    
+    // Restore the persisted position
+    volumeProfileCrosshairX = savedCrosshair;
+    
+    // Now draw the crosshair directly
+    drawVolumeProfileCrosshairDirect(canvas, x, isPersisted);
+}
+
+/**
+ * Draw crosshair directly on canvas without redrawing the chart
+ */
+function drawVolumeProfileCrosshairDirect(canvas, x, isPersisted = true) {
+    const minPrice = parseFloat(canvas.dataset.minPrice);
+    const maxPrice = parseFloat(canvas.dataset.maxPrice);
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginTop = parseFloat(canvas.dataset.marginTop);
+    const marginBottom = parseFloat(canvas.dataset.marginBottom);
+    const innerWidth = parseFloat(canvas.dataset.innerWidth);
+    
+    const relativeX = x - marginLeft;
+    const price = minPrice + (relativeX / innerWidth) * (maxPrice - minPrice);
+    
+    const ctx = canvas.getContext('2d');
+    const height = canvas.height;
+    
+    // Draw crosshair line (solid if persisted, dashed if temporary)
+    ctx.strokeStyle = isPersisted ? 'rgba(255, 149, 0, 1.0)' : 'rgba(255, 149, 0, 0.8)';
+    ctx.lineWidth = isPersisted ? 2.5 : 2;
+    ctx.setLineDash(isPersisted ? [] : [5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x, marginTop);
+    ctx.lineTo(x, height - marginBottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw price tooltip
+    const priceText = formatMoney(price);
+    ctx.font = 'bold 14px sans-serif';
+    const textWidth = ctx.measureText(priceText).width;
+    const tooltipPadding = 8;
+    const tooltipWidth = textWidth + (tooltipPadding * 2);
+    const tooltipHeight = 28;
+    
+    let tooltipX = x - (tooltipWidth / 2);
+    const minTooltipX = marginLeft;
+    const maxTooltipX = canvas.width - marginLeft - tooltipWidth;
+    tooltipX = Math.max(minTooltipX, Math.min(tooltipX, maxTooltipX));
+    
+    const tooltipY = marginTop - 10;
+    
+    // Draw tooltip background (more opaque if persisted)
+    ctx.fillStyle = isPersisted ? 'rgba(255, 149, 0, 1.0)' : 'rgba(255, 149, 0, 0.95)';
+    ctx.beginPath();
+    const radius = 4;
+    ctx.moveTo(tooltipX + radius, tooltipY - tooltipHeight);
+    ctx.lineTo(tooltipX + tooltipWidth - radius, tooltipY - tooltipHeight);
+    ctx.quadraticCurveTo(tooltipX + tooltipWidth, tooltipY - tooltipHeight, tooltipX + tooltipWidth, tooltipY - tooltipHeight + radius);
+    ctx.lineTo(tooltipX + tooltipWidth, tooltipY - radius);
+    ctx.quadraticCurveTo(tooltipX + tooltipWidth, tooltipY, tooltipX + tooltipWidth - radius, tooltipY);
+    ctx.lineTo(tooltipX + radius, tooltipY);
+    ctx.quadraticCurveTo(tooltipX, tooltipY, tooltipX, tooltipY - radius);
+    ctx.lineTo(tooltipX, tooltipY - tooltipHeight + radius);
+    ctx.quadraticCurveTo(tooltipX, tooltipY - tooltipHeight, tooltipX + radius, tooltipY - tooltipHeight);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw tooltip text
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(priceText, tooltipX + tooltipWidth / 2, tooltipY - 8);
 }
 
