@@ -3680,7 +3680,7 @@ async function updateFmv(data) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data.items),
+      body: JSON.stringify({ items: data.items }),
     });
     const fmvData = await resp.json();
 
