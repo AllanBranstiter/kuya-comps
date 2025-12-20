@@ -558,8 +558,21 @@ feedbackContainer.innerHTML = `
     // Export search data function
     function exportSearchData() {
         try {
+            // DIAGNOSTIC: Check what's actually available
+            console.log('[EXPORT DEBUG] Checking data availability:', {
+                'window.lastData exists': !!window.lastData,
+                'window.lastActiveData exists': !!window.lastActiveData,
+                'window.marketValueGlobal exists': !!window.marketValueGlobal,
+                'window.expectLowGlobal exists': !!window.expectLowGlobal,
+                'window.expectHighGlobal exists': !!window.expectHighGlobal,
+                'window.currentPriceTier exists': !!window.currentPriceTier,
+                'typeof window.lastData': typeof window.lastData,
+                'typeof window.lastActiveData': typeof window.lastActiveData
+            });
+            
             // Check if we have data to export
             if (!window.lastData && !window.lastActiveData) {
+                console.error('[EXPORT ERROR] No search data found on window object');
                 alert('No search data available to export. Please run a search first.');
                 return;
             }

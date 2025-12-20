@@ -1014,6 +1014,13 @@ async function renderData(data, secondData = null, marketValue = null) {
     lastActiveData = secondData;
     lastMarketValue = marketValue;
     
+    // DIAGNOSTIC: Check if these are accessible on window object
+    console.log('[EXPORT DIAGNOSTIC] After renderData storage:', {
+        'lastActiveData set (module)': !!lastActiveData,
+        'window.lastActiveData accessible': !!window.lastActiveData,
+        'Are they the same': lastActiveData === window.lastActiveData
+    });
+    
     // Create first table
     let html = `
       <h3 style="margin-bottom: 1rem; color: var(--text-color);">Recently Sold Listings</h3>
@@ -2069,6 +2076,13 @@ async function runSearchInternal() {
     console.log(`  - Min/Max/Avg prices: ${formatMoney(data.min_price)} / ${formatMoney(data.max_price)} / ${formatMoney(data.avg_price)}`);
 
     lastData = data;
+    
+    // DIAGNOSTIC: Check if data is being stored correctly
+    console.log('[EXPORT DIAGNOSTIC] Data storage check:', {
+        'lastData set': !!lastData,
+        'window.lastData exists': !!window.lastData,
+        'Are they same object': lastData === window.lastData
+    });
 
     // Calculate Fair Market Value first
     console.log('[DEBUG] Calculating Fair Market Value...');
