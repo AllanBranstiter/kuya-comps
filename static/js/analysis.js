@@ -307,12 +307,18 @@ function getSampleSizeWarning(soldCount, activeCount, pressureSampleSize) {
  * @returns {string} Confidence statement
  */
 function getConfidenceStatement(confidence, sampleSize) {
-    if (confidence >= 70) {
-        return `High price consistency (${confidence}/100) based on ${sampleSize} listings`;
-    } else if (confidence >= 40) {
+    if (confidence >= 85) {
+        return `Excellent price consistency (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 70) {
+        return `Good price consistency (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 55) {
         return `Moderate price variation (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 40) {
+        return `High price variation (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 25) {
+        return `⚠️ Very high price scatter (${confidence}/100) - consider refining search`;
     } else {
-        return `⚠️ High price scatter (${confidence}/100) - consider refining search`;
+        return `⚠️ Market chaos (${confidence}/100) - data unreliable`;
     }
 }
 
@@ -764,6 +770,24 @@ if (typeof window !== 'undefined' && window.contentLoader) {
 // ============================================================================
 
 /**
+ * Detect bimodal market pattern based on absorption ratios and confidence
+ * @param {Object} priceBands - Price band data with absorption ratios
+ * @param {number} marketConfidence - Market confidence score
+ * @returns {boolean} True if bimodal pattern detected
+ */
+function detectBimodalPattern(priceBands, marketConfidence) {
+    const { absorptionBelow, absorptionAbove, belowFMV, aboveFMV } = priceBands;
+    
+    return (
+        marketConfidence >= 55 && marketConfidence < 70 &&  // Moderate tier
+        absorptionBelow !== 'N/A' && absorptionAbove !== 'N/A' &&
+        parseFloat(absorptionBelow) >= 1.5 &&  // Hot below
+        parseFloat(absorptionAbove) < 0.3 &&   // Cold above
+        belowFMV > 0 && aboveFMV > 0
+    );
+}
+
+/**
  * Render market assessment warning section
  * @param {number} marketPressure - Market pressure percentage
  * @param {Object} liquidityRisk - Liquidity risk metrics
@@ -815,7 +839,17 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
         warningIcon = '⚠️';
         warningTitle = 'Data Quality Warning';
     }
-    // Edge Case 2: Two-Tier Market
+    // Edge Case 2: Bimodal Market Warning
+    else if (detectBimodalPattern(priceBands, marketConfidence)) {
+        selectedScenario = 'bimodalMarketWarning';
+        warningLevel = 'warning';
+        warningColor = '#ff9500';
+        warningBg = 'linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)';
+        warningBorder = '#ffd699';
+        warningIcon = '🔀';
+        warningTitle = 'Fragmented Market - Multiple Price Points';
+    }
+    // Edge Case 3: Two-Tier Market
     else if (absorptionBelow !== 'N/A' && absorptionAbove !== 'N/A' &&
              parseFloat(absorptionBelow) >= 1.5 && parseFloat(absorptionAbove) < 0.3 &&
              belowFMV > 0 && aboveFMV > 0) {
@@ -938,9 +972,10 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
 /**
  * Render liquidity profile grid section
  * @param {Object} priceBands - Price band data
+ * @param {number} marketConfidence - Market confidence score for bimodal detection
  * @returns {string} HTML for liquidity profile
  */
-function renderLiquidityProfile(priceBands) {
+function renderLiquidityProfile(priceBands, marketConfidence) {
     const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
     
     return `
@@ -996,6 +1031,24 @@ function renderLiquidityProfile(priceBands) {
                     </div>
                 </div>
             </div>
+            
+            ${(() => {
+                const belowHot = absorptionBelow !== 'N/A' && parseFloat(absorptionBelow) >= 1.5;
+                const aboveCold = absorptionAbove !== 'N/A' && parseFloat(absorptionAbove) < 0.3;
+                const isBimodal = belowHot && aboveCold && belowFMV > 0 && aboveFMV > 0 && marketConfidence >= 55 && marketConfidence < 70;
+                
+                if (isBimodal) {
+                    return `
+                      <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-radius: 8px; border-left: 4px solid #ff9500;">
+                        <strong style="color: #ff9500;">🔀 Bimodal Market Pattern Detected</strong>
+                        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
+                          This market has two distinct buyer segments: value hunters concentrating below FMV (${absorptionBelow}:1 absorption) and hype buyers above FMV (${absorptionAbove}:1 absorption). Market Confidence of ${marketConfidence}/100 confirms price fragmentation. Consider targeting the high-absorption zone for faster sales.
+                        </p>
+                      </div>
+                    `;
+                }
+                return '';
+            })()}
             
             <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
                 <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">

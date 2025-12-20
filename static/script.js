@@ -195,16 +195,18 @@ const FALLBACK_POPUP_MARKET_CONFIDENCE = {
         {
             type: "bands",
             items: [
-                { icon: "🟢", title: "70-100 (HIGH CONFIDENCE)", color: "#34c759", meaning: "Prices are very consistent - strong market consensus on value.", action: "FMV estimates are highly reliable. Safe to use for pricing decisions." },
-                { icon: "🔵", title: "40-69 (MODERATE CONFIDENCE)", color: "#007aff", meaning: "Some price variation but overall market is functional.", action: "FMV estimates are reasonably reliable. Consider using price ranges." },
-                { icon: "🟠", title: "20-39 (LOW CONFIDENCE)", color: "#ff9500", meaning: "High price variation - market is less certain.", action: "Use caution with FMV estimates. Consider refining search terms or gathering more data." },
-                { icon: "🔴", title: "0-19 (VERY LOW CONFIDENCE)", color: "#ff3b30", meaning: "Extreme price variation - unreliable market signals.", action: "FMV estimates may not be accurate. Refine search or check for data quality issues." }
+                { icon: "🟢", title: "85-100 (EXCELLENT CONSENSUS)", color: "#34c759", meaning: "Exceptional price consistency with tight clustering - excellent market consensus on value.", action: "FMV estimates are highly reliable. Safe to use for pricing decisions." },
+                { icon: "🔵", title: "70-84 (GOOD CONSENSUS)", color: "#007aff", meaning: "Solid price consistency - market has good agreement on value.", action: "FMV estimates are reliable. Good for most pricing decisions." },
+                { icon: "🟡", title: "55-69 (MODERATE VARIATION)", color: "#ff9500", meaning: "Noticeable price variation but overall market is functional.", action: "FMV estimates are reasonably reliable. Consider using price ranges and watching for trends." },
+                { icon: "🟠", title: "40-54 (HIGH VARIATION)", color: "#ff9500", meaning: "High price variation - market shows significant uncertainty.", action: "Use caution with FMV estimates. Consider refining search terms or gathering more data." },
+                { icon: "🔴", title: "25-39 (VERY HIGH VARIATION)", color: "#ff3b30", meaning: "Very high price variation - unreliable market signals.", action: "FMV estimates may not be accurate. Refine search or check for data quality issues." },
+                { icon: "⚫", title: "0-24 (MARKET CHAOS)", color: "#1d1d1f", meaning: "Extreme price scatter - no market consensus.", action: "Data is unreliable. Check for miscategorized listings or search errors." }
             ]
         },
         { type: "header", content: "💡 Key Principle" },
         { type: "text", content: "Market Confidence tells you how <strong>reliable</strong> the data is, not what the value is. High confidence means prices are clustered together. Low confidence means prices are scattered and unpredictable." },
         { type: "header", content: "📝 Example" },
-        { type: "text", content: "If 20 cards sold between $95-$105 (tight range), confidence is <strong>HIGH (80+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>." },
+        { type: "text", content: "If 20 cards sold between $95-$105 (tight range), confidence is <strong>EXCELLENT (85+)</strong>. If they sold between $50-$200 (wide range), confidence is <strong>LOW (30 or less)</strong>." },
         { type: "header", content: "🔧 Improve Confidence" },
         {
             type: "list",
@@ -2280,12 +2282,18 @@ function renderStats(data) {
  * Generate confidence statement based on market confidence score and sample size
  */
 function getConfidenceStatement(confidence, sampleSize) {
-    if (confidence >= 70) {
-        return `High price consistency (${confidence}/100) based on ${sampleSize} listings`;
-    } else if (confidence >= 40) {
+    if (confidence >= 85) {
+        return `Excellent price consistency (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 70) {
+        return `Good price consistency (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 55) {
         return `Moderate price variation (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 40) {
+        return `High price variation (${confidence}/100) based on ${sampleSize} listings`;
+    } else if (confidence >= 25) {
+        return `⚠️ Very high price scatter (${confidence}/100) - consider refining search`;
     } else {
-        return `⚠️ High price scatter (${confidence}/100) - consider refining search`;
+        return `⚠️ Market chaos (${confidence}/100) - data unreliable`;
     }
 }
 
@@ -3009,7 +3017,7 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                         ${marketConfidence.toFixed(0)}/100
                     </div>
                     <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
-                        ${marketConfidence >= 70 ? 'Strong price consensus' : marketConfidence >= 40 ? 'Moderate price variation' : marketConfidence >= 20 ? 'High price variation' : 'Extreme price scatter'}
+                        ${marketConfidence >= 85 ? 'Excellent price consensus' : marketConfidence >= 70 ? 'Good price consensus' : marketConfidence >= 55 ? 'Moderate price variation' : marketConfidence >= 40 ? 'High price variation' : marketConfidence >= 25 ? 'Very high price variation' : 'Market chaos'}
                     </div>
                     <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
                         <strong>CoV:</strong> ${coefficientOfVariation.toFixed(1)}%<br>
@@ -3132,6 +3140,24 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                                 </div>
                             </div>
                         </div>
+                        
+                        ${(() => {
+                            const belowHot = absorptionBelow !== 'N/A' && parseFloat(absorptionBelow) >= 1.5;
+                            const aboveCold = absorptionAbove !== 'N/A' && parseFloat(absorptionAbove) < 0.3;
+                            const isBimodal = belowHot && aboveCold && belowFMV > 0 && aboveFMV > 0 && marketConfidence >= 55 && marketConfidence < 70;
+                            
+                            if (isBimodal) {
+                                return `
+                                  <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-radius: 8px; border-left: 4px solid #ff9500;">
+                                    <strong style="color: #ff9500;">🔀 Bimodal Market Pattern Detected</strong>
+                                    <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
+                                      This market has two distinct buyer segments: value hunters concentrating below FMV (${absorptionBelow}:1 absorption) and hype buyers above FMV (${absorptionAbove}:1 absorption). Market Confidence of ${marketConfidence}/100 confirms price fragmentation. Consider targeting the high-absorption zone for faster sales.
+                                    </p>
+                                  </div>
+                                `;
+                            }
+                            return '';
+                        })()}
                         
                         <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
                             <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
@@ -3542,16 +3568,40 @@ function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, li
     }
     
     // Confidence insights
-    if (marketConfidence >= 70) {
+    if (marketConfidence >= 85) {
         insights.push(`
-            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); border-left: 4px solid #007aff; border-radius: 6px;">
-                <strong style="color: #007aff;">✓ High Confidence:</strong> Strong market consensus with consistent pricing (${marketConfidence.toFixed(0)}/100 confidence score).
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); border-left: 4px solid #34c759; border-radius: 6px;">
+                <strong style="color: #34c759;">✓ Excellent Consensus:</strong> Exceptional price consistency with tight clustering (${marketConfidence.toFixed(0)}/100 confidence score).
             </li>
         `);
-    } else if (marketConfidence < 40) {
+    } else if (marketConfidence >= 70) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); border-left: 4px solid #007aff; border-radius: 6px;">
+                <strong style="color: #007aff;">✓ Good Consensus:</strong> Solid price consistency in the market (${marketConfidence.toFixed(0)}/100 confidence score).
+            </li>
+        `);
+    } else if (marketConfidence >= 55) {
         insights.push(`
             <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
-                <strong style="color: #ff9500;">⚠ Lower Confidence:</strong> Inconsistent pricing (${marketConfidence.toFixed(0)}/100). Consider gathering more data or refining search terms.
+                <strong style="color: #ff9500;">📊 Moderate Variation:</strong> Noticeable price spread (${marketConfidence.toFixed(0)}/100). Watch for price trends and patterns.
+            </li>
+        `);
+    } else if (marketConfidence >= 40) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
+                <strong style="color: #ff9500;">⚠ High Variation:</strong> Significant price scatter (${marketConfidence.toFixed(0)}/100). Consider gathering more data or refining search terms.
+            </li>
+        `);
+    } else if (marketConfidence >= 25) {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); border-left: 4px solid #ff3b30; border-radius: 6px;">
+                <strong style="color: #ff3b30;">⚠ Very High Variation:</strong> Extreme price scatter (${marketConfidence.toFixed(0)}/100). Refine search or check for data quality issues.
+            </li>
+        `);
+    } else {
+        insights.push(`
+            <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); border-left: 4px solid #1d1d1f; border-radius: 6px;">
+                <strong style="color: #1d1d1f;">⚠ Market Chaos:</strong> No price consensus (${marketConfidence.toFixed(0)}/100). Data may be unreliable or miscategorized.
             </li>
         `);
     }
@@ -3647,6 +3697,13 @@ async function updateFmv(data) {
     const quickSale = fmvData.quick_sale || fmvData.expected_low;
     const patientSale = fmvData.patient_sale || fmvData.expected_high;
 
+    // Calculate market confidence for FMV caveat (Phase 2)
+    const prices = data.items.map(item => item.total_price).filter(p => p > 0);
+    const stdDev = calculateStdDev(prices);
+    const avgPrice = data.avg_price;
+    const coefficientOfVariation = (stdDev / avgPrice) * 100;
+    const marketConfidence = Math.round(100 / (1 + coefficientOfVariation / 100));
+
     const fmvHtml = `
       <div id="fmv">
         <h3>📈 Fair Market Value</h3>
@@ -3670,6 +3727,17 @@ async function updateFmv(data) {
         <p style="font-size: 0.8rem; text-align: center; color: var(--subtle-text-color); margin-top: 1.5rem;">
           Based on ${fmvData.count} recent sales
         </p>
+        ${marketConfidence && marketConfidence < 70 ? `
+          <div style="background: #fff5e6; padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; border-left: 3px solid #ff9500;">
+            <p style="margin: 0; font-size: 0.75rem; color: #666; line-height: 1.5;">
+              ⚠️ <strong>Price Uncertainty:</strong> Market Confidence is ${marketConfidence.toFixed(0)}/100 (${
+                marketConfidence >= 55 ? 'Moderate variation' :
+                marketConfidence >= 40 ? 'High variation' :
+                'Very high variation'
+              }). These FMV estimates have higher uncertainty due to price scatter.
+            </p>
+          </div>
+        ` : ''}
       </div>
     `;
     // Technical details hidden from UI: Auction sales weighted higher than Buy-It-Now • More bids = higher weight
