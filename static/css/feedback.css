@@ -16,9 +16,9 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 8px;
-    padding: 0 15px;
-    transition: width 0.3s ease, background-color 0.3s ease;
+    gap: 0px;
+    padding: 0;
+    transition: width 0.3s ease, gap 0.3s ease, padding 0.3s ease, background-color 0.3s ease;
     overflow: hidden;
     white-space: nowrap;
 }
@@ -30,6 +30,7 @@
 .feedback-fab.expanded {
     width: auto;
     padding: 0 20px;
+    gap: 8px;
 }
 
 .feedback-fab-icon {
