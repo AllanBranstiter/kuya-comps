@@ -1,0 +1,165 @@
+
+/* Feedback FAB */
+.feedback-fab {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    background-color: #007bff;
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.3s;
+}
+
+.feedback-fab:hover {
+    background-color: #0056b3;
+}
+
+.feedback-fab-icon {
+    width: 24px;
+    height: 24px;
+    background-image: url("/static/icons/bug.svg");
+    background-size: cover;
+}
+
+/* Feedback Modal */
+.feedback-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: none; /* Hidden by default */
+    justify-content: center;
+    align-items: center;
+}
+
+.feedback-modal {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 400px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.feedback-modal h2 {
+    margin-top: 0;
+}
+
+.feedback-modal-form-group {
+    margin-bottom: 15px;
+}
+
+.feedback-modal-form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.feedback-modal-form-group select,
+.feedback-modal-form-group textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.feedback-modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.feedback-modal-button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.feedback-modal-button-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.feedback-modal-button-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+/* Annotation Overlay */
+.feedback-annotation-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 10001;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.feedback-annotation-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 95%;
+    max-height: 95%;
+}
+
+.feedback-annotation-header {
+    text-align: center;
+    margin-bottom: 20px;
+    color: white;
+}
+
+.feedback-annotation-header h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.feedback-annotation-header p {
+    margin: 0;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.feedback-annotation-canvas-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#feedback-annotation-canvas {
+    display: block;
+    cursor: crosshair;
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: 8px;
+}
+
+.feedback-annotation-buttons {
+    display: flex;
+    gap: 15px;
+}
+
+.feedback-annotation-buttons .feedback-modal-button {
+    padding: 12px 24px;
+    font-size: 1rem;
+}
