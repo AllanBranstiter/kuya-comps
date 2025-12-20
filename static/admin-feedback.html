@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Admin Dashboard - Kuya Comps</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Login Screen */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .login-box {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .login-box p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Dashboard */
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        /* Filters */
+        .filters {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .filter-group select,
+        .filter-group input {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        /* Feedback Table */
+        .feedback-table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .feedback-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .feedback-table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .feedback-table th:hover {
+            background: #e9ecef;
+        }
+
+        .feedback-table td {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            color: #666;
+        }
+
+        .feedback-table tr {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .feedback-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .feedback-table tr.unread {
+            background: #e7f3ff;
+        }
+
+        .feedback-table tr.unread:hover {
+            background: #d0e7ff;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-bug {
+            background: #fee;
+            color: #c00;
+        }
+
+        .badge-comment {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .badge-feature {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .badge-ui {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .badge-other {
+            background: #f5f5f5;
+            color: #616161;
+        }
+
+        .badge-unread {
+            background: #4caf50;
+            color: white;
+        }
+
+        .badge-screenshot {
+            background: #2196f3;
+            color: white;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: white;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            padding: 20px 30px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .detail-section {
+            margin-bottom: 25px;
+        }
+
+        .detail-section h3 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .detail-item label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-item value {
+            color: #333;
+            font-size: 14px;
+        }
+
+        .description-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .screenshot-container {
+            position: relative;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .screenshot-container img {
+            max-width: 100%;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .screenshot-annotation {
+            position: absolute;
+            border: 3px solid #ff0000;
+            background: rgba(255, 0, 0, 0.1);
+            pointer-events: none;
+        }
+
+        .json-viewer {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .json-viewer pre {
+            margin: 0;
+            color: #333;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .modal-footer {
+            padding: 20px 30px;
+            border-top: 2px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .admin-notes-area {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        .admin-notes-area:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-container" id="loginScreen">
+        <div class="login-box">
+            <h1>🔒 Admin Login</h1>
+            <p>Feedback Dashboard</p>
+            
+            <div id="loginError" class="error-message" style="display: none;"></div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard" id="dashboardScreen">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>📝 Feedback Dashboard</h1>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="exportFeedback()">📊 Export CSV</button>
+                    <button class="btn btn-secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <h3>Total Submissions</h3>
+                    <div class="stat-value" id="statTotal">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Unread</h3>
+                    <div class="stat-value" id="statUnread">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Recent (7 days)</h3>
+                    <div class="stat-value" id="statRecent">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Archived</h3>
+                    <div class="stat-value" id="statArchived">-</div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label>Category</label>
+                        <select id="filterCategory" onchange="applyFilters()">
+                            <option value="">All Categories</option>
+                            <option value="Bug Report">Bug Report</option>
+                            <option value="Comment">Comment</option>
+                            <option value="Feature Request">Feature Request</option>
+                            <option value="UI/UX Suggestion">UI/UX Suggestion</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status</label>
+                        <select id="filterRead" onchange="applyFilters()">
+                            <option value="">All</option>
+                            <option value="false">Unread</option>
+                            <option value="true">Read</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Archived</label>
+                        <select id="filterArchived" onchange="applyFilters()">
+                            <option value="false">Active</option>
+                            <option value="true">Archived</option>
+                            <option value="">All</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Search</label>
+                        <input type="text" id="filterSearch" placeholder="Search..." oninput="applyFilters()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feedback Table -->
+            <div class="feedback-table-container">
+                <div id="loadingState" class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading feedback...</p>
+                </div>
+
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <p>No feedback submissions found.</p>
+                </div>
+
+                <table class="feedback-table" id="feedbackTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th onclick="sortBy('id')"># ID</th>
+                            <th onclick="sortBy('category')">Category</th>
+                            <th>Description</th>
+                            <th onclick="sortBy('created_at')">Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feedbackTableBody"></tbody>
+                </table>
+
+                <div class="pagination" id="pagination" style="display: none;">
+                    <div id="paginationInfo"></div>
+                    <div class="pagination-buttons">
+                        <button class="btn btn-secondary" id="btnPrev" onclick="previousPage()">← Previous</button>
+                        <button class="btn btn-secondary" id="btnNext" onclick="nextPage()">Next →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Feedback Details</h2>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Content loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentPage = 1;
+        let perPage = 50;
+        let sortField = 'created_at';
+        let sortOrder = 'desc';
+        let currentFeedback = null;
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('dashboardScreen').classList.add('active');
+                    loadDashboard();
+                } else {
+                    const error = await response.json();
+                    showLoginError(error.detail || 'Invalid password');
+                }
+            } catch (error) {
+                showLoginError('Login failed. Please try again.');
+            }
+        });
+
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        async function logout() {
+            await fetch('/admin/logout', { method: 'POST' });
+            location.reload();
+        }
+
+        // Load Dashboard
+        async function loadDashboard() {
+            await loadStats();
+            await loadFeedback();
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/admin/api/stats');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const stats = result.data;
+                    document.getElementById('statTotal').textContent = stats.total;
+                    document.getElementById('statUnread').textContent = stats.unread;
+                    document.getElementById('statRecent').textContent = stats.recent_submissions;
+                    document.getElementById('statArchived').textContent = stats.archived;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadFeedback() {
+            const params = new URLSearchParams({
+                page: currentPage,
+                per_page: perPage,
+                sort_by: sortField,
+                sort_order: sortOrder
+            });
+
+            // Add filters
+            const category = document.getElementById('filterCategory').value;
+            const isRead = document.getElementById('filterRead').value;
+            const isArchived = document.getElementById('filterArchived').value;
+            const search = document.getElementById('filterSearch').value;
+
+            if (category) params.append('category', category);
+            if (isRead !== '') params.append('is_read', isRead);
+            if (isArchived !== '') params.append('is_archived', isArchived);
+            if (search) params.append('search', search);
+
+            try {
+                document.getElementById('loadingState').style.display = 'block';
+                document.getElementById('feedbackTable').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'none';
+
+                const response = await fetch(`/admin/api/feedback?${params}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    renderFeedbackTable(result.data);
+                    renderPagination(result.pagination);
+                }
+            } catch (error) {
+                console.error('Error loading feedback:', error);
+            } finally {
+                document.getElementById('loadingState').style.display = 'none';
+            }
+        }
+
+        function renderFeedbackTable(feedbackList) {
+            const tbody = document.getElementById('feedbackTableBody');
+            tbody.innerHTML = '';
+
+            if (feedbackList.length === 0) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('pagination').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('feedbackTable').style.display = 'table';
+            document.getElementById('pagination').style.display = 'flex';
+
+            feedbackList.forEach(feedback => {
+                const tr = document.createElement('tr');
+                if (!feedback.is_read) tr.classList.add('unread');
+                tr.onclick = () => viewDetails(feedback.id);
+
+                const categoryBadgeClass = {
+                    'Bug Report': 'badge-bug',
+                    'Comment': 'badge-comment',
+                    'Feature Request': 'badge-feature',
+                    'UI/UX Suggestion': 'badge-ui',
+                    'Other': 'badge-other'
+                }[feedback.category] || 'badge-other';
+
+                const date = new Date(feedback.created_at).toLocaleString();
+                const shortDesc = feedback.description.length > 100 
+                    ? feedback.description.substring(0, 100) + '...' 
+                    : feedback.description;
+
+                tr.innerHTML = `
+                    <td><strong>#${feedback.id}</strong></td>
+                    <td><span class="badge ${categoryBadgeClass}">${feedback.category}</span></td>
+                    <td>${shortDesc}</td>
+                    <td>${date}</td>
+                    <td>
+                        ${!feedback.is_read ? '<span class="badge badge-unread">NEW</span>' : ''}
+                        ${feedback.has_screenshot ? '<span class="badge badge-screenshot">📷</span>' : ''}
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" 
+                            onclick="event.stopPropagation(); viewDetails(${feedback.id})">View</button>
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderPagination(pagination) {
+            document.getElementById('paginationInfo').textContent = 
+                `Page ${pagination.page} of ${pagination.total_pages} (${pagination.total_items} total)`;
+            
+            document.getElementById('btnPrev').disabled = pagination.page <= 1;
+            document.getElementById('btnNext').disabled = pagination.page >= pagination.total_pages;
+        }
+
+        function nextPage() {
+            currentPage++;
+            loadFeedback();
+        }
+
+        function previousPage() {
+            currentPage--;
+            loadFeedback();
+        }
+
+        function sortBy(field) {
+            if (sortField === field) {
+                sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortField = field;
+                sortOrder = 'desc';
+            }
+            loadFeedback();
+        }
+
+        function applyFilters() {
+            currentPage = 1;
+            loadFeedback();
+        }
+
+        async function viewDetails(feedbackId) {
+            try {
+                const response = await fetch(`/admin/api/feedback/${feedbackId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    currentFeedback = result.data;
+                    renderDetailModal(result.data);
+                    document.getElementById('detailModal').classList.add('active');
+
+                    // Mark as read
+                    if (!result.data.is_read) {
+                        await updateFeedback(feedbackId, { is_read: true });
+                        loadDashboard();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading feedback details:', error);
+            }
+        }
+
+        function renderDetailModal(feedback) {
+            const categoryBadgeClass = {
+                'Bug Report': 'badge-bug',
+                'Comment': 'badge-comment',
+                'Feature Request': 'badge-feature',
+                'UI/UX Suggestion': 'badge-ui',
+                'Other': 'badge-other'
+            }[feedback.category] || 'badge-other';
+
+            let modalHTML = `
+                <div class="detail-section">
+                    <h3>Basic Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>ID</label>
+                            <value>#${feedback.id}</value>
+                        </div>
+                        <div class="detail-item">
+                            <label>Category</label>
+                            <value><span class="badge ${categoryBadgeClass}">${feedback.category}</span></value>
+                        </div>
+                        <div class="detail-item">
+                            <label>Submitted</label>
+                            <value>${new Date(feedback.created_at).toLocaleString()}</value>
+                        </div>
+                        <div class="detail-item">
+                            <label>Session ID</label>
+                            <value>${feedback.session_id}</value>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Description</h3>
+                    <div class="description-box">${feedback.description}</div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Page Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>URL</label>
+                            <value><a href="${feedback.url}" target="_blank">${feedback.url}</a></value>
+                        </div>
+                        <div class="detail-item">
+                            <label>Browser</label>
+                            <value>${feedback.browser || 'N/A'}</value>
+                        </div>
+                        <div class="detail-item">
+                            <label>Operating System</label>
+                            <value>${feedback.os || 'N/A'}</value>
+                        </div>
+                        <div class="detail-item">
+                            <label>Screen Resolution</label>
+                            <value>${feedback.screen_resolution || 'N/A'}</value>
+                        </div>
+                        <div class="detail-item">
+                            <label>Viewport Size</label>
+                            <value>${feedback.viewport_size || 'N/A'}</value>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (feedback.has_screenshot) {
+                modalHTML += `
+                    <div class="detail-section">
+                        <h3>Screenshot</h3>
+                        <div id="screenshotContainer" class="screenshot-container">
+                            <p>Loading screenshot...</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (feedback.api_state) {
+                modalHTML += `
+                    <div class="detail-section">
+                        <h3>API State (Bug Report)</h3>
+                        <div class="json-viewer">
+                            <pre>${JSON.stringify(JSON.parse(feedback.api_state), null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
+            }
+
+            modalHTML += `
+                <div class="detail-section">
+                    <h3>Admin Notes</h3>
+                    <textarea class="admin-notes-area" id="adminNotes">${feedback.admin_notes || ''}</textarea>
+                    <br><br>
+                    <button class="btn btn-primary" onclick="saveAdminNotes()">Save Notes</button>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Actions</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn ${feedback.is_read ? 'btn-secondary' : 'btn-success'}" 
+                            onclick="toggleRead()">${feedback.is_read ? 'Mark Unread' : 'Mark Read'}</button>
+                        <button class="btn ${feedback.is_archived ? 'btn-secondary' : 'btn-success'}" 
+                            onclick="toggleArchived()">${feedback.is_archived ? 'Unarchive' : 'Archive'}</button>
+                        <button class="btn btn-danger" onclick="deleteFeedback()">Delete</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modalBody').innerHTML = modalHTML;
+
+            // Load screenshot if available
+            if (feedback.has_screenshot) {
+                loadScreenshot(feedback.id);
+            }
+        }
+
+        async function loadScreenshot(feedbackId) {
+            try {
+                const response = await fetch(`/api/feedback/${feedbackId}/screenshot`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const container = document.getElementById('screenshotContainer');
+                    const img = document.createElement('img');
+                    img.src = result.screenshot_data;
+                    container.innerHTML = '';
+                    container.appendChild(img);
+
+                    // Add annotation overlay if present
+                    if (currentFeedback.has_annotation && currentFeedback.annotation_coords) {
+                        const coords = JSON.parse(currentFeedback.annotation_coords);
+                        const overlay = document.createElement('div');
+                        overlay.className = 'screenshot-annotation';
+                        overlay.style.left = coords.x + 'px';
+                        overlay.style.top = coords.y + 'px';
+                        overlay.style.width = coords.width + 'px';
+                        overlay.style.height = coords.height + 'px';
+                        container.appendChild(overlay);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading screenshot:', error);
+            }
+        }
+
+        async function updateFeedback(feedbackId, data) {
+            try {
+                const response = await fetch(`/admin/api/feedback/${feedbackId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return response.ok;
+            } catch (error) {
+                console.error('Error updating feedback:', error);
+                return false;
+            }
+        }
+
+        async function saveAdminNotes() {
+            const notes = document.getElementById('adminNotes').value;
+            const success = await updateFeedback(currentFeedback.id, { admin_notes: notes });
+            if (success) {
+                alert('Notes saved successfully');
+                currentFeedback.admin_notes = notes;
+            }
+        }
+
+        async function toggleRead() {
+            const newStatus = !currentFeedback.is_read;
+            const success = await updateFeedback(currentFeedback.id, { is_read: newStatus });
+            if (success) {
+                currentFeedback.is_read = newStatus;
+                renderDetailModal(currentFeedback);
+                loadDashboard();
+            }
+        }
+
+        async function toggleArchived() {
+            const newStatus = !currentFeedback.is_archived;
+            const success = await updateFeedback(currentFeedback.id, { is_archived: newStatus });
+            if (success) {
+                currentFeedback.is_archived = newStatus;
+                renderDetailModal(currentFeedback);
+                loadDashboard();
+            }
+        }
+
+        async function deleteFeedback() {
+            if (!confirm('Are you sure you want to delete this feedback? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/api/feedback/${currentFeedback.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    loadDashboard();
+                }
+            } catch (error) {
+                console.error('Error deleting feedback:', error);
+                alert('Failed to delete feedback');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+            currentFeedback = null;
+        }
+
+        async function exportFeedback() {
+            try {
+                const response = await fetch('/admin/api/export');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'feedback_export.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('Error exporting feedback:', error);
+                alert('Failed to export feedback');
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('detailModal').addEventListener('click', (e) => {
+            if (e.target.id === 'detailModal') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
