@@ -64,7 +64,7 @@ from backend.middleware import RequestIDMiddleware, MetricsMiddleware, SecurityH
 from backend.middleware.metrics import metrics
 
 # Import routers
-from backend.routes import health, comps, fmv, market_messages
+from backend.routes import health, comps, fmv, market_messages, feedback, admin_feedback
 
 # Initialize logger for this module
 logger = get_logger(__name__)
@@ -143,6 +143,23 @@ async def kuya_comps_exception_handler(request: Request, exc: KuyaCompsException
 
 
 # ============================================================================
+# Database Initialization (for feedback system)
+# ============================================================================
+
+from backend.database.connection import init_db
+
+# Initialize database tables on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database and other startup tasks."""
+    try:
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+
+
+# ============================================================================
 # Register Routers
 # ============================================================================
 
@@ -157,6 +174,12 @@ app.include_router(fmv.router, tags=["FMV"])
 
 # Market messages endpoints (/market-message and /liquidity-popup/<tier_id>)
 app.include_router(market_messages.router, tags=["Market Messages"])
+
+# Feedback endpoints (/api/feedback)
+app.include_router(feedback.router, tags=["Feedback"])
+
+# Admin feedback endpoints (/admin/*)
+app.include_router(admin_feedback.router, tags=["Admin"])
 
 
 # ============================================================================

@@ -127,7 +127,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const annotationCanvas = document.getElementById('feedback-annotation-canvas');
     const annotationCtx = annotationCanvas.getContext('2d');
 
-    // 3. Screenshot capture function
+    // 3. Screenshot capture and compression function
+    const compressScreenshot = (canvas, maxWidth = 1920, quality = 0.8) => {
+        // Phase 2: Optimize screenshot size
+        let compressedCanvas = canvas;
+        
+        // Resize if too large
+        if (canvas.width > maxWidth) {
+            const scale = maxWidth / canvas.width;
+            const newHeight = canvas.height * scale;
+            
+            compressedCanvas = document.createElement('canvas');
+            compressedCanvas.width = maxWidth;
+            compressedCanvas.height = newHeight;
+            
+            const ctx = compressedCanvas.getContext('2d');
+            ctx.drawImage(canvas, 0, 0, maxWidth, newHeight);
+        }
+        
+        // Convert to JPEG with compression for better file size
+        // JPEG is better for screenshots without transparency
+        return compressedCanvas.toDataURL('image/jpeg', quality);
+    };
+    
     const captureScreenshot = async () => {
         try {
             // Hide the FAB before capturing
@@ -146,7 +168,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Show the FAB again
             fab.style.display = 'flex';
             
-            return canvas.toDataURL('image/png');
+            // Phase 2: Compress screenshot before returning
+            const compressedScreenshot = compressScreenshot(canvas, 1920, 0.8);
+            
+            if (window.DEBUG_FEEDBACK) {
+                const originalSize = canvas.toDataURL('image/png').length / 1024;
+                const compressedSize = compressedScreenshot.length / 1024;
+                console.log(`Screenshot compressed: ${originalSize.toFixed(2)} KB → ${compressedSize.toFixed(2)} KB (${((1 - compressedSize/originalSize) * 100).toFixed(1)}% reduction)`);
+            }
+            
+            return compressedScreenshot;
         } catch (error) {
             console.error('Screenshot capture failed:', error);
             // Show the FAB again even if error
@@ -349,23 +380,67 @@ document.addEventListener('DOMContentLoaded', () => {
             feedbackData.lastApiResponse = window.lastApiResponse;
         }
 
-        // For now, we'll just log the data to the console
-        console.log('Feedback Submitted:', feedbackData);
-        console.log('Screenshot size:', capturedScreenshot ? `${(capturedScreenshot.length / 1024).toFixed(2)} KB` : 'None');
-        console.log('Annotation:', annotationCoords || 'None');
-        console.log('Session ID:', clientSessionId);
-        console.log('Last API Response:', category === 'Bug Report' ? (window.lastApiResponse || 'None captured') : 'Not included (not a bug report)');
+        // Log feedback data for debugging (in development)
+        if (window.DEBUG_FEEDBACK) {
+            console.log('Feedback Submitted:', feedbackData);
+            console.log('Screenshot size:', capturedScreenshot ? `${(capturedScreenshot.length / 1024).toFixed(2)} KB` : 'None');
+            console.log('Annotation:', annotationCoords || 'None');
+            console.log('Session ID:', clientSessionId);
+            console.log('Last API Response:', category === 'Bug Report' ? (window.lastApiResponse || 'None captured') : 'Not included (not a bug report)');
+        }
 
-        // Here you would typically send the data to a server
-        // Example:
-        // fetch('/api/feedback', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(feedbackData)
-        // });
-
-        alert('Thank you for your feedback!');
-        closeModal();
-        feedbackForm.reset();
+        // Send feedback to backend
+        fetch('/api/feedback', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(feedbackData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.detail || 'Failed to submit feedback');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Feedback submitted successfully:', data);
+            
+            // Show success message
+            const submitButton = feedbackForm.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.textContent = '✓ Submitted!';
+            submitButton.style.backgroundColor = '#28a745';
+            
+            // Close modal after a brief delay
+            setTimeout(() => {
+                closeModal();
+                feedbackForm.reset();
+                submitButton.textContent = originalText;
+                submitButton.style.backgroundColor = '';
+            }, 1500);
+        })
+        .catch(error => {
+            console.error('Error submitting feedback:', error);
+            
+            // Show error message
+            const errorMessage = document.createElement('div');
+            errorMessage.style.cssText = 'color: #dc3545; margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 4px; font-size: 14px;';
+            errorMessage.textContent = `Error: ${error.message}. Please try again.`;
+            
+            const existingError = feedbackForm.querySelector('.error-message');
+            if (existingError) {
+                existingError.remove();
+            }
+            
+            errorMessage.className = 'error-message';
+            feedbackForm.appendChild(errorMessage);
+            
+            // Remove error message after 5 seconds
+            setTimeout(() => errorMessage.remove(), 5000);
+        });
     });
 });
