@@ -1014,6 +1014,10 @@ async function renderData(data, secondData = null, marketValue = null) {
     lastActiveData = secondData;
     lastMarketValue = marketValue;
     
+    // Expose to window object for export functionality
+    window.lastActiveData = secondData;
+    window.lastMarketValue = marketValue;
+    
     // DIAGNOSTIC: Check if these are accessible on window object
     console.log('[EXPORT DIAGNOSTIC] After renderData storage:', {
         'lastActiveData set (module)': !!lastActiveData,
@@ -1487,6 +1491,13 @@ function clearSearch() {
     expectHighGlobal = null;
     marketValueGlobal = null;
     currentBeeswarmPrices = [];
+    
+    // Clear window object references too
+    window.lastData = null;
+    window.lastActiveData = null;
+    window.marketValueGlobal = null;
+    window.expectLowGlobal = null;
+    window.expectHighGlobal = null;
     
     // Focus on the query input
     document.getElementById("query").focus();
@@ -2077,6 +2088,9 @@ async function runSearchInternal() {
 
     lastData = data;
     
+    // Expose to window object for export functionality
+    window.lastData = data;
+    
     // DIAGNOSTIC: Check if data is being stored correctly
     console.log('[EXPORT DIAGNOSTIC] Data storage check:', {
         'lastData set': !!lastData,
@@ -2226,6 +2240,7 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
       }
       
       lastData = null;
+      window.lastData = null; // Clear window reference on error
       console.error('[ERROR] Search failed:', err);
     } finally {
       // Restore button state
@@ -3703,6 +3718,11 @@ async function updateFmv(data) {
     expectLowGlobal = fmvData.expected_low;
     expectHighGlobal = fmvData.expected_high;
     marketValueGlobal = fmvData.market_value || fmvData.expected_high;
+    
+    // Expose to window object for export functionality
+    window.expectLowGlobal = fmvData.expected_low;
+    window.expectHighGlobal = fmvData.expected_high;
+    window.marketValueGlobal = fmvData.market_value || fmvData.expected_high;
 
     const listPrice = toNinetyNine(fmvData.expected_high);
 
