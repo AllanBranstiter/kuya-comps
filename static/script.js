@@ -2631,6 +2631,9 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
     const dataQualityScore = calculateDataQuality(data.items.length, activeData?.items?.length || 0, marketConfidence);
     const liquidityScore = liquidityRisk.score || 0;
     
+    // Extract all price band data including sales counts
+    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove } = priceBands;
+    
     // Determine message and advice based on simple heuristics
     let icon, title, message, color, gradient, border, advice;
     
@@ -2718,8 +2721,6 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
             flipper: []
         };
     }
-    
-    const { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove } = priceBands;
     
     const html = `
         <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
