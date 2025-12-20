@@ -57,14 +57,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Phase 2: Screenshot and annotation state
     let capturedScreenshot = null;
     let annotationCoords = null;
-
-    // 1. Create and inject the HTML for FAB, Annotation UI, and Modal
-    const feedbackContainer = document.createElement('div');
-    feedbackContainer.innerHTML = `
-        <button class="feedback-fab">
-            <span class="feedback-fab-icon">💬</span>
-            <span class="feedback-fab-text">Leave Feedback</span>
-        </button>
+// 1. Create and inject the HTML for FAB, Export FAB, Annotation UI, and Modal
+const feedbackContainer = document.createElement('div');
+feedbackContainer.innerHTML = `
+    <button class="feedback-fab">
+        <span class="feedback-fab-icon">💬</span>
+        <span class="feedback-fab-text">Leave Feedback</span>
+    </button>
+    
+    <button class="export-fab">
+        <span class="export-fab-icon">📤</span>
+        <span class="export-fab-text">Export Search Data</span>
+    </button>
+    
         
         <!-- Annotation Overlay -->
         <div class="feedback-annotation-overlay">
@@ -114,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Get references to the elements
     const fab = document.querySelector('.feedback-fab');
+    const exportFab = document.querySelector('.export-fab');
     const annotationOverlay = document.querySelector('.feedback-annotation-overlay');
     const modalOverlay = document.querySelector('.feedback-modal-overlay');
     const cancelButton = document.getElementById('cancel-feedback');
@@ -493,4 +499,158 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => errorMessage.remove(), 5000);
         });
     });
+    
+    // ============================================================================
+    // EXPORT BUTTON FUNCTIONALITY
+    // ============================================================================
+    
+    // Export FAB expandable behavior
+    let isExportExpanded = false;
+    let exportExpandTimeout = null;
+
+    const expandExportFAB = () => {
+        exportFab.classList.add('expanded');
+        isExportExpanded = true;
+    };
+
+    const collapseExportFAB = () => {
+        exportFab.classList.remove('expanded');
+        isExportExpanded = false;
+        if (exportExpandTimeout) {
+            clearTimeout(exportExpandTimeout);
+            exportExpandTimeout = null;
+        }
+    };
+
+    // Handle Export FAB click/tap
+    exportFab.addEventListener('click', (e) => {
+        if (!isExportExpanded) {
+            e.preventDefault();
+            e.stopPropagation();
+            expandExportFAB();
+            
+            // Auto-collapse after 3 seconds on mobile
+            if (window.innerWidth <= 768) {
+                exportExpandTimeout = setTimeout(collapseExportFAB, 3000);
+            }
+        } else {
+            // If already expanded, proceed with export
+            exportSearchData();
+        }
+    });
+
+    // Collapse export button on scroll
+    let exportScrollTimeout;
+    window.addEventListener('scroll', () => {
+        if (isExportExpanded) {
+            clearTimeout(exportScrollTimeout);
+            exportScrollTimeout = setTimeout(collapseExportFAB, 100);
+        }
+    });
+
+    // Collapse when clicking outside
+    document.addEventListener('click', (e) => {
+        if (isExportExpanded && !exportFab.contains(e.target)) {
+            collapseExportFAB();
+        }
+    });
+    
+    // Export search data function
+    function exportSearchData() {
+        try {
+            // Check if we have data to export
+            if (!window.lastData && !window.lastActiveData) {
+                alert('No search data available to export. Please run a search first.');
+                return;
+            }
+            
+            // Gather all available data
+            const exportData = {
+                metadata: {
+                    timestamp: new Date().toISOString(),
+                    searchQuery: window.lastData?.query || 'N/A',
+                    exportedBy: 'Kuya Comps Export Tool',
+                    version: '1.0.0'
+                },
+                soldListings: {
+                    raw: window.lastData?.items || [],
+                    count: window.lastData?.items?.length || 0,
+                    statistics: {
+                        min_price: window.lastData?.min_price,
+                        max_price: window.lastData?.max_price,
+                        avg_price: window.lastData?.avg_price
+                    }
+                },
+                activeListings: {
+                    raw: window.lastActiveData?.items || [],
+                    count: window.lastActiveData?.items?.length || 0,
+                    statistics: {
+                        min_price: window.lastActiveData?.min_price,
+                        max_price: window.lastActiveData?.max_price,
+                        avg_price: window.lastActiveData?.avg_price
+                    }
+                },
+                analytics: {
+                    fmv: {
+                        market_value: window.marketValueGlobal,
+                        quick_sale: window.expectLowGlobal,
+                        patient_sale: window.expectHighGlobal
+                    },
+                    price_tier: window.currentPriceTier || null
+                }
+            };
+            
+            // Convert to JSON string with formatting
+            const jsonString = JSON.stringify(exportData, null, 2);
+            
+            // Create blob and download
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // Create download link
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Generate filename with timestamp and sanitized query
+            const timestamp = new Date().toISOString().split('T')[0];
+            const querySlug = (exportData.metadata.searchQuery || 'search')
+                .substring(0, 50)
+                .replace(/[^a-z0-9]/gi, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '')
+                .toLowerCase();
+            a.download = `kuya-export-${querySlug}-${timestamp}.json`;
+            
+            // Trigger download
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            // Show success feedback
+            const originalIcon = exportFab.querySelector('.export-fab-icon').textContent;
+            exportFab.querySelector('.export-fab-icon').textContent = '✓';
+            exportFab.style.backgroundColor = '#34c759';
+            
+            setTimeout(() => {
+                exportFab.querySelector('.export-fab-icon').textContent = originalIcon;
+                exportFab.style.backgroundColor = '';
+                collapseExportFAB();
+            }, 2000);
+            
+            console.log('[EXPORT] Data exported successfully:', {
+                soldCount: exportData.soldListings.count,
+                activeCount: exportData.activeListings.count,
+                filename: a.download
+            });
+            
+        } catch (error) {
+            console.error('[EXPORT] Error exporting data:', error);
+            alert('Error exporting data. Please try again.');
+        }
+    }
 });
