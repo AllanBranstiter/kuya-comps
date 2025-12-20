@@ -4,6 +4,7 @@ let lastMarketValue = null; // Store market value for filtering
 let priceDistributionChartTimeout = null; // Track pending chart draw
 let lastChartData = { soldData: null, activeData: null }; // Store data for chart redraws
 let currentPriceTier = null; // Store tier from most recent search
+let volumeProfileBins = null; // Store current number of bins for Volume Profile chart (null = auto)
 
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -3183,10 +3184,21 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             
             <!-- Price Distribution Analysis -->
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--text-color);">Volume Profile</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h4 style="margin: 0; color: var(--text-color);">Volume Profile</h4>
+                    
+                    <!-- Bin Count Controls -->
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 0.85rem; color: var(--subtle-text-color);">Bars:</span>
+                        <button onclick="adjustVolumeBins(-5)" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; font-weight: bold; color: var(--text-color); transition: all 0.2s;" onmouseover="this.style.background='#d1d1d6'" onmouseout="this.style.background='var(--border-color)'">−</button>
+                        <span id="volumeBinCount" style="font-weight: 600; color: var(--text-color); min-width: 30px; text-align: center; font-size: 0.95rem;">${volumeProfileBins || (isMobileDevice ? 10 : 25)}</span>
+                        <button onclick="adjustVolumeBins(5)" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; font-weight: bold; color: var(--text-color); transition: all 0.2s;" onmouseover="this.style.background='#d1d1d6'" onmouseout="this.style.background='var(--border-color)'">+</button>
+                        <button onclick="resetVolumeBins()" style="background: var(--border-color); border: none; border-radius: 6px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.8rem; color: var(--text-color); transition: all 0.2s;" onmouseover="this.style.background='#d1d1d6'" onmouseout="this.style.background='var(--border-color)'" title="Reset to default">Reset</button>
+                    </div>
+                </div>
                 
                 <div style="width: 100%; position: relative; margin-bottom: 1rem;">
-                    <canvas id="priceDistributionCanvas" style="width: 100%; height: 300px; display: block;"></canvas>
+                    <canvas id="priceDistributionCanvas" style="width: 100%; height: 300px; display: block; cursor: crosshair;"></canvas>
                 </div>
                 
                 <!-- Legend -->
@@ -4444,8 +4456,9 @@ function drawPriceDistributionChart(soldData, activeData) {
   const maxPrice = Math.max(...allPrices);
   const priceRange = maxPrice - minPrice;
   
-  // Create price bins (15 bins for more granularity)
-  const numBins = 15;
+  // Create price bins - use user setting or default based on device
+  const defaultBins = isMobileDevice ? 10 : 25;
+  const numBins = volumeProfileBins || defaultBins;
   const binWidth = priceRange / numBins;
   
   // Initialize bins
@@ -4720,5 +4733,56 @@ function drawVolumeProfileCrosshair(canvas, x) {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.fillText(priceText, tooltipX + tooltipWidth / 2, tooltipY - 8);
+}
+
+/**
+ * Adjust the number of bins in the Volume Profile chart
+ * @param {number} delta - Amount to change (positive or negative)
+ */
+function adjustVolumeBins(delta) {
+    const defaultBins = isMobileDevice ? 10 : 25;
+    const currentBins = volumeProfileBins || defaultBins;
+    const newBins = currentBins + delta;
+    
+    // Enforce limits: minimum 5 bins, maximum 50 bins
+    if (newBins >= 5 && newBins <= 50) {
+        volumeProfileBins = newBins;
+        
+        // Update display
+        const binCountDisplay = document.getElementById('volumeBinCount');
+        if (binCountDisplay) {
+            binCountDisplay.textContent = newBins;
+        }
+        
+        // Redraw chart with new bin count
+        if (lastChartData.soldData) {
+            drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+        }
+        
+        console.log('[VOLUME PROFILE] Adjusted bins to:', newBins);
+    } else {
+        console.log('[VOLUME PROFILE] Bin adjustment blocked - would exceed limits (5-50)');
+    }
+}
+
+/**
+ * Reset Volume Profile bins to default based on device
+ */
+function resetVolumeBins() {
+    const defaultBins = isMobileDevice ? 10 : 25;
+    volumeProfileBins = null; // Reset to auto
+    
+    // Update display
+    const binCountDisplay = document.getElementById('volumeBinCount');
+    if (binCountDisplay) {
+        binCountDisplay.textContent = defaultBins;
+    }
+    
+    // Redraw chart with default bin count
+    if (lastChartData.soldData) {
+        drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    }
+    
+    console.log('[VOLUME PROFILE] Reset bins to default:', defaultBins);
 }
 
