@@ -4444,8 +4444,8 @@ function drawPriceDistributionChart(soldData, activeData) {
   const maxPrice = Math.max(...allPrices);
   const priceRange = maxPrice - minPrice;
   
-  // Create price bins (10 bins)
-  const numBins = 10;
+  // Create price bins (15 bins for more granularity)
+  const numBins = 15;
   const binWidth = priceRange / numBins;
   
   // Initialize bins
@@ -4562,24 +4562,42 @@ function drawPriceDistributionChart(soldData, activeData) {
       }
   }
   
-  // Draw X-axis labels (price ranges)
-  ctx.fillStyle = "#6e6e73";
-  ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
-  ctx.textAlign = "center";
+  // X-axis labels removed - will be shown on hover/touch interaction
+  // Store chart metadata for interactive crosshair
+  canvas.dataset.minPrice = minPrice;
+  canvas.dataset.maxPrice = maxPrice;
+  canvas.dataset.marginLeft = margin.left;
+  canvas.dataset.marginRight = margin.right;
+  canvas.dataset.marginTop = margin.top;
+  canvas.dataset.marginBottom = margin.bottom;
+  canvas.dataset.innerWidth = innerWidth;
+  canvas.dataset.innerHeight = innerHeight;
   
-  // Show first, middle, and last tick
-  const tickIndices = [0, Math.floor(numBins / 2), numBins - 1];
-  tickIndices.forEach(i => {
-      const binStart = minPrice + (i * binWidth);
-      const binEnd = binStart + binWidth;
-      const x = margin.left + (i * barAreaWidth) + (barAreaWidth / 2);
+  // Add event listeners for interactive crosshair (remove old ones first)
+  const newCanvas = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(newCanvas, canvas);
+  
+  // Re-get the canvas after replacement
+  const interactiveCanvas = document.getElementById("priceDistributionCanvas");
+  if (interactiveCanvas) {
+      // Copy dataset back
+      interactiveCanvas.dataset.minPrice = minPrice;
+      interactiveCanvas.dataset.maxPrice = maxPrice;
+      interactiveCanvas.dataset.marginLeft = margin.left;
+      interactiveCanvas.dataset.marginRight = margin.right;
+      interactiveCanvas.dataset.marginTop = margin.top;
+      interactiveCanvas.dataset.marginBottom = margin.bottom;
+      interactiveCanvas.dataset.innerWidth = innerWidth;
+      interactiveCanvas.dataset.innerHeight = innerHeight;
       
-      ctx.fillText(formatMoney(binStart), x, height - margin.bottom + 20);
-  });
-  
-  // Draw final price
-  const finalX = margin.left + (numBins * barAreaWidth);
-  ctx.fillText(formatMoney(maxPrice), finalX, height - margin.bottom + 20);
+      // Mouse events
+      interactiveCanvas.addEventListener('mousemove', handleVolumeProfileHover);
+      interactiveCanvas.addEventListener('mouseleave', handleVolumeProfileLeave);
+      
+      // Touch events
+      interactiveCanvas.addEventListener('touchmove', handleVolumeProfileTouch, { passive: false });
+      interactiveCanvas.addEventListener('touchend', handleVolumeProfileLeave);
+  }
   
   console.log('[CHART] Price distribution chart drawing completed successfully!');
   console.log('[CHART] Final canvas state:', {
@@ -4594,5 +4612,127 @@ function drawPriceDistributionChart(soldData, activeData) {
       console.error('[CHART ERROR] Stack trace:', error.stack);
       // Chart failure is graceful - won't block other functionality
   }
+}
+
+// ============================================================================
+// INTERACTIVE VOLUME PROFILE HANDLERS
+// ============================================================================
+
+/**
+ * Handle mouse movement over Volume Profile chart
+ * Shows interactive crosshair with price label
+ */
+function handleVolumeProfileHover(e) {
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginRight = parseFloat(canvas.dataset.marginRight);
+    
+    // Only show crosshair within chart area
+    if (x >= marginLeft && x <= canvas.width - marginRight) {
+        drawVolumeProfileCrosshair(canvas, x);
+    }
+}
+
+/**
+ * Handle touch movement over Volume Profile chart
+ * Shows interactive crosshair with price label
+ */
+function handleVolumeProfileTouch(e) {
+    e.preventDefault();
+    const canvas = e.target;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginRight = parseFloat(canvas.dataset.marginRight);
+    
+    if (x >= marginLeft && x <= canvas.width - marginRight) {
+        drawVolumeProfileCrosshair(canvas, x);
+    }
+}
+
+/**
+ * Handle mouse/touch leave - redraw chart without crosshair
+ */
+function handleVolumeProfileLeave() {
+    // Redraw chart without crosshair
+    if (lastChartData.soldData) {
+        drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    }
+}
+
+/**
+ * Draw interactive crosshair on Volume Profile chart
+ * @param {HTMLCanvasElement} canvas - The canvas element
+ * @param {number} x - X coordinate of mouse/touch position
+ */
+function drawVolumeProfileCrosshair(canvas, x) {
+    // Recalculate price from x position
+    const minPrice = parseFloat(canvas.dataset.minPrice);
+    const maxPrice = parseFloat(canvas.dataset.maxPrice);
+    const marginLeft = parseFloat(canvas.dataset.marginLeft);
+    const marginTop = parseFloat(canvas.dataset.marginTop);
+    const marginBottom = parseFloat(canvas.dataset.marginBottom);
+    const innerWidth = parseFloat(canvas.dataset.innerWidth);
+    
+    const relativeX = x - marginLeft;
+    const price = minPrice + (relativeX / innerWidth) * (maxPrice - minPrice);
+    
+    // Redraw chart first
+    drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    
+    const ctx = canvas.getContext('2d');
+    const height = canvas.height;
+    
+    // Draw crosshair line
+    ctx.strokeStyle = 'rgba(255, 149, 0, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x, marginTop);
+    ctx.lineTo(x, height - marginBottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw price tooltip
+    const priceText = formatMoney(price);
+    ctx.font = 'bold 14px sans-serif';
+    const textWidth = ctx.measureText(priceText).width;
+    const tooltipPadding = 8;
+    const tooltipWidth = textWidth + (tooltipPadding * 2);
+    const tooltipHeight = 28;
+    
+    // Position tooltip - keep it within canvas bounds
+    let tooltipX = x - (tooltipWidth / 2);
+    const minTooltipX = marginLeft;
+    const maxTooltipX = canvas.width - marginLeft - tooltipWidth;
+    tooltipX = Math.max(minTooltipX, Math.min(tooltipX, maxTooltipX));
+    
+    const tooltipY = marginTop - 10;
+    
+    // Draw tooltip background with rounded corners
+    ctx.fillStyle = 'rgba(255, 149, 0, 0.95)';
+    ctx.beginPath();
+    const radius = 4;
+    ctx.moveTo(tooltipX + radius, tooltipY - tooltipHeight);
+    ctx.lineTo(tooltipX + tooltipWidth - radius, tooltipY - tooltipHeight);
+    ctx.quadraticCurveTo(tooltipX + tooltipWidth, tooltipY - tooltipHeight, tooltipX + tooltipWidth, tooltipY - tooltipHeight + radius);
+    ctx.lineTo(tooltipX + tooltipWidth, tooltipY - radius);
+    ctx.quadraticCurveTo(tooltipX + tooltipWidth, tooltipY, tooltipX + tooltipWidth - radius, tooltipY);
+    ctx.lineTo(tooltipX + radius, tooltipY);
+    ctx.quadraticCurveTo(tooltipX, tooltipY, tooltipX, tooltipY - radius);
+    ctx.lineTo(tooltipX, tooltipY - tooltipHeight + radius);
+    ctx.quadraticCurveTo(tooltipX, tooltipY - tooltipHeight, tooltipX + radius, tooltipY - tooltipHeight);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw tooltip text
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(priceText, tooltipX + tooltipWidth / 2, tooltipY - 8);
 }
 
