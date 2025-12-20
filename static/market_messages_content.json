@@ -1,6 +1,6 @@
 {
-  "version": "1.1.0",
-  "last_updated": "2024-12-19",
+  "version": "1.2.0",
+  "last_updated": "2024-12-20",
   "messages": {
     "dataQualityWarning": {
       "title": "Data Quality Warning",
@@ -138,12 +138,12 @@
       "color": "#34c759",
       "gradient": "linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)",
       "border": "#99e6b8",
-      "message": "Underpriced cards with strong buyer demand\n\nAvailable cards are priced {absMarketPressure}% below FMV and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: cards are underpriced and selling fast. This could mean a player is breaking out or performing well.",
+      "message": "Current sellers are asking {absMarketPressure}% below Fair Market Value\n\nActive listings are priced below what cards recently sold for, and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: current asking prices are undervalued compared to recent sales. This could mean sellers haven't adjusted to rising demand, or a player is breaking out.",
       "personaAdvice": {
         "seller": [
-          "You could be leaving money on the table at current prices—consider your opinion of the player's potential",
-          "Expect fast sales, even if you raise your price slightly.",
-          "If you're listing now, consider pricing closer to fair value—or just above it."
+          "Current market asks are below recent sales—you could price at Fair Market Value and still sell quickly",
+          "Expect fast sales even if you raise your price toward Fair Market Value",
+          "Consider pricing at Fair Market Value or just above it"
         ],
         "flipper": [
           "This is an excellent setup.",
@@ -195,6 +195,35 @@
         "seller": [],
         "flipper": [],
         "collector": []
+      },
+      "additionalInfo": "Data Quality Score: {dataQualityScore}/100\nActivity: {dominantBandStatement}"
+    },
+    "bimodalMarketWarning": {
+      "title": "Fragmented Market - Multiple Price Points",
+      "icon": "🔀",
+      "color": "#ff9500",
+      "gradient": "linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)",
+      "border": "#ffd699",
+      "message": "Cards are selling at very different prices. Market has two speeds.\n\nThis market shows a fragmented pattern: Cards below FMV are selling {absorptionBelow}x faster than supply ({salesBelow} sales vs {belowFMV} listings), while cards above FMV move much slower ({absorptionAbove}:1 absorption, {salesAbove} sales vs {aboveFMV} listings). Market Confidence is {confidence}/100, confirming price scatter. This suggests distinct buyer segments operating at different price points.",
+      "personaAdvice": {
+        "seller": [
+          "This market rewards strategic pricing.",
+          "Cards priced below FMV sell quickly to value hunters.",
+          "Premium pricing leads to extended wait times.",
+          "Consider your urgency when choosing a price tier."
+        ],
+        "flipper": [
+          "Target the high-absorption zone below FMV for fastest turnover.",
+          "Buy in the value segment, sell quickly at or just below FMV.",
+          "Avoid premium pricing - those listings stall in fragmented markets.",
+          "Volume beats premium pricing in bimodal conditions."
+        ],
+        "collector": [
+          "Two clear buying windows exist in this market.",
+          "Value segment offers faster transaction certainty.",
+          "Premium listings may negotiate down over time.",
+          "Choose your tier based on urgency vs patience."
+        ]
       },
       "additionalInfo": "Data Quality Score: {dataQualityScore}/100\nActivity: {dominantBandStatement}"
     }
@@ -321,31 +350,45 @@
           "items": [
             {
               "icon": "🟢",
-              "title": "70-100 (HIGH CONFIDENCE)",
+              "title": "85-100 (EXCELLENT CONSENSUS)",
               "color": "#34c759",
-              "meaning": "Prices are very consistent - strong market consensus on value.",
+              "meaning": "Exceptional price consistency with tight clustering - excellent market consensus on value.",
               "action": "FMV estimates are highly reliable. Safe to use for pricing decisions."
             },
             {
               "icon": "🔵",
-              "title": "40-69 (MODERATE CONFIDENCE)",
+              "title": "70-84 (GOOD CONSENSUS)",
               "color": "#007aff",
-              "meaning": "Some price variation but overall market is functional. <em><strong>Closer to 40 means caution; closer to 70 means improving clarity.</strong></em>",
-              "action": "FMV estimates are reasonably reliable. Consider using price ranges."
+              "meaning": "Solid price consistency - market has good agreement on value.",
+              "action": "FMV estimates are reliable. Good for most pricing decisions."
+            },
+            {
+              "icon": "🟡",
+              "title": "55-69 (MODERATE VARIATION)",
+              "color": "#ff9500",
+              "meaning": "Noticeable price variation but overall market is functional.",
+              "action": "FMV estimates are reasonably reliable. Consider using price ranges and watching for trends."
             },
             {
               "icon": "🟠",
-              "title": "20-39 (LOW CONFIDENCE)",
+              "title": "40-54 (HIGH VARIATION)",
               "color": "#ff9500",
-              "meaning": "High price variation - market is less certain.",
+              "meaning": "High price variation - market shows significant uncertainty.",
               "action": "Use caution with FMV estimates. Consider refining search terms or gathering more data."
             },
             {
               "icon": "🔴",
-              "title": "0-19 (VERY LOW CONFIDENCE)",
+              "title": "25-39 (VERY HIGH VARIATION)",
               "color": "#ff3b30",
-              "meaning": "Extreme price variation - unreliable market signals.",
+              "meaning": "Very high price variation - unreliable market signals.",
               "action": "FMV estimates may not be accurate. Refine search or check for data quality issues."
+            },
+            {
+              "icon": "⚫",
+              "title": "0-24 (MARKET CHAOS)",
+              "color": "#1d1d1f",
+              "meaning": "Extreme price scatter - no market consensus.",
+              "action": "Data is unreliable. Check for miscategorized listings or search errors."
             }
           ]
         },
@@ -397,7 +440,24 @@
         },
         {
           "type": "text",
-          "content": "<em>Measures demand vs supply based on 90-day sales and current Buy It Now listings.</em>"
+          "content": "<em>Measures demand vs supply based on recent completed sales and current Buy It Now listings.</em>"
+        },
+        {
+          "type": "header",
+          "content": "How Absorption Converts to Liquidity Score"
+        },
+        {
+          "type": "text",
+          "content": "The 0-100 liquidity score is calculated from the absorption ratio:"
+        },
+        {
+          "type": "list",
+          "items": [
+            "<strong>Ratio ≥ 1.0:</strong> Score ranges from 80-100 (increases by 20 points per 1.0 ratio increase)",
+            "<strong>Ratio 0.5-1.0:</strong> Score ranges from 50-79 (linear scale)",
+            "<strong>Ratio 0.2-0.5:</strong> Score ranges from 25-49 (linear scale)",
+            "<strong>Ratio < 0.2:</strong> Score ranges from 10-24 (linear scale down to minimum of 10)"
+          ]
         },
         {
           "type": "header",
