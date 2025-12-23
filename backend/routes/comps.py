@@ -149,8 +149,10 @@ async def get_comps(
                 sort_by=params.sort_by,
                 buying_format=params.buying_format,
                 condition=params.condition,
-                price_min=params.price_min,
-                price_max=params.price_max,
+                # Removed price_min/price_max to get all sold listings regardless of price
+                # This ensures maximum result coverage - filtering can be done on frontend
+                price_min=None,
+                price_max=None,
             )
 
             # Additional post-processing filtering using API data
