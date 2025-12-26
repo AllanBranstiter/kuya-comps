@@ -21,11 +21,11 @@ DIAGNOSIS STEPS:
 3. Verify active listings work (different endpoint: eBay Browse API)
 4. If deal field is also None, SearchAPI may have further changed their structure
 
-CURRENT FIX (Lines 134-177):
+CURRENT FIX (Lines 134-210):
 Parses price from 'deal' field into 'extracted_price':
   - Single price: {"deal": "$120.00"} → extracted_price = 120.00
   - Concatenated: {"deal": "$2.27$3.49"} → extracted_price = 2.27 (sale price)
-  - Price range: {"deal": "$0.99 to $1.49"} → SKIPPED (multi-variant = unknown price)
+  - Price range: {"deal": "$0.99 to $1.49"} → extracted_price = 0.99 (lower bound, typically sold price)
 
 IF SEARCHAPI REVERTS/CHANGES AGAIN:
 1. Add diagnostic logging to see raw API response (lines 134-177 show pattern)
@@ -36,6 +36,8 @@ IF SEARCHAPI REVERTS/CHANGES AGAIN:
 
 HISTORICAL CHANGES:
 - Dec 2025: Prices moved from 'price' to 'deal' field (commits 586216c, 62205e8)
+- Dec 22, 2025: Fixed price range parsing - now includes sold listings with price ranges instead of skipping them
+- Dec 22, 2025: Fixed extracted_price not being set for items with 'price' field - was causing items to be filtered as zero-price
 
 FOR FUTURE DEBUGGING:
 - Enable diagnostic logs by checking first item in results loop
@@ -172,15 +174,28 @@ async def scrape_sold_comps(
                         
                         # Handle different deal formats:
                         # 1. Single price: "$120.00"
-                        # 2. Price range: "$0.99 to $1.49" - SKIP (multi-variant listing, unknown actual price)
+                        # 2. Price range: "$0.99 to $1.49" - Parse lower price (often the sold price)
                         # 3. Concatenated: "$2.27$3.49" (sale price + original price)
                         
                         if isinstance(deal_value, str):
                             # Check for price range (e.g., "$0.99 to $1.49")
-                            # These are multi-variant listings - skip them entirely
+                            # For sold listings, use the lower price (typically the sold price)
                             if ' to ' in deal_value:
-                                logger.info(f"[scraper] Page {page}: SKIPPING price range (multi-variant listing): {deal_value} - {r.get('title', 'N/A')[:60]}")
-                                continue  # Skip this item entirely
+                                try:
+                                    # Extract the lower price from the range
+                                    price_parts = deal_value.split(' to ')
+                                    if price_parts and len(price_parts) >= 2:
+                                        lower_price_str = price_parts[0].strip().replace('$', '').replace(',', '')
+                                        extracted_price = float(lower_price_str)
+                                        r['price'] = price_parts[0].strip()
+                                        r['extracted_price'] = extracted_price
+                                        logger.info(f"[scraper] Page {page}: Parsed price range: {deal_value} → ${extracted_price} (using lower bound)")
+                                    else:
+                                        logger.warning(f"[scraper] Page {page}: Could not parse price range: {deal_value}")
+                                        continue  # Skip only if we can't parse it
+                                except (ValueError, IndexError) as e:
+                                    logger.warning(f"[scraper] Page {page}: Failed to parse price range: {deal_value} - {e}")
+                                    continue  # Skip only if parsing fails
                             
                             # Check for concatenated prices (e.g., "$2.27$3.49")
                             elif deal_value.count('$') > 1:
@@ -218,7 +233,21 @@ async def scrape_sold_comps(
                             price_parts = price_str.split('$')[1:] # Remove empty first element
                             if price_parts:
                                 r['price'] = '$' + price_parts[0]  # Use sale price
-                                logger.info(f"[scraper] Page {page}: Cleaned concatenated price: {price_str} → ${price_parts[0]}")
+                                # CRITICAL: Also set extracted_price so item isn't filtered out
+                                try:
+                                    price_clean = price_parts[0].replace(',', '')
+                                    r['extracted_price'] = float(price_clean)
+                                    logger.info(f"[scraper] Page {page}: Cleaned concatenated price: {price_str} → ${price_parts[0]} (extracted: {r['extracted_price']})")
+                                except ValueError:
+                                    logger.warning(f"[scraper] Page {page}: Could not parse cleaned price: {price_parts[0]}")
+                        # Even for single prices, ensure extracted_price is set
+                        elif not r.get('extracted_price'):
+                            try:
+                                price_clean = price_str.replace('$', '').replace(',', '')
+                                r['extracted_price'] = float(price_clean)
+                                logger.info(f"[scraper] Page {page}: Extracted price from single price string: {price_str} → {r['extracted_price']}")
+                            except ValueError:
+                                logger.warning(f"[scraper] Page {page}: Could not parse price string: {price_str}")
                     
                     # The entire result 'r' is now passed, as the Pydantic model
                     # will handle the parsing and validation.
@@ -375,7 +404,21 @@ def scrape_active_listings(
                     price_parts = price_str.split('$')[1:] # Remove empty first element
                     if price_parts:
                         r['price'] = '$' + price_parts[0]  # Use sale price
-                        print(f"[scraper] Cleaned concatenated price: {price_str} → ${price_parts[0]}")
+                        # Also set extracted_price so item isn't filtered out
+                        try:
+                            price_clean = price_parts[0].replace(',', '')
+                            r['extracted_price'] = float(price_clean)
+                            print(f"[scraper] Cleaned concatenated price: {price_str} → ${price_parts[0]} (extracted: {r['extracted_price']})")
+                        except ValueError:
+                            print(f"[scraper] WARNING: Could not parse cleaned price: {price_parts[0]}")
+                # Even for single prices, ensure extracted_price is set
+                elif not r.get('extracted_price'):
+                    try:
+                        price_clean = price_str.replace('$', '').replace(',', '')
+                        r['extracted_price'] = float(price_clean)
+                        print(f"[scraper] Extracted price from single price string: {price_str} → {r['extracted_price']}")
+                    except ValueError:
+                        print(f"[scraper] WARNING: Could not parse price string: {price_str}")
             
             # Check for auction indicators
             buying_format = r.get('buying_format', '').lower()

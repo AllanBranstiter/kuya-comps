@@ -136,7 +136,9 @@ async def get_comps(
             # Modify query based on filters
             modified_query = params.query
             if params.raw_only:
-                modified_query = f"{modified_query} -PSA -BGS -SGC -CSG -HGA -graded -grade -gem -mint"
+                # Exclude grading company names and specific grading terms
+                # Note: Removed generic '-mint' as it filters out ungraded "mint condition" cards
+                modified_query = f"{modified_query} -PSA -BGS -SGC -CSG -HGA -graded"
             
             raw_items = await scrape_sold_comps(
                 query=modified_query,
@@ -147,8 +149,10 @@ async def get_comps(
                 sort_by=params.sort_by,
                 buying_format=params.buying_format,
                 condition=params.condition,
-                price_min=params.price_min,
-                price_max=params.price_max,
+                # Removed price_min/price_max to get all sold listings regardless of price
+                # This ensures maximum result coverage - filtering can be done on frontend
+                price_min=None,
+                price_max=None,
             )
 
             # Additional post-processing filtering using API data
@@ -165,8 +169,9 @@ async def get_comps(
                     if condition == 'graded':
                         print(f"[RAW ONLY] Filtered graded item: {item.get('item_id')} - condition={item.get('condition')}")
                         continue
-                    # Check title for grading terms
-                    if any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', 'grade', 'gem', 'mint']):
+                    # Check title for grading company names and specific grading terms
+                    # Note: Removed 'mint' from filter as it catches legitimate ungraded "mint condition" cards
+                    if any(term in title for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded', ' grade ', 'gem mint', 'psa 10', 'bgs 9']):
                         continue
                     # Check authenticity field
                     if 'graded' in authenticity:
@@ -187,7 +192,9 @@ async def get_comps(
                     
                 # Exclude Autographs filter - check title, authenticity, and extensions
                 if params.exclude_autographs:
-                    if any(term in title for term in ['auto', 'autograph', 'signed', 'signature', 'authentic', 'certified']):
+                    # Note: Removed overly broad terms like 'authentic' and 'certified' which filter out non-autograph cards
+                    # Only filter clear autograph indicators
+                    if any(term in title for term in ['autograph', 'signed', 'auto card', 'auto rc', ' auto ', '/auto']):
                         continue
                     if 'autograph' in authenticity or any('autograph' in ext for ext in extensions):
                         continue
