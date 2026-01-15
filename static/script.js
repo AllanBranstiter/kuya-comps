@@ -667,6 +667,11 @@ function switchTab(tabName, clickedElement = null) {
         tabContent.classList.add('active');
     }
     
+    // Load portfolio data when switching to portfolio tab
+    if (tabName === 'portfolio' && window.AuthModule && window.AuthModule.isAuthenticated()) {
+        window.AuthModule.displayPortfolio();
+    }
+    
     // Redraw chart if switching to comps tab and we have data
     if (tabName === 'comps' && currentBeeswarmPrices.length > 0) {
         setTimeout(() => {
@@ -2048,11 +2053,32 @@ async function runSearchInternal() {
   expectHighGlobal = null;
 
     try {
+      // Get auth token if user is logged in
+      let headers = {};
+      if (window.AuthModule && window.AuthModule.isAuthenticated()) {
+        try {
+          const supabase = window.AuthModule.getClient();
+          if (supabase) {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session && session.access_token) {
+              headers['Authorization'] = `Bearer ${session.access_token}`;
+              console.log('[AUTH] Including JWT token in request');
+            }
+          }
+        } catch (authError) {
+          console.warn('[AUTH] Failed to get session token:', authError);
+          // Continue without auth - endpoints support optional auth
+        }
+      }
+      
       // Set up timeout and abort controller
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      const resp = await fetch(url, { signal: controller.signal });
+      const resp = await fetch(url, {
+        signal: controller.signal,
+        headers: headers
+      });
       clearTimeout(timeoutId);
 
       if (!resp.ok) {
@@ -2194,7 +2220,12 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
     
     try {
         console.log('[DEBUG] Fetching active listings from:', activeUrl);
-        const secondResp = await fetch(activeUrl, { signal: activeController.signal });
+        
+        // Reuse the same auth headers for active listings
+        const secondResp = await fetch(activeUrl, {
+            signal: activeController.signal,
+            headers: headers
+        });
         clearTimeout(activeTimeoutId);
         
         console.log('[DEBUG] Active listings response status:', secondResp.status, secondResp.ok);
@@ -3771,6 +3802,9 @@ async function updateFmv(data) {
     const coefficientOfVariation = (stdDev / avgPrice) * 100;
     const marketConfidence = Math.round(100 / (1 + coefficientOfVariation / 100));
 
+    // Check if user is authenticated for Save button
+    const isUserAuthenticated = window.AuthModule && window.AuthModule.isAuthenticated();
+    
     const fmvHtml = `
       <div id="fmv">
         <h3>📈 Fair Market Value</h3>
@@ -3803,6 +3837,24 @@ async function updateFmv(data) {
                 'Very high variation'
               }). These FMV estimates have higher uncertainty due to price scatter.
             </p>
+          </div>
+        ` : ''}
+        ${isUserAuthenticated ? `
+          <div style="text-align: center; margin-top: 1.5rem;">
+            <button onclick="saveCurrentSearchToPortfolio()" style="
+              background: linear-gradient(135deg, #34c759, #30d158);
+              color: white;
+              border: none;
+              padding: 0.75rem 1.5rem;
+              border-radius: 10px;
+              font-size: 0.95rem;
+              font-weight: 600;
+              cursor: pointer;
+              box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+              transition: all 0.3s ease;
+            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(52, 199, 89, 0.4)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(52, 199, 89, 0.3)';">
+              ⭐ Save to Portfolio
+            </button>
           </div>
         ` : ''}
       </div>
@@ -5112,4 +5164,234 @@ function drawVolumeProfileCrosshairDirect(canvas, x, isPersisted = true) {
     ctx.textAlign = 'center';
     ctx.fillText(priceText, tooltipX + tooltipWidth / 2, tooltipY - 8);
 }
+
+// ============================================================================
+// SAVE TO PORTFOLIO FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Save current search results to user's portfolio in Supabase
+ */
+async function saveCurrentSearchToPortfolio() {
+    console.log('[SAVE] Attempting to save search to portfolio');
+    
+    // Check if user is authenticated
+    if (!window.AuthModule || !window.AuthModule.isAuthenticated()) {
+        console.error('[SAVE] User not authenticated');
+        if (typeof showError === 'function') {
+            showError('Please log in to save searches to your portfolio');
+        } else {
+            alert('Please log in to save searches to your portfolio');
+        }
+        return;
+    }
+    
+    // Check if we have search data
+    if (!lastData || !lastData.items || lastData.items.length === 0) {
+        console.error('[SAVE] No search data available');
+        if (typeof showError === 'function') {
+            showError('No search results to save. Please run a search first.');
+        } else {
+            alert('No search results to save. Please run a search first.');
+        }
+        return;
+    }
+    
+    // Gather all the data to save
+    const searchData = {
+        query: lastData.query || document.getElementById('query')?.value || '',
+        fmv: marketValueGlobal,
+        quick_sale: expectLowGlobal,
+        patient_sale: expectHighGlobal,
+        market_confidence: null,
+        liquidity_score: null,
+        market_pressure: null,
+        sold_count: lastData.items.length,
+        active_count: lastActiveData?.items?.length || 0,
+        min_price: lastData.min_price,
+        max_price: lastData.max_price,
+        avg_price: lastData.avg_price,
+        metadata: {
+            timestamp: new Date().toISOString(),
+            pages_scraped: lastData.pages_scraped,
+            raw_items_scraped: lastData.raw_items_scraped,
+            duplicates_filtered: lastData.duplicates_filtered
+        }
+    };
+    
+    // Calculate market confidence if we have the data
+    if (lastData.items && lastData.items.length > 0) {
+        const prices = lastData.items.map(item => item.total_price).filter(p => p > 0);
+        if (prices.length > 0) {
+            const stdDev = calculateStdDev(prices);
+            const avgPrice = lastData.avg_price;
+            const coefficientOfVariation = (stdDev / avgPrice) * 100;
+            searchData.market_confidence = Math.round(100 / (1 + coefficientOfVariation / 100));
+        }
+    }
+    
+    // Calculate liquidity score if we have active data
+    if (lastActiveData && lastActiveData.items) {
+        const liquidityRisk = calculateLiquidityRisk(lastData, lastActiveData);
+        if (liquidityRisk && liquidityRisk.score !== null) {
+            searchData.liquidity_score = liquidityRisk.score;
+        }
+    }
+    
+    // Calculate market pressure if we have active data and FMV
+    if (lastActiveData && lastActiveData.items && marketValueGlobal) {
+        const marketPressureData = calculateMarketPressure(lastActiveData, marketValueGlobal);
+        if (marketPressureData && marketPressureData.marketPressure !== null) {
+            searchData.market_pressure = marketPressureData.marketPressure;
+        }
+    }
+    
+    console.log('[SAVE] Prepared search data:', searchData);
+    
+    // Disable the save button and show loading state
+    const saveButton = event?.target;
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = '⏳ Saving...';
+        saveButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
+    }
+    
+    try {
+        // Call the auth module's save function
+        const result = await window.AuthModule.saveSearchToSupabase(searchData);
+        
+        if (result.error) {
+            console.error('[SAVE] Error saving search:', result.error);
+            if (typeof showError === 'function') {
+                showError('Failed to save search: ' + (result.error.message || 'Unknown error'));
+            } else {
+                alert('Failed to save search: ' + (result.error.message || 'Unknown error'));
+            }
+            
+            // Restore button state
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.textContent = '⭐ Save to Portfolio';
+                saveButton.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
+            }
+        } else {
+            console.log('[SAVE] Search saved successfully:', result.data);
+            
+            // Show success message
+            if (typeof showSuccess === 'function') {
+                showSuccess('Search saved to your portfolio!');
+            } else {
+                alert('Search saved to your portfolio!');
+            }
+            
+            // Update button to show saved state
+            if (saveButton) {
+                saveButton.textContent = '✅ Saved!';
+                saveButton.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
+                
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    saveButton.disabled = false;
+                    saveButton.textContent = '⭐ Save to Portfolio';
+                }, 3000);
+            }
+        }
+    } catch (error) {
+        console.error('[SAVE] Exception saving search:', error);
+        if (typeof showError === 'function') {
+            showError('An error occurred while saving: ' + error.message);
+        } else {
+            alert('An error occurred while saving: ' + error.message);
+        }
+        
+        // Restore button state
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.textContent = '⭐ Save to Portfolio';
+            saveButton.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
+        }
+    }
+}
+
+// Expose function globally for onclick handler
+window.saveCurrentSearchToPortfolio = saveCurrentSearchToPortfolio;
+
+// ============================================================================
+// PORTFOLIO MANAGEMENT FUNCTIONS
+// ============================================================================
+
+/**
+ * Load a saved search and execute it
+ * @param {string} query - The search query to execute
+ */
+async function loadSavedSearch(query) {
+    console.log('[PORTFOLIO] Loading saved search:', query);
+    
+    // Switch to comps tab
+    switchTab('comps');
+    
+    // Set the query in the search box
+    const queryInput = document.getElementById('query');
+    if (queryInput) {
+        queryInput.value = query;
+    }
+    
+    // Wait a moment for tab switch to complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Execute the search
+    await runSearch();
+}
+
+/**
+ * Delete a saved search from the portfolio
+ * @param {number} searchId - The ID of the search to delete
+ */
+async function deleteSavedSearch(searchId) {
+    console.log('[PORTFOLIO] Deleting search:', searchId);
+    
+    if (!confirm('Are you sure you want to delete this saved search?')) {
+        return;
+    }
+    
+    // Check if user is authenticated
+    if (!window.AuthModule || !window.AuthModule.isAuthenticated()) {
+        console.error('[PORTFOLIO] User not authenticated');
+        alert('Please log in to delete searches');
+        return;
+    }
+    
+    try {
+        const supabase = window.AuthModule.getClient();
+        if (!supabase) {
+            throw new Error('Supabase client not available');
+        }
+        
+        const { error } = await supabase
+            .from('saved_searches')
+            .delete()
+            .eq('id', searchId);
+        
+        if (error) {
+            console.error('[PORTFOLIO] Error deleting search:', error);
+            alert('Failed to delete search: ' + (error.message || 'Unknown error'));
+            return;
+        }
+        
+        console.log('[PORTFOLIO] Search deleted successfully');
+        
+        // Refresh the portfolio display
+        if (window.AuthModule.displayPortfolio) {
+            await window.AuthModule.displayPortfolio();
+        }
+        
+    } catch (error) {
+        console.error('[PORTFOLIO] Exception deleting search:', error);
+        alert('An error occurred while deleting: ' + error.message);
+    }
+}
+
+// Expose portfolio functions globally for onclick handlers
+window.loadSavedSearch = loadSavedSearch;
+window.deleteSavedSearch = deleteSavedSearch;
 
