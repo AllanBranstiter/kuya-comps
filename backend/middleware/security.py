@@ -39,11 +39,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Restricts where resources can be loaded from
         csp_directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",  # Allow Chart.js from CDN
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",  # Allow inline styles for dynamic charts
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",  # Allow Supabase, Chart.js, html2canvas from CDN
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",  # Allow inline styles and Google Fonts
             "img-src 'self' data: https: blob:",  # Allow images from eBay and data URIs
-            "font-src 'self' data:",
-            "connect-src 'self' https://api.ebay.com https://www.searchapi.io",  # Allow API calls
+            "font-src 'self' data: https://fonts.gstatic.com",  # Allow Google Fonts
+            "connect-src 'self' https://api.ebay.com https://www.searchapi.io https://*.supabase.co",  # Allow API calls including Supabase
             "frame-ancestors 'none'",  # Prevent framing (same as X-Frame-Options)
             "base-uri 'self'",
             "form-action 'self'",

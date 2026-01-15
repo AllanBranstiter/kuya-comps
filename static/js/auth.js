@@ -65,9 +65,24 @@ const AuthModule = (function() {
                 if (session) {
                     currentUser = session.user;
                     console.log('[AUTH] User logged in:', currentUser.email);
+                    
+                    // Handle email confirmation
+                    if (event === 'SIGNED_IN' && session.user.email_confirmed_at) {
+                        // Check if this is from email confirmation (URL will have token)
+                        const urlParams = new URLSearchParams(window.location.search);
+                        if (urlParams.has('token') || urlParams.has('type')) {
+                            showWelcomeMessage(session.user.email);
+                            // Clean up URL parameters
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        }
+                    }
+                    
+                    // Update UI when user logs in
+                    updateAuthUI();
                 } else {
                     currentUser = null;
                     console.log('[AUTH] User logged out');
+                    updateAuthUI();
                 }
             });
             
@@ -781,6 +796,72 @@ const AuthModule = (function() {
             `;
         }
         console.log('[AUTH] Market Analysis disabled for unauthenticated user');
+    }
+    
+    /**
+     * Show welcome message after email confirmation
+     * @param {string} email - User's email address
+     */
+    function showWelcomeMessage(email) {
+        console.log('[AUTH] Showing welcome message for:', email);
+        
+        // Create welcome banner
+        const banner = document.createElement('div');
+        banner.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #34c759, #30d158);
+            color: white;
+            padding: 1.25rem 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(52, 199, 89, 0.4);
+            z-index: 10001;
+            font-family: var(--font-family);
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: center;
+            animation: slideDown 0.5s ease;
+            max-width: 90%;
+        `;
+        
+        banner.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span style="font-size: 1.5rem;">✅</span>
+                <div style="text-align: left;">
+                    <div style="font-weight: 700; margin-bottom: 0.25rem;">Welcome to Kuya Comps!</div>
+                    <div style="font-size: 0.9rem; opacity: 0.95;">Your email has been confirmed. You're now logged in.</div>
+                </div>
+            </div>
+        `;
+        
+        // Add animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(banner);
+        
+        // Remove banner after 5 seconds
+        setTimeout(() => {
+            banner.style.animation = 'slideDown 0.5s ease reverse';
+            setTimeout(() => {
+                banner.remove();
+                style.remove();
+            }, 500);
+        }, 5000);
     }
     
     /**
