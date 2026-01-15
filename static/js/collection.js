@@ -555,7 +555,7 @@ const CollectionModule = (function() {
             const cardData = {
                 binder_id: binderId,
                 year: formData.year,
-                set: formData.set,
+                set_name: formData.set,
                 athlete: formData.athlete,
                 card_number: formData.cardNumber,
                 variation: formData.variation,
