@@ -4,10 +4,9 @@
  */
 
 // Supabase Configuration
-// TODO: Replace these placeholders with your actual Supabase project credentials
 const SUPABASE_CONFIG = {
-    URL: 'YOUR_SUPABASE_URL',  // e.g., 'https://xxxxx.supabase.co'
-    ANON_KEY: 'YOUR_SUPABASE_ANON_KEY'  // Your public anon key
+    URL: 'https://hgqaqvhveisjzbnefesv.supabase.co',
+    ANON_KEY: 'sb_publishable_qYKLZ1xwzYDNctAtAZaFiw_FxYNyVhw'
 };
 
 // API Configuration
