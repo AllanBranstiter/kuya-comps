@@ -668,8 +668,8 @@ function switchTab(tabName, clickedElement = null) {
     }
     
     // Load portfolio data when switching to portfolio tab
-    if (tabName === 'portfolio' && window.AuthModule && window.AuthModule.isAuthenticated()) {
-        window.AuthModule.displayPortfolio();
+    if (tabName === 'portfolio' && window.CollectionModule) {
+        window.CollectionModule.displayBinderView();
     }
     
     // Redraw chart if switching to comps tab and we have data
