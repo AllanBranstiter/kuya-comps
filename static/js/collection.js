@@ -457,7 +457,7 @@ const CollectionModule = (function() {
             newBinderName: document.getElementById('new-binder-name')?.value || null,
             tags: document.getElementById('card-tags')?.value || null,
             autoUpdate: document.getElementById('card-auto-update')?.checked || false,
-            searchQuery: document.getElementById('card-search-query')?.value || null
+            searchQuery: document.getElementById('card-search-query')?.value ?? ''
         };
         
         console.log('[COLLECTION] Form data:', formData);
@@ -575,7 +575,7 @@ const CollectionModule = (function() {
                 purchase_price: formData.purchasePrice,
                 purchase_date: formData.purchaseDate,
                 current_fmv: formData.currentFmv,
-                search_query_string: formData.searchQuery,
+                search_query_string: formData.searchQuery || '',
                 auto_update: formData.autoUpdate,
                 tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
             };
@@ -1029,8 +1029,8 @@ const CollectionModule = (function() {
                 
                 html += `
                     <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s ease;" onmouseover="this.style.background='linear-gradient(135deg, #f8fafd 0%, #f0f4ff 100%)'" onmouseout="this.style.background='transparent'">
-                        <td style="padding: 0.75rem; text-align: center; width: 40px;">
-                            <span onclick="CollectionModule.showCardContextMenu('${card.id}', ${JSON.stringify(card).replace(/'/g, "&#39;")}, event); event.stopPropagation();" style="cursor: pointer; font-size: 1.2rem; color: #1d1d1f; transition: all 0.2s; display: inline-block;" onmouseover="this.style.transform='scale(1.2)'; this.style.color='#007aff';" onmouseout="this.style.transform='scale(1)'; this.style.color='#1d1d1f';" title="Options">⋮</span>
+                        <td style="padding: 0.5rem; text-align: center; width: 50px;">
+                            <button onclick="CollectionModule.showCardContextMenu('${card.id}', ${JSON.stringify(card).replace(/'/g, "&#39;")}, event); event.stopPropagation();" style="background: transparent; border: none; cursor: pointer; font-size: 1.3rem; color: #1d1d1f; padding: 0.5rem; min-width: 40px; min-height: 40px; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;" onmouseover="this.style.background='rgba(0, 122, 255, 0.1)'; this.style.color='#007aff'; this.style.transform='scale(1.1)';" onmouseout="this.style.background='transparent'; this.style.color='#1d1d1f'; this.style.transform='scale(1)';" title="Options">⋮</button>
                         </td>
                         <td style="padding: 0.75rem;">
                             <div style="font-weight: 600; color: var(--text-color); margin-bottom: 0.25rem;">${escapeHtml(cardDesc || 'Untitled Card')}</div>
