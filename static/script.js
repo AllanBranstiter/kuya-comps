@@ -5203,9 +5203,13 @@ async function saveCurrentSearchToPortfolio() {
         return;
     }
     
-    // Open the Add to Collection modal with the search query
+    // Get the current FMV from the global variable
+    const currentFMV = window.marketValueGlobal || null;
+    console.log('[SAVE] Passing FMV to modal:', currentFMV);
+    
+    // Open the Add to Collection modal with the search query and FMV
     if (window.CollectionModule && window.CollectionModule.showAddToCollectionModal) {
-        window.CollectionModule.showAddToCollectionModal(searchQuery);
+        window.CollectionModule.showAddToCollectionModal(searchQuery, currentFMV);
     } else {
         console.error('[SAVE] CollectionModule not available');
         alert('Collection feature is not available. Please refresh the page.');

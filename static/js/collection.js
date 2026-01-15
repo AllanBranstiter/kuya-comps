@@ -110,11 +110,13 @@ const CollectionModule = (function() {
     /**
      * Show the Add to Collection modal
      * @param {string} searchQuery - Current search query to parse
+     * @param {number} currentFMV - Current Fair Market Value to auto-populate
      * @param {Object} cardData - Optional pre-filled card data
      */
-    function showAddToCollectionModal(searchQuery = '', cardData = {}) {
+    function showAddToCollectionModal(searchQuery = '', currentFMV = null, cardData = {}) {
         console.log('[COLLECTION] Opening Add to Collection modal');
         console.log('[COLLECTION] Search query:', searchQuery);
+        console.log('[COLLECTION] Current FMV:', currentFMV);
         
         // Parse the search string for smart auto-fill
         const parsed = parseSearchString(searchQuery);
@@ -236,7 +238,7 @@ const CollectionModule = (function() {
                             💰 Financial Details
                         </h3>
                         
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                             <div class="auth-form-group" style="margin-bottom: 0;">
                                 <label>Purchase Price ($)</label>
                                 <input type="number" id="card-purchase-price" placeholder="0.00" step="0.01" min="0">
@@ -245,6 +247,14 @@ const CollectionModule = (function() {
                             <div class="auth-form-group" style="margin-bottom: 0;">
                                 <label>Date Purchased</label>
                                 <input type="date" id="card-purchase-date" style="width: 100%; padding: 0.875rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: var(--font-family); background: var(--card-background); color: var(--text-color);">
+                            </div>
+                        </div>
+                        
+                        <div class="auth-form-group">
+                            <label>Current FMV ($)</label>
+                            <input type="number" id="card-current-fmv" placeholder="0.00" step="0.01" min="0" value="${currentFMV || ''}">
+                            <div style="font-size: 0.75rem; color: var(--subtle-text-color); margin-top: 0.25rem;">
+                                ${currentFMV ? 'Auto-filled from search results' : 'Optional - will be updated automatically if enabled'}
                             </div>
                         </div>
                     </div>
@@ -442,6 +452,7 @@ const CollectionModule = (function() {
             grade: document.getElementById('card-grade')?.value || null,
             purchasePrice: parseFloat(document.getElementById('card-purchase-price')?.value) || null,
             purchaseDate: document.getElementById('card-purchase-date')?.value || null,
+            currentFmv: parseFloat(document.getElementById('card-current-fmv')?.value) || null,
             binder: document.getElementById('card-binder')?.value || null,
             newBinderName: document.getElementById('new-binder-name')?.value || null,
             tags: document.getElementById('card-tags')?.value || null,
@@ -563,6 +574,7 @@ const CollectionModule = (function() {
                 grade: formData.grade,
                 purchase_price: formData.purchasePrice,
                 purchase_date: formData.purchaseDate,
+                current_fmv: formData.currentFmv,
                 search_query_string: formData.searchQuery,
                 auto_update: formData.autoUpdate,
                 tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
@@ -771,8 +783,12 @@ const CollectionModule = (function() {
             const roiColor = (stats.roi || 0) >= 0 ? '#34c759' : '#ff3b30';
             
             html += `
-                <div class="binder-card" onclick="CollectionModule.showBinderDetails('${binder.id}')" style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; cursor: pointer;">
-                    <h4 style="margin: 0 0 1rem 0; font-size: 1.2rem; font-weight: 600; color: var(--text-color);">
+                <div class="binder-card" onclick="CollectionModule.showBinderDetails('${binder.id}')" style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; cursor: pointer; position: relative;">
+                    <div style="position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem;">
+                        <button onclick="CollectionModule.showEditBinderModal('${binder.id}', '${escapeHtml(binder.name).replace(/'/g, "\\'")}'); event.stopPropagation();" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1rem; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#007aff'; this.style.color='white';" onmouseout="this.style.background='var(--border-color)'; this.style.color='inherit';" title="Edit binder">✏️</button>
+                        <button onclick="CollectionModule.deleteBinder('${binder.id}'); event.stopPropagation();" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1rem; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#ff3b30'; this.style.color='white';" onmouseout="this.style.background='var(--border-color)'; this.style.color='inherit';" title="Delete binder">🗑️</button>
+                    </div>
+                    <h4 style="margin: 0 0 1rem 0; font-size: 1.2rem; font-weight: 600; color: var(--text-color); padding-right: 80px;">
                         ${escapeHtml(binder.name)}
                     </h4>
                     
@@ -1015,7 +1031,7 @@ const CollectionModule = (function() {
                     <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s ease;" onmouseover="this.style.background='linear-gradient(135deg, #f8fafd 0%, #f0f4ff 100%)'" onmouseout="this.style.background='transparent'">
                         <td style="padding: 0.75rem;">
                             <div style="font-weight: 600; color: var(--text-color); margin-bottom: 0.25rem;">${escapeHtml(cardDesc || 'Untitled Card')}</div>
-                            ${card.tags ? `<div style="font-size: 0.75rem; color: var(--subtle-text-color);">${Array.isArray(card.tags) ? card.tags.map(t => '#' + t).join(' ') : '#' + card.tags}</div>` : ''}
+                            ${card.tags ? `<div style="font-size: 0.75rem; color: var(--subtle-text-color);">${Array.isArray(card.tags) ? card.tags.map(t => '#' + t).join(' ') : (typeof card.tags === 'string' ? '#' + card.tags : '')}</div>` : ''}
                         </td>
                         <td style="padding: 0.75rem;">${conditionBadge}</td>
                         <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: var(--text-color);">$${cost.toFixed(2)}</td>
@@ -1023,7 +1039,13 @@ const CollectionModule = (function() {
                             <div style="font-weight: 600; color: var(--text-color);">$${fmv.toFixed(2)}</div>
                             ${fmv > 0 ? `<div style="font-size: 0.75rem; color: ${cardROI >= 0 ? '#34c759' : '#ff3b30'};">${cardROI >= 0 ? '+' : ''}${cardROI.toFixed(1)}%</div>` : ''}
                         </td>
-                        <td style="padding: 0.75rem; text-align: center;">${statusHTML}</td>
+                        <td style="padding: 0.75rem; text-align: center;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                                ${statusHTML}
+                                <button onclick="CollectionModule.showEditCardModal('${card.id}'); event.stopPropagation();" style="background: transparent; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';" title="Edit card">✏️</button>
+                                <button onclick="CollectionModule.deleteCard('${card.id}', '${binder.id}'); event.stopPropagation();" style="background: transparent; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';" title="Delete card">🗑️</button>
+                            </div>
+                        </td>
                     </tr>
                 `;
             });
@@ -1049,13 +1071,568 @@ const CollectionModule = (function() {
         return div.innerHTML;
     }
     
+    /**
+     * Delete a binder and all its cards
+     */
+    async function deleteBinder(binderId) {
+        console.log('[COLLECTION] Deleting binder:', binderId);
+        
+        if (!confirm('Are you sure you want to delete this binder and all its cards? This action cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            const supabase = window.AuthModule.getClient();
+            const user = window.AuthModule.getCurrentUser();
+            
+            if (!supabase || !user) {
+                throw new Error('Authentication error');
+            }
+            
+            // Delete binder (cards will be cascade deleted by database)
+            const { error } = await supabase
+                .from('binders')
+                .delete()
+                .eq('id', binderId)
+                .eq('user_id', user.id);
+            
+            if (error) {
+                throw error;
+            }
+            
+            console.log('[COLLECTION] Binder deleted successfully');
+            
+            // Refresh the binder view
+            displayBinderView();
+            
+        } catch (error) {
+            console.error('[COLLECTION] Error deleting binder:', error);
+            alert('Failed to delete binder: ' + (error.message || 'Unknown error'));
+        }
+    }
+    
+    /**
+     * Delete a card from a binder
+     */
+    async function deleteCard(cardId, binderId) {
+        console.log('[COLLECTION] Deleting card:', cardId);
+        
+        if (!confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            const supabase = window.AuthModule.getClient();
+            
+            if (!supabase) {
+                throw new Error('Database not available');
+            }
+            
+            // Delete card
+            const { error } = await supabase
+                .from('cards')
+                .delete()
+                .eq('id', cardId);
+            
+            if (error) {
+                throw error;
+            }
+            
+            console.log('[COLLECTION] Card deleted successfully');
+            
+            // Refresh the binder detail view
+            showBinderDetails(binderId);
+            
+        } catch (error) {
+            console.error('[COLLECTION] Error deleting card:', error);
+            alert('Failed to delete card: ' + (error.message || 'Unknown error'));
+        }
+    }
+    
+    /**
+     * Show edit binder modal
+     */
+    function showEditBinderModal(binderId, binderName) {
+        console.log('[COLLECTION] Opening Edit Binder modal for:', binderId);
+        
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'edit-binder-modal-overlay';
+        overlay.className = 'auth-modal-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        `;
+        
+        const modal = document.createElement('div');
+        modal.className = 'auth-modal';
+        modal.style.cssText = `
+            background: var(--card-background);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+            border: 1px solid var(--border-color);
+            animation: scaleIn 0.3s ease;
+        `;
+        
+        modal.innerHTML = `
+            <div class="auth-modal-header" style="padding: 2rem 2rem 1rem 2rem; border-bottom: 1px solid var(--border-color); position: relative; text-align: center;">
+                <h2 style="margin: 0; font-size: 1.75rem; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                    ✏️ Edit Binder
+                </h2>
+                <button class="auth-modal-close" onclick="CollectionModule.hideEditBinderModal()" style="position: absolute; top: 1.5rem; right: 1.5rem; background: transparent; border: none; font-size: 2rem; color: var(--subtle-text-color); cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease; padding: 0;">
+                    &times;
+                </button>
+            </div>
+            
+            <div class="auth-modal-body" style="padding: 2rem;">
+                <form id="edit-binder-form">
+                    <input type="hidden" id="edit-binder-id" value="${binderId}">
+                    
+                    <div class="auth-form-group">
+                        <label>Binder Name</label>
+                        <input type="text" id="edit-binder-name" value="${binderName}" required>
+                    </div>
+                    
+                    <button type="submit" class="auth-submit-btn" style="width: 100%; padding: 1rem; background: var(--gradient-primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); margin-top: 1rem;">
+                        💾 Save Changes
+                    </button>
+                </form>
+            </div>
+        `;
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Set up form submission
+        const form = document.getElementById('edit-binder-form');
+        form.addEventListener('submit', handleEditBinder);
+        
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                hideEditBinderModal();
+            }
+        });
+        
+        // Close on Escape key
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                hideEditBinderModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+    
+    /**
+     * Hide edit binder modal
+     */
+    function hideEditBinderModal() {
+        const overlay = document.getElementById('edit-binder-modal-overlay');
+        if (overlay) {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+        }
+    }
+    
+    /**
+     * Handle edit binder form submission
+     */
+    async function handleEditBinder(event) {
+        event.preventDefault();
+        
+        const binderId = document.getElementById('edit-binder-id')?.value;
+        const binderName = document.getElementById('edit-binder-name')?.value;
+        
+        if (!binderName) {
+            alert('Please enter a binder name');
+            return;
+        }
+        
+        const submitBtn = event.target.querySelector('.auth-submit-btn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Saving...';
+        }
+        
+        try {
+            const supabase = window.AuthModule.getClient();
+            const user = window.AuthModule.getCurrentUser();
+            
+            if (!supabase || !user) {
+                throw new Error('Authentication error');
+            }
+            
+            const { error } = await supabase
+                .from('binders')
+                .update({ name: binderName })
+                .eq('id', binderId)
+                .eq('user_id', user.id);
+            
+            if (error) {
+                throw error;
+            }
+            
+            console.log('[COLLECTION] Binder updated successfully');
+            
+            if (submitBtn) {
+                submitBtn.textContent = '✅ Saved!';
+                submitBtn.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
+            }
+            
+            setTimeout(() => {
+                hideEditBinderModal();
+                displayBinderView();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('[COLLECTION] Error updating binder:', error);
+            alert('Failed to update binder: ' + (error.message || 'Unknown error'));
+            
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '💾 Save Changes';
+            }
+        }
+    }
+    
+    /**
+     * Show edit card modal
+     */
+    async function showEditCardModal(cardId) {
+        console.log('[COLLECTION] Opening Edit Card modal for:', cardId);
+        
+        try {
+            const supabase = window.AuthModule.getClient();
+            
+            if (!supabase) {
+                throw new Error('Database not available');
+            }
+            
+            // Fetch card data
+            const { data: card, error } = await supabase
+                .from('cards')
+                .select('*')
+                .eq('id', cardId)
+                .single();
+            
+            if (error) {
+                throw error;
+            }
+            
+            // Format tags for display
+            const tagsValue = Array.isArray(card.tags) ? card.tags.join(', ') : (card.tags || '');
+            
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'edit-card-modal-overlay';
+            overlay.className = 'auth-modal-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(8px);
+                z-index: 10000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                animation: fadeIn 0.3s ease;
+                overflow-y: auto;
+                padding: 1rem;
+            `;
+            
+            const modal = document.createElement('div');
+            modal.className = 'auth-modal';
+            modal.style.cssText = `
+                background: var(--card-background);
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                width: 90%;
+                max-width: 600px;
+                max-height: 90vh;
+                overflow-y: auto;
+                position: relative;
+                border: 1px solid var(--border-color);
+                animation: scaleIn 0.3s ease;
+            `;
+            
+            modal.innerHTML = `
+                <div class="auth-modal-header" style="padding: 2rem 2rem 1rem 2rem; border-bottom: 1px solid var(--border-color); position: relative; text-align: center;">
+                    <h2 style="margin: 0; font-size: 1.75rem; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        ✏️ Edit Card
+                    </h2>
+                    <button class="auth-modal-close" onclick="CollectionModule.hideEditCardModal()" style="position: absolute; top: 1.5rem; right: 1.5rem; background: transparent; border: none; font-size: 2rem; color: var(--subtle-text-color); cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease; padding: 0;">
+                        &times;
+                    </button>
+                </div>
+                
+                <div class="auth-modal-body" style="padding: 2rem;">
+                    <form id="edit-card-form">
+                        <input type="hidden" id="edit-card-id" value="${cardId}">
+                        <input type="hidden" id="edit-card-binder-id" value="${card.binder_id}">
+                        
+                        <!-- Card Identity Section -->
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color);">
+                                📋 Card Identity
+                            </h3>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div class="auth-form-group" style="margin-bottom: 0;">
+                                    <label>Year</label>
+                                    <input type="text" id="edit-card-year" value="${card.year || ''}" maxlength="4">
+                                </div>
+                                
+                                <div class="auth-form-group" style="margin-bottom: 0;">
+                                    <label>Card Number</label>
+                                    <input type="text" id="edit-card-number" value="${card.card_number || ''}">
+                                </div>
+                            </div>
+                            
+                            <div class="auth-form-group">
+                                <label>Set</label>
+                                <input type="text" id="edit-card-set" value="${card.set_name || ''}">
+                            </div>
+                            
+                            <div class="auth-form-group">
+                                <label>Athlete Name</label>
+                                <input type="text" id="edit-card-athlete" value="${card.athlete || ''}">
+                            </div>
+                            
+                            <div class="auth-form-group">
+                                <label>Variation / Parallel</label>
+                                <input type="text" id="edit-card-variation" value="${card.variation || ''}">
+                            </div>
+                        </div>
+                        
+                        <!-- Condition Section -->
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color);">
+                                💎 Condition
+                            </h3>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div class="auth-form-group" style="margin-bottom: 0;">
+                                    <label>Grading Company</label>
+                                    <select id="edit-card-grading-company" style="width: 100%; padding: 0.875rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: var(--font-family); background: var(--card-background); color: var(--text-color);">
+                                        <option value="" ${!card.grading_company ? 'selected' : ''}>Raw (Ungraded)</option>
+                                        <option value="PSA" ${card.grading_company === 'PSA' ? 'selected' : ''}>PSA</option>
+                                        <option value="BGS" ${card.grading_company === 'BGS' ? 'selected' : ''}>BGS (Beckett)</option>
+                                        <option value="SGC" ${card.grading_company === 'SGC' ? 'selected' : ''}>SGC</option>
+                                        <option value="CGC" ${card.grading_company === 'CGC' ? 'selected' : ''}>CGC</option>
+                                        <option value="CSG" ${card.grading_company === 'CSG' ? 'selected' : ''}>CSG</option>
+                                        <option value="Other" ${card.grading_company === 'Other' ? 'selected' : ''}>Other</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="auth-form-group" style="margin-bottom: 0;">
+                                    <label>Grade</label>
+                                    <input type="text" id="edit-card-grade" value="${card.grade || ''}" maxlength="4">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Financial Section -->
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color);">
+                                💰 Financial Details
+                            </h3>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div class="auth-form-group" style="margin-bottom: 0;">
+                                    <label>Purchase Price ($)</label>
+                                    <input type="number" id="edit-card-purchase-price" value="${card.purchase_price || ''}" step="0.01" min="0">
+                                </div>
+                                
+                                <div class="auth-form-group" style="margin-bottom: 0;">
+                                    <label>Date Purchased</label>
+                                    <input type="date" id="edit-card-purchase-date" value="${card.purchase_date || ''}" style="width: 100%; padding: 0.875rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: var(--font-family); background: var(--card-background); color: var(--text-color);">
+                                </div>
+                            </div>
+                            
+                            <div class="auth-form-group">
+                                <label>Current FMV ($)</label>
+                                <input type="number" id="edit-card-current-fmv" value="${card.current_fmv || ''}" step="0.01" min="0">
+                            </div>
+                        </div>
+                        
+                        <!-- Organization Section -->
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color);">
+                                📁 Organization
+                            </h3>
+                            
+                            <div class="auth-form-group">
+                                <label>Tags (comma-separated)</label>
+                                <input type="text" id="edit-card-tags" value="${tagsValue}">
+                            </div>
+                        </div>
+                        
+                        <!-- Settings Section -->
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color);">
+                                ⚙️ Settings
+                            </h3>
+                            
+                            <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 1rem; border-radius: 8px;">
+                                <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 500; color: var(--text-color);">
+                                    <input type="checkbox" id="edit-card-auto-update" ${card.auto_update ? 'checked' : ''} style="width: 20px; height: 20px; cursor: pointer;">
+                                    <div>
+                                        <div>Auto-Update Value</div>
+                                        <div style="font-size: 0.85rem; font-weight: 400; color: var(--subtle-text-color); margin-top: 0.25rem;">
+                                            Automatically update Fair Market Value every 30 days
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="auth-submit-btn" style="width: 100%; padding: 1rem; background: var(--gradient-primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); margin-top: 1rem;">
+                            💾 Save Changes
+                        </button>
+                    </form>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            // Set up form submission
+            const form = document.getElementById('edit-card-form');
+            form.addEventListener('submit', handleEditCard);
+            
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    hideEditCardModal();
+                }
+            });
+            
+            // Close on Escape key
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    hideEditCardModal();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+            
+        } catch (error) {
+            console.error('[COLLECTION] Error loading card for edit:', error);
+            alert('Failed to load card: ' + (error.message || 'Unknown error'));
+        }
+    }
+    
+    /**
+     * Hide edit card modal
+     */
+    function hideEditCardModal() {
+        const overlay = document.getElementById('edit-card-modal-overlay');
+        if (overlay) {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+        }
+    }
+    
+    /**
+     * Handle edit card form submission
+     */
+    async function handleEditCard(event) {
+        event.preventDefault();
+        
+        const cardId = document.getElementById('edit-card-id')?.value;
+        const binderId = document.getElementById('edit-card-binder-id')?.value;
+        
+        const cardData = {
+            year: document.getElementById('edit-card-year')?.value || null,
+            set_name: document.getElementById('edit-card-set')?.value || null,
+            athlete: document.getElementById('edit-card-athlete')?.value || null,
+            card_number: document.getElementById('edit-card-number')?.value || null,
+            variation: document.getElementById('edit-card-variation')?.value || null,
+            grading_company: document.getElementById('edit-card-grading-company')?.value || null,
+            grade: document.getElementById('edit-card-grade')?.value || null,
+            purchase_price: parseFloat(document.getElementById('edit-card-purchase-price')?.value) || null,
+            purchase_date: document.getElementById('edit-card-purchase-date')?.value || null,
+            current_fmv: parseFloat(document.getElementById('edit-card-current-fmv')?.value) || null,
+            tags: document.getElementById('edit-card-tags')?.value ?
+                  document.getElementById('edit-card-tags').value.split(',').map(t => t.trim()) : [],
+            auto_update: document.getElementById('edit-card-auto-update')?.checked || false
+        };
+        
+        const submitBtn = event.target.querySelector('.auth-submit-btn');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Saving...';
+        }
+        
+        try {
+            const supabase = window.AuthModule.getClient();
+            
+            if (!supabase) {
+                throw new Error('Database not available');
+            }
+            
+            const { error } = await supabase
+                .from('cards')
+                .update(cardData)
+                .eq('id', cardId);
+            
+            if (error) {
+                throw error;
+            }
+            
+            console.log('[COLLECTION] Card updated successfully');
+            
+            if (submitBtn) {
+                submitBtn.textContent = '✅ Saved!';
+                submitBtn.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
+            }
+            
+            setTimeout(() => {
+                hideEditCardModal();
+                showBinderDetails(binderId);
+            }, 1000);
+            
+        } catch (error) {
+            console.error('[COLLECTION] Error updating card:', error);
+            alert('Failed to update card: ' + (error.message || 'Unknown error'));
+            
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '💾 Save Changes';
+            }
+        }
+    }
+    
     // Public API
     return {
         showAddToCollectionModal,
         hideAddToCollectionModal,
         parseSearchString,
         displayBinderView,
-        showBinderDetails
+        showBinderDetails,
+        deleteBinder,
+        deleteCard,
+        showEditBinderModal,
+        hideEditBinderModal,
+        showEditCardModal,
+        hideEditCardModal
     };
 })();
 
