@@ -7,7 +7,7 @@ card prices from eBay's sold and active listings.
 """
 import time
 import uuid
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -24,6 +24,7 @@ from backend.config import get_search_api_key, CACHE_TTL_SOLD, CACHE_TTL_ACTIVE
 from backend.services.intelligence_service import analyze_market_intelligence
 from backend.models.schemas import CompItem, CompsResponse
 from backend.utils import generate_ebay_deep_link, load_test_data
+from backend.middleware.supabase_auth import get_current_user_optional
 from scraper import scrape_sold_comps, scrape_active_listings_ebay_api
 
 
@@ -47,7 +48,8 @@ def get_cache_service(request: Request) -> CacheService:
 async def get_comps(
     request: Request,
     params: QueryValidator = Depends(),
-    cache_service: CacheService = Depends(get_cache_service)
+    cache_service: CacheService = Depends(get_cache_service),
+    user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """
     Scrape eBay SOLD/COMPLETED listings for a given query and return:
@@ -57,10 +59,16 @@ async def get_comps(
     
     Note: Uses SearchAPI.io because the official eBay Browse API does NOT support
     searching sold/completed listings - it only returns active listings.
+    
+    Authentication: Optional - tracks which user is searching if logged in.
     """
     # Generate correlation ID for request tracking
     correlation_id = str(uuid.uuid4())
     start_time = time.time()
+    
+    # Extract user info for logging
+    user_id = user.get('sub') if user else 'anonymous'
+    user_email = user.get('email') if user else 'anonymous'
     
     # Log request start
     log_with_context(
@@ -72,6 +80,8 @@ async def get_comps(
         query=params.query,
         pages=params.pages,
         user_ip=request.client.host if request.client else 'unknown',
+        user_id=user_id,
+        user_email=user_email,
         test_mode=params.test_mode
     )
     
@@ -412,15 +422,22 @@ async def get_comps(
 async def get_active_listings(
     request: Request,
     params: ActiveListingsValidator = Depends(),
-    cache_service: CacheService = Depends(get_cache_service)
+    cache_service: CacheService = Depends(get_cache_service),
+    user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """
     Scrape eBay ACTIVE listings (not sold) for a given query.
     Uses official eBay Browse API for all active listing searches.
+    
+    Authentication: Optional - tracks which user is searching if logged in.
     """
     # Generate correlation ID for request tracking
     correlation_id = str(uuid.uuid4())
     start_time = time.time()
+    
+    # Extract user info for logging
+    user_id = user.get('sub') if user else 'anonymous'
+    user_email = user.get('email') if user else 'anonymous'
     
     # Log request start
     log_with_context(
@@ -432,6 +449,8 @@ async def get_active_listings(
         query=params.query,
         pages=params.pages,
         user_ip=request.client.host if request.client else 'unknown',
+        user_id=user_id,
+        user_email=user_email,
         sort_by=params.sort_by
     )
     

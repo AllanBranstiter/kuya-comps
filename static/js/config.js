@@ -3,6 +3,12 @@
  * Centralized configuration for API endpoints, timeouts, and UI constants
  */
 
+// Supabase Configuration
+const SUPABASE_CONFIG = {
+    URL: 'https://hgqaqvhveisjzbnefesv.supabase.co',
+    ANON_KEY: 'sb_publishable_qYKLZ1xwzYDNctAtAZaFiw_FxYNyVhw'
+};
+
 // API Configuration
 const API_ENDPOINTS = {
     COMPS: '/comps',
