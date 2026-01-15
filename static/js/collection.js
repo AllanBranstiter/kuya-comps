@@ -1015,7 +1015,7 @@ const CollectionModule = (function() {
                     <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s ease;" onmouseover="this.style.background='linear-gradient(135deg, #f8fafd 0%, #f0f4ff 100%)'" onmouseout="this.style.background='transparent'">
                         <td style="padding: 0.75rem;">
                             <div style="font-weight: 600; color: var(--text-color); margin-bottom: 0.25rem;">${escapeHtml(cardDesc || 'Untitled Card')}</div>
-                            ${card.tags && card.tags.length > 0 ? `<div style="font-size: 0.75rem; color: var(--subtle-text-color);">${card.tags.map(t => '#' + t).join(' ')}</div>` : ''}
+                            ${card.tags ? `<div style="font-size: 0.75rem; color: var(--subtle-text-color);">${Array.isArray(card.tags) ? card.tags.map(t => '#' + t).join(' ') : '#' + card.tags}</div>` : ''}
                         </td>
                         <td style="padding: 0.75rem;">${conditionBadge}</td>
                         <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: var(--text-color);">$${cost.toFixed(2)}</td>
