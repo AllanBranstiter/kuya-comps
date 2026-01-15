@@ -25,7 +25,6 @@ from backend.services.collection_service import (
 )
 from backend.models.collection_schemas import PriceHistoryCreate
 from backend.logging_config import get_logger
-from backend.config import get_settings
 
 logger = get_logger(__name__)
 

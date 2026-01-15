@@ -27,7 +27,7 @@ load_dotenv()
 
 from backend.database.connection import SessionLocal
 from backend.services.valuation_service import update_stale_cards
-from backend.config import get_settings
+from backend.config import get_search_api_key
 from backend.logging_config import get_logger
 from scraper import scrape_sold_comps
 
@@ -70,9 +70,8 @@ async def main():
     logger.info(f"[Cron Job] Parameters: days_threshold={args.days_threshold}, max_cards={args.max_cards}, delay={args.delay}")
     logger.info("=" * 80)
     
-    # Get API key from settings
-    settings = get_settings()
-    api_key = settings.SEARCHAPI_API_KEY
+    # Get API key from config
+    api_key = get_search_api_key()
     
     if not api_key:
         logger.error("[Cron Job] SEARCHAPI_API_KEY not configured. Exiting.")

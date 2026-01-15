@@ -20,7 +20,7 @@ from backend.services.valuation_service import (
 from backend.services.collection_service import get_card_by_id
 from backend.middleware.supabase_auth import get_current_user
 from backend.middleware.admin_auth import require_admin
-from backend.config import get_settings
+from backend.config import get_search_api_key
 from backend.logging_config import get_logger
 
 # Import scraper
@@ -115,9 +115,8 @@ async def update_card_value(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found or access denied")
     
-    # Get API key from settings
-    settings = get_settings()
-    api_key = settings.SEARCHAPI_API_KEY
+    # Get API key from config
+    api_key = get_search_api_key()
     
     if not api_key:
         raise HTTPException(status_code=500, detail="SearchAPI key not configured")
