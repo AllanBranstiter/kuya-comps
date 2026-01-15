@@ -1,0 +1,325 @@
+/**
+ * Collection Module Styles
+ * Styles for the Add to Collection modal and binder views
+ */
+
+/* Collection Modal Specific Styles */
+#collection-modal-overlay .auth-modal {
+    max-width: 600px;
+}
+
+/* Form Group Styling for Collection Modal */
+#add-to-collection-form .auth-form-group {
+    margin-bottom: 1rem;
+}
+
+#add-to-collection-form .auth-form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+#add-to-collection-form .auth-form-group input,
+#add-to-collection-form .auth-form-group select {
+    width: 100%;
+    padding: 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 1rem;
+    font-family: var(--font-family);
+    background: var(--card-background);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+#add-to-collection-form .auth-form-group input:focus,
+#add-to-collection-form .auth-form-group select:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+#add-to-collection-form .auth-form-group input::placeholder {
+    color: var(--subtle-text-color);
+    opacity: 0.6;
+}
+
+/* Select dropdown styling */
+#add-to-collection-form select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236e6e73' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    padding-right: 2.5rem;
+}
+
+#add-to-collection-form select:focus {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23007aff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+}
+
+/* Date input styling */
+#add-to-collection-form input[type="date"] {
+    cursor: pointer;
+}
+
+/* Number input styling */
+#add-to-collection-form input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+#add-to-collection-form input[type="number"]::-webkit-outer-spin-button,
+#add-to-collection-form input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Section Headers in Modal */
+#add-to-collection-form h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Grid layouts for form fields */
+#add-to-collection-form .form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+/* Checkbox styling in settings section */
+#add-to-collection-form input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary-blue);
+}
+
+/* New binder input animation */
+#new-binder-input {
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+    }
+    to {
+        opacity: 1;
+        max-height: 100px;
+        overflow: visible;
+    }
+}
+
+/* Mobile responsive adjustments */
+@media screen and (max-width: 768px) {
+    #collection-modal-overlay .auth-modal {
+        width: 95%;
+        max-width: none;
+        margin: 0.5rem;
+    }
+    
+    #add-to-collection-form .form-grid-2 {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    #add-to-collection-form .auth-modal-body {
+        padding: 1.5rem;
+    }
+    
+    #add-to-collection-form h3 {
+        font-size: 1rem;
+    }
+}
+
+/* Binder View Styles (for Phase 3) */
+.binder-card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.binder-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    border-color: var(--primary-blue);
+}
+
+.binder-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.binder-stat {
+    text-align: center;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, var(--background-color) 0%, #f0f4ff 100%);
+    border-radius: 8px;
+}
+
+.binder-stat-label {
+    font-size: 0.75rem;
+    color: var(--subtle-text-color);
+    margin-bottom: 0.25rem;
+}
+
+.binder-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+/* Card list table styles */
+.card-list-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.card-list-table th,
+.card-list-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-list-table th {
+    font-weight: 600;
+    color: var(--subtle-text-color);
+    background: var(--background-color);
+}
+
+.card-list-table tbody tr {
+    transition: background 0.2s ease;
+}
+
+.card-list-table tbody tr:hover {
+    background: linear-gradient(135deg, #f8fafd 0%, #f0f4ff 100%);
+}
+
+.card-list-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Condition badges */
+.condition-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.condition-badge.psa-10 {
+    background: linear-gradient(135deg, #34c759, #30d158);
+    color: white;
+}
+
+.condition-badge.bgs-10,
+.condition-badge.sgc-10 {
+    background: linear-gradient(135deg, #007aff, #5856d6);
+    color: white;
+}
+
+.condition-badge.raw {
+    background: linear-gradient(135deg, #6e6e73, #8e8e93);
+    color: white;
+}
+
+/* Trend indicators */
+.trend-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.trend-up {
+    color: #34c759;
+}
+
+.trend-down {
+    color: #ff3b30;
+}
+
+.trend-neutral {
+    color: #6e6e73;
+}
+
+/* Stale data warning */
+.stale-warning {
+    color: #ff9500;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Review required flag */
+.review-flag {
+    color: #ff3b30;
+    font-size: 1rem;
+    cursor: help;
+}
+
+/* Loading spinner for collection views */
+.loading {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Mobile responsive adjustments for binder view */
+@media screen and (max-width: 768px) {
+    .binder-card {
+        padding: 1.25rem;
+    }
+    
+    .binder-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+    
+    .card-list-table {
+        font-size: 0.85rem;
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .card-list-table th,
+    .card-list-table td {
+        padding: 0.5rem;
+    }
+    
+    .condition-badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+}
+
+/* Tablet responsive adjustments */
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+    .binder-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
