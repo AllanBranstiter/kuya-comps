@@ -784,9 +784,8 @@ const CollectionModule = (function() {
             
             html += `
                 <div class="binder-card" onclick="CollectionModule.showBinderDetails('${binder.id}')" style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; cursor: pointer; position: relative;">
-                    <div style="position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem;">
-                        <button onclick="CollectionModule.showEditBinderModal('${binder.id}', '${escapeHtml(binder.name).replace(/'/g, "\\'")}'); event.stopPropagation();" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1rem; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#007aff'; this.style.color='white';" onmouseout="this.style.background='var(--border-color)'; this.style.color='inherit';" title="Edit binder">✏️</button>
-                        <button onclick="CollectionModule.deleteBinder('${binder.id}'); event.stopPropagation();" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1rem; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#ff3b30'; this.style.color='white';" onmouseout="this.style.background='var(--border-color)'; this.style.color='inherit';" title="Delete binder">🗑️</button>
+                    <div style="position: absolute; top: 1rem; right: 1rem;">
+                        <button onclick="CollectionModule.showBinderContextMenu('${binder.id}', '${escapeHtml(binder.name).replace(/'/g, "\\'")}', event); event.stopPropagation();" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#007aff'; this.style.color='white';" onmouseout="this.style.background='var(--border-color)'; this.style.color='inherit';" title="Options">⋮</button>
                     </div>
                     <h4 style="margin: 0 0 1rem 0; font-size: 1.2rem; font-weight: 600; color: var(--text-color); padding-right: 80px;">
                         ${escapeHtml(binder.name)}
@@ -1042,8 +1041,7 @@ const CollectionModule = (function() {
                         <td style="padding: 0.75rem; text-align: center;">
                             <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
                                 ${statusHTML}
-                                <button onclick="CollectionModule.showEditCardModal('${card.id}'); event.stopPropagation();" style="background: transparent; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';" title="Edit card">✏️</button>
-                                <button onclick="CollectionModule.deleteCard('${card.id}', '${binder.id}'); event.stopPropagation();" style="background: transparent; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';" title="Delete card">🗑️</button>
+                                <button onclick="CollectionModule.showCardContextMenu('${card.id}', ${JSON.stringify(card).replace(/'/g, "&#39;")}, event); event.stopPropagation();" style="background: transparent; border: none; cursor: pointer; font-size: 1.2rem; padding: 0.25rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';" title="Options">⋮</button>
                             </div>
                         </td>
                     </tr>
@@ -1620,6 +1618,386 @@ const CollectionModule = (function() {
         }
     }
     
+    /**
+     * Show context menu for binder
+     */
+    function showBinderContextMenu(binderId, binderName, event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Remove any existing context menu
+        closeContextMenu();
+        
+        const menu = document.createElement('div');
+        menu.id = 'context-menu';
+        menu.style.cssText = `
+            position: fixed;
+            background: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            z-index: 10001;
+            min-width: 150px;
+            overflow: hidden;
+            animation: scaleIn 0.15s ease;
+        `;
+        
+        menu.innerHTML = `
+            <div class="context-menu-item" onclick="CollectionModule.showEditBinderModal('${binderId}', '${binderName.replace(/'/g, "\\'")}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
+                <span style="font-size: 1rem;">✏️</span>
+                <span>Edit</span>
+            </div>
+            <div class="context-menu-item" onclick="CollectionModule.deleteBinder('${binderId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
+                <span style="font-size: 1rem;">🗑️</span>
+                <span>Delete</span>
+            </div>
+        `;
+        
+        document.body.appendChild(menu);
+        
+        // Position the menu near the clicked button
+        const rect = event.target.getBoundingClientRect();
+        const menuRect = menu.getBoundingClientRect();
+        
+        let left = rect.right + 5;
+        let top = rect.top;
+        
+        // Adjust if menu goes off screen
+        if (left + menuRect.width > window.innerWidth) {
+            left = rect.left - menuRect.width - 5;
+        }
+        if (top + menuRect.height > window.innerHeight) {
+            top = window.innerHeight - menuRect.height - 10;
+        }
+        
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+        
+        // Close menu when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', closeContextMenu);
+        }, 0);
+    }
+    
+    /**
+     * Show context menu for card
+     */
+    function showCardContextMenu(cardId, card, event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Remove any existing context menu
+        closeContextMenu();
+        
+        const menu = document.createElement('div');
+        menu.id = 'context-menu';
+        menu.style.cssText = `
+            position: fixed;
+            background: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            z-index: 10001;
+            min-width: 150px;
+            overflow: hidden;
+            animation: scaleIn 0.15s ease;
+        `;
+        
+        menu.innerHTML = `
+            <div class="context-menu-item" onclick="CollectionModule.showEditCardModal('${cardId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
+                <span style="font-size: 1rem;">✏️</span>
+                <span>Edit</span>
+            </div>
+            <div class="context-menu-item" onclick="CollectionModule.showMoveCardModal('${cardId}', '${card.binder_id}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
+                <span style="font-size: 1rem;">📁</span>
+                <span>Move</span>
+            </div>
+            <div class="context-menu-item" onclick="CollectionModule.deleteCard('${cardId}', '${card.binder_id}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
+                <span style="font-size: 1rem;">🗑️</span>
+                <span>Delete</span>
+            </div>
+        `;
+        
+        document.body.appendChild(menu);
+        
+        // Position the menu near the clicked button
+        const rect = event.target.getBoundingClientRect();
+        const menuRect = menu.getBoundingClientRect();
+        
+        let left = rect.right + 5;
+        let top = rect.top;
+        
+        // Adjust if menu goes off screen
+        if (left + menuRect.width > window.innerWidth) {
+            left = rect.left - menuRect.width - 5;
+        }
+        if (top + menuRect.height > window.innerHeight) {
+            top = window.innerHeight - menuRect.height - 10;
+        }
+        
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+        
+        // Close menu when clicking outside
+        setTimeout(() => {
+            document.addEventListener('click', closeContextMenu);
+        }, 0);
+    }
+    
+    /**
+     * Close context menu
+     */
+    function closeContextMenu() {
+        const menu = document.getElementById('context-menu');
+        if (menu) {
+            menu.remove();
+        }
+        document.removeEventListener('click', closeContextMenu);
+    }
+    
+    /**
+     * Show move card modal
+     */
+    async function showMoveCardModal(cardId, currentBinderId) {
+        console.log('[COLLECTION] Opening Move Card modal for:', cardId);
+        
+        try {
+            const supabase = window.AuthModule.getClient();
+            const user = window.AuthModule.getCurrentUser();
+            
+            if (!supabase || !user) {
+                throw new Error('Authentication error');
+            }
+            
+            // Fetch all user's binders
+            const { data: binders, error: bindersError } = await supabase
+                .from('binders')
+                .select('id, name')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+            
+            if (bindersError) {
+                throw bindersError;
+            }
+            
+            // Filter out current binder
+            const otherBinders = binders.filter(b => b.id !== currentBinderId);
+            
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'move-card-modal-overlay';
+            overlay.className = 'auth-modal-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(8px);
+                z-index: 10000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                animation: fadeIn 0.3s ease;
+            `;
+            
+            const modal = document.createElement('div');
+            modal.className = 'auth-modal';
+            modal.style.cssText = `
+                background: var(--card-background);
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                width: 90%;
+                max-width: 500px;
+                position: relative;
+                border: 1px solid var(--border-color);
+                animation: scaleIn 0.3s ease;
+            `;
+            
+            let binderOptions = '';
+            if (otherBinders.length > 0) {
+                binderOptions = otherBinders.map(b =>
+                    `<div class="binder-option" onclick="CollectionModule.handleMoveCard('${cardId}', '${b.id}', '${currentBinderId}')" style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s; margin-bottom: 0.75rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'; this.style.borderColor='#007aff';" onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)'">
+                        <div style="font-weight: 600; color: var(--text-color);">📁 ${escapeHtml(b.name)}</div>
+                    </div>`
+                ).join('');
+            } else {
+                binderOptions = `<div style="text-align: center; padding: 2rem; color: var(--subtle-text-color);">No other binders available</div>`;
+            }
+            
+            modal.innerHTML = `
+                <div class="auth-modal-header" style="padding: 2rem 2rem 1rem 2rem; border-bottom: 1px solid var(--border-color); position: relative; text-align: center;">
+                    <h2 style="margin: 0; font-size: 1.75rem; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        📁 Move Card to Binder
+                    </h2>
+                    <button class="auth-modal-close" onclick="CollectionModule.hideMoveCardModal()" style="position: absolute; top: 1.5rem; right: 1.5rem; background: transparent; border: none; font-size: 2rem; color: var(--subtle-text-color); cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.3s ease; padding: 0;">
+                        &times;
+                    </button>
+                </div>
+                
+                <div class="auth-modal-body" style="padding: 2rem;">
+                    <div style="margin-bottom: 1.5rem;">
+                        <h3 style="margin: 0 0 1rem 0; font-size: 1rem; font-weight: 600; color: var(--text-color);">Select Destination Binder:</h3>
+                        ${binderOptions}
+                    </div>
+                    
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                        <div class="binder-option" onclick="CollectionModule.showCreateBinderForMove('${cardId}', '${currentBinderId}')" style="padding: 1rem; border: 2px dashed var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s; text-align: center;" onmouseover="this.style.background='linear-gradient(135deg, #f0fff4 0%, #e6ffe6 100%)'; this.style.borderColor='#34c759';" onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)'">
+                            <div style="font-weight: 600; color: #34c759;">+ Create New Binder</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    hideMoveCardModal();
+                }
+            });
+            
+            // Close on Escape key
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    hideMoveCardModal();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+            
+        } catch (error) {
+            console.error('[COLLECTION] Error showing move card modal:', error);
+            alert('Failed to load binders: ' + (error.message || 'Unknown error'));
+        }
+    }
+    
+    /**
+     * Hide move card modal
+     */
+    function hideMoveCardModal() {
+        const overlay = document.getElementById('move-card-modal-overlay');
+        if (overlay) {
+            overlay.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => overlay.remove(), 200);
+        }
+    }
+    
+    /**
+     * Show create binder input for move operation
+     */
+    function showCreateBinderForMove(cardId, currentBinderId) {
+        const modalBody = document.querySelector('#move-card-modal-overlay .auth-modal-body');
+        if (!modalBody) return;
+        
+        modalBody.innerHTML = `
+            <form id="create-binder-for-move-form">
+                <div class="auth-form-group">
+                    <label>New Binder Name</label>
+                    <input type="text" id="new-binder-name-for-move" placeholder="e.g., Rookie Cards 2024" required autofocus>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="button" onclick="CollectionModule.showMoveCardModal('${cardId}', '${currentBinderId}')" style="flex: 1; padding: 0.875rem; background: var(--background-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                        Cancel
+                    </button>
+                    <button type="submit" class="auth-submit-btn" style="flex: 1; padding: 0.875rem; background: var(--gradient-primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);">
+                        Create & Move
+                    </button>
+                </div>
+            </form>
+        `;
+        
+        const form = document.getElementById('create-binder-for-move-form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const binderName = document.getElementById('new-binder-name-for-move')?.value;
+            if (!binderName) return;
+            
+            const submitBtn = form.querySelector('.auth-submit-btn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Creating...';
+            }
+            
+            try {
+                const supabase = window.AuthModule.getClient();
+                const user = window.AuthModule.getCurrentUser();
+                
+                if (!supabase || !user) {
+                    throw new Error('Authentication error');
+                }
+                
+                // Create new binder
+                const { data: binderData, error: binderError } = await supabase
+                    .from('binders')
+                    .insert([{
+                        user_id: user.id,
+                        name: binderName
+                    }])
+                    .select()
+                    .single();
+                
+                if (binderError) {
+                    throw binderError;
+                }
+                
+                // Move card to new binder
+                await handleMoveCard(cardId, binderData.id, currentBinderId);
+                
+            } catch (error) {
+                console.error('[COLLECTION] Error creating binder:', error);
+                alert('Failed to create binder: ' + (error.message || 'Unknown error'));
+                
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create & Move';
+                }
+            }
+        });
+    }
+    
+    /**
+     * Handle moving a card to a different binder
+     */
+    async function handleMoveCard(cardId, newBinderId, currentBinderId) {
+        console.log('[COLLECTION] Moving card', cardId, 'to binder', newBinderId);
+        
+        try {
+            const supabase = window.AuthModule.getClient();
+            
+            if (!supabase) {
+                throw new Error('Database not available');
+            }
+            
+            // Update card's binder_id
+            const { error } = await supabase
+                .from('cards')
+                .update({ binder_id: newBinderId })
+                .eq('id', cardId);
+            
+            if (error) {
+                throw error;
+            }
+            
+            console.log('[COLLECTION] Card moved successfully');
+            
+            // Close modal
+            hideMoveCardModal();
+            
+            // Refresh the current binder view
+            showBinderDetails(currentBinderId);
+            
+        } catch (error) {
+            console.error('[COLLECTION] Error moving card:', error);
+            alert('Failed to move card: ' + (error.message || 'Unknown error'));
+        }
+    }
+    
     // Public API
     return {
         showAddToCollectionModal,
@@ -1632,7 +2010,14 @@ const CollectionModule = (function() {
         showEditBinderModal,
         hideEditBinderModal,
         showEditCardModal,
-        hideEditCardModal
+        hideEditCardModal,
+        showBinderContextMenu,
+        showCardContextMenu,
+        closeContextMenu,
+        showMoveCardModal,
+        hideMoveCardModal,
+        showCreateBinderForMove,
+        handleMoveCard
     };
 })();
 

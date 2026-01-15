@@ -5203,11 +5203,11 @@ async function saveCurrentSearchToPortfolio() {
         return;
     }
     
-    // Get the current FMV from the global variable
-    const currentFMV = window.marketValueGlobal || null;
+    // Get the current FMV from the global variable and round to nearest cent
+    const currentFMV = window.marketValueGlobal ? Math.round(window.marketValueGlobal * 100) / 100 : null;
     console.log('[SAVE] Passing FMV to modal:', currentFMV);
     
-    // Open the Add to Collection modal with the search query and FMV
+    // Open the Add to Collection modal with the search query and rounded FMV
     if (window.CollectionModule && window.CollectionModule.showAddToCollectionModal) {
         window.CollectionModule.showAddToCollectionModal(searchQuery, currentFMV);
     } else {
