@@ -3853,7 +3853,7 @@ async function updateFmv(data) {
               box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
               transition: all 0.3s ease;
             " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(52, 199, 89, 0.4)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(52, 199, 89, 0.3)';">
-              ⭐ Save to Portfolio
+              ⭐ Save to Collection
             </button>
           </div>
         ` : ''}
@@ -5170,146 +5170,45 @@ function drawVolumeProfileCrosshairDirect(canvas, x, isPersisted = true) {
 // ============================================================================
 
 /**
- * Save current search results to user's portfolio in Supabase
+ * Save current search results to user's collection
+ * Opens the Add to Collection modal with smart parsing
  */
 async function saveCurrentSearchToPortfolio() {
-    console.log('[SAVE] Attempting to save search to portfolio');
+    console.log('[SAVE] Opening Add to Collection modal');
     
     // Check if user is authenticated
     if (!window.AuthModule || !window.AuthModule.isAuthenticated()) {
         console.error('[SAVE] User not authenticated');
         if (typeof showError === 'function') {
-            showError('Please log in to save searches to your portfolio');
+            showError('Please log in to add cards to your collection');
         } else {
-            alert('Please log in to save searches to your portfolio');
+            alert('Please log in to add cards to your collection');
+        }
+        // Show auth modal
+        if (window.AuthModule && window.AuthModule.showAuthModal) {
+            window.AuthModule.showAuthModal();
         }
         return;
     }
     
-    // Check if we have search data
-    if (!lastData || !lastData.items || lastData.items.length === 0) {
-        console.error('[SAVE] No search data available');
+    // Get the current search query
+    const searchQuery = document.getElementById('query')?.value || '';
+    
+    if (!searchQuery) {
         if (typeof showError === 'function') {
-            showError('No search results to save. Please run a search first.');
+            showError('Please run a search first to add a card to your collection');
         } else {
-            alert('No search results to save. Please run a search first.');
+            alert('Please run a search first to add a card to your collection');
         }
         return;
     }
     
-    // Gather all the data to save
-    const searchData = {
-        query: lastData.query || document.getElementById('query')?.value || '',
-        fmv: marketValueGlobal,
-        quick_sale: expectLowGlobal,
-        patient_sale: expectHighGlobal,
-        market_confidence: null,
-        liquidity_score: null,
-        market_pressure: null,
-        sold_count: lastData.items.length,
-        active_count: lastActiveData?.items?.length || 0,
-        min_price: lastData.min_price,
-        max_price: lastData.max_price,
-        avg_price: lastData.avg_price,
-        metadata: {
-            timestamp: new Date().toISOString(),
-            pages_scraped: lastData.pages_scraped,
-            raw_items_scraped: lastData.raw_items_scraped,
-            duplicates_filtered: lastData.duplicates_filtered
-        }
-    };
-    
-    // Calculate market confidence if we have the data
-    if (lastData.items && lastData.items.length > 0) {
-        const prices = lastData.items.map(item => item.total_price).filter(p => p > 0);
-        if (prices.length > 0) {
-            const stdDev = calculateStdDev(prices);
-            const avgPrice = lastData.avg_price;
-            const coefficientOfVariation = (stdDev / avgPrice) * 100;
-            searchData.market_confidence = Math.round(100 / (1 + coefficientOfVariation / 100));
-        }
-    }
-    
-    // Calculate liquidity score if we have active data
-    if (lastActiveData && lastActiveData.items) {
-        const liquidityRisk = calculateLiquidityRisk(lastData, lastActiveData);
-        if (liquidityRisk && liquidityRisk.score !== null) {
-            searchData.liquidity_score = liquidityRisk.score;
-        }
-    }
-    
-    // Calculate market pressure if we have active data and FMV
-    if (lastActiveData && lastActiveData.items && marketValueGlobal) {
-        const marketPressureData = calculateMarketPressure(lastActiveData, marketValueGlobal);
-        if (marketPressureData && marketPressureData.marketPressure !== null) {
-            searchData.market_pressure = marketPressureData.marketPressure;
-        }
-    }
-    
-    console.log('[SAVE] Prepared search data:', searchData);
-    
-    // Disable the save button and show loading state
-    const saveButton = event?.target;
-    if (saveButton) {
-        saveButton.disabled = true;
-        saveButton.textContent = '⏳ Saving...';
-        saveButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
-    }
-    
-    try {
-        // Call the auth module's save function
-        const result = await window.AuthModule.saveSearchToSupabase(searchData);
-        
-        if (result.error) {
-            console.error('[SAVE] Error saving search:', result.error);
-            if (typeof showError === 'function') {
-                showError('Failed to save search: ' + (result.error.message || 'Unknown error'));
-            } else {
-                alert('Failed to save search: ' + (result.error.message || 'Unknown error'));
-            }
-            
-            // Restore button state
-            if (saveButton) {
-                saveButton.disabled = false;
-                saveButton.textContent = '⭐ Save to Portfolio';
-                saveButton.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
-            }
-        } else {
-            console.log('[SAVE] Search saved successfully:', result.data);
-            
-            // Show success message
-            if (typeof showSuccess === 'function') {
-                showSuccess('Search saved to your portfolio!');
-            } else {
-                alert('Search saved to your portfolio!');
-            }
-            
-            // Update button to show saved state
-            if (saveButton) {
-                saveButton.textContent = '✅ Saved!';
-                saveButton.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
-                
-                // Reset button after 3 seconds
-                setTimeout(() => {
-                    saveButton.disabled = false;
-                    saveButton.textContent = '⭐ Save to Portfolio';
-                }, 3000);
-            }
-        }
-    } catch (error) {
-        console.error('[SAVE] Exception saving search:', error);
-        if (typeof showError === 'function') {
-            showError('An error occurred while saving: ' + error.message);
-        } else {
-            alert('An error occurred while saving: ' + error.message);
-        }
-        
-        // Restore button state
-        if (saveButton) {
-            saveButton.disabled = false;
-            saveButton.textContent = '⭐ Save to Portfolio';
-            saveButton.style.background = 'linear-gradient(135deg, #34c759, #30d158)';
-        }
+    // Open the Add to Collection modal with the search query
+    if (window.CollectionModule && window.CollectionModule.showAddToCollectionModal) {
+        window.CollectionModule.showAddToCollectionModal(searchQuery);
+    } else {
+        console.error('[SAVE] CollectionModule not available');
+        alert('Collection feature is not available. Please refresh the page.');
     }
 }
 

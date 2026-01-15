@@ -655,118 +655,25 @@ const AuthModule = (function() {
     }
     
     /**
-     * Display saved searches in the Portfolio tab
+     * Display the collection portfolio (binder view)
+     * Delegates to CollectionModule for Phase 3 implementation
      */
     async function displayPortfolio() {
-        const container = document.getElementById('portfolio-container');
-        if (!container) return;
-        
-        // Show loading state
-        container.innerHTML = `
-            <div style="text-align: center; padding: 3rem 2rem;">
-                <div class="loading-spinner" style="margin: 0 auto 1rem; width: 40px; height: 40px;"></div>
-                <p style="color: var(--subtle-text-color);">Loading your saved searches...</p>
-            </div>
-        `;
-        
-        const result = await fetchSavedSearches();
-        
-        if (result.error) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color);">
-                    <h3 style="margin: 0 0 1rem 0; color: #ff3b30;">Error Loading Portfolio</h3>
-                    <p style="margin: 0; color: var(--subtle-text-color);">${result.error.message || 'Failed to load saved searches'}</p>
-                </div>
-            `;
-            return;
+        // Use the new binder view from CollectionModule (Phase 3)
+        if (window.CollectionModule && window.CollectionModule.displayBinderView) {
+            await window.CollectionModule.displayBinderView();
+        } else {
+            // Fallback if CollectionModule not loaded
+            const container = document.getElementById('portfolio-container');
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+                        <h3 style="margin: 0 0 1rem 0; color: #ff3b30; font-size: 1.5rem; font-weight: 600;">⚠️ Module Not Loaded</h3>
+                        <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color);">Collection module failed to load. Please refresh the page.</p>
+                    </div>
+                `;
+            }
         }
-        
-        const searches = result.data || [];
-        
-        if (searches.length === 0) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
-                    <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📂 My Portfolio</h3>
-                    <p style="margin: 0 0 1.5rem 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">You haven't saved any searches yet</p>
-                    <button onclick="switchTab('comps')" style="background: var(--gradient-primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);">
-                        Start Searching
-                    </button>
-                </div>
-            `;
-            return;
-        }
-        
-        // Display saved searches
-        let html = `
-            <div style="margin-bottom: 2rem;">
-                <h3 style="margin: 0 0 0.5rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📂 My Portfolio</h3>
-                <p style="margin: 0; color: var(--subtle-text-color); font-size: 0.9rem;">${searches.length} saved search${searches.length !== 1 ? 'es' : ''}</p>
-            </div>
-            <div style="display: grid; gap: 1.5rem;">
-        `;
-        
-        searches.forEach(search => {
-            const createdDate = new Date(search.created_at).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            html += `
-                <div style="background: var(--card-background); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.1)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.05)'">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                        <div style="flex: 1;">
-                            <h4 style="margin: 0 0 0.5rem 0; color: var(--text-color); font-size: 1.1rem; font-weight: 600;">${escapeHtml(search.query || 'Untitled Search')}</h4>
-                            <p style="margin: 0; color: var(--subtle-text-color); font-size: 0.85rem;">Saved on ${createdDate}</p>
-                        </div>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-                        ${search.fmv ? `
-                        <div style="background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); padding: 0.75rem; border-radius: 8px;">
-                            <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Fair Market Value</div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #007aff;">$${search.fmv.toFixed(2)}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${search.sold_count ? `
-                        <div style="background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); padding: 0.75rem; border-radius: 8px;">
-                            <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Sales Found</div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-color);">${search.sold_count}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${search.market_confidence ? `
-                        <div style="background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); padding: 0.75rem; border-radius: 8px;">
-                            <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Confidence</div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #34c759;">${search.market_confidence}/100</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${search.liquidity_score ? `
-                        <div style="background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); padding: 0.75rem; border-radius: 8px;">
-                            <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.25rem;">Liquidity</div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: #ff9500;">${search.liquidity_score}/100</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                    
-                    <div style="display: flex; gap: 0.75rem;">
-                        <button onclick="loadSavedSearch('${escapeHtml(search.query || '')}')" style="flex: 1; background: var(--gradient-primary); color: white; border: none; padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
-                            🔍 Search Again
-                        </button>
-                        <button onclick="deleteSavedSearch(${search.id})" style="background: linear-gradient(135deg, #ff3b30, #ff6b6b); color: white; border: none; padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''" title="Delete this search">
-                            🗑️
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-        container.innerHTML = html;
     }
     
     /**

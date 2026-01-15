@@ -398,3 +398,35 @@ MAX_YEAR_TRENDS = 2
 
 HIGH_ACTIVITY_BID_THRESHOLD = 10
 """Bid count threshold for high-activity premium analysis."""
+
+
+# ============================================================================
+# Collections & Binders Configuration (Phase 2)
+# ============================================================================
+
+COLLECTION_AUTO_UPDATE_THRESHOLD_DAYS = 30
+"""Number of days before a card's FMV is considered stale and needs updating."""
+
+COLLECTION_MAX_PRICE_HISTORY_ENTRIES = 365
+"""Maximum number of price history entries to keep per card (1 year of daily updates)."""
+
+COLLECTION_VOLATILITY_THRESHOLD = 0.50
+"""
+Volatility threshold for automated FMV updates.
+If new FMV differs from previous by more than 50%, flag for manual review.
+"""
+
+COLLECTION_KEYWORD_BLACKLIST = [
+    'reprint', 'digital', 'rp', 'box', 'pack', 'lot',
+    'custom', 'proxy', 'replica', 'reproduction'
+]
+"""Keywords to exclude from automated valuation searches."""
+
+COLLECTION_MAX_CARDS_PER_BINDER = 1000
+"""Maximum number of cards allowed in a single binder."""
+
+COLLECTION_MAX_BINDERS_PER_USER = 50
+"""Maximum number of binders a user can create."""
+
+COLLECTION_SPARKLINE_DATA_POINTS = 30
+"""Number of price history points to return for sparkline charts."""
