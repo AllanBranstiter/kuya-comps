@@ -785,7 +785,7 @@ const CollectionModule = (function() {
             html += `
                 <div class="binder-card" onclick="CollectionModule.showBinderDetails('${binder.id}')" style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; cursor: pointer; position: relative;">
                     <div style="position: absolute; top: 1rem; right: 1rem;">
-                        <button onclick="CollectionModule.showBinderContextMenu('${binder.id}', '${escapeHtml(binder.name).replace(/'/g, "\\'")}', event); event.stopPropagation();" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#007aff'; this.style.color='white';" onmouseout="this.style.background='var(--border-color)'; this.style.color='inherit';" title="Options">⋮</button>
+                        <button onclick="CollectionModule.showBinderContextMenu('${binder.id}', '${escapeHtml(binder.name).replace(/'/g, "\\'")}', event); event.stopPropagation();" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; color: #1d1d1f; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#007aff'; this.style.color='white';" onmouseout="this.style.background='var(--border-color)'; this.style.color='#1d1d1f';" title="Options">⋮</button>
                     </div>
                     <h4 style="margin: 0 0 1rem 0; font-size: 1.2rem; font-weight: 600; color: var(--text-color); padding-right: 80px;">
                         ${escapeHtml(binder.name)}
@@ -923,7 +923,7 @@ const CollectionModule = (function() {
             <!-- Binder Header -->
             <div style="margin-bottom: 2rem; padding: 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
                 <h2 style="margin: 0 0 1.5rem 0; font-size: 2rem; font-weight: 700; color: var(--text-color);">
-                    📁 ${escapeHtml(binder.name)}
+                    ${escapeHtml(binder.name)}
                 </h2>
                 
                 <!-- Binder Stats -->
@@ -976,6 +976,7 @@ const CollectionModule = (function() {
                         <table class="card-list-table" style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr>
+                                    <th style="padding: 0.75rem; text-align: center; font-weight: 600; color: var(--subtle-text-color); background: var(--background-color); border-bottom: 1px solid var(--border-color); width: 40px;"></th>
                                     <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: var(--subtle-text-color); background: var(--background-color); border-bottom: 1px solid var(--border-color);">Card</th>
                                     <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: var(--subtle-text-color); background: var(--background-color); border-bottom: 1px solid var(--border-color);">Condition</th>
                                     <th style="padding: 0.75rem; text-align: right; font-weight: 600; color: var(--subtle-text-color); background: var(--background-color); border-bottom: 1px solid var(--border-color);">Cost</th>
@@ -1028,6 +1029,9 @@ const CollectionModule = (function() {
                 
                 html += `
                     <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s ease;" onmouseover="this.style.background='linear-gradient(135deg, #f8fafd 0%, #f0f4ff 100%)'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 0.75rem; text-align: center; width: 40px;">
+                            <span onclick="CollectionModule.showCardContextMenu('${card.id}', ${JSON.stringify(card).replace(/'/g, "&#39;")}, event); event.stopPropagation();" style="cursor: pointer; font-size: 1.2rem; color: #1d1d1f; transition: all 0.2s; display: inline-block;" onmouseover="this.style.transform='scale(1.2)'; this.style.color='#007aff';" onmouseout="this.style.transform='scale(1)'; this.style.color='#1d1d1f';" title="Options">⋮</span>
+                        </td>
                         <td style="padding: 0.75rem;">
                             <div style="font-weight: 600; color: var(--text-color); margin-bottom: 0.25rem;">${escapeHtml(cardDesc || 'Untitled Card')}</div>
                             ${card.tags ? `<div style="font-size: 0.75rem; color: var(--subtle-text-color);">${Array.isArray(card.tags) ? card.tags.map(t => '#' + t).join(' ') : (typeof card.tags === 'string' ? '#' + card.tags : '')}</div>` : ''}
@@ -1038,12 +1042,7 @@ const CollectionModule = (function() {
                             <div style="font-weight: 600; color: var(--text-color);">$${fmv.toFixed(2)}</div>
                             ${fmv > 0 ? `<div style="font-size: 0.75rem; color: ${cardROI >= 0 ? '#34c759' : '#ff3b30'};">${cardROI >= 0 ? '+' : ''}${cardROI.toFixed(1)}%</div>` : ''}
                         </td>
-                        <td style="padding: 0.75rem; text-align: center;">
-                            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-                                ${statusHTML}
-                                <button onclick="CollectionModule.showCardContextMenu('${card.id}', ${JSON.stringify(card).replace(/'/g, "&#39;")}, event); event.stopPropagation();" style="background: transparent; border: none; cursor: pointer; font-size: 1.2rem; padding: 0.25rem; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';" title="Options">⋮</button>
-                            </div>
-                        </td>
+                        <td style="padding: 0.75rem; text-align: center;">${statusHTML}</td>
                     </tr>
                 `;
             });
