@@ -19,7 +19,7 @@ from backend.services.valuation_service import (
 )
 from backend.services.collection_service import get_card_by_id
 from backend.middleware.supabase_auth import get_current_user_required
-from backend.middleware.admin_auth import require_admin
+from backend.middleware.admin_auth import require_admin_auth
 from backend.config import get_search_api_key
 from backend.logging_config import get_logger
 
@@ -162,7 +162,7 @@ async def update_card_value(
 async def batch_update_valuations(
     request: BatchUpdateRequest,
     background_tasks: BackgroundTasks,
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_admin_auth),
     db: Session = Depends(get_db)
 ):
     """
@@ -207,9 +207,8 @@ async def batch_update_valuations(
     logger.info(f"[API] Batch valuation update requested by admin {admin_user['id']}")
     logger.info(f"[API] Parameters: days_threshold={request.days_threshold}, max_cards={request.max_cards}")
     
-    # Get API key from settings
-    settings = get_settings()
-    api_key = settings.SEARCHAPI_API_KEY
+    # Get API key from config
+    api_key = get_search_api_key()
     
     if not api_key:
         raise HTTPException(status_code=500, detail="SearchAPI key not configured")
@@ -241,7 +240,7 @@ async def batch_update_valuations(
 
 @router.get("/admin/api/valuation/stats")
 async def get_valuation_stats(
-    admin_user: dict = Depends(require_admin),
+    admin_user: dict = Depends(require_admin_auth),
     db: Session = Depends(get_db)
 ):
     """
