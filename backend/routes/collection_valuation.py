@@ -18,7 +18,7 @@ from backend.services.valuation_service import (
     update_stale_cards
 )
 from backend.services.collection_service import get_card_by_id
-from backend.middleware.supabase_auth import get_current_user
+from backend.middleware.supabase_auth import get_current_user_required
 from backend.middleware.admin_auth import require_admin
 from backend.config import get_search_api_key
 from backend.logging_config import get_logger
@@ -77,7 +77,7 @@ class BatchUpdateResponse(BaseModel):
 async def update_card_value(
     card_id: int,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """
