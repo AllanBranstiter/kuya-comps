@@ -306,7 +306,7 @@ const CollectionModule = (function() {
                     </div>
                     
                     <!-- Hidden field for search query -->
-                    <input type="hidden" id="card-search-query" value="${searchQuery}">
+                    <input type="hidden" id="card-search-query" value="${escapeHtml(searchQuery)}">
                     
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit-btn" style="width: 100%; padding: 1rem; background: var(--gradient-primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); margin-top: 1rem;">
@@ -468,6 +468,16 @@ const CollectionModule = (function() {
             return;
         }
         
+        // Validate search query is not empty (required for automated valuation)
+        if (!formData.searchQuery || formData.searchQuery.trim() === '') {
+            alert('Search query is required for automated valuation. Please run a search first, then click "Save to Collection".');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '⭐ Add to Collection';
+            }
+            return;
+        }
+        
         // Disable submit button
         const submitBtn = event.target.querySelector('.auth-submit-btn');
         if (submitBtn) {
@@ -594,6 +604,28 @@ const CollectionModule = (function() {
             }
             
             console.log('[COLLECTION] Card inserted successfully:', data);
+            
+            // Create initial price history entry if current_fmv was provided
+            if (cardData.current_fmv && cardData.current_fmv > 0 && data && data[0]) {
+                console.log('[COLLECTION] Creating initial price history entry...');
+                
+                const { error: historyError } = await supabase
+                    .from('price_history')
+                    .insert([{
+                        card_id: data[0].id,
+                        value: cardData.current_fmv,
+                        num_sales: null,
+                        confidence: 'user_provided'
+                    }]);
+                
+                if (historyError) {
+                    console.error('[COLLECTION] Error creating price history:', historyError);
+                    // Don't fail the entire save - price history is supplementary
+                } else {
+                    console.log('[COLLECTION] Price history entry created successfully');
+                }
+            }
+            
             return { data };
             
         } catch (error) {
@@ -1667,6 +1699,17 @@ const CollectionModule = (function() {
                 throw new Error('Database not available');
             }
             
+            // Fetch the old card data to compare current_fmv
+            const { data: oldCard, error: fetchError } = await supabase
+                .from('cards')
+                .select('current_fmv')
+                .eq('id', cardId)
+                .single();
+            
+            if (fetchError) {
+                console.warn('[COLLECTION] Could not fetch old card data for price history comparison:', fetchError);
+            }
+            
             const { error } = await supabase
                 .from('cards')
                 .update(cardData)
@@ -1677,6 +1720,30 @@ const CollectionModule = (function() {
             }
             
             console.log('[COLLECTION] Card updated successfully');
+            
+            // Create price history entry if current_fmv was changed and is valid
+            const oldFmv = oldCard ? parseFloat(oldCard.current_fmv) : null;
+            const newFmv = cardData.current_fmv;
+            
+            if (newFmv && newFmv > 0 && oldFmv !== newFmv) {
+                console.log('[COLLECTION] Current FMV changed from', oldFmv, 'to', newFmv, '- creating price history entry...');
+                
+                const { error: historyError } = await supabase
+                    .from('price_history')
+                    .insert([{
+                        card_id: cardId,
+                        value: newFmv,
+                        num_sales: null,
+                        confidence: 'user_provided'
+                    }]);
+                
+                if (historyError) {
+                    console.error('[COLLECTION] Error creating price history:', historyError);
+                    // Don't fail the entire save - price history is supplementary
+                } else {
+                    console.log('[COLLECTION] Price history entry created successfully');
+                }
+            }
             
             if (submitBtn) {
                 submitBtn.textContent = '✅ Saved!';
