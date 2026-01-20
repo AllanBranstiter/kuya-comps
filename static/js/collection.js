@@ -649,7 +649,7 @@ const CollectionModule = (function() {
      * Display the binder view dashboard
      * This is the main view for the "My Collection" tab
      */
-    async function displayBinderView() {
+    async function displayBinderView(sortBy = null) {
         console.log('[COLLECTION] Displaying binder view...');
         
         const container = document.getElementById('portfolio-container');
@@ -657,6 +657,9 @@ const CollectionModule = (function() {
             console.error('[COLLECTION] Portfolio container not found');
             return;
         }
+        
+        // Get sort preference from localStorage or parameter
+        const sortOption = sortBy || localStorage.getItem('binderSort') || 'newest';
         
         // Check authentication
         if (!window.AuthModule || !window.AuthModule.isAuthenticated()) {
@@ -744,8 +747,27 @@ const CollectionModule = (function() {
                 };
             }));
             
+            // Apply sorting based on selection
+            bindersWithStats.sort((a, b) => {
+                switch(sortOption) {
+                    case 'oldest':
+                        return new Date(a.created_at) - new Date(b.created_at);
+                    case 'az':
+                        return a.name.localeCompare(b.name);
+                    case 'za':
+                        return b.name.localeCompare(a.name);
+                    case 'value_high':
+                        return (b.stats?.totalFMV || 0) - (a.stats?.totalFMV || 0);
+                    case 'value_low':
+                        return (a.stats?.totalFMV || 0) - (b.stats?.totalFMV || 0);
+                    case 'newest':
+                    default:
+                        return new Date(b.created_at) - new Date(a.created_at);
+                }
+            });
+            
             // Render binder dashboard
-            renderBinderDashboard(bindersWithStats);
+            renderBinderDashboard(bindersWithStats, sortOption);
             
         } catch (error) {
             console.error('[COLLECTION] Error loading binders:', error);
@@ -761,7 +783,7 @@ const CollectionModule = (function() {
     /**
      * Render the binder dashboard with all binders
      */
-    function renderBinderDashboard(binders) {
+    function renderBinderDashboard(binders, sortOption = 'newest') {
         const container = document.getElementById('portfolio-container');
         if (!container) return;
         
@@ -801,9 +823,20 @@ const CollectionModule = (function() {
                 </div>
             </div>
             
-            <!-- Binders Grid -->
-            <div style="margin-bottom: 1.5rem;">
-                <h3 style="margin: 0 0 1rem 0; font-size: 1.25rem; font-weight: 600; color: var(--text-color);">📁 Your Binders</h3>
+            <!-- Binders Grid Header with Sort -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: var(--text-color);">📁 Your Binders</h3>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label style="font-size: 0.9rem; color: var(--subtle-text-color);">Sort by:</label>
+                    <select id="binder-sort" onchange="CollectionModule.sortBindersView(this.value)" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-background); color: var(--text-color); cursor: pointer; font-family: var(--font-family);">
+                        <option value="newest" ${sortOption === 'newest' ? 'selected' : ''}>Newest</option>
+                        <option value="oldest" ${sortOption === 'oldest' ? 'selected' : ''}>Oldest</option>
+                        <option value="az" ${sortOption === 'az' ? 'selected' : ''}>A-Z</option>
+                        <option value="za" ${sortOption === 'za' ? 'selected' : ''}>Z-A</option>
+                        <option value="value_high" ${sortOption === 'value_high' ? 'selected' : ''}>Highest Value</option>
+                        <option value="value_low" ${sortOption === 'value_low' ? 'selected' : ''}>Lowest Value</option>
+                    </select>
+                </div>
             </div>
             
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
@@ -895,10 +928,29 @@ const CollectionModule = (function() {
     }
     
     /**
+     * Sort binders view with specified option
+     */
+    function sortBindersView(sortBy) {
+        localStorage.setItem('binderSort', sortBy);
+        displayBinderView(sortBy);
+    }
+    
+    /**
+     * Sort cards view with specified option
+     */
+    function sortCardsView(binderId, sortBy) {
+        localStorage.setItem('cardSort', sortBy);
+        showBinderDetails(binderId, sortBy);
+    }
+    
+    /**
      * Show detailed view of a specific binder with all cards
      */
-    async function showBinderDetails(binderId) {
+    async function showBinderDetails(binderId, sortBy = null) {
         console.log('[COLLECTION] Showing binder details for:', binderId);
+        
+        // Get sort preference from localStorage or parameter
+        const sortOption = sortBy || localStorage.getItem('cardSort') || 'newest';
         
         const container = document.getElementById('portfolio-container');
         if (!container) return;
@@ -943,8 +995,27 @@ const CollectionModule = (function() {
             
             console.log('[COLLECTION] Loaded', cards?.length || 0, 'cards for binder');
             
+            // Apply sorting based on selection
+            cards.sort((a, b) => {
+                switch(sortOption) {
+                    case 'oldest':
+                        return new Date(a.created_at) - new Date(b.created_at);
+                    case 'az':
+                        return (a.athlete || '').localeCompare(b.athlete || '');
+                    case 'za':
+                        return (b.athlete || '').localeCompare(a.athlete || '');
+                    case 'value_high':
+                        return (parseFloat(b.current_fmv) || 0) - (parseFloat(a.current_fmv) || 0);
+                    case 'value_low':
+                        return (parseFloat(a.current_fmv) || 0) - (parseFloat(b.current_fmv) || 0);
+                    case 'newest':
+                    default:
+                        return new Date(b.created_at) - new Date(a.created_at);
+                }
+            });
+            
             // Render binder detail view
-            renderBinderDetailView(binder, cards);
+            renderBinderDetailView(binder, cards, sortOption);
             
         } catch (error) {
             console.error('[COLLECTION] Error loading binder details:', error);
@@ -963,7 +1034,7 @@ const CollectionModule = (function() {
     /**
      * Render detailed view of a binder with card list
      */
-    function renderBinderDetailView(binder, cards) {
+    function renderBinderDetailView(binder, cards, sortOption = 'newest') {
         const container = document.getElementById('portfolio-container');
         if (!container) return;
         
@@ -1033,8 +1104,19 @@ const CollectionModule = (function() {
             // Render card list table
             html += `
                 <div style="background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); overflow: hidden;">
-                    <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
                         <h3 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: var(--text-color);">Cards (${totalCards})</h3>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <label style="font-size: 0.9rem; color: var(--subtle-text-color);">Sort by:</label>
+                            <select id="card-sort" onchange="CollectionModule.sortCardsView('${binder.id}', this.value)" style="padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-background); color: var(--text-color); cursor: pointer; font-family: var(--font-family);">
+                                <option value="newest" ${sortOption === 'newest' ? 'selected' : ''}>Newest</option>
+                                <option value="oldest" ${sortOption === 'oldest' ? 'selected' : ''}>Oldest</option>
+                                <option value="az" ${sortOption === 'az' ? 'selected' : ''}>A-Z (Athlete)</option>
+                                <option value="za" ${sortOption === 'za' ? 'selected' : ''}>Z-A (Athlete)</option>
+                                <option value="value_high" ${sortOption === 'value_high' ? 'selected' : ''}>Highest Value</option>
+                                <option value="value_low" ${sortOption === 'value_low' ? 'selected' : ''}>Lowest Value</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div style="overflow-x: auto;">
@@ -2165,7 +2247,9 @@ const CollectionModule = (function() {
         showMoveCardModal,
         hideMoveCardModal,
         showCreateBinderForMove,
-        handleMoveCard
+        handleMoveCard,
+        sortBindersView,
+        sortCardsView
     };
 })();
 
