@@ -298,7 +298,7 @@ const CollectionModule = (function() {
                                 <div>
                                     <div>Auto-Update Value</div>
                                     <div style="font-size: 0.85rem; font-weight: 400; color: var(--subtle-text-color); margin-top: 0.25rem;">
-                                        Automatically update Fair Market Value every 30 days
+                                        Automatically update Fair Market Value every 90 days
                                     </div>
                                 </div>
                             </label>
@@ -306,7 +306,7 @@ const CollectionModule = (function() {
                     </div>
                     
                     <!-- Hidden field for search query -->
-                    <input type="hidden" id="card-search-query" value="${searchQuery}">
+                    <input type="hidden" id="card-search-query" value="${escapeHtml(searchQuery)}">
                     
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit-btn" style="width: 100%; padding: 1rem; background: var(--gradient-primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); margin-top: 1rem;">
@@ -468,6 +468,16 @@ const CollectionModule = (function() {
             return;
         }
         
+        // Validate search query is not empty (required for automated valuation)
+        if (!formData.searchQuery || formData.searchQuery.trim() === '') {
+            alert('Search query is required for automated valuation. Please run a search first, then click "Save to Collection".');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '⭐ Add to Collection';
+            }
+            return;
+        }
+        
         // Disable submit button
         const submitBtn = event.target.querySelector('.auth-submit-btn');
         if (submitBtn) {
@@ -594,6 +604,28 @@ const CollectionModule = (function() {
             }
             
             console.log('[COLLECTION] Card inserted successfully:', data);
+            
+            // Create initial price history entry if current_fmv was provided
+            if (cardData.current_fmv && cardData.current_fmv > 0 && data && data[0]) {
+                console.log('[COLLECTION] Creating initial price history entry...');
+                
+                const { error: historyError } = await supabase
+                    .from('price_history')
+                    .insert([{
+                        card_id: data[0].id,
+                        value: cardData.current_fmv,
+                        num_sales: null,
+                        confidence: 'user_provided'
+                    }]);
+                
+                if (historyError) {
+                    console.error('[COLLECTION] Error creating price history:', historyError);
+                    // Don't fail the entire save - price history is supplementary
+                } else {
+                    console.log('[COLLECTION] Price history entry created successfully');
+                }
+            }
+            
             return { data };
             
         } catch (error) {
@@ -785,7 +817,40 @@ const CollectionModule = (function() {
             html += `
                 <div class="binder-card" onclick="CollectionModule.showBinderDetails('${binder.id}')" style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; cursor: pointer; position: relative;">
                     <div style="position: absolute; top: 1rem; right: 1rem;">
-                        <button onclick="CollectionModule.showBinderContextMenu('${binder.id}', '${escapeHtml(binder.name).replace(/'/g, "\\'")}', event); event.stopPropagation();" style="background: var(--border-color); border: none; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 1.2rem; color: #1d1d1f; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;" onmouseover="this.style.background='#007aff'; this.style.color='white';" onmouseout="this.style.background='var(--border-color)'; this.style.color='#1d1d1f';" title="Options">⋮</button>
+                        <button
+                            onclick="CollectionModule.showBinderContextMenu('${binder.id}', '${escapeHtml(binder.name).replace(/'/g, "\\'")}', event); event.stopPropagation();"
+                            class="options-button"
+                            style="
+                                background: #f5f5f7;
+                                border: 1px solid #e5e5e7;
+                                border-radius: 12px;
+                                padding: 6px 10px;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                display: inline-flex;
+                                flex-direction: column;
+                                gap: 3px;
+                                align-items: center;
+                                justify-content: center;
+                                min-width: 32px;
+                                min-height: 32px;
+                            "
+                            onmouseover="
+                                this.style.background='#007aff';
+                                this.style.borderColor='#007aff';
+                                Array.from(this.querySelectorAll('.dot')).forEach(dot => dot.style.background='white');
+                            "
+                            onmouseout="
+                                this.style.background='#f5f5f7';
+                                this.style.borderColor='#e5e5e7';
+                                Array.from(this.querySelectorAll('.dot')).forEach(dot => dot.style.background='#1d1d1f');
+                            "
+                            title="Options"
+                        >
+                            <span class="dot" style="width: 4px; height: 4px; background: #1d1d1f; border-radius: 50%; transition: background 0.2s ease;"></span>
+                            <span class="dot" style="width: 4px; height: 4px; background: #1d1d1f; border-radius: 50%; transition: background 0.2s ease;"></span>
+                            <span class="dot" style="width: 4px; height: 4px; background: #1d1d1f; border-radius: 50%; transition: background 0.2s ease;"></span>
+                        </button>
                     </div>
                     <h4 style="margin: 0 0 1rem 0; font-size: 1.2rem; font-weight: 600; color: var(--text-color); padding-right: 80px;">
                         ${escapeHtml(binder.name)}
@@ -1030,7 +1095,40 @@ const CollectionModule = (function() {
                 html += `
                     <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s ease;" onmouseover="this.style.background='linear-gradient(135deg, #f8fafd 0%, #f0f4ff 100%)'" onmouseout="this.style.background='transparent'">
                         <td style="padding: 0.5rem; text-align: center; width: 50px;">
-                            <button onclick="CollectionModule.showCardContextMenu('${card.id}', ${JSON.stringify(card).replace(/'/g, "&#39;")}, event); event.stopPropagation();" style="background: transparent; border: none; cursor: pointer; font-size: 1.3rem; color: #1d1d1f; padding: 0.5rem; min-width: 40px; min-height: 40px; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;" onmouseover="this.style.background='rgba(0, 122, 255, 0.1)'; this.style.color='#007aff'; this.style.transform='scale(1.1)';" onmouseout="this.style.background='transparent'; this.style.color='#1d1d1f'; this.style.transform='scale(1)';" title="Options">⋮</button>
+                            <button
+                                onclick="CollectionModule.showCardContextMenu('${card.id}', '${card.binder_id}', event); event.stopPropagation();"
+                                class="options-button"
+                                style="
+                                    background: #f5f5f7;
+                                    border: 1px solid #e5e5e7;
+                                    border-radius: 12px;
+                                    padding: 6px 10px;
+                                    cursor: pointer;
+                                    transition: all 0.2s ease;
+                                    display: inline-flex;
+                                    flex-direction: column;
+                                    gap: 3px;
+                                    align-items: center;
+                                    justify-content: center;
+                                    min-width: 32px;
+                                    min-height: 32px;
+                                "
+                                onmouseover="
+                                    this.style.background='#007aff';
+                                    this.style.borderColor='#007aff';
+                                    Array.from(this.querySelectorAll('.dot')).forEach(dot => dot.style.background='white');
+                                "
+                                onmouseout="
+                                    this.style.background='#f5f5f7';
+                                    this.style.borderColor='#e5e5e7';
+                                    Array.from(this.querySelectorAll('.dot')).forEach(dot => dot.style.background='#1d1d1f');
+                                "
+                                title="Options"
+                            >
+                                <span class="dot" style="width: 4px; height: 4px; background: #1d1d1f; border-radius: 50%; transition: background 0.2s ease;"></span>
+                                <span class="dot" style="width: 4px; height: 4px; background: #1d1d1f; border-radius: 50%; transition: background 0.2s ease;"></span>
+                                <span class="dot" style="width: 4px; height: 4px; background: #1d1d1f; border-radius: 50%; transition: background 0.2s ease;"></span>
+                            </button>
                         </td>
                         <td style="padding: 0.75rem;">
                             <div style="font-weight: 600; color: var(--text-color); margin-bottom: 0.25rem;">${escapeHtml(cardDesc || 'Untitled Card')}</div>
@@ -1481,6 +1579,21 @@ const CollectionModule = (function() {
                             </div>
                         </div>
                         
+                        <!-- Search & Automation Section -->
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color);">
+                                🔍 Search & Automation
+                            </h3>
+                            
+                            <div class="auth-form-group">
+                                <label>Search Query</label>
+                                <input type="text" id="editCardSearchQuery" value="${escapeHtml(card.search_query_string || '')}" placeholder="e.g., 2024 Topps Chrome Shohei Ohtani PSA 10">
+                                <div style="font-size: 0.75rem; color: var(--subtle-text-color); margin-top: 0.25rem;">
+                                    This search query is used to automatically update the card's Fair Market Value. You can refine it if needed (e.g., after grading).
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Settings Section -->
                         <div style="margin-bottom: 2rem;">
                             <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color);">
@@ -1493,7 +1606,7 @@ const CollectionModule = (function() {
                                     <div>
                                         <div>Auto-Update Value</div>
                                         <div style="font-size: 0.85rem; font-weight: 400; color: var(--subtle-text-color); margin-top: 0.25rem;">
-                                            Automatically update Fair Market Value every 30 days
+                                            Automatically update Fair Market Value every 90 days
                                         </div>
                                     </div>
                                 </label>
@@ -1567,6 +1680,7 @@ const CollectionModule = (function() {
             purchase_price: parseFloat(document.getElementById('edit-card-purchase-price')?.value) || null,
             purchase_date: document.getElementById('edit-card-purchase-date')?.value || null,
             current_fmv: parseFloat(document.getElementById('edit-card-current-fmv')?.value) || null,
+            search_query_string: document.getElementById('editCardSearchQuery')?.value.trim() || '',
             tags: document.getElementById('edit-card-tags')?.value ?
                   document.getElementById('edit-card-tags').value.split(',').map(t => t.trim()) : [],
             auto_update: document.getElementById('edit-card-auto-update')?.checked || false
@@ -1585,6 +1699,17 @@ const CollectionModule = (function() {
                 throw new Error('Database not available');
             }
             
+            // Fetch the old card data to compare current_fmv
+            const { data: oldCard, error: fetchError } = await supabase
+                .from('cards')
+                .select('current_fmv')
+                .eq('id', cardId)
+                .single();
+            
+            if (fetchError) {
+                console.warn('[COLLECTION] Could not fetch old card data for price history comparison:', fetchError);
+            }
+            
             const { error } = await supabase
                 .from('cards')
                 .update(cardData)
@@ -1595,6 +1720,30 @@ const CollectionModule = (function() {
             }
             
             console.log('[COLLECTION] Card updated successfully');
+            
+            // Create price history entry if current_fmv was changed and is valid
+            const oldFmv = oldCard ? parseFloat(oldCard.current_fmv) : null;
+            const newFmv = cardData.current_fmv;
+            
+            if (newFmv && newFmv > 0 && oldFmv !== newFmv) {
+                console.log('[COLLECTION] Current FMV changed from', oldFmv, 'to', newFmv, '- creating price history entry...');
+                
+                const { error: historyError } = await supabase
+                    .from('price_history')
+                    .insert([{
+                        card_id: cardId,
+                        value: newFmv,
+                        num_sales: null,
+                        confidence: 'user_provided'
+                    }]);
+                
+                if (historyError) {
+                    console.error('[COLLECTION] Error creating price history:', historyError);
+                    // Don't fail the entire save - price history is supplementary
+                } else {
+                    console.log('[COLLECTION] Price history entry created successfully');
+                }
+            }
             
             if (submitBtn) {
                 submitBtn.textContent = '✅ Saved!';
@@ -1681,7 +1830,7 @@ const CollectionModule = (function() {
     /**
      * Show context menu for card
      */
-    function showCardContextMenu(cardId, card, event) {
+    function showCardContextMenu(cardId, binderId, event) {
         event.preventDefault();
         event.stopPropagation();
         
@@ -1707,11 +1856,11 @@ const CollectionModule = (function() {
                 <span style="font-size: 1rem;">✏️</span>
                 <span>Edit</span>
             </div>
-            <div class="context-menu-item" onclick="CollectionModule.showMoveCardModal('${cardId}', '${card.binder_id}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.showMoveCardModal('${cardId}', '${binderId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">📁</span>
                 <span>Move</span>
             </div>
-            <div class="context-menu-item" onclick="CollectionModule.deleteCard('${cardId}', '${card.binder_id}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.deleteCard('${cardId}', '${binderId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">🗑️</span>
                 <span>Delete</span>
             </div>
