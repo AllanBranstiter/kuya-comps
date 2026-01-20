@@ -1064,7 +1064,7 @@ const CollectionModule = (function() {
                     <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.2s ease;" onmouseover="this.style.background='linear-gradient(135deg, #f8fafd 0%, #f0f4ff 100%)'" onmouseout="this.style.background='transparent'">
                         <td style="padding: 0.5rem; text-align: center; width: 50px;">
                             <button
-                                onclick="CollectionModule.showCardContextMenu('${card.id}', ${JSON.stringify(card).replace(/'/g, "&#39;")}, event); event.stopPropagation();"
+                                onclick="CollectionModule.showCardContextMenu('${card.id}', '${card.binder_id}', event); event.stopPropagation();"
                                 class="options-button"
                                 style="
                                     background: #f5f5f7;
@@ -1763,7 +1763,7 @@ const CollectionModule = (function() {
     /**
      * Show context menu for card
      */
-    function showCardContextMenu(cardId, card, event) {
+    function showCardContextMenu(cardId, binderId, event) {
         event.preventDefault();
         event.stopPropagation();
         
@@ -1789,11 +1789,11 @@ const CollectionModule = (function() {
                 <span style="font-size: 1rem;">✏️</span>
                 <span>Edit</span>
             </div>
-            <div class="context-menu-item" onclick="CollectionModule.showMoveCardModal('${cardId}', '${card.binder_id}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.showMoveCardModal('${cardId}', '${binderId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">📁</span>
                 <span>Move</span>
             </div>
-            <div class="context-menu-item" onclick="CollectionModule.deleteCard('${cardId}', '${card.binder_id}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.deleteCard('${cardId}', '${binderId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">🗑️</span>
                 <span>Delete</span>
             </div>
