@@ -404,7 +404,7 @@ HIGH_ACTIVITY_BID_THRESHOLD = 10
 # Collections & Binders Configuration (Phase 2)
 # ============================================================================
 
-COLLECTION_AUTO_UPDATE_THRESHOLD_DAYS = 30
+COLLECTION_AUTO_UPDATE_THRESHOLD_DAYS = 90
 """Number of days before a card's FMV is considered stale and needs updating."""
 
 COLLECTION_MAX_PRICE_HISTORY_ENTRIES = 365

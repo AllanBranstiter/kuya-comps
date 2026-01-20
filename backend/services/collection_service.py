@@ -17,6 +17,7 @@ from backend.models.collection_schemas import (
     CollectionOverview, CardFilter
 )
 from backend.logging_config import get_logger
+from backend.config import COLLECTION_AUTO_UPDATE_THRESHOLD_DAYS
 
 logger = get_logger(__name__)
 
@@ -169,11 +170,11 @@ def get_binder_stats(db: Session, binder_id: int, user_id: str) -> Optional[Bind
     # Count cards needing review
     cards_needing_review = sum(1 for card in cards if card.review_required)
     
-    # Count cards with stale data (>30 days since update)
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    # Count cards with stale data (>threshold days since update)
+    threshold_date = datetime.utcnow() - timedelta(days=COLLECTION_AUTO_UPDATE_THRESHOLD_DAYS)
     cards_with_stale_data = sum(
-        1 for card in cards 
-        if card.auto_update and (card.last_updated_at is None or card.last_updated_at < thirty_days_ago)
+        1 for card in cards
+        if card.auto_update and (card.last_updated_at is None or card.last_updated_at < threshold_date)
     )
     
     # Get most recent update
@@ -445,10 +446,10 @@ def get_collection_overview(db: Session, user_id: str) -> CollectionOverview:
     
     cards_needing_review = sum(1 for card in cards if card.review_required)
     
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    threshold_date = datetime.utcnow() - timedelta(days=COLLECTION_AUTO_UPDATE_THRESHOLD_DAYS)
     cards_with_stale_data = sum(
-        1 for card in cards 
-        if card.auto_update and (card.last_updated_at is None or card.last_updated_at < thirty_days_ago)
+        1 for card in cards
+        if card.auto_update and (card.last_updated_at is None or card.last_updated_at < threshold_date)
     )
     
     # Get top performers (highest ROI)

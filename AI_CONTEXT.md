@@ -21,7 +21,8 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 - **PSA Grade Intelligence:** Compare prices across different PSA grades
 - **Advanced Analytics Dashboard:** Market pressure analysis, liquidity profiles, absorption ratios
 - **Collection Management (NEW):** Track card collections with binders and smart organization
-- **Automated Valuation Engine (NEW):** Automatic FMV updates every 30 days with safety checks
+- **Editable Search Queries (NEW):** Edit search queries in Edit Card modal to refine automated valuations
+- **Automated Valuation Engine (NEW):** Automatic FMV updates every 90 days with safety checks
 - **User Authentication:** Supabase-based auth with session management and route gating
 - **Portfolio Dashboard:** Save searches and view collection overview with ROI tracking
 
@@ -218,6 +219,24 @@ kuya-comps/
    - **Impact:** Auto-fills year, set, athlete, card number from search query
    - **Implementation:** [`static/js/collection.js:parseSearchString()`](static/js/collection.js:1)
 
+8. **Editable Search Queries in Edit Card Modal**
+   - **Why:** Allow users to refine search queries for automated valuations (e.g., after grading)
+   - **Impact:** Edit Card modal includes "Search & Automation" section with search_query_string field
+   - **Implementation:** [`static/js/collection.js`](static/js/collection.js:1) - Lines ~1550-1567 (HTML), Line ~1635 (handleEditCard)
+   - **Data Safety:** Price history preserved (separate table, no cascade on updates)
+
+9. **Card Context Menus**
+   - **Why:** Provide full card management capabilities within binders
+   - **Impact:** Card context menu shows Edit, Move, and Delete options
+   - **Implementation:** [`static/js/collection.js:showCardContextMenu()`](static/js/collection.js:1766)
+   - **Note:** Move functionality fully integrated - users can reorganize cards between binders
+
+10. **Modern Options Button Design**
+   - **Why:** Improved visual hierarchy, better accessibility, larger touch targets
+   - **Impact:** Replaced Unicode "⋮" with pill-shaped buttons featuring three CSS dots
+   - **Design:** 12px border-radius, #f5f5f7 background, blue (#007aff) hover state
+   - **Implementation:** [`static/js/collection.js`](static/js/collection.js:788) (binder), Line 1033 (card row)
+
 ### Data Flow Patterns
 
 **Example: Search Request Flow**
@@ -254,7 +273,7 @@ kuya-comps/
 **Example: Automated Valuation Flow (NEW)**
 ```
 1. Cron job runs daily → (cron_update_valuations.py)
-2. Query cards with auto_update=TRUE & last_updated > 30 days
+2. Query cards with auto_update=TRUE & last_updated > 90 days
 3. For each card:
    - Scrape eBay using search_query_string
    - Apply keyword firewall → Filter unwanted listings
@@ -802,7 +821,8 @@ alembic upgrade head
 - **User Authentication:** Supabase integration with JWT tokens, social logins
 - **Collection Management:** Track card collections with binders and smart organization
 - **Smart Collection Parser:** Auto-fills year, set, athlete, card number from search queries
-- **Automated Valuation Engine:** Daily cron job updates card FMV with safety checks
+- **Editable Search Queries:** Edit Card modal now includes search_query_string field for refining automated valuations
+- **Automated Valuation Engine:** Daily cron job updates card FMV with safety checks (90-day threshold)
   - Keyword firewall (excludes reprints, digital, etc.)
   - IQR outlier removal
   - Volatility guardrails (flags >50% changes)
@@ -811,6 +831,7 @@ alembic upgrade head
 - **Route Gating:** Advanced analytics restricted to authenticated users
 - **Database Schema:** New tables for binders, cards, price_history
 - **Supabase Integration:** PostgreSQL for user data and saved searches
+- **UI Improvements:** Modern pill-shaped options buttons with CSS dots, simplified context menus
 
 **Version 0.4.0 (Previous):**
 - Complete modular backend restructure ([`/backend/`](backend/))
