@@ -197,7 +197,7 @@ def get_binder_stats(db: Session, binder_id: int, user_id: str) -> Optional[Bind
 # Card Service Functions
 # ============================================================================
 
-def create_card(db: Session, user_id: str, card_data: CardCreate) -> Optional[Card]:
+def create_card(db: Session, user_id: str, card_data: CardCreate, current_fmv: Optional[Decimal] = None) -> Optional[Card]:
     """
     Create a new card in a binder.
     
@@ -205,6 +205,7 @@ def create_card(db: Session, user_id: str, card_data: CardCreate) -> Optional[Ca
         db: Database session
         user_id: Supabase user ID
         card_data: Card creation data
+        current_fmv: Optional initial FMV value for the card
         
     Returns:
         Created Card object or None if binder not found
@@ -229,6 +230,7 @@ def create_card(db: Session, user_id: str, card_data: CardCreate) -> Optional[Ca
         auto_update=card_data.auto_update,
         purchase_price=card_data.purchase_price,
         purchase_date=card_data.purchase_date,
+        current_fmv=current_fmv,
         tags=card_data.tags,
         notes=card_data.notes
     )
@@ -237,6 +239,18 @@ def create_card(db: Session, user_id: str, card_data: CardCreate) -> Optional[Ca
     db.refresh(card)
     
     logger.info(f"Created card '{card.athlete}' (ID: {card.id}) in binder {card_data.binder_id}")
+    
+    # If current_fmv was provided, create initial price history entry
+    if current_fmv is not None and current_fmv > 0:
+        price_history = PriceHistoryCreate(
+            card_id=card.id,
+            value=current_fmv,
+            num_sales=None,
+            confidence="user_provided"
+        )
+        add_price_history(db, price_history)
+        logger.info(f"Created initial price history entry for card {card.id}: ${current_fmv}")
+    
     return card
 
 
