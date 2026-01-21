@@ -73,6 +73,30 @@ def get_sentry_traces_sample_rate() -> float:
         return 0.1
 
 
+def get_supabase_client():
+    """
+    Get Supabase client instance for authentication and user operations.
+    
+    Uses the service role key for administrative operations on the Supabase database.
+    
+    Returns:
+        Supabase Client instance
+        
+    Raises:
+        HTTPException: If Supabase credentials are not configured
+    """
+    from supabase import create_client, Client
+    from fastapi import HTTPException
+    
+    supabase_url = os.getenv('SUPABASE_URL')
+    supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if not supabase_url or not supabase_key:
+        raise HTTPException(500, "Supabase not configured")
+    
+    return create_client(supabase_url, supabase_key)
+
+
 # ============================================================================
 # Logging Configuration
 # ============================================================================
