@@ -230,17 +230,15 @@ const SubscriptionManager = (function() {
             indicator = document.createElement('div');
             indicator.id = 'usage-indicator';
             indicator.style.cssText = `
-                position: absolute;
-                top: 50%;
-                right: 140px;
-                transform: translateY(-50%);
-                padding: 0.5rem 1rem;
-                border-radius: 8px;
                 font-size: 0.85rem;
                 font-weight: 600;
+                padding: 0.5rem 1rem;
+                border-radius: 8px;
                 background: var(--background-color);
                 border: 1px solid var(--border-color);
                 transition: all 0.3s ease;
+                white-space: nowrap;
+                margin-right: 0.75rem;
             `;
             authButton.parentElement.insertBefore(indicator, authButton);
         }
