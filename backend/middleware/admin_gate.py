@@ -12,6 +12,7 @@ from fastapi import HTTPException, Depends
 from typing import Optional, Dict, Any
 from supabase import create_client, Client
 from backend.logging_config import get_logger
+from backend.middleware.supabase_auth import get_current_user_required
 
 logger = get_logger(__name__)
 
@@ -141,7 +142,3 @@ async def log_admin_action(user_id: str, action: str, details: Optional[Dict[str
     except Exception as e:
         # Don't fail the request if audit logging fails
         logger.error(f"[ADMIN_AUDIT] Failed to log admin action: {e}")
-
-
-# Import get_current_user_required from supabase_auth
-from backend.middleware.supabase_auth import get_current_user_required
