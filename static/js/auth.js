@@ -394,11 +394,13 @@ const AuthModule = (function() {
     async function handleSignUp(event) {
         event.preventDefault();
         
+        const firstName = document.getElementById('signup-first-name')?.value;
+        const lastName = document.getElementById('signup-last-name')?.value;
         const email = document.getElementById('signup-email')?.value;
         const password = document.getElementById('signup-password')?.value;
         const confirmPassword = document.getElementById('signup-password-confirm')?.value;
         
-        if (!email || !password || !confirmPassword) {
+        if (!firstName || !lastName || !email || !password || !confirmPassword) {
             showAuthMessage('signup-error', 'Please fill in all fields');
             return;
         }
@@ -424,7 +426,14 @@ const AuthModule = (function() {
         }
         
         try {
-            const result = await signUp(email, password);
+            // Create user metadata with name information
+            const metadata = {
+                first_name: firstName,
+                last_name: lastName,
+                full_name: `${firstName} ${lastName}`
+            };
+            
+            const result = await signUp(email, password, metadata);
             
             if (result.error) {
                 showAuthMessage('signup-error', result.error.message || 'Sign up failed. Please try again.');

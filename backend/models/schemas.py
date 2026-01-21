@@ -139,3 +139,28 @@ class MarketMessageRequest(BaseModel):
     above_fmv_count: int = 0
     sales_below: int = 0
     sales_above: int = 0
+
+
+class ProfileResponse(BaseModel):
+    """Response model for user profile."""
+    id: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class ProfileUpdateRequest(BaseModel):
+    """Request model for updating user profile."""
+    full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
