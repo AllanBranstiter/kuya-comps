@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  
+  <title>Success - Kuya Comps</title>
+  <meta name="robots" content="noindex, nofollow">
+  
+  <link rel="icon" type="image/png" href="KuyaCompsFavicon.png">
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --primary-blue: #007aff;
+      --accent-green: #34c759;
+      --background-color: #f8fafd;
+      --card-background: #ffffff;
+      --text-color: #1d1d1f;
+      --subtle-text-color: #6e6e73;
+      --border-color: #e5e5ea;
+      --shadow-color: rgba(0, 0, 0, 0.08);
+      --gradient-primary: linear-gradient(135deg, #007aff, #5856d6);
+      --gradient-background: linear-gradient(135deg, #f8fafd 0%, #ebf3ff 100%);
+      --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-family);
+      margin: 0;
+      padding: 0;
+      background: var(--gradient-background);
+      color: var(--text-color);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 2rem;
+      background: var(--card-background);
+      border-radius: 20px;
+      padding: 3rem;
+      box-shadow: 0 20px 60px var(--shadow-color);
+      border: 1px solid var(--border-color);
+      text-align: center;
+      animation: slideUp 0.5s ease;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .success-icon {
+      font-size: 5rem;
+      margin-bottom: 1.5rem;
+      animation: scaleIn 0.6s ease;
+    }
+
+    @keyframes scaleIn {
+      from {
+        opacity: 0;
+        transform: scale(0.5);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0 0 1rem 0;
+      background: linear-gradient(135deg, var(--accent-green), #30d158);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    p {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: var(--subtle-text-color);
+      margin: 0 0 2rem 0;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 2rem 0;
+      text-align: left;
+    }
+
+    .feature-list li {
+      padding: 0.75rem 0;
+      font-size: 1rem;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .feature-list li::before {
+      content: '✓';
+      color: var(--accent-green);
+      font-weight: 700;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .button {
+      display: inline-block;
+      background: var(--gradient-primary);
+      color: white;
+      border: none;
+      padding: 1.25rem 2.5rem;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+      font-family: var(--font-family);
+      text-decoration: none;
+      margin: 0.5rem;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 122, 255, 0.4);
+    }
+
+    .button.secondary {
+      background: transparent;
+      border: 2px solid var(--border-color);
+      color: var(--text-color);
+      box-shadow: none;
+    }
+
+    .button.secondary:hover {
+      border-color: var(--primary-blue);
+      color: var(--primary-blue);
+      background: rgba(0, 122, 255, 0.05);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.1);
+    }
+
+    .redirect-notice {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: linear-gradient(135deg, rgba(52, 199, 89, 0.05), rgba(48, 209, 88, 0.05));
+      border-radius: 12px;
+      border: 1px solid rgba(52, 199, 89, 0.2);
+      font-size: 0.95rem;
+      color: var(--subtle-text-color);
+    }
+
+    .countdown {
+      font-weight: 700;
+      color: var(--accent-green);
+    }
+
+    @media screen and (max-width: 768px) {
+      .container {
+        margin: 1rem;
+        padding: 2rem;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .success-icon {
+        font-size: 4rem;
+      }
+
+      p {
+        font-size: 1rem;
+      }
+
+      .button {
+        width: 100%;
+        margin: 0.5rem 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="success-icon">🎉</div>
+    <h1>Welcome to Premium!</h1>
+    <p>Your subscription has been successfully activated. Thank you for upgrading to Kuya Comps premium!</p>
+
+    <ul class="feature-list">
+      <li>Your new limits are now active</li>
+      <li>Auto-valuations are enabled for your collection</li>
+      <li>Advanced analytics are unlocked</li>
+      <li>You can manage your subscription anytime</li>
+    </ul>
+
+    <div>
+      <a href="/" class="button">Start Using Kuya Comps</a>
+      <a href="/account.html" class="button secondary">View Account</a>
+    </div>
+
+    <div class="redirect-notice">
+      Redirecting to homepage in <span class="countdown" id="countdown">5</span> seconds...
+    </div>
+  </div>
+
+  <script>
+    // Auto-redirect after 5 seconds
+    let seconds = 5;
+    const countdownEl = document.getElementById('countdown');
+    
+    const interval = setInterval(() => {
+      seconds--;
+      countdownEl.textContent = seconds;
+      
+      if (seconds <= 0) {
+        clearInterval(interval);
+        window.location.href = '/';
+      }
+    }, 1000);
+  </script>
+
+</body>
+</html>
