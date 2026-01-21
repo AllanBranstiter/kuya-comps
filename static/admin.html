@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Kuya Comps Subscription Analytics</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .period-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        .period-button {
+            padding: 8px 16px;
+            border: 1px solid #d2d2d7;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .period-button.active {
+            background: #007aff;
+            color: white;
+            border-color: #007aff;
+        }
+
+        .period-button:hover:not(.active) {
+            background: #f5f5f7;
+        }
+
+        .export-button {
+            padding: 8px 16px;
+            background: #34c759;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .export-button:hover {
+            background: #30b350;
+        }
+
+        .refresh-button {
+            padding: 8px 16px;
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .metric-label {
+            font-size: 13px;
+            color: #86868b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .metric-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+
+        .metric-change {
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .metric-change.positive {
+            color: #34c759;
+        }
+
+        .metric-change.negative {
+            color: #ff3b30;
+        }
+
+        .metric-change.neutral {
+            color: #86868b;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        .chart-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .chart {
+            width: 100%;
+            height: 300px;
+            position: relative;
+        }
+
+        .activity-feed {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        .activity-item {
+            padding: 15px 0;
+            border-bottom: 1px solid #f5f5f7;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-time {
+            font-size: 12px;
+            color: #86868b;
+            margin-bottom: 5px;
+        }
+
+        .activity-description {
+            font-size: 14px;
+            color: #1d1d1f;
+        }
+
+        .alert-section {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #856404;
+        }
+
+        .alert-item {
+            padding: 10px 0;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .webhook-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .webhook-status.success {
+            background: #34c759;
+        }
+
+        .webhook-status.failed {
+            background: #ff3b30;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            color: #86868b;
+        }
+
+        .spinner {
+            border: 3px solid #f5f5f7;
+            border-top: 3px solid #007aff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fff5f5;
+            border: 1px solid #ff3b30;
+            color: #c70000;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .tier-breakdown {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .tier-item {
+            flex: 1;
+            padding: 12px;
+            background: #f5f5f7;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .tier-item-label {
+            font-size: 11px;
+            color: #86868b;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .tier-item-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .last-updated {
+            text-align: center;
+            color: #86868b;
+            font-size: 12px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 Subscription Analytics Dashboard</h1>
+            <p style="color: #86868b; margin-top: 5px;">Real-time monitoring and insights</p>
+            
+            <div class="header-controls">
+                <div class="period-selector">
+                    <button class="period-button" data-period="7d">7 Days</button>
+                    <button class="period-button active" data-period="30d">30 Days</button>
+                    <button class="period-button" data-period="90d">90 Days</button>
+                    <button class="period-button" data-period="1y">1 Year</button>
+                </div>
+                <button class="export-button" onclick="exportData()">📥 Export CSV</button>
+                <button class="refresh-button" onclick="loadDashboard()">🔄 Refresh</button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <span>Loading metrics...</span>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="error-message" style="display: none;"></div>
+
+        <!-- Alerts Section -->
+        <div id="alerts" class="alert-section" style="display: none;">
+            <div class="alert-title">⚠️ Requires Attention</div>
+            <div id="alert-content"></div>
+        </div>
+
+        <!-- Key Metrics Grid -->
+        <div class="metrics-grid" id="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Monthly Recurring Revenue</div>
+                <div class="metric-value" id="mrr">$0.00</div>
+                <div class="metric-change neutral" id="mrr-change">
+                    <span>—</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Annual Recurring Revenue</div>
+                <div class="metric-value" id="arr">$0.00</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Active Subscriptions</div>
+                <div class="metric-value" id="active-subs">0</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Conversion Rate</div>
+                <div class="metric-value" id="conversion-rate">0%</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Churn Rate</div>
+                <div class="metric-value" id="churn-rate">0%</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Average Revenue Per User</div>
+                <div class="metric-value" id="arpu">$0.00</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Customer Lifetime Value</div>
+                <div class="metric-value" id="clv">$0.00</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Total Users</div>
+                <div class="metric-value" id="total-users">0</div>
+                <div class="tier-breakdown">
+                    <div class="tier-item">
+                        <div class="tier-item-label">Free</div>
+                        <div class="tier-item-value" id="free-users">0</div>
+                    </div>
+                    <div class="tier-item">
+                        <div class="tier-item-label">Paid</div>
+                        <div class="tier-item-value" id="paid-users">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenue Chart -->
+        <div class="chart-container">
+            <div class="chart-title">Revenue Trend</div>
+            <canvas id="revenue-chart" class="chart"></canvas>
+        </div>
+
+        <!-- User Growth Chart -->
+        <div class="chart-container">
+            <div class="chart-title">User Growth</div>
+            <canvas id="user-chart" class="chart"></canvas>
+        </div>
+
+        <!-- Recent Activity Feed -->
+        <div class="activity-feed">
+            <div class="chart-title">Recent Webhook Events</div>
+            <div id="activity-feed"></div>
+        </div>
+
+        <div class="last-updated" id="last-updated">Last updated: Never</div>
+    </div>
+
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Supabase for authentication -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // Initialize Supabase client (use same config as main app)
+        const supabase = window.supabase.createClient(
+            'YOUR_SUPABASE_URL', // Replace with your Supabase URL
+            'YOUR_SUPABASE_ANON_KEY' // Replace with your Supabase anon key
+        );
+
+        let currentPeriod = '30d';
+        let revenueChart = null;
+        let userChart = null;
+        let autoRefreshInterval = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session) {
+                // Redirect to login
+                window.location.href = '/login.html?redirect=admin';
+                return;
+            }
+
+            // Initialize period selector
+            document.querySelectorAll('.period-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.period-button').forEach(b => b.classList.remove('active'));
+                    button.classList.add('active');
+                    currentPeriod = button.dataset.period;
+                    loadDashboard();
+                });
+            });
+
+            // Load dashboard
+            await loadDashboard();
+
+            // Auto-refresh every 5 minutes
+            autoRefreshInterval = setInterval(loadDashboard, 5 * 60 * 1000);
+        });
+
+        async function loadDashboard() {
+            showLoading(true);
+            hideError();
+
+            try {
+                // Get session for API calls
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+
+                if (!token) {
+                    throw new Error('Not authenticated');
+                }
+
+                // Load all metrics in parallel
+                const [overview, revenue, users, webhooks, failingSubs] = await Promise.all([
+                    fetchMetrics('/api/admin/metrics/overview', token),
+                    fetchMetrics('/api/admin/metrics/revenue', token),
+                    fetchMetrics('/api/admin/metrics/users', token),
+                    fetchMetrics('/api/admin/webhooks/recent?limit=10', token),
+                    fetchMetrics('/api/admin/subscriptions/failing', token)
+                ]);
+
+                // Update metrics
+                updateMetrics(overview);
+                updateCharts(revenue, users);
+                updateActivityFeed(webhooks);
+                updateAlerts(failingSubs);
+
+                // Update last updated time
+                document.getElementById('last-updated').textContent = 
+                    `Last updated: ${new Date().toLocaleTimeString()}`;
+
+            } catch (error) {
+                console.error('Dashboard load error:', error);
+                showError(error.message || 'Failed to load dashboard');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function fetchMetrics(endpoint, token) {
+            const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}period=${currentPeriod}`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 403) {
+                    throw new Error('Admin access required');
+                }
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            return await response.json();
+        }
+
+        function updateMetrics(data) {
+            document.getElementById('mrr').textContent = `$${data.mrr.toFixed(2)}`;
+            document.getElementById('arr').textContent = `$${data.arr.toFixed(2)}`;
+            document.getElementById('active-subs').textContent = data.active_subscriptions;
+            document.getElementById('conversion-rate').textContent = `${data.conversion_rate.toFixed(1)}%`;
+            document.getElementById('churn-rate').textContent = `${data.churn_rate.toFixed(1)}%`;
+            document.getElementById('arpu').textContent = `$${data.arpu.toFixed(2)}`;
+            document.getElementById('clv').textContent = `$${data.clv.toFixed(2)}`;
+            document.getElementById('total-users').textContent = data.total_users;
+            document.getElementById('free-users').textContent = data.users_by_tier.free;
+            document.getElementById('paid-users').textContent = data.users_by_tier.paid;
+
+            // Update MRR change indicator
+            const changeElem = document.getElementById('mrr-change');
+            const change = data.mrr_change;
+            if (change > 0) {
+                changeElem.className = 'metric-change positive';
+                changeElem.innerHTML = `<span>↑ ${change.toFixed(1)}%</span>`;
+            } else if (change < 0) {
+                changeElem.className = 'metric-change negative';
+                changeElem.innerHTML = `<span>↓ ${Math.abs(change).toFixed(1)}%</span>`;
+            } else {
+                changeElem.className = 'metric-change neutral';
+                changeElem.innerHTML = '<span>—</span>';
+            }
+        }
+
+        function updateCharts(revenueData, userData) {
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenue-chart').getContext('2d');
+            
+            if (revenueChart) {
+                revenueChart.destroy();
+            }
+
+            const dates = revenueData.daily_trend.map(d => new Date(d.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'}));
+            const mrr = revenueData.daily_trend.map(d => d.mrr);
+
+            revenueChart = new Chart(revenueCtx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'MRR',
+                        data: mrr,
+                        borderColor: '#007aff',
+                        backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value => '$' + value.toFixed(0)
+                            }
+                        }
+                    }
+                }
+            });
+
+            // User Growth Chart
+            const userCtx = document.getElementById('user-chart').getContext('2d');
+            
+            if (userChart) {
+                userChart.destroy();
+            }
+
+            userChart = new Chart(userCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Free', 'Member', 'Founder'],
+                    datasets: [{
+                        label: 'Users by Tier',
+                        data: [
+                            userData.users_by_tier.free || 0,
+                            userData.users_by_tier.member || 0,
+                            userData.users_by_tier.founder || 0
+                        ],
+                        backgroundColor: [
+                            'rgba(142, 142, 147, 0.6)',
+                            'rgba(0, 122, 255, 0.6)',
+                            'rgba(255, 149, 0, 0.6)'
+                        ],
+                        borderColor: [
+                            '#8e8e93',
+                            '#007aff',
+                            '#ff9500'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateActivityFeed(webhookData) {
+            const feed = document.getElementById('activity-feed');
+            
+            if (!webhookData.events || webhookData.events.length === 0) {
+                feed.innerHTML = '<p style="color: #86868b; text-align: center; padding: 20px;">No recent webhook events</p>';
+                return;
+            }
+
+            feed.innerHTML = webhookData.events.map(event => `
+                <div class="activity-item">
+                    <div class="activity-time">${new Date(event.created_at).toLocaleString()}</div>
+                    <div class="activity-description">
+                        <span class="webhook-status ${event.processed ? 'success' : 'failed'}"></span>
+                        ${event.event_type}
+                        ${event.error_message ? `<span style="color: #ff3b30;"> - ${event.error_message}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateAlerts(failingData) {
+            const alertsSection = document.getElementById('alerts');
+            const alertContent = document.getElementById('alert-content');
+
+            if (!failingData.failing_subscriptions || failingData.count === 0) {
+                alertsSection.style.display = 'none';
+                return;
+            }
+
+            alertsSection.style.display = 'block';
+            alertContent.innerHTML = failingData.failing_subscriptions.map(sub => `
+                <div class="alert-item">
+                    💳 Payment issue for ${sub.tier} subscription (${sub.status}) - Customer: ${sub.stripe_customer_id}
+                </div>
+            `).join('');
+        }
+
+        async function exportData() {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+
+                const link = document.createElement('a');
+                link.href = `/api/admin/export/subscriptions?period=${currentPeriod}`;
+                link.download = `subscriptions_${new Date().toISOString().split('T')[0]}.csv`;
+                
+                // Add auth header by fetching as blob first
+                const response = await fetch(link.href, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                link.href = url;
+                link.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Failed to export data');
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'flex' : 'none';
+        }
+
+        function showError(message) {
+            const errorElem = document.getElementById('error');
+            errorElem.textContent = message;
+            errorElem.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>

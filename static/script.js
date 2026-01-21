@@ -2084,6 +2084,48 @@ async function runSearchInternal() {
       if (!resp.ok) {
         const errorText = await resp.text();
         
+        // Check for subscription errors first
+        if (resp.status === 429 || resp.status === 403) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            
+            // Handle search limit exceeded (429)
+            if (resp.status === 429 && errorJson.error?.code === 'SEARCH_LIMIT_EXCEEDED') {
+              const limit = errorJson.error?.details?.limit || 5;
+              if (window.SubscriptionManager) {
+                SubscriptionManager.showSearchLimitBlocked(limit);
+                // Also update usage indicator
+                await SubscriptionManager.fetchUsageStats();
+                SubscriptionManager.updateUsageIndicator();
+              }
+              return; // Exit early - don't show generic error
+            }
+            
+            // Handle tier required (403)
+            if (resp.status === 403 && errorJson.error?.code === 'TIER_REQUIRED') {
+              const feature = errorJson.error?.details?.feature || 'this feature';
+              const requiredTier = errorJson.error?.details?.required_tier || 'member';
+              if (window.SubscriptionManager) {
+                SubscriptionManager.showTierRequired(feature, requiredTier);
+              }
+              return; // Exit early
+            }
+            
+            // Handle card limit exceeded (403)
+            if (resp.status === 403 && errorJson.error?.code === 'CARD_LIMIT_EXCEEDED') {
+              const count = errorJson.error?.details?.count || 50;
+              const limit = errorJson.error?.details?.limit || 50;
+              if (window.SubscriptionManager) {
+                SubscriptionManager.showCardLimitBlocked(count, limit);
+              }
+              return; // Exit early
+            }
+          } catch (parseError) {
+            console.warn('[SUBSCRIPTION] Could not parse error response:', parseError);
+            // Fall through to generic error handling
+          }
+        }
+        
         // Check for query length validation error (422)
         if (resp.status === 422) {
           try {
@@ -2319,6 +2361,12 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
     }
     // Store prices for resize handling (using first search results)
     currentBeeswarmPrices = data.items.map(item => item.total_price);
+    
+    // Update usage statistics after successful search
+    if (window.SubscriptionManager) {
+      await SubscriptionManager.fetchUsageStats();
+      SubscriptionManager.updateUsageIndicator();
+    }
 
     } catch (err) {
       const errorHtml = `

@@ -20,6 +20,7 @@ from backend.services.valuation_service import (
 from backend.services.collection_service import get_card_by_id
 from backend.middleware.supabase_auth import get_current_user_required
 from backend.middleware.admin_auth import require_admin_auth
+from backend.middleware.subscription_gate import require_tier
 from backend.config import get_search_api_key
 from backend.logging_config import get_logger
 
@@ -74,6 +75,7 @@ class BatchUpdateResponse(BaseModel):
 # ============================================================================
 
 @router.post("/api/v1/cards/{card_id}/update-value", response_model=ManualUpdateResponse)
+@require_tier("member")
 async def update_card_value(
     card_id: int,
     background_tasks: BackgroundTasks,

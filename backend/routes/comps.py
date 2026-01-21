@@ -25,6 +25,7 @@ from backend.services.intelligence_service import analyze_market_intelligence
 from backend.models.schemas import CompItem, CompsResponse
 from backend.utils import generate_ebay_deep_link, load_test_data
 from backend.middleware.supabase_auth import get_current_user_optional
+from backend.middleware.subscription_gate import check_search_limit
 from scraper import scrape_sold_comps, scrape_active_listings_ebay_api
 
 
@@ -49,7 +50,8 @@ async def get_comps(
     request: Request,
     params: QueryValidator = Depends(),
     cache_service: CacheService = Depends(get_cache_service),
-    user: Optional[dict] = Depends(get_current_user_optional)
+    user: Optional[dict] = Depends(get_current_user_optional),
+    search_limit: dict = Depends(check_search_limit)
 ):
     """
     Scrape eBay SOLD/COMPLETED listings for a given query and return:
@@ -423,7 +425,8 @@ async def get_active_listings(
     request: Request,
     params: ActiveListingsValidator = Depends(),
     cache_service: CacheService = Depends(get_cache_service),
-    user: Optional[dict] = Depends(get_current_user_optional)
+    user: Optional[dict] = Depends(get_current_user_optional),
+    search_limit: dict = Depends(check_search_limit)
 ):
     """
     Scrape eBay ACTIVE listings (not sold) for a given query.

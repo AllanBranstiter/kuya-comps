@@ -461,6 +461,9 @@ const AuthModule = (function() {
         // Show/hide Portfolio tab based on auth state
         const portfolioTabBtn = document.getElementById('portfolio-tab-btn');
         
+        // Show/hide Account navigation link
+        const accountNavLink = document.getElementById('account-nav-link');
+        
         if (isAuthenticated()) {
             const user = getCurrentUser();
             authButton.textContent = '🚪 Logout';
@@ -475,6 +478,11 @@ const AuthModule = (function() {
                 portfolioTabBtn.style.display = 'block';
             }
             
+            // Show Account link
+            if (accountNavLink) {
+                accountNavLink.style.display = 'block';
+            }
+            
             // Apply route gating - show Market Analysis
             enableMarketAnalysis();
         } else {
@@ -484,6 +492,11 @@ const AuthModule = (function() {
             // Hide Portfolio tab
             if (portfolioTabBtn) {
                 portfolioTabBtn.style.display = 'none';
+            }
+            
+            // Hide Account link
+            if (accountNavLink) {
+                accountNavLink.style.display = 'none';
             }
             
             // Apply route gating - hide Market Analysis
