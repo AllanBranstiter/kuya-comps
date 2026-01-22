@@ -481,7 +481,7 @@
       <a href="/">Home</a>
       <a href="/pricing.html">Pricing</a>
       <a href="/account.html">Account</a>
-      <button id="auth-button" class="auth-button" onclick="handleLogout()">Logout</button>
+      <button id="auth-button" class="auth-button">Logout</button>
     </div>
   </nav>
 
@@ -850,8 +850,82 @@
       }
     }
 
+    // Listen for auth state changes
+    function setupAuthStateListener() {
+      if (!AuthModule || !AuthModule.getClient()) {
+        console.warn('[ACCOUNT] Auth module not ready, retrying...');
+        setTimeout(setupAuthStateListener, 500);
+        return;
+      }
+
+      const client = AuthModule.getClient();
+      if (!client) {
+        console.warn('[ACCOUNT] Supabase client not available');
+        return;
+      }
+
+      // Listen to auth state changes
+      client.auth.onAuthStateChange((event, session) => {
+        console.log('[ACCOUNT] Auth state changed:', event);
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('[ACCOUNT] User logged out, redirecting to home...');
+          // Redirect to home page when user logs out
+          window.location.href = '/';
+        } else if (event === 'SIGNED_IN' && !session) {
+          // Also handle case where session becomes null
+          console.log('[ACCOUNT] Session lost, redirecting to home...');
+          window.location.href = '/';
+        }
+      });
+
+      console.log('[ACCOUNT] Auth state listener set up successfully');
+    }
+
+    // Initialize auth button
+    function initializeAuthButton() {
+      if (!AuthModule) {
+        console.warn('[ACCOUNT] Auth module not ready, retrying...');
+        setTimeout(initializeAuthButton, 500);
+        return;
+      }
+
+      const authButton = document.getElementById('auth-button');
+      if (!authButton) {
+        console.warn('[ACCOUNT] Auth button not found');
+        return;
+      }
+
+      // Set up the button based on auth state
+      if (AuthModule.isAuthenticated()) {
+        authButton.textContent = '🚪 Logout';
+        authButton.onclick = async () => {
+          if (confirm('Are you sure you want to log out?')) {
+            await handleLogout();
+          }
+        };
+      } else {
+        authButton.textContent = 'Login';
+        authButton.onclick = () => {
+          if (AuthModule.showAuthModal) {
+            AuthModule.showAuthModal();
+          } else {
+            window.location.href = '/';
+          }
+        };
+      }
+
+      console.log('[ACCOUNT] Auth button initialized');
+    }
+
     // Initialize when page loads
     window.addEventListener('DOMContentLoaded', () => {
+      // Set up auth state listener first
+      setupAuthStateListener();
+      
+      // Initialize the auth button
+      initializeAuthButton();
+      
       // Wait for auth and subscription modules to initialize
       setTimeout(() => {
         loadAccountData();
