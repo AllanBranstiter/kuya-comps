@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v0.4
+# eBay Baseball Card Comps Tool v0.5.0 (Production Beta)
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
@@ -169,7 +169,22 @@ The application implements several strategies to manage API costs and maintain p
 
 ## Version History
 
-### Version 0.4.0 (Current)
+### Version 0.5.0 (Production Beta) - Current
+
+Version 0.5.0 marks the transition to production beta with significant improvements to code organization and maintainability. This release focuses on cleaning up the project structure by removing extraneous standalone scripts and consolidating all testing into a formal test suite. The streamlined codebase now contains only essential runtime files in the root directory, making the project easier to navigate, maintain, and deploy.
+
+**Project Structure & Code Quality:**
+- **Test Suite Consolidation**: All tests moved to formal test suite under [`tests/`](tests/) directory
+  - Removed 5 standalone test scripts from root (test_feedback_endpoint.py, test_phase2_screenshot_optimization.py, test_phase3_admin_dashboard.py, test_phase4_simple.py, test_phase4_valuation_engine.py)
+  - Professional test organization with clear separation from runtime code
+- **Migration Cleanup**: Removed completed migration scripts from root directory
+  - migrate_existing_card_values.py and migrate_supabase_price_history.py no longer needed
+  - Cleaner root directory with only essential runtime files
+- **Improved Maintainability**: Streamlined project structure makes onboarding and navigation easier
+  - Clear separation between application code, tests, and documentation
+  - Enhanced developer experience with organized file hierarchy
+
+### Version 0.4.0
 
 Version 0.4.0 represents a major evolution of the application with professional infrastructure and enhanced user experience. Behind the scenes, the backend has been completely restructured into organized modules, making it easier to maintain and add new features. We've added intelligent caching to dramatically speed up searches and reduce costs, implemented smart rate limiting to prevent abuse, and integrated machine learning tools for more accurate price predictions. The app now includes professional monitoring and error tracking for reliability. On the user-facing side, the interface has been redesigned with mobile devices in mind, featuring a powerful new "Analytics Dashboard" that provides market pressure analysis, liquidity profiles, absorption ratios, and personalized pricing recommendations tailored to your selling strategy. There's also an upgraded "Grading Intelligence" tool that lets you compare different grading companies and grades side-by-side, better organized tabs for different analysis types, and improved search tips to help you find exactly what you're looking for. The entire frontend code has been reorganized into specialized modules for better performance and future enhancements. Whether you're accessing the site from your phone, tablet, or computer, you'll notice faster load times, smoother interactions, and a more polished experience overall.
 
