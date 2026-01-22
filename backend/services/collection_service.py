@@ -437,19 +437,31 @@ def get_collection_overview(db: Session, user_id: str) -> CollectionOverview:
     """
     Get overview statistics for user's entire collection.
     
+    **NOTE:** This queries SQLite database for cards.
+    
     Args:
-        db: Database session
+        db: Database session (SQLite)
         user_id: Supabase user ID
         
     Returns:
         CollectionOverview object
     """
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] ========== Getting collection overview for user_id: {user_id} ==========")
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] Querying SQLITE database for binders and cards")
+    
     # Get all user's binders
     binders = get_user_binders(db, user_id)
     binder_ids = [b.id for b in binders]
     
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] SQLite binders found: {len(binders)}")
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] SQLite binder IDs: {binder_ids}")
+    
     # Get all cards across all binders
     cards = db.query(Card).filter(Card.binder_id.in_(binder_ids)).all() if binder_ids else []
+    
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] SQLite cards found: {len(cards)}")
+    if cards:
+        logger.info(f"[COLLECTION_OVERVIEW_DEBUG] SQLite card details: {[(c.id, c.athlete, c.binder_id) for c in cards[:5]]}")  # Show first 5
     
     total_value = sum((card.current_fmv or Decimal(0)) for card in cards)
     total_cost = sum((card.purchase_price or Decimal(0)) for card in cards)
@@ -479,6 +491,12 @@ def get_collection_overview(db: Session, user_id: str) -> CollectionOverview:
         key=lambda c: c.last_updated_at,
         reverse=True
     )[:5]
+    
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] ========== OVERVIEW RESULT ==========")
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] Total binders: {len(binders)}")
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] Total cards: {len(cards)}")
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] Total value: ${total_value}")
+    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] ====================================")
     
     return CollectionOverview(
         total_binders=len(binders),
