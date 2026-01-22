@@ -10,16 +10,13 @@ Handles business logic for:
 - Admin bypass for unlimited access
 
 **Database Sources:**
-- Subscriptions & daily usage: Supabase PostgreSQL
-- Cards & binders: SQLite (via SQLAlchemy)
+- All data (subscriptions, daily usage, cards, binders): Supabase PostgreSQL
 """
 from typing import Optional, Dict, Any
 from datetime import datetime, date
 from supabase import Client
-from sqlalchemy.orm import Session
 from backend.config import TIER_LIMITS
 from backend.logging_config import get_logger
-from backend.database.schema import Card, Binder
 import os
 
 logger = get_logger(__name__)
@@ -35,16 +32,16 @@ ADMIN_EMAILS = [email.strip().lower() for email in ADMIN_EMAILS if email.strip()
 class SubscriptionService:
     """Service for managing user subscriptions and tier limits."""
     
-    def __init__(self, supabase_client: Client, db_session: Optional[Session] = None):
+    def __init__(self, supabase_client: Client, db_session: Optional[object] = None):
         """
         Initialize subscription service.
         
         Args:
-            supabase_client: Supabase client for accessing subscriptions/usage data
-            db_session: SQLAlchemy session for accessing card/binder data from SQLite (required for card limit checks)
+            supabase_client: Supabase client for accessing all data (subscriptions, usage, cards, binders)
+            db_session: Deprecated - no longer used (kept for backwards compatibility)
         """
         self.supabase = supabase_client
-        self.db = db_session
+        self.db = db_session  # Deprecated - kept for backwards compatibility only
     
     async def is_admin(self, user_id: str) -> bool:
         """
@@ -250,7 +247,7 @@ class SubscriptionService:
         
         Admins bypass all limits and get unlimited cards.
         
-        **FIXED:** Now queries SQLite database where cards are actually stored (not Supabase).
+        **FIXED:** Now queries Supabase database where cards are actually stored (matching Collection Overview).
         
         Args:
             user_id: Supabase user ID
@@ -278,42 +275,37 @@ class SubscriptionService:
             logger.info(f"[CARD_LIMIT_DEBUG] User {user_id} has unlimited cards ({tier} tier)")
             return {'allowed': True, 'count': 0, 'limit': -1, 'remaining': -1}
         
-        # Count user's cards from SQLite (where cards are actually stored)
-        logger.info(f"[CARD_LIMIT_DEBUG] Querying SQLITE database for cards")
+        # Count user's cards from Supabase (matching Collection Overview pattern)
+        logger.info(f"[CARD_LIMIT_DEBUG] Querying SUPABASE database for cards")
         
         try:
-            if not self.db:
-                logger.error(f"[CARD_LIMIT_DEBUG] ❌ No SQLite db_session available!")
-                # Fail open - allow the operation if we can't check
-                return {'allowed': True, 'count': 0, 'limit': limit, 'remaining': limit}
+            # Get all binder IDs for this user from Supabase (matching Collection Overview pattern)
+            logger.info(f"[CARD_LIMIT_DEBUG] Querying Supabase for binders with user_id={user_id}")
+            binders_response = self.supabase.from_('binders').select('*').eq('user_id', user_id).execute()
             
-            # Get all binder IDs for this user from SQLite (matching Collection Overview pattern)
-            logger.info(f"[CARD_LIMIT_DEBUG] Querying SQLite for binders with user_id={user_id}")
-            sqlite_binders = self.db.query(Binder).filter(Binder.user_id == user_id).all()
+            logger.info(f"[CARD_LIMIT_DEBUG] Supabase binders found: {len(binders_response.data) if binders_response.data else 0}")
+            logger.info(f"[CARD_LIMIT_DEBUG] Supabase binder IDs: {[b['id'] for b in binders_response.data] if binders_response.data else []}")
             
-            logger.info(f"[CARD_LIMIT_DEBUG] SQLite binders found: {len(sqlite_binders)}")
-            logger.info(f"[CARD_LIMIT_DEBUG] SQLite binder IDs: {[b.id for b in sqlite_binders]}")
-            
-            if not sqlite_binders:
-                logger.info(f"[CARD_LIMIT_DEBUG] No binders found in SQLite for user {user_id}")
+            if not binders_response.data:
+                logger.info(f"[CARD_LIMIT_DEBUG] No binders found in Supabase for user {user_id}")
                 count = 0
             else:
-                binder_ids = [b.id for b in sqlite_binders]
+                binder_ids = [b['id'] for b in binders_response.data]
                 
-                # Count all cards in user's binders from SQLite (matching Collection Overview pattern)
-                logger.info(f"[CARD_LIMIT_DEBUG] Querying SQLite for cards with binder_id in {binder_ids}")
-                sqlite_cards = self.db.query(Card).filter(Card.binder_id.in_(binder_ids)).all()
+                # Count all cards in user's binders from Supabase (matching Collection Overview pattern)
+                logger.info(f"[CARD_LIMIT_DEBUG] Querying Supabase for cards with binder_id in {binder_ids}")
+                cards_response = self.supabase.from_('cards').select('*').in_('binder_id', binder_ids).execute()
                 
-                count = len(sqlite_cards)
-                logger.info(f"[CARD_LIMIT_DEBUG] SQLite cards found: {count}")
-                if sqlite_cards:
-                    logger.info(f"[CARD_LIMIT_DEBUG] SQLite card details: {[(c.id, c.athlete, c.binder_id) for c in sqlite_cards]}")
+                count = len(cards_response.data) if cards_response.data else 0
+                logger.info(f"[CARD_LIMIT_DEBUG] Supabase cards found: {count}")
+                if cards_response.data:
+                    logger.info(f"[CARD_LIMIT_DEBUG] Supabase card details: {[(c.get('id'), c.get('athlete'), c.get('binder_id')) for c in cards_response.data[:5]]}")
             
             allowed = count < limit
             remaining = max(0, limit - count)
             
             logger.info(f"[CARD_LIMIT_DEBUG] ========== FINAL RESULT ==========")
-            logger.info(f"[CARD_LIMIT_DEBUG] Count from SQLite: {count}")
+            logger.info(f"[CARD_LIMIT_DEBUG] Count from Supabase: {count}")
             logger.info(f"[CARD_LIMIT_DEBUG] Limit: {limit}")
             logger.info(f"[CARD_LIMIT_DEBUG] Remaining: {remaining}")
             logger.info(f"[CARD_LIMIT_DEBUG] Allowed: {allowed}")
@@ -340,7 +332,7 @@ class SubscriptionService:
         For Founder tier: unlimited.
         For Free tier: 0 (no auto-valuations).
         
-        **FIXED:** Now queries SQLite database where cards are actually stored (not Supabase).
+        **FIXED:** Now queries Supabase database where cards are actually stored (matching Collection Overview).
         
         Args:
             user_id: Supabase user ID
@@ -372,28 +364,20 @@ class SubscriptionService:
             logger.debug(f"[SUBSCRIPTION] User {user_id} has unlimited auto-valuations ({tier} tier)")
             return {'allowed': True, 'count': 0, 'limit': -1, 'remaining': -1, 'tier': tier}
         
-        # Count cards with auto-valuation enabled from SQLite (where cards are actually stored)
+        # Count cards with auto-valuation enabled from Supabase (matching Collection Overview pattern)
         try:
-            if not self.db:
-                logger.error(f"[SUBSCRIPTION] No SQLite db_session available for auto-valuation check")
-                # Fail open - allow the operation if we can't check
-                return {'allowed': True, 'count': 0, 'limit': limit, 'remaining': limit, 'tier': tier}
+            # Get all binder IDs for this user from Supabase (matching Collection Overview pattern)
+            binders_response = self.supabase.from_('binders').select('*').eq('user_id', user_id).execute()
             
-            # Get all binder IDs for this user from SQLite (matching Collection Overview pattern)
-            sqlite_binders = self.db.query(Binder).filter(Binder.user_id == user_id).all()
-            
-            if not sqlite_binders:
+            if not binders_response.data:
                 count = 0
             else:
-                binder_ids = [b.id for b in sqlite_binders]
+                binder_ids = [b['id'] for b in binders_response.data]
                 
-                # Count cards with auto_update=True across all user's binders from SQLite
-                sqlite_cards = self.db.query(Card).filter(
-                    Card.binder_id.in_(binder_ids),
-                    Card.auto_update == True
-                ).all()
+                # Count cards with auto_update=True across all user's binders from Supabase
+                cards_response = self.supabase.from_('cards').select('*').in_('binder_id', binder_ids).eq('auto_update', True).execute()
                 
-                count = len(sqlite_cards)
+                count = len(cards_response.data) if cards_response.data else 0
             
             allowed = count < limit
             remaining = max(0, limit - count)
