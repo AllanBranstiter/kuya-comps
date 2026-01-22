@@ -284,12 +284,13 @@ class SubscriptionService:
                 binder_ids = [b['id'] for b in binders_response.data]
                 
                 # Count all cards in user's binders from Supabase
+                # Using .select('*') pattern that works in Collection Overview
                 cards_response = self.supabase.table('cards')\
-                    .select('id', count='exact')\
+                    .select('*')\
                     .in_('binder_id', binder_ids)\
                     .execute()
                 
-                count = cards_response.count if cards_response.count is not None else 0
+                count = len(cards_response.data) if cards_response.data else 0
             
             allowed = count < limit
             remaining = max(0, limit - count)
@@ -363,13 +364,14 @@ class SubscriptionService:
                 binder_ids = [b['id'] for b in binders_response.data]
                 
                 # Count cards with auto_update=True across all user's binders from Supabase
+                # Using .select('*') pattern that works in Collection Overview
                 cards_response = self.supabase.table('cards')\
-                    .select('id', count='exact')\
+                    .select('*')\
                     .in_('binder_id', binder_ids)\
                     .eq('auto_update', True)\
                     .execute()
                 
-                count = cards_response.count if cards_response.count is not None else 0
+                count = len(cards_response.data) if cards_response.data else 0
             
             allowed = count < limit
             remaining = max(0, limit - count)
