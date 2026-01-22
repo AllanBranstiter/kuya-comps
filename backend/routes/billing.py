@@ -355,22 +355,30 @@ async def get_usage_stats(
     - Show upgrade prompts when limits are approached
     - Enable/disable features based on tier
     """
-    logger.debug(f"[BILLING] Usage stats requested by user {current_user['sub']}")
+    logger.info(f"[BILLING_DEBUG] ========== Usage stats endpoint called ==========")
+    logger.info(f"[BILLING_DEBUG] current_user object: {current_user}")
+    logger.info(f"[BILLING_DEBUG] User ID from JWT token: {current_user['sub']}")
+    logger.info(f"[BILLING_DEBUG] User email: {current_user.get('email', 'N/A')}")
     
     try:
         supabase = get_supabase_client()
         service = SubscriptionService(supabase, db)
         
         user_id = current_user['sub']
+        logger.info(f"[BILLING_DEBUG] Calling SubscriptionService with user_id: {user_id}")
         
         # Get tier
         tier = await service.get_user_tier(user_id)
+        logger.info(f"[BILLING_DEBUG] User tier: {tier}")
         
         # Get search usage
         search_check = await service.check_search_limit(user_id)
+        logger.info(f"[BILLING_DEBUG] Search check result: {search_check}")
         
         # Get card usage
+        logger.info(f"[BILLING_DEBUG] About to call check_card_limit with user_id: {user_id}")
         card_check = await service.check_card_limit(user_id)
+        logger.info(f"[BILLING_DEBUG] Card check result: {card_check}")
         
         # Get auto-valuation usage (if binder_id provided, otherwise just check limits)
         # For the usage endpoint, we'll just show aggregate data
