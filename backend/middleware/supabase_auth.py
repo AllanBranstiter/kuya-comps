@@ -87,12 +87,31 @@ class SupabaseAuth:
             logger.warning(f"[SUPABASE AUTH] Failed to decode token structure: {e}")
         
         try:
-            # Supabase uses HS256 (HMAC with SHA-256) by default
-            # The JWT secret is used to verify the signature
+            # Get signing key from JWK endpoint for ES256 tokens
+            # Supabase issues tokens with ES256 (Elliptic Curve) algorithm
+            if not self.jwk_client:
+                logger.error("[SUPABASE AUTH] ✗ JWK client not initialized - cannot verify ES256 tokens")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication configuration error",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            try:
+                signing_key = self.jwk_client.get_signing_key_from_jwt(token)
+                logger.debug(f"[SUPABASE AUTH] Retrieved signing key from JWK endpoint")
+            except Exception as jwk_error:
+                logger.error(f"[SUPABASE AUTH] ✗ Failed to fetch signing key from JWK: {type(jwk_error).__name__}: {jwk_error}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Failed to verify token signature",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
             decoded = jwt.decode(
                 token,
-                self.supabase_jwt_secret,
-                algorithms=["HS256"],
+                signing_key.key,  # Use public key from JWK instead of JWT secret
+                algorithms=["ES256"],  # Accept ES256 instead of HS256
                 audience="authenticated",
                 options={
                     "verify_signature": True,
