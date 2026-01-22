@@ -87,6 +87,7 @@ class Card(Base):
     
     # Foreign keys
     binder_id = Column(Integer, ForeignKey("binders.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(100), nullable=False, index=True)  # Denormalized for direct queries
     
     # Card Identity Fields
     year = Column(String(10), nullable=True)  # e.g., "2023"
@@ -132,6 +133,7 @@ class Card(Base):
         Index('idx_card_binder_athlete', 'binder_id', 'athlete'),
         Index('idx_card_auto_update_stale', 'auto_update', 'last_updated_at'),
         Index('idx_card_review_required', 'review_required'),
+        Index('idx_card_user_id_auto_update', 'user_id', 'auto_update'),  # New composite index
     )
 
 

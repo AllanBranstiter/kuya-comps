@@ -107,6 +107,7 @@ class CardResponse(CardBase):
     """Schema for card response."""
     id: int
     binder_id: int
+    user_id: str  # NEW: Include user_id in responses
     current_fmv: Optional[Decimal] = None
     last_updated_at: Optional[datetime] = None
     review_required: bool = False
