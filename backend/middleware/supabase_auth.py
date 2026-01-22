@@ -68,6 +68,24 @@ class SupabaseAuth:
             logger.warning("[SUPABASE AUTH] Auth not configured - skipping token verification")
             return {"sub": "anonymous", "email": "anonymous@example.com"}
         
+        # Diagnostic logging: show token structure (first 20 chars only)
+        token_preview = token[:20] if len(token) > 20 else token
+        logger.debug(f"[SUPABASE AUTH] Verifying token (preview): {token_preview}...")
+        logger.debug(f"[SUPABASE AUTH] Token length: {len(token)} characters")
+        logger.debug(f"[SUPABASE AUTH] JWT secret configured: {bool(self.supabase_jwt_secret)}")
+        
+        # Decode token WITHOUT verification first to inspect claims for diagnostic purposes
+        try:
+            unverified_payload = jwt.decode(
+                token,
+                options={"verify_signature": False, "verify_exp": False, "verify_aud": False}
+            )
+            logger.debug(f"[SUPABASE AUTH] Token claims (unverified): aud={unverified_payload.get('aud')}, "
+                        f"iss={unverified_payload.get('iss')}, exp={unverified_payload.get('exp')}, "
+                        f"email={unverified_payload.get('email')}")
+        except Exception as e:
+            logger.warning(f"[SUPABASE AUTH] Failed to decode token structure: {e}")
+        
         try:
             # Supabase uses HS256 (HMAC with SHA-256) by default
             # The JWT secret is used to verify the signature
@@ -83,32 +101,50 @@ class SupabaseAuth:
                 }
             )
             
-            logger.info(f"[SUPABASE AUTH] Token verified for user: {decoded.get('email', 'unknown')}")
+            logger.info(f"[SUPABASE AUTH] ✓ Token verified successfully for user: {decoded.get('email', 'unknown')}")
             return decoded
             
-        except jwt.ExpiredSignatureError:
-            logger.warning("[SUPABASE AUTH] Token has expired")
+        except jwt.ExpiredSignatureError as e:
+            logger.warning(f"[SUPABASE AUTH] ✗ Token has expired: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        except jwt.InvalidAudienceError:
-            logger.warning("[SUPABASE AUTH] Invalid token audience")
+        except jwt.InvalidAudienceError as e:
+            logger.warning(f"[SUPABASE AUTH] ✗ Invalid token audience: {e}")
+            logger.warning("[SUPABASE AUTH] Expected audience: 'authenticated'")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token audience",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        except jwt.InvalidSignatureError as e:
+            logger.warning(f"[SUPABASE AUTH] ✗ Invalid token signature: {e}")
+            logger.warning("[SUPABASE AUTH] ⚠️  This usually means SUPABASE_JWT_SECRET is incorrect!")
+            logger.warning("[SUPABASE AUTH] ⚠️  Check that SUPABASE_JWT_SECRET matches your Supabase project's JWT secret")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except jwt.DecodeError as e:
+            logger.warning(f"[SUPABASE AUTH] ✗ Token decode error: {e}")
+            logger.warning("[SUPABASE AUTH] Token appears to be malformed or corrupted")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         except jwt.InvalidTokenError as e:
-            logger.warning(f"[SUPABASE AUTH] Invalid token: {e}")
+            logger.warning(f"[SUPABASE AUTH] ✗ Invalid token (generic): {type(e).__name__}: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         except Exception as e:
-            logger.error(f"[SUPABASE AUTH] Unexpected error verifying token: {e}")
+            logger.error(f"[SUPABASE AUTH] ✗ Unexpected error verifying token: {type(e).__name__}: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication failed",
@@ -131,10 +167,19 @@ class SupabaseAuth:
         Raises:
             HTTPException: If token is present but invalid
         """
+        # Diagnostic logging: check if credentials are present
         if not credentials:
+            logger.debug("[SUPABASE AUTH] No credentials provided in request")
             return None
         
         token = credentials.credentials
+        
+        # Diagnostic logging: show token info
+        token_preview = token[:20] if len(token) > 20 else token
+        logger.debug(f"[SUPABASE AUTH] Extracting user from token (preview): {token_preview}...")
+        logger.debug(f"[SUPABASE AUTH] Token length: {len(token)} characters")
+        logger.debug(f"[SUPABASE AUTH] JWT secret configured: {bool(self.supabase_jwt_secret)}")
+        
         user = await self.verify_token(token)
         return user
 
@@ -144,7 +189,7 @@ supabase_auth = SupabaseAuth()
 
 
 async def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = None
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> Optional[dict]:
     """
     Dependency for optional authentication.
