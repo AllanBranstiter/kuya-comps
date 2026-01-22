@@ -247,7 +247,7 @@ class SubscriptionService:
         
         Admins bypass all limits and get unlimited cards.
         
-        **FIXED:** Now queries Supabase database where cards are actually stored (matching Collection Overview).
+        **SIMPLIFIED:** Now queries cards directly by user_id (1 query instead of 2).
         
         Args:
             user_id: Supabase user ID
@@ -261,45 +261,30 @@ class SubscriptionService:
         """
         logger.info(f"[CARD_LIMIT_DEBUG] ========== Starting check_card_limit for user_id: {user_id} ==========")
         
-        # Check if user is an admin - admins have unlimited access
-        if await self.is_admin(user_id):
+        # Check if user is an admin - they get unlimited limits but we still query their actual count
+        is_admin = await self.is_admin(user_id)
+        if is_admin:
             logger.info(f"[CARD_LIMIT_DEBUG] User {user_id} is admin - unlimited cards")
-            return {'allowed': True, 'count': 0, 'limit': -1, 'remaining': -1}
         
         tier = await self.get_user_tier(user_id)
-        limit = TIER_LIMITS[tier]['max_cards']
+        limit = TIER_LIMITS[tier]['max_cards'] if not is_admin else -1
         logger.info(f"[CARD_LIMIT_DEBUG] User {user_id} tier: {tier}, card limit: {limit}")
         
-        # Unlimited cards
-        if limit == -1:
-            logger.info(f"[CARD_LIMIT_DEBUG] User {user_id} has unlimited cards ({tier} tier)")
-            return {'allowed': True, 'count': 0, 'limit': -1, 'remaining': -1}
-        
-        # Count user's cards from Supabase (matching Collection Overview pattern)
-        logger.info(f"[CARD_LIMIT_DEBUG] Querying SUPABASE database for cards")
+        # Count user's cards from Supabase - SIMPLIFIED: Direct query by user_id
+        logger.info(f"[CARD_LIMIT_DEBUG] Querying SUPABASE database for cards by user_id")
         
         try:
-            # Get all binder IDs for this user from Supabase (matching Collection Overview pattern)
-            logger.info(f"[CARD_LIMIT_DEBUG] Querying Supabase for binders with user_id={user_id}")
-            binders_response = self.supabase.from_('binders').select('*').eq('user_id', user_id).execute()
+            # NEW: Query cards directly by user_id (1 query instead of 2)
+            logger.info(f"[CARD_LIMIT_DEBUG] Querying Supabase for cards with user_id={user_id}")
+            cards_response = self.supabase.from_('cards').select('id').eq('user_id', user_id).execute()
             
-            logger.info(f"[CARD_LIMIT_DEBUG] Supabase binders found: {len(binders_response.data) if binders_response.data else 0}")
-            logger.info(f"[CARD_LIMIT_DEBUG] Supabase binder IDs: {[b['id'] for b in binders_response.data] if binders_response.data else []}")
+            count = len(cards_response.data) if cards_response.data else 0
+            logger.info(f"[CARD_LIMIT_DEBUG] Supabase cards found: {count}")
             
-            if not binders_response.data:
-                logger.info(f"[CARD_LIMIT_DEBUG] No binders found in Supabase for user {user_id}")
-                count = 0
-            else:
-                binder_ids = [b['id'] for b in binders_response.data]
-                
-                # Count all cards in user's binders from Supabase (matching Collection Overview pattern)
-                logger.info(f"[CARD_LIMIT_DEBUG] Querying Supabase for cards with binder_id in {binder_ids}")
-                cards_response = self.supabase.from_('cards').select('*').in_('binder_id', binder_ids).execute()
-                
-                count = len(cards_response.data) if cards_response.data else 0
-                logger.info(f"[CARD_LIMIT_DEBUG] Supabase cards found: {count}")
-                if cards_response.data:
-                    logger.info(f"[CARD_LIMIT_DEBUG] Supabase card details: {[(c.get('id'), c.get('athlete'), c.get('binder_id')) for c in cards_response.data[:5]]}")
+            # Unlimited cards (admin or unlimited tier)
+            if limit == -1:
+                logger.info(f"[CARD_LIMIT_DEBUG] User {user_id} has unlimited cards (admin or {tier} tier)")
+                return {'allowed': True, 'count': count, 'limit': -1, 'remaining': -1}
             
             allowed = count < limit
             remaining = max(0, limit - count)
@@ -332,7 +317,7 @@ class SubscriptionService:
         For Founder tier: unlimited.
         For Free tier: 0 (no auto-valuations).
         
-        **FIXED:** Now queries Supabase database where cards are actually stored (matching Collection Overview).
+        **SIMPLIFIED:** Now queries cards directly by user_id (1 query instead of 2).
         
         Args:
             user_id: Supabase user ID
@@ -346,38 +331,30 @@ class SubscriptionService:
                 - remaining: int - auto-valuations remaining before limit
                 - tier: str - user's current tier
         """
-        # Check if user is an admin - admins have unlimited access
-        if await self.is_admin(user_id):
+        # Check if user is an admin - they get unlimited limits but we still query their actual count
+        is_admin = await self.is_admin(user_id)
+        if is_admin:
             logger.debug(f"[SUBSCRIPTION] User {user_id} is admin - unlimited auto-valuations")
-            return {'allowed': True, 'count': 0, 'limit': -1, 'remaining': -1, 'tier': 'admin'}
         
         tier = await self.get_user_tier(user_id)
-        limit = TIER_LIMITS[tier]['auto_valuation_limit']
+        limit = TIER_LIMITS[tier]['auto_valuation_limit'] if not is_admin else -1
         
         # No auto-valuations allowed (Free tier)
         if limit == 0:
             logger.debug(f"[SUBSCRIPTION] User {user_id} has no auto-valuations (free tier)")
             return {'allowed': False, 'count': 0, 'limit': 0, 'remaining': 0, 'tier': tier}
         
-        # Unlimited auto-valuations (Founder tier)
-        if limit == -1:
-            logger.debug(f"[SUBSCRIPTION] User {user_id} has unlimited auto-valuations ({tier} tier)")
-            return {'allowed': True, 'count': 0, 'limit': -1, 'remaining': -1, 'tier': tier}
-        
-        # Count cards with auto-valuation enabled from Supabase (matching Collection Overview pattern)
+        # Count cards with auto-valuation enabled from Supabase - SIMPLIFIED: Direct query by user_id
         try:
-            # Get all binder IDs for this user from Supabase (matching Collection Overview pattern)
-            binders_response = self.supabase.from_('binders').select('*').eq('user_id', user_id).execute()
+            # NEW: Query cards directly by user_id (1 query instead of 2)
+            cards_response = self.supabase.from_('cards').select('id').eq('user_id', user_id).eq('auto_update', True).execute()
             
-            if not binders_response.data:
-                count = 0
-            else:
-                binder_ids = [b['id'] for b in binders_response.data]
-                
-                # Count cards with auto_update=True across all user's binders from Supabase
-                cards_response = self.supabase.from_('cards').select('*').in_('binder_id', binder_ids).eq('auto_update', True).execute()
-                
-                count = len(cards_response.data) if cards_response.data else 0
+            count = len(cards_response.data) if cards_response.data else 0
+            
+            # Unlimited auto-valuations (admin or Founder tier)
+            if limit == -1:
+                logger.debug(f"[SUBSCRIPTION] User {user_id} has unlimited auto-valuations (admin or {tier} tier)")
+                return {'allowed': True, 'count': count, 'limit': -1, 'remaining': -1, 'tier': tier if not is_admin else 'admin'}
             
             allowed = count < limit
             remaining = max(0, limit - count)
