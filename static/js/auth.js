@@ -475,7 +475,7 @@ const AuthModule = (function() {
         
         if (isAuthenticated()) {
             const user = getCurrentUser();
-            authButton.textContent = '🚪 Logout';
+            authButton.textContent = 'Logout';
             authButton.onclick = () => {
                 if (confirm('Do you want to log out?')) {
                     handleLogout();
