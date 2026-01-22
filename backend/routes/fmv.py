@@ -6,9 +6,10 @@ This module contains endpoints for calculating fair market value
 from comp data and testing external API connectivity.
 """
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from backend.services.fmv_service import calculate_fmv, get_active_market_floor
 from backend.models.schemas import CompItem, FmvResponse
+from backend.middleware.subscription_gate import check_search_limit
 
 
 # Initialize router
@@ -16,7 +17,11 @@ router = APIRouter()
 
 
 @router.post("/fmv", response_model=FmvResponse)
-def get_fmv(items: List[CompItem], active_items: Optional[List[CompItem]] = None):
+def get_fmv(
+    items: List[CompItem],
+    active_items: Optional[List[CompItem]] = None,
+    search_limit: dict = Depends(check_search_limit)
+):
     """
     Calculate the Fair Market Value (FMV) using volume weighting.
     

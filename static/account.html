@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  
+  <!-- SEO Meta Tags -->
+  <title>Account - Kuya Comps | Manage Your Subscription</title>
+  <meta name="description" content="Manage your Kuya Comps subscription, view usage statistics, and update billing information.">
+  <meta name="robots" content="noindex, nofollow">
+  
+  <link rel="icon" type="image/png" href="KuyaCompsFavicon.png">
+  <link rel="stylesheet" href="css/profile.css">
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      --primary-blue: #007aff;
+      --primary-blue-hover: #0056b3;
+      --accent-purple: #5856d6;
+      --accent-green: #34c759;
+      --accent-orange: #ff9500;
+      --accent-red: #ff3b30;
+      --background-color: #f8fafd;
+      --card-background: #ffffff;
+      --text-color: #1d1d1f;
+      --subtle-text-color: #6e6e73;
+      --border-color: #e5e5ea;
+      --shadow-color: rgba(0, 0, 0, 0.08);
+      --shadow-color-hover: rgba(0, 0, 0, 0.15);
+      --gradient-primary: linear-gradient(135deg, #007aff, #5856d6);
+      --gradient-accent: linear-gradient(135deg, #34c759, #30d158);
+      --gradient-background: linear-gradient(135deg, #f8fafd 0%, #ebf3ff 100%);
+      --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-family);
+      margin: 0;
+      padding: 0;
+      background: var(--gradient-background);
+      color: var(--text-color);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .nav-bar {
+      background: var(--card-background);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px var(--shadow-color);
+    }
+
+    .nav-bar .logo {
+      max-height: 40px;
+      width: auto;
+    }
+
+    .nav-bar .nav-links {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .nav-bar a {
+      text-decoration: none;
+      color: var(--text-color);
+      font-weight: 600;
+      transition: color 0.3s ease;
+    }
+
+    .nav-bar a:hover {
+      color: var(--primary-blue);
+    }
+
+    .nav-bar .auth-button {
+      background: var(--gradient-primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .nav-bar .auth-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 2rem auto;
+      padding: 0 2rem 4rem;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .page-header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem 0;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .page-header p {
+      font-size: 1.1rem;
+      color: var(--subtle-text-color);
+      margin: 0;
+    }
+
+    .section {
+      background: var(--card-background);
+      border-radius: 20px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 30px var(--shadow-color);
+      border: 1px solid var(--border-color);
+    }
+
+    .section h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 1.5rem 0;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section h2 .icon {
+      font-size: 1.75rem;
+    }
+
+    .tier-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+
+    .tier-badge.free {
+      background: linear-gradient(135deg, #e5e5ea, #d2d2d7);
+      color: var(--text-color);
+    }
+
+    .tier-badge.member {
+      background: var(--gradient-primary);
+      color: white;
+    }
+
+    .tier-badge.founder {
+      background: linear-gradient(135deg, var(--accent-purple), var(--primary-blue));
+      color: white;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .info-item {
+      padding: 1.25rem;
+      background: var(--background-color);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    .info-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--subtle-text-color);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .info-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-color);
+    }
+
+    .progress-bar-container {
+      margin: 1.5rem 0;
+    }
+
+    .progress-bar-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .progress-bar {
+      height: 12px;
+      background: var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--gradient-primary);
+      transition: width 0.3s ease;
+      border-radius: 6px;
+    }
+
+    .progress-bar-fill.warning {
+      background: linear-gradient(135deg, var(--accent-orange), #ff6b35);
+    }
+
+    .progress-bar-fill.danger {
+      background: linear-gradient(135deg, var(--accent-red), #ff6b6b);
+    }
+
+    .button {
+      background: var(--gradient-primary);
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+      font-family: var(--font-family);
+      display: inline-block;
+      text-decoration: none;
+      text-align: center;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 122, 255, 0.4);
+    }
+
+    .button.secondary {
+      background: transparent;
+      border: 2px solid var(--border-color);
+      color: var(--text-color);
+      box-shadow: none;
+    }
+
+    .button.secondary:hover {
+      border-color: var(--primary-blue);
+      color: var(--primary-blue);
+      background: rgba(0, 122, 255, 0.05);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.1);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .upgrade-card {
+      padding: 1.5rem;
+      background: linear-gradient(135deg, rgba(0, 122, 255, 0.05), rgba(88, 86, 214, 0.05));
+      border: 2px solid var(--primary-blue);
+      border-radius: 12px;
+      margin-top: 1.5rem;
+    }
+
+    .upgrade-card h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0 0 0.75rem 0;
+      color: var(--primary-blue);
+    }
+
+    .upgrade-card p {
+      margin: 0 0 1rem 0;
+      color: var(--text-color);
+      line-height: 1.6;
+    }
+
+    .upgrade-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .upgrade-option {
+      padding: 1.25rem;
+      background: var(--card-background);
+      border-radius: 10px;
+      border: 2px solid var(--border-color);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .upgrade-option:hover {
+      border-color: var(--primary-blue);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+    }
+
+    .upgrade-option h4 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem 0;
+      color: var(--text-color);
+    }
+
+    .upgrade-option .price {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--primary-blue);
+      margin-bottom: 0.5rem;
+    }
+
+    .upgrade-option .price span {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--subtle-text-color);
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 1rem 0 0 0;
+    }
+
+    .feature-list li {
+      padding: 0.35rem 0;
+      font-size: 0.9rem;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .feature-list li::before {
+      content: '✓';
+      color: var(--accent-green);
+      font-weight: 700;
+    }
+
+    .loading-state {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--subtle-text-color);
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border-color);
+      border-top-color: var(--primary-blue);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .auth-required {
+      text-align: center;
+      padding: 4rem 2rem;
+    }
+
+    .auth-required h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0 0 1rem 0;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .auth-required p {
+      font-size: 1.1rem;
+      color: var(--subtle-text-color);
+      margin: 0 0 2rem 0;
+    }
+
+    .unlimited-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, var(--accent-green), #30d158);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    /* Responsive Design */
+    @media screen and (max-width: 768px) {
+      .container {
+        padding: 0 1rem 2rem;
+      }
+
+      .page-header h1 {
+        font-size: 2rem;
+      }
+
+      .section {
+        padding: 1.5rem;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .upgrade-options {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-bar {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+      }
+
+      .nav-bar .nav-links {
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="nav-bar">
+    <a href="/">
+      <img src="KuyaKompsLogo.png" alt="Kuya Comps Logo" class="logo">
+    </a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/account.html">Account</a>
+      <button id="auth-button" class="auth-button" onclick="handleLogout()">Logout</button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Auth Required State (shown when not logged in) -->
+    <div id="auth-required-state" class="auth-required" style="display: none;">
+      <h2>🔒 Login Required</h2>
+      <p>Please log in to view your account and subscription details.</p>
+      <button class="button" onclick="window.location.href='/'">Go to Home Page</button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>Loading your account information...</p>
+    </div>
+
+    <!-- Account Content (shown when logged in) -->
+    <div id="account-content" style="display: none;">
+      <!-- Page Header -->
+      <div class="page-header">
+        <h1>My Account</h1>
+        <p id="user-email">Loading...</p>
+      </div>
+
+      <!-- Current Subscription Section -->
+      <div class="section">
+        <h2><span class="icon">📋</span> Current Subscription</h2>
+        
+        <div id="subscription-tier-badge"></div>
+        
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Status</div>
+            <div class="info-value" id="subscription-status">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Billing Cycle</div>
+            <div class="info-value" id="billing-cycle">-</div>
+          </div>
+          <div class="info-item" id="renewal-date-item" style="display: none;">
+            <div class="info-label">Next Billing Date</div>
+            <div class="info-value" id="renewal-date">-</div>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="button" id="manage-subscription-btn" onclick="openBillingPortal()" style="display: none;">
+            Manage Subscription
+          </button>
+          <a href="/pricing.html" class="button secondary">View All Plans</a>
+        </div>
+      </div>
+
+      <!-- Usage Statistics Section -->
+      <div class="section">
+        <h2><span class="icon">📊</span> Usage Statistics</h2>
+        
+        <div id="searches-usage-container">
+          <div class="progress-bar-container">
+            <div class="progress-bar-label">
+              <span>Daily Searches</span>
+              <span id="searches-count">0 / 5</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-bar-fill" id="searches-progress" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="cards-usage-container">
+          <div class="progress-bar-container">
+            <div class="progress-bar-label">
+              <span>Collection Cards</span>
+              <span id="cards-count">0 / 50</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-bar-fill" id="cards-progress" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <p style="margin-top: 1rem; color: var(--subtle-text-color); font-size: 0.9rem;">
+          <strong>Note:</strong> Daily search limits reset at midnight UTC.
+        </p>
+      </div>
+
+      <!-- Profile Settings Section -->
+      <div class="section">
+        <h2><span class="icon">👤</span> Profile Settings</h2>
+        <div id="profile-settings-container">
+          <!-- Profile form will be rendered here by ProfileModule -->
+        </div>
+      </div>
+
+      <!-- Upgrade Section (shown for free/member tiers) -->
+      <div class="section" id="upgrade-section" style="display: none;">
+        <h2><span class="icon">⭐</span> Upgrade Your Plan</h2>
+        
+        <div class="upgrade-card">
+          <h3 id="upgrade-title">Unlock More Features</h3>
+          <p id="upgrade-description">Get more searches, unlimited cards, and automated valuations.</p>
+          
+          <div class="upgrade-options" id="upgrade-options">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/profile.js"></script>
+  <script src="js/subscription.js"></script>
+  
+  <script>
+    let currentSubscription = null;
+    let currentUsage = null;
+
+    // Handle logout
+    async function handleLogout() {
+      if (confirm('Are you sure you want to log out?')) {
+        if (AuthModule) {
+          await AuthModule.signOut();
+          window.location.href = '/';
+        }
+      }
+    }
+
+    // Open Stripe billing portal
+    function openBillingPortal() {
+      if (SubscriptionManager) {
+        SubscriptionManager.openCustomerPortal();
+      }
+    }
+
+    // Handle upgrade click
+    function handleUpgrade(tier, interval) {
+      if (SubscriptionManager) {
+        SubscriptionManager.createCheckoutSession(tier, interval);
+      }
+    }
+
+    // Load account data
+    async function loadAccountData() {
+      try {
+        // Check authentication
+        if (!AuthModule || !AuthModule.isAuthenticated()) {
+          showAuthRequired();
+          return;
+        }
+
+        const user = AuthModule.getCurrentUser();
+        if (!user) {
+          showAuthRequired();
+          return;
+        }
+
+        // Show user email
+        document.getElementById('user-email').textContent = user.email;
+
+        // Fetch subscription data
+        if (SubscriptionManager) {
+          await SubscriptionManager.fetchCurrentSubscription();
+          await SubscriptionManager.fetchUsageStats();
+          
+          currentSubscription = SubscriptionManager.getCurrentSubscription();
+          currentUsage = SubscriptionManager.getCurrentUsage();
+          
+          // Update UI with subscription data
+          updateSubscriptionUI();
+          updateUsageUI();
+          updateUpgradeSection();
+        }
+
+        // Render profile settings
+        if (ProfileModule) {
+          await ProfileModule.renderProfileSettings('profile-settings-container');
+        }
+
+        // Hide loading, show content
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('account-content').style.display = 'block';
+
+      } catch (error) {
+        console.error('[ACCOUNT] Error loading account data:', error);
+        document.getElementById('loading-state').innerHTML = `
+          <p style="color: var(--accent-red);">Error loading account data. Please refresh the page.</p>
+        `;
+      }
+    }
+
+    // Show auth required state
+    function showAuthRequired() {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('auth-required-state').style.display = 'block';
+    }
+
+    // Update subscription UI
+    function updateSubscriptionUI() {
+      if (!currentSubscription) return;
+
+      const tier = currentSubscription.tier || 'free';
+      const status = currentSubscription.status || 'active';
+      const billingCycle = currentSubscription.billing_cycle || 'N/A';
+      const renewalDate = currentSubscription.current_period_end;
+
+      // Tier badge
+      const tierName = tier.charAt(0).toUpperCase() + tier.slice(1);
+      const badgeHTML = `<div class="tier-badge ${tier}">${tierName} Plan</div>`;
+      document.getElementById('subscription-tier-badge').innerHTML = badgeHTML;
+
+      // Status
+      const statusEl = document.getElementById('subscription-status');
+      statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+      if (status === 'active') {
+        statusEl.style.color = 'var(--accent-green)';
+      } else if (status === 'canceled') {
+        statusEl.style.color = 'var(--accent-orange)';
+      } else {
+        statusEl.style.color = 'var(--accent-red)';
+      }
+
+      // Billing cycle
+      if (tier === 'free') {
+        document.getElementById('billing-cycle').textContent = 'Free';
+      } else {
+        document.getElementById('billing-cycle').textContent = 
+          billingCycle === 'monthly' ? 'Monthly' : billingCycle === 'annual' ? 'Annual' : 'N/A';
+      }
+
+      // Renewal date
+      if (renewalDate && tier !== 'free') {
+        const date = new Date(renewalDate);
+        document.getElementById('renewal-date').textContent = date.toLocaleDateString();
+        document.getElementById('renewal-date-item').style.display = 'block';
+      } else {
+        document.getElementById('renewal-date-item').style.display = 'none';
+      }
+
+      // Show manage button for paid tiers
+      if (tier !== 'free') {
+        document.getElementById('manage-subscription-btn').style.display = 'inline-block';
+      }
+    }
+
+    // Update usage UI
+    function updateUsageUI() {
+      if (!currentSubscription || !currentUsage) return;
+
+      const tier = currentSubscription.tier || 'free';
+      const limits = SubscriptionManager.getTierLimits();
+
+      // Searches usage
+      if (tier === 'founder') {
+        document.getElementById('searches-usage-container').innerHTML = `
+          <div style="text-align: center; padding: 1.5rem;">
+            <span class="unlimited-badge">∞ Unlimited Searches</span>
+          </div>
+        `;
+      } else {
+        const searchesUsed = currentUsage.searches_used || 0;
+        const searchLimit = limits.dailySearches;
+        const searchPercentage = Math.min((searchesUsed / searchLimit) * 100, 100);
+        
+        document.getElementById('searches-count').textContent = `${searchesUsed} / ${searchLimit}`;
+        const searchProgress = document.getElementById('searches-progress');
+        searchProgress.style.width = `${searchPercentage}%`;
+        
+        // Color based on usage
+        if (searchPercentage >= 100) {
+          searchProgress.classList.add('danger');
+        } else if (searchPercentage >= 80) {
+          searchProgress.classList.add('warning');
+        }
+      }
+
+      // Cards usage
+      if (tier === 'free') {
+        const cardsCount = currentUsage.cards_count || 0;
+        const cardLimit = limits.cards;
+        const cardPercentage = Math.min((cardsCount / cardLimit) * 100, 100);
+        
+        document.getElementById('cards-count').textContent = `${cardsCount} / ${cardLimit}`;
+        const cardProgress = document.getElementById('cards-progress');
+        cardProgress.style.width = `${cardPercentage}%`;
+        
+        if (cardPercentage >= 100) {
+          cardProgress.classList.add('danger');
+        } else if (cardPercentage >= 80) {
+          cardProgress.classList.add('warning');
+        }
+      } else {
+        const cardsCount = currentUsage.cards_count || 0;
+        document.getElementById('cards-usage-container').innerHTML = `
+          <div style="text-align: center; padding: 1.5rem;">
+            <span class="unlimited-badge">∞ Unlimited Cards (${cardsCount} in collection)</span>
+          </div>
+        `;
+      }
+    }
+
+    // Update upgrade section
+    function updateUpgradeSection() {
+      if (!currentSubscription) return;
+
+      const tier = currentSubscription.tier || 'free';
+      const upgradeSection = document.getElementById('upgrade-section');
+      const upgradeOptions = document.getElementById('upgrade-options');
+
+      if (tier === 'founder') {
+        // Founder tier - no upgrades available
+        upgradeSection.style.display = 'none';
+        return;
+      }
+
+      upgradeSection.style.display = 'block';
+
+      if (tier === 'free') {
+        document.getElementById('upgrade-title').textContent = 'Unlock Premium Features';
+        document.getElementById('upgrade-description').textContent = 
+          'Get more searches, unlimited cards, and automated valuations with a paid plan.';
+        
+        upgradeOptions.innerHTML = `
+          <div class="upgrade-option" onclick="handleUpgrade('member', 'monthly')">
+            <h4>Member</h4>
+            <div class="price">$5<span>/month</span></div>
+            <ul class="feature-list">
+              <li>50 searches/day</li>
+              <li>Unlimited cards</li>
+              <li>Auto-valuations</li>
+            </ul>
+          </div>
+          <div class="upgrade-option" onclick="handleUpgrade('founder', 'monthly')">
+            <h4>Founder</h4>
+            <div class="price">$10<span>/month</span></div>
+            <ul class="feature-list">
+              <li>Unlimited searches</li>
+              <li>Unlimited cards</li>
+              <li>Auto-valuations</li>
+              <li>Priority support</li>
+            </ul>
+          </div>
+        `;
+      } else if (tier === 'member') {
+        document.getElementById('upgrade-title').textContent = 'Upgrade to Founder';
+        document.getElementById('upgrade-description').textContent = 
+          'Get unlimited searches and priority support with the Founder plan.';
+        
+        upgradeOptions.innerHTML = `
+          <div class="upgrade-option" onclick="handleUpgrade('founder', 'monthly')">
+            <h4>Founder</h4>
+            <div class="price">$10<span>/month</span></div>
+            <ul class="feature-list">
+              <li>Unlimited searches</li>
+              <li>Everything in Member</li>
+              <li>Priority support</li>
+              <li>Early feature access</li>
+            </ul>
+          </div>
+        `;
+      }
+    }
+
+    // Initialize when page loads
+    window.addEventListener('DOMContentLoaded', () => {
+      // Wait for auth and subscription modules to initialize
+      setTimeout(() => {
+        loadAccountData();
+      }, 1000);
+    });
+  </script>
+
+</body>
+</html>

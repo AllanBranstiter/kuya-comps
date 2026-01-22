@@ -73,6 +73,30 @@ def get_sentry_traces_sample_rate() -> float:
         return 0.1
 
 
+def get_supabase_client():
+    """
+    Get Supabase client instance for authentication and user operations.
+    
+    Uses the service role key for administrative operations on the Supabase database.
+    
+    Returns:
+        Supabase Client instance
+        
+    Raises:
+        HTTPException: If Supabase credentials are not configured
+    """
+    from supabase import create_client, Client
+    from fastapi import HTTPException
+    
+    supabase_url = os.getenv('SUPABASE_URL')
+    supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if not supabase_url or not supabase_key:
+        raise HTTPException(500, "Supabase not configured")
+    
+    return create_client(supabase_url, supabase_key)
+
+
 # ============================================================================
 # Logging Configuration
 # ============================================================================
@@ -430,3 +454,63 @@ COLLECTION_MAX_BINDERS_PER_USER = 50
 
 COLLECTION_SPARKLINE_DATA_POINTS = 30
 """Number of price history points to return for sparkline charts."""
+
+
+# ============================================================================
+# Subscription Tier Configuration (Phase 1)
+# ============================================================================
+
+TIER_LIMITS = {
+    'free': {
+        'daily_searches': 5,
+        'max_cards': 50,
+        'max_binders': -1,  # -1 = unlimited
+        'auto_valuation_limit': 0,  # No auto-valuations
+        'advanced_analytics': False,
+    },
+    'member': {
+        'daily_searches': 20,
+        'max_cards': -1,  # Unlimited
+        'max_binders': -1,
+        'auto_valuation_limit': 10,  # Max 10 cards with auto-valuation
+        'advanced_analytics': True,
+    },
+    'founder': {
+        'daily_searches': -1,  # Unlimited
+        'max_cards': -1,
+        'max_binders': -1,
+        'auto_valuation_limit': -1,  # Unlimited
+        'advanced_analytics': True,
+    }
+}
+"""
+Subscription tier limits configuration.
+-1 indicates unlimited for that feature.
+"""
+
+
+# ============================================================================
+# Stripe Payment Integration (Phase 1)
+# ============================================================================
+
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+"""Stripe secret key for server-side API calls (from environment)."""
+
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY')
+"""Stripe publishable key for client-side integration (from environment)."""
+
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
+"""Stripe webhook signing secret for verifying webhook authenticity (from environment)."""
+
+# Stripe Price IDs (from Stripe Dashboard)
+STRIPE_PRICES = {
+    'member_monthly': os.getenv('STRIPE_PRICE_MEMBER_MONTHLY'),
+    'member_annual': os.getenv('STRIPE_PRICE_MEMBER_ANNUAL'),
+    'founder_monthly': os.getenv('STRIPE_PRICE_FOUNDER_MONTHLY'),
+    'founder_annual': os.getenv('STRIPE_PRICE_FOUNDER_ANNUAL'),
+}
+"""Stripe Price IDs for each subscription tier and billing interval."""
+
+# Frontend URL for Stripe redirects
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:8000')
+"""Frontend base URL for Stripe checkout success/cancel redirects."""

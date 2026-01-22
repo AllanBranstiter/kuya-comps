@@ -750,8 +750,7 @@
      box-shadow: none;
    }
 
-
-   /* ===== RESPONSIVE DESIGN ===== */
+  /* ===== RESPONSIVE DESIGN ===== */
 
    /* Mobile First - Base styles for phones */
    @media screen and (max-width: 768px) {
@@ -774,6 +773,36 @@
      p.subtitle {
        font-size: 1rem;
        margin-bottom: 1.5rem;
+     }
+
+     /* Mobile Nav Links */
+     header > div[style*="position: absolute"] {
+       position: static !important;
+       display: flex !important;
+       flex-direction: row !important;
+       gap: 0.5rem !important;
+       margin-bottom: 1rem !important;
+       justify-content: center !important;
+       flex-wrap: wrap !important;
+     }
+
+     header > div[style*="position: absolute"] a,
+     header > div[style*="position: absolute"] button {
+       font-size: 0.85rem !important;
+       padding: 0.5rem 1rem !important;
+     }
+
+     /* Reduce logo top margin on mobile since nav is repositioned */
+     header img[src="KuyaKompsLogo.png"] {
+       margin-top: 0 !important;
+     }
+
+     #usage-indicator {
+       position: static !important;
+       transform: none !important;
+       right: auto !important;
+       margin: 0.5rem 0 !important;
+       text-align: center !important;
      }
 
      /* Mobile Navigation */
@@ -1865,26 +1894,50 @@
 
 <div class="container">
   <header style="text-align: center; margin-bottom: 2rem; position: relative;">
-    <!-- Login Button (top right) -->
-    <button id="auth-button" class="auth-header-button" onclick="AuthModule.showAuthModal()" style="
-      position: absolute;
-      top: 0;
-      right: 0;
-      background: var(--gradient-primary);
-      color: white;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
-      transition: all 0.3s ease;
-    ">
-      Login
-    </button>
+    <!-- Navigation Links (top right) -->
+    <div style="position: absolute; top: 0; right: 0; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+      <a href="/pricing.html" style="
+        text-decoration: none;
+        color: var(--text-color);
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+      " onmouseover="this.style.background='var(--background-color)'; this.style.color='var(--primary-blue)'" onmouseout="this.style.background='transparent'; this.style.color='var(--text-color)'">
+        Subscribe
+      </a>
+      <a href="/account.html" id="account-nav-link" style="
+        display: none;
+        text-decoration: none;
+        color: var(--text-color);
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+      " onmouseover="this.style.background='var(--background-color)'; this.style.color='var(--primary-blue)'" onmouseout="this.style.background='transparent'; this.style.color='var(--text-color)'">
+        Account
+      </a>
+      <button id="auth-button" class="auth-header-button" onclick="AuthModule.showAuthModal()" style="
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+        transition: all 0.3s ease;
+      ">
+        Login
+      </button>
+    </div>
     
-    <img src="KuyaKompsLogo.png" alt="Kuya Comps Logo - Baseball Card Value Finder and eBay Comps Analysis Tool" style="max-width: 300px; height: auto; margin-bottom: 1rem;">
+    <img src="KuyaKompsLogo.png" alt="Kuya Comps Logo - Baseball Card Value Finder and eBay Comps Analysis Tool" style="max-width: 300px; height: auto; margin-top: 3rem; margin-bottom: 1rem;">
     <h1 style="display: none;">Kuya Comps: Your Personal Card Value Dugout - Baseball Card Values & eBay Comps</h1>
     <p class="subtitle">Your Personal Card Value Dugout</p>
   </header>
@@ -2268,6 +2321,16 @@
       <!-- Sign Up Form -->
       <form id="signup-form" class="auth-form">
         <div class="auth-form-group">
+          <label for="signup-first-name">First Name</label>
+          <input type="text" id="signup-first-name" placeholder="John" required autocomplete="given-name">
+        </div>
+        
+        <div class="auth-form-group">
+          <label for="signup-last-name">Last Name</label>
+          <input type="text" id="signup-last-name" placeholder="Doe" required autocomplete="family-name">
+        </div>
+        
+        <div class="auth-form-group">
           <label for="signup-email">Email</label>
           <input type="email" id="signup-email" placeholder="your@email.com" required autocomplete="email">
         </div>
@@ -2301,6 +2364,8 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/subscription.js"></script>
 <script src="js/collection.js"></script>
 <script src="js/errorHandler.js"></script>
 <script src="js/validation.js"></script>

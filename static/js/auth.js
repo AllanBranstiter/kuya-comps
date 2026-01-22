@@ -394,11 +394,13 @@ const AuthModule = (function() {
     async function handleSignUp(event) {
         event.preventDefault();
         
+        const firstName = document.getElementById('signup-first-name')?.value;
+        const lastName = document.getElementById('signup-last-name')?.value;
         const email = document.getElementById('signup-email')?.value;
         const password = document.getElementById('signup-password')?.value;
         const confirmPassword = document.getElementById('signup-password-confirm')?.value;
         
-        if (!email || !password || !confirmPassword) {
+        if (!firstName || !lastName || !email || !password || !confirmPassword) {
             showAuthMessage('signup-error', 'Please fill in all fields');
             return;
         }
@@ -424,7 +426,14 @@ const AuthModule = (function() {
         }
         
         try {
-            const result = await signUp(email, password);
+            // Create user metadata with name information
+            const metadata = {
+                first_name: firstName,
+                last_name: lastName,
+                full_name: `${firstName} ${lastName}`
+            };
+            
+            const result = await signUp(email, password, metadata);
             
             if (result.error) {
                 showAuthMessage('signup-error', result.error.message || 'Sign up failed. Please try again.');
@@ -461,6 +470,9 @@ const AuthModule = (function() {
         // Show/hide Portfolio tab based on auth state
         const portfolioTabBtn = document.getElementById('portfolio-tab-btn');
         
+        // Show/hide Account navigation link
+        const accountNavLink = document.getElementById('account-nav-link');
+        
         if (isAuthenticated()) {
             const user = getCurrentUser();
             authButton.textContent = '🚪 Logout';
@@ -475,6 +487,11 @@ const AuthModule = (function() {
                 portfolioTabBtn.style.display = 'block';
             }
             
+            // Show Account link
+            if (accountNavLink) {
+                accountNavLink.style.display = 'block';
+            }
+            
             // Apply route gating - show Market Analysis
             enableMarketAnalysis();
         } else {
@@ -484,6 +501,11 @@ const AuthModule = (function() {
             // Hide Portfolio tab
             if (portfolioTabBtn) {
                 portfolioTabBtn.style.display = 'none';
+            }
+            
+            // Hide Account link
+            if (accountNavLink) {
+                accountNavLink.style.display = 'none';
             }
             
             // Apply route gating - hide Market Analysis
