@@ -36,8 +36,8 @@ class SubscriptionService:
         Initialize subscription service.
         
         Args:
-            supabase_client: Supabase client for accessing subscriptions/usage data
-            db_session: Optional SQLAlchemy session for SQLite queries (card counts)
+            supabase_client: Supabase client for accessing subscriptions/usage/card data
+            db_session: Optional SQLAlchemy session (legacy, no longer required for card counts)
         """
         self.supabase = supabase_client
         self.db = db_session
@@ -245,7 +245,7 @@ class SubscriptionService:
         Check if user can add more cards.
         
         Admins bypass all limits and get unlimited cards.
-        Requires db_session to be set in constructor for SQLite queries.
+        Queries Supabase PostgreSQL where frontend stores card data.
         
         Args:
             user_id: Supabase user ID
@@ -270,21 +270,26 @@ class SubscriptionService:
             logger.debug(f"[SUBSCRIPTION] User {user_id} has unlimited cards ({tier} tier)")
             return {'allowed': True, 'count': 0, 'limit': -1, 'remaining': -1}
         
-        # Count user's cards across all binders (requires db_session)
-        if not self.db:
-            logger.warning(f"[SUBSCRIPTION] No db_session provided, cannot check card limit for user {user_id}")
-            return {'allowed': True, 'count': 0, 'limit': limit, 'remaining': limit}
-        
+        # Count user's cards across all binders from Supabase
         try:
-            # Get all binder IDs for this user
-            binders = self.db.query(Binder.id).filter(Binder.user_id == user_id).all()
-            binder_ids = [b[0] for b in binders]
+            # Get all binder IDs for this user from Supabase
+            binders_response = self.supabase.table('binders')\
+                .select('id')\
+                .eq('user_id', user_id)\
+                .execute()
             
-            if not binder_ids:
+            if not binders_response.data:
                 count = 0
             else:
-                # Count all cards in user's binders
-                count = self.db.query(Card).filter(Card.binder_id.in_(binder_ids)).count()
+                binder_ids = [b['id'] for b in binders_response.data]
+                
+                # Count all cards in user's binders from Supabase
+                cards_response = self.supabase.table('cards')\
+                    .select('id', count='exact')\
+                    .in_('binder_id', binder_ids)\
+                    .execute()
+                
+                count = cards_response.count if cards_response.count is not None else 0
             
             allowed = count < limit
             remaining = max(0, limit - count)
@@ -312,7 +317,7 @@ class SubscriptionService:
         For Founder tier: unlimited.
         For Free tier: 0 (no auto-valuations).
         
-        Requires db_session to be set in constructor for SQLite queries.
+        Queries Supabase PostgreSQL where frontend stores card data.
         
         Args:
             user_id: Supabase user ID
@@ -344,24 +349,27 @@ class SubscriptionService:
             logger.debug(f"[SUBSCRIPTION] User {user_id} has unlimited auto-valuations ({tier} tier)")
             return {'allowed': True, 'count': 0, 'limit': -1, 'remaining': -1, 'tier': tier}
         
-        # Count cards with auto-valuation enabled (requires db_session)
-        if not self.db:
-            logger.warning(f"[SUBSCRIPTION] No db_session provided, cannot check auto-valuation limit for user {user_id}")
-            return {'allowed': True, 'count': 0, 'limit': limit, 'remaining': limit, 'tier': tier}
-        
+        # Count cards with auto-valuation enabled from Supabase
         try:
-            # Get all binder IDs for this user
-            binders = self.db.query(Binder.id).filter(Binder.user_id == user_id).all()
-            binder_ids = [b[0] for b in binders]
+            # Get all binder IDs for this user from Supabase
+            binders_response = self.supabase.table('binders')\
+                .select('id')\
+                .eq('user_id', user_id)\
+                .execute()
             
-            if not binder_ids:
+            if not binders_response.data:
                 count = 0
             else:
-                # Count cards with auto_update=True across all user's binders
-                count = self.db.query(Card).filter(
-                    Card.binder_id.in_(binder_ids),
-                    Card.auto_update == True
-                ).count()
+                binder_ids = [b['id'] for b in binders_response.data]
+                
+                # Count cards with auto_update=True across all user's binders from Supabase
+                cards_response = self.supabase.table('cards')\
+                    .select('id', count='exact')\
+                    .in_('binder_id', binder_ids)\
+                    .eq('auto_update', True)\
+                    .execute()
+                
+                count = cards_response.count if cards_response.count is not None else 0
             
             allowed = count < limit
             remaining = max(0, limit - count)
