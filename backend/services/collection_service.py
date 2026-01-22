@@ -218,6 +218,7 @@ def create_card(db: Session, user_id: str, card_data: CardCreate, current_fmv: O
     
     card = Card(
         binder_id=card_data.binder_id,
+        user_id=user_id,  # NEW: Add user_id directly to card
         year=card_data.year,
         set_name=card_data.set_name,
         athlete=card_data.athlete,
@@ -238,7 +239,7 @@ def create_card(db: Session, user_id: str, card_data: CardCreate, current_fmv: O
     db.commit()
     db.refresh(card)
     
-    logger.info(f"Created card '{card.athlete}' (ID: {card.id}) in binder {card_data.binder_id}")
+    logger.info(f"Created card '{card.athlete}' (ID: {card.id}) in binder {card_data.binder_id} for user {user_id}")
     
     # If current_fmv was provided, create initial price history entry
     if current_fmv is not None and current_fmv > 0:
@@ -318,12 +319,17 @@ def update_card(db: Session, card_id: int, user_id: str, card_data: CardUpdate) 
     # Update fields if provided
     update_fields = card_data.model_dump(exclude_unset=True)
     
-    # If moving to a different binder, verify ownership
+    # If moving to a different binder, verify ownership and consistency
     if 'binder_id' in update_fields:
         new_binder = get_binder_by_id(db, update_fields['binder_id'], user_id)
         if not new_binder:
             logger.warning(f"User {user_id} attempted to move card to non-existent binder")
             return None
+        
+        # NEW: Verify user_id consistency when moving between binders
+        if card.user_id != new_binder.user_id:
+            logger.error(f"User {user_id} attempted to move card {card_id} to binder {update_fields['binder_id']} belonging to different user")
+            raise ValueError("Cannot move card to another user's binder")
     
     for field, value in update_fields.items():
         setattr(card, field, value)
@@ -437,7 +443,7 @@ def get_collection_overview(db: Session, user_id: str) -> CollectionOverview:
     """
     Get overview statistics for user's entire collection.
     
-    **NOTE:** This queries SQLite database for cards.
+    **SIMPLIFIED:** Now queries cards directly by user_id.
     
     Args:
         db: Database session (SQLite)
@@ -451,13 +457,11 @@ def get_collection_overview(db: Session, user_id: str) -> CollectionOverview:
     
     # Get all user's binders
     binders = get_user_binders(db, user_id)
-    binder_ids = [b.id for b in binders]
     
     logger.info(f"[COLLECTION_OVERVIEW_DEBUG] SQLite binders found: {len(binders)}")
-    logger.info(f"[COLLECTION_OVERVIEW_DEBUG] SQLite binder IDs: {binder_ids}")
     
-    # Get all cards across all binders
-    cards = db.query(Card).filter(Card.binder_id.in_(binder_ids)).all() if binder_ids else []
+    # NEW: Get all cards directly by user_id (simplified query)
+    cards = db.query(Card).filter(Card.user_id == user_id).all()
     
     logger.info(f"[COLLECTION_OVERVIEW_DEBUG] SQLite cards found: {len(cards)}")
     if cards:

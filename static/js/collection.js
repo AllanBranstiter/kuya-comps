@@ -575,6 +575,7 @@ const CollectionModule = (function() {
             // Prepare card data
             const cardData = {
                 binder_id: binderId,
+                user_id: user.id,  // NEW: Add user_id directly to card
                 year: formData.year,
                 set_name: formData.set,
                 athlete: formData.athlete,
@@ -2204,7 +2205,7 @@ const CollectionModule = (function() {
                 throw new Error('Database not available');
             }
             
-            // Update card's binder_id
+            // Update card's binder_id (user_id remains unchanged - same user)
             const { error } = await supabase
                 .from('cards')
                 .update({ binder_id: newBinderId })
