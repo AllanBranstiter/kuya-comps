@@ -342,7 +342,7 @@ async def get_usage_stats(
     - `searches_used`: Number of searches used today
     - `searches_limit`: Daily search limit (-1 = unlimited)
     - `searches_remaining`: Searches remaining today
-    - `card_count`: Total number of cards in collection
+    - `cards_count`: Total number of cards in collection
     - `card_limit`: Maximum cards allowed (-1 = unlimited)
     - `cards_remaining`: Cards remaining before limit
     - `auto_valuation_count`: Number of cards with auto-valuation enabled
@@ -389,7 +389,7 @@ async def get_usage_stats(
             'searches_used': search_check['used'],
             'searches_limit': search_check['limit'],
             'searches_remaining': search_check['remaining'],
-            'card_count': card_check['count'],
+            'cards_count': card_check['count'],
             'card_limit': card_check['limit'],
             'cards_remaining': card_check['remaining'],
             'auto_valuation_count': auto_val_check['count'],
