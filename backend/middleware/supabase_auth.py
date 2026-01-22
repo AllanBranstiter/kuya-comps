@@ -8,7 +8,7 @@ Extracts user information and makes it available to endpoints.
 import os
 import jwt
 from typing import Optional
-from fastapi import HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import PyJWKClient
 from backend.logging_config import get_logger
@@ -166,7 +166,7 @@ async def get_current_user_optional(
 
 
 async def get_current_user_required(
-    credentials: HTTPAuthorizationCredentials = security
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> dict:
     """
     Dependency for required authentication.
