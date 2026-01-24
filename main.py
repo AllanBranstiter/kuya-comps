@@ -77,7 +77,8 @@ logger = get_logger(__name__)
 app = FastAPI(
     title="Kuya Comps: Your Personal Card Value Dugout",
     description="Your personal assistant for finding baseball card values and deals.",
-    version="0.3.0",  # Version History:
+    version="0.5.0",  # Version History:
+                      # 0.5.0 - Production Beta: Admin analytics, profile management, subscription gating
                       # 0.3.0 - Dual-search display with active listings filter
                       # 0.2.4 - Improved auction detection using multiple indicators (bids, time left)
                       # 0.2.1 - Added filtering for Raw Only, Base Only, and Exclude Autographs
