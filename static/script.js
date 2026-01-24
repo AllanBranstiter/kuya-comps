@@ -1680,8 +1680,6 @@ function getSearchQueryWithExclusions(baseQuery) {
     const excludeLots = document.getElementById("exclude_lots").checked;
     const ungradedOnly = document.getElementById("ungraded_only").checked;
     const baseOnly = document.getElementById("base_only").checked;
-    const excludeAutos = document.getElementById("exclude_autos").checked;
-    const noDigital = document.getElementById("no_digital").checked;
 
     let allExcludedPhrases = [];
 
@@ -1794,68 +1792,6 @@ function getSearchQueryWithExclusions(baseQuery) {
             '-sky', '-lime', '-bronze', '-copper', '-black', '-white'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
-    }
-
-    if (excludeAutos) {
-        const autoExclusions = [
-            // Basic auto terms
-            '-auto', '-autos', '-"auto."', '-"auto/"', '-"auto rc"',
-            '-autograph', '-autographs', '-"autographed"', '-autographes', '-"autograph rc"',
-            '-au', '-"au."', '-ato', '-otg',
-            
-            // Signature terms
-            '-signature', '-"signed"', '-"sig"',
-            '-"hand signed"', '-"hand-signed"',
-            
-            // Sticker autos
-            '-"sticker auto"', '-"sticker autograph"', '-"sticker sig"',
-            
-            // Cut signatures
-            '-"cut signature"', '-"cut sig"',
-            
-            // Multi-auto cards
-            '-"dual auto"', '-"triple auto"', '-"quad auto"',
-            
-            // Relic autos
-            '-"relic auto"', '-"patch auto"', '-"jersey auto"', '-"bat auto"',
-            
-            // Rookie autos
-            '-"rc auto"', '-"rookie auto"',
-            
-            // Ink variations
-            '-"ink"', '-"blue ink"', '-"red ink"',
-            
-            // Other autograph terms
-            '-"graph"', '-"in person"',
-            
-            // Certified autos
-            '-certified', '-"certified auto"', '-"cert auto"',
-            '-"certified autograph issue"',
-            
-            // Brand-specific autos
-            '-"topps autograph"', '-"bowman autograph"',
-            '-"leaf auto"', '-"panini auto"',
-            
-            // Signature series
-            '-"signature series"',
-            '-"topps archives signature"',
-            
-            // On-card autos
-            '-"on card"', '-"on-card"'
-        ];
-        allExcludedPhrases = allExcludedPhrases.concat(autoExclusions);
-    }
-
-    if (noDigital) {
-        const digitalExclusions = [
-            '-nft',
-            '-"digital"',
-            '-"top shot"',
-            '-"blockchain"',
-            '-"Topps Bunt"',
-            '-Bunt'
-        ];
-        allExcludedPhrases = allExcludedPhrases.concat(digitalExclusions);
     }
 
     let finalQuery = baseQuery;

@@ -118,6 +118,11 @@ class Card(Base):
     review_reason = Column(Text, nullable=True)  # Why review is needed (e.g., "50%+ price change")
     no_recent_sales = Column(Boolean, default=False, nullable=False)  # No sales found in last update
     
+    # Quick Filter Flags (for FMV calculations)
+    exclude_lots = Column(Boolean, default=False, nullable=True)  # Filter out lot listings from FMV calculations
+    raw_only = Column(Boolean, default=False, nullable=True)  # Filter to only raw/ungraded listings
+    base_only = Column(Boolean, default=False, nullable=True)  # Filter to only base card listings
+    
     # Metadata
     tags = Column(Text, nullable=True)  # JSON array of user tags
     notes = Column(Text, nullable=True)  # User notes about the card

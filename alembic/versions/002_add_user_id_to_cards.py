@@ -26,14 +26,16 @@ def upgrade() -> None:
     op.execute("""
         UPDATE cards
         SET user_id = (
-            SELECT user_id 
-            FROM binders 
+            SELECT user_id
+            FROM binders
             WHERE binders.id = cards.binder_id
         )
     """)
     
-    # Step 3: Make user_id non-nullable now that it's populated
-    op.alter_column('cards', 'user_id', nullable=False)
+    # Step 3: Make user_id non-nullable using batch mode (SQLite compatibility)
+    # SQLite doesn't support ALTER COLUMN, so we use batch_alter_table
+    with op.batch_alter_table('cards', schema=None) as batch_op:
+        batch_op.alter_column('user_id', existing_type=sa.String(length=100), nullable=False)
     
     # Step 4: Add indexes for performance
     op.create_index('ix_cards_user_id', 'cards', ['user_id'])
