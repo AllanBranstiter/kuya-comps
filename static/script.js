@@ -648,16 +648,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Tab management
 function switchTab(tabName, clickedElement = null) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    // Update tab buttons - remove active class and set aria-selected to false
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+    });
     
     // Use passed element or try to get from event
     const targetElement = clickedElement || (window.event && window.event.target);
     if (targetElement) {
         targetElement.classList.add('active');
+        targetElement.setAttribute('aria-selected', 'true');
     } else {
         // Fallback: find and activate the correct tab button
-        document.querySelector(`button[onclick="switchTab('${tabName}')"]`)?.classList.add('active');
+        const tabBtn = document.querySelector(`button[onclick="switchTab('${tabName}')"]`);
+        if (tabBtn) {
+            tabBtn.classList.add('active');
+            tabBtn.setAttribute('aria-selected', 'true');
+        }
     }
     
     // Update tab content
@@ -683,16 +691,24 @@ function switchTab(tabName, clickedElement = null) {
 
 // Sub-tab management
 function switchSubTab(subTabName) {
-    // Update sub-tab buttons
-    document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+    // Update sub-tab buttons - remove active class and set aria-selected to false
+    document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+    });
     
     // Activate clicked button
     const clickedButton = window.event && window.event.target;
     if (clickedButton) {
         clickedButton.classList.add('active');
+        clickedButton.setAttribute('aria-selected', 'true');
     } else {
         // Fallback: find and activate the correct sub-tab button
-        document.querySelector(`button[onclick="switchSubTab('${subTabName}')"]`)?.classList.add('active');
+        const subTabBtn = document.querySelector(`button[onclick="switchSubTab('${subTabName}')"]`);
+        if (subTabBtn) {
+            subTabBtn.classList.add('active');
+            subTabBtn.setAttribute('aria-selected', 'true');
+        }
     }
     
     // Update sub-tab content
