@@ -6,105 +6,583 @@
 const CollectionModule = (function() {
     'use strict';
     
+    // =========================================================================
+    // PLAYER DATABASE CACHE
+    // =========================================================================
+    let playersDatabase = null;
+    let playersDatabaseLoading = false;
+    let playersDatabasePromise = null;
+    
     /**
-     * Smart parser for card search strings
-     * Attempts to extract: Year, Set, Athlete, Card #, Variation/Parallel
+     * Load the players database from JSON file
+     * Caches the result after first load
      */
-    function parseSearchString(searchString) {
-        if (!searchString) return {};
-        
-        const parsed = {
-            year: null,
-            set: null,
-            athlete: null,
-            cardNumber: null,
-            variation: null
-        };
-        
-        // Extract year (4-digit number, typically 1950-2099)
-        const yearMatch = searchString.match(/\b(19\d{2}|20\d{2})\b/);
-        if (yearMatch) {
-            parsed.year = yearMatch[1];
+    async function loadPlayersDatabase() {
+        if (playersDatabase) {
+            return playersDatabase;
         }
         
-        // Common card sets (case-insensitive)
-        const setPatterns = [
-            /topps\s+chrome/i,
-            /bowman\s+chrome/i,
-            /prizm/i,
-            /optic/i,
-            /select/i,
-            /donruss/i,
-            /panini/i,
-            /topps/i,
-            /bowman/i,
-            /upper\s+deck/i,
-            /fleer/i,
-            /score/i
-        ];
+        if (playersDatabaseLoading) {
+            return playersDatabasePromise;
+        }
         
-        for (const pattern of setPatterns) {
-            const setMatch = searchString.match(pattern);
-            if (setMatch) {
-                parsed.set = setMatch[0];
+        playersDatabaseLoading = true;
+        playersDatabasePromise = fetch('/static/data/players.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load players database');
+                }
+                return response.json();
+            })
+            .then(data => {
+                playersDatabase = data.players || [];
+                console.log('[COLLECTION] Loaded players database with', playersDatabase.length, 'players');
+                playersDatabaseLoading = false;
+                return playersDatabase;
+            })
+            .catch(error => {
+                console.error('[COLLECTION] Error loading players database:', error);
+                playersDatabaseLoading = false;
+                playersDatabase = [];
+                return [];
+            });
+        
+        return playersDatabasePromise;
+    }
+    
+    // Pre-load the players database on module initialization
+    loadPlayersDatabase();
+    
+    // =========================================================================
+    // NEGATIVE FILTER LIST FOR ATHLETE DETECTION
+    // =========================================================================
+    const NON_NAME_TERMS = [
+        // Grading companies
+        'psa', 'bgs', 'sgc', 'cgc', 'csg', 'hga', 'ksa', 'gma', 'aga', 'ace', 'mnt',
+        // Card types and keywords
+        'rookie', 'card', 'base', 'chrome', 'refractor', 'prizm', 'prism',
+        'silver', 'gold', 'auto', 'autograph', 'autographed', 'numbered', 'parallel',
+        'insert', 'patch', 'relic', 'jersey', 'memorabilia', 'swatch', 'game-used',
+        // Brands and manufacturers
+        'topps', 'bowman', 'panini', 'donruss', 'fleer', 'optic', 'upper', 'deck',
+        'select', 'mosaic', 'obsidian', 'heritage', 'update', 'series', 'stadium',
+        'club', 'archives', 'gallery', 'spectra', 'absolute', 'immaculate',
+        'contenders', 'chronicles', 'illusions', 'score', 'leaf', 'national',
+        'treasures', 'ginter', 'gypsy', 'queen', 'opening', 'day', 'first', 'best',
+        // Box/pack terms
+        'box', 'lot', 'pack', 'hobby', 'retail', 'jumbo', 'mega', 'blaster', 'hanger',
+        'cello', 'rack', 'fat', 'value', 'case', 'break', 'hit',
+        // Variations
+        'sp', 'ssp', 'variation', 'variant', 'short', 'print', 'image',
+        // Conditions
+        'gem', 'mint', 'near', 'excellent', 'good', 'fair', 'poor', 'centered', 'oc',
+        // Colors (often part of parallels)
+        'pink', 'blue', 'purple', 'orange', 'red', 'green', 'teal', 'aqua', 'black',
+        'white', 'yellow', 'sapphire', 'atomic', 'mojo', 'wave', 'shimmer',
+        'xfractor', 'speckle', 'camo', 'cracked', 'ice', 'pulsar', 'hyper', 'neon',
+        'electric', 'holo', 'holographic', 'foil', 'rainbow', 'velocity', 'cosmic',
+        // Common words that aren't names
+        'the', 'and', 'or', 'for', 'with', 'from', 'new', 'hot', 'rare', 'nice',
+        'graded', 'raw', 'ungraded', 'sealed', 'factory', 'set', 'complete',
+        'edition', 'limited', 'exclusive', 'special', 'promo', 'promotional',
+        // Numbers
+        '1st', '2nd', '3rd', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
+        // Other common terms
+        'rc', 'rpa', 'ssp', 'sp', 'fs', 'ft', 'pwe', 'bmwt', 'combo', 'team'
+    ];
+    
+    // =========================================================================
+    // SET PATTERNS (Expanded - 40+ sets)
+    // =========================================================================
+    const SET_PATTERNS = [
+        // Premium Chrome/Refractor sets (order matters - more specific first)
+        { pattern: /topps\s+chrome\s+sapphire/i, name: 'Topps Chrome Sapphire' },
+        { pattern: /bowman\s+chrome\s+sapphire/i, name: 'Bowman Chrome Sapphire' },
+        { pattern: /topps\s+chrome/i, name: 'Topps Chrome' },
+        { pattern: /bowman\s+chrome/i, name: 'Bowman Chrome' },
+        { pattern: /bowman\s*'?s?\s+best/i, name: "Bowman's Best" },
+        { pattern: /bowman\s+draft/i, name: 'Bowman Draft' },
+        { pattern: /bowman\s+platinum/i, name: 'Bowman Platinum' },
+        { pattern: /bowman\s+sterling/i, name: 'Bowman Sterling' },
+        { pattern: /1st\s+bowman/i, name: '1st Bowman' },
+        
+        // Panini premium sets
+        { pattern: /national\s+treasures/i, name: 'National Treasures' },
+        { pattern: /flawless/i, name: 'Flawless' },
+        { pattern: /immaculate/i, name: 'Immaculate' },
+        { pattern: /spectra/i, name: 'Spectra' },
+        { pattern: /obsidian/i, name: 'Obsidian' },
+        { pattern: /select/i, name: 'Select' },
+        { pattern: /mosaic/i, name: 'Mosaic' },
+        { pattern: /prizm/i, name: 'Prizm' },
+        { pattern: /optic/i, name: 'Optic' },
+        { pattern: /chronicles/i, name: 'Chronicles' },
+        { pattern: /contenders/i, name: 'Contenders' },
+        { pattern: /absolute/i, name: 'Absolute' },
+        { pattern: /illusions/i, name: 'Illusions' },
+        { pattern: /donruss\s+elite/i, name: 'Donruss Elite' },
+        { pattern: /donruss\s+optic/i, name: 'Donruss Optic' },
+        { pattern: /donruss/i, name: 'Donruss' },
+        { pattern: /panini/i, name: 'Panini' },
+        
+        // Topps specialty sets
+        { pattern: /stadium\s+club/i, name: 'Stadium Club' },
+        { pattern: /allen\s*[&+and]*\s*ginter/i, name: 'Allen & Ginter' },
+        { pattern: /gypsy\s+queen/i, name: 'Gypsy Queen' },
+        { pattern: /heritage\s+high\s+number/i, name: 'Heritage High Number' },
+        { pattern: /heritage/i, name: 'Heritage' },
+        { pattern: /archives\s+signature/i, name: 'Archives Signature' },
+        { pattern: /archives/i, name: 'Archives' },
+        { pattern: /opening\s+day/i, name: 'Opening Day' },
+        { pattern: /gallery/i, name: 'Gallery' },
+        { pattern: /topps\s+update/i, name: 'Topps Update' },
+        { pattern: /topps\s+series\s+2/i, name: 'Topps Series 2' },
+        { pattern: /topps\s+series\s+1/i, name: 'Topps Series 1' },
+        { pattern: /topps\s+finest/i, name: 'Topps Finest' },
+        { pattern: /topps\s+gold\s+label/i, name: 'Topps Gold Label' },
+        { pattern: /topps\s+tribute/i, name: 'Topps Tribute' },
+        { pattern: /topps\s+inception/i, name: 'Topps Inception' },
+        { pattern: /topps\s+tier\s+one/i, name: 'Topps Tier One' },
+        { pattern: /topps\s+dynasty/i, name: 'Topps Dynasty' },
+        { pattern: /topps\s+luminaries/i, name: 'Topps Luminaries' },
+        { pattern: /topps\s+museum/i, name: 'Topps Museum Collection' },
+        { pattern: /topps\s+definitive/i, name: 'Topps Definitive' },
+        { pattern: /topps\s+transcendent/i, name: 'Topps Transcendent' },
+        { pattern: /topps\s+five\s+star/i, name: 'Topps Five Star' },
+        { pattern: /topps\s+triple\s+threads/i, name: 'Topps Triple Threads' },
+        { pattern: /topps\s+sterling/i, name: 'Topps Sterling' },
+        { pattern: /topps\s+now/i, name: 'Topps Now' },
+        { pattern: /topps\s+project/i, name: 'Topps Project' },
+        
+        // Classic/Vintage sets
+        { pattern: /upper\s+deck/i, name: 'Upper Deck' },
+        { pattern: /fleer\s+ultra/i, name: 'Fleer Ultra' },
+        { pattern: /fleer/i, name: 'Fleer' },
+        { pattern: /score/i, name: 'Score' },
+        { pattern: /pro\s+set/i, name: 'Pro Set' },
+        { pattern: /leaf/i, name: 'Leaf' },
+        { pattern: /classic/i, name: 'Classic' },
+        
+        // Catch-all patterns (keep at end)
+        { pattern: /topps/i, name: 'Topps' },
+        { pattern: /bowman/i, name: 'Bowman' }
+    ];
+    
+    // =========================================================================
+    // VARIATION PATTERNS (Expanded - 50+ variations)
+    // =========================================================================
+    const VARIATION_PATTERNS = [
+        // Refractors (order matters - more specific first)
+        { pattern: /gold\s+refractor/i, name: 'Gold Refractor' },
+        { pattern: /black\s+refractor/i, name: 'Black Refractor' },
+        { pattern: /blue\s+refractor/i, name: 'Blue Refractor' },
+        { pattern: /green\s+refractor/i, name: 'Green Refractor' },
+        { pattern: /orange\s+refractor/i, name: 'Orange Refractor' },
+        { pattern: /purple\s+refractor/i, name: 'Purple Refractor' },
+        { pattern: /red\s+refractor/i, name: 'Red Refractor' },
+        { pattern: /pink\s+refractor/i, name: 'Pink Refractor' },
+        { pattern: /aqua\s+refractor/i, name: 'Aqua Refractor' },
+        { pattern: /atomic\s+refractor/i, name: 'Atomic Refractor' },
+        { pattern: /x-?fractor/i, name: 'Xfractor' },
+        { pattern: /superfractor/i, name: 'Superfractor' },
+        { pattern: /refractor/i, name: 'Refractor' },
+        
+        // Prizm variations (NOT the set - variations within sets)
+        { pattern: /silver\s+prizm/i, name: 'Silver Prizm' },
+        { pattern: /gold\s+prizm/i, name: 'Gold Prizm' },
+        { pattern: /black\s+prizm/i, name: 'Black Prizm' },
+        { pattern: /blue\s+prizm/i, name: 'Blue Prizm' },
+        { pattern: /red\s+prizm/i, name: 'Red Prizm' },
+        { pattern: /green\s+prizm/i, name: 'Green Prizm' },
+        { pattern: /purple\s+prizm/i, name: 'Purple Prizm' },
+        { pattern: /orange\s+prizm/i, name: 'Orange Prizm' },
+        { pattern: /pink\s+prizm/i, name: 'Pink Prizm' },
+        { pattern: /neon\s+green\s+prizm/i, name: 'Neon Green Prizm' },
+        { pattern: /red\s+white\s+blue\s+prizm/i, name: 'Red White Blue Prizm' },
+        { pattern: /camo\s+prizm/i, name: 'Camo Prizm' },
+        { pattern: /cracked\s+ice\s+prizm/i, name: 'Cracked Ice Prizm' },
+        { pattern: /mojo\s+prizm/i, name: 'Mojo Prizm' },
+        { pattern: /shimmer\s+prizm/i, name: 'Shimmer Prizm' },
+        { pattern: /wave\s+prizm/i, name: 'Wave Prizm' },
+        { pattern: /fast\s+break\s+prizm/i, name: 'Fast Break Prizm' },
+        { pattern: /disco\s+prizm/i, name: 'Disco Prizm' },
+        { pattern: /hyper\s+prizm/i, name: 'Hyper Prizm' },
+        { pattern: /snakeskin\s+prizm/i, name: 'Snakeskin Prizm' },
+        { pattern: /pulsar\s+prizm/i, name: 'Pulsar Prizm' },
+        
+        // Special effects/finishes
+        { pattern: /sapphire/i, name: 'Sapphire' },
+        { pattern: /atomic/i, name: 'Atomic' },
+        { pattern: /mojo/i, name: 'Mojo' },
+        { pattern: /wave/i, name: 'Wave' },
+        { pattern: /shimmer/i, name: 'Shimmer' },
+        { pattern: /speckle/i, name: 'Speckle' },
+        { pattern: /camo/i, name: 'Camo' },
+        { pattern: /cracked\s+ice/i, name: 'Cracked Ice' },
+        { pattern: /pulsar/i, name: 'Pulsar' },
+        { pattern: /hyper/i, name: 'Hyper' },
+        { pattern: /velocity/i, name: 'Velocity' },
+        { pattern: /cosmic/i, name: 'Cosmic' },
+        { pattern: /holo/i, name: 'Holo' },
+        { pattern: /holographic/i, name: 'Holographic' },
+        { pattern: /rainbow/i, name: 'Rainbow' },
+        { pattern: /neon/i, name: 'Neon' },
+        { pattern: /electric/i, name: 'Electric' },
+        { pattern: /laser/i, name: 'Laser' },
+        
+        // Color parallels (without refractor/prizm suffix)
+        { pattern: /\bsilver\b(?!\s+prizm)/i, name: 'Silver' },
+        { pattern: /\bgold\b(?!\s+(refractor|prizm|label))/i, name: 'Gold' },
+        { pattern: /\bblack\b(?!\s+(refractor|prizm))/i, name: 'Black' },
+        { pattern: /\bblue\b(?!\s+(refractor|prizm))/i, name: 'Blue' },
+        { pattern: /\bred\b(?!\s+(refractor|prizm|white))/i, name: 'Red' },
+        { pattern: /\bgreen\b(?!\s+(refractor|prizm))/i, name: 'Green' },
+        { pattern: /\bpurple\b(?!\s+(refractor|prizm))/i, name: 'Purple' },
+        { pattern: /\borange\b(?!\s+(refractor|prizm))/i, name: 'Orange' },
+        { pattern: /\bpink\b(?!\s+(refractor|prizm))/i, name: 'Pink' },
+        { pattern: /\bteal\b/i, name: 'Teal' },
+        { pattern: /\baqua\b(?!\s+refractor)/i, name: 'Aqua' },
+        { pattern: /\byellow\b/i, name: 'Yellow' },
+        
+        // Special types
+        { pattern: /1st\s+edition/i, name: '1st Edition' },
+        { pattern: /first\s+edition/i, name: 'First Edition' },
+        { pattern: /\bchrome\b/i, name: 'Chrome' },
+        { pattern: /\bpaper\b/i, name: 'Paper' },
+        { pattern: /\bbase\b/i, name: 'Base' },
+        { pattern: /\bfoil\b/i, name: 'Foil' },
+        
+        // Autograph/Relic
+        { pattern: /auto(?:graph)?(?:ed)?/i, name: 'Auto' },
+        { pattern: /\brelic\b/i, name: 'Relic' },
+        { pattern: /\bpatch\b/i, name: 'Patch' },
+        { pattern: /\bjersey\b/i, name: 'Jersey' },
+        { pattern: /game[- ]?used/i, name: 'Game-Used' },
+        { pattern: /\bmemorabilia\b/i, name: 'Memorabilia' },
+        
+        // Rookie indicators
+        { pattern: /\brc\b/i, name: 'RC' },
+        { pattern: /\brookie\b/i, name: 'Rookie' },
+        { pattern: /\brpa\b/i, name: 'RPA' },
+        
+        // Short prints
+        { pattern: /\bssp\b/i, name: 'SSP' },
+        { pattern: /\bsp\b/i, name: 'SP' },
+        { pattern: /short\s+print/i, name: 'Short Print' },
+        { pattern: /image\s+variation/i, name: 'Image Variation' },
+        { pattern: /photo\s+variation/i, name: 'Photo Variation' },
+        
+        // Numbered patterns (e.g., /25, /50, /99)
+        { pattern: /\/\s*(\d+)\b/, name: null }  // Special handling for numbered cards
+    ];
+    
+    // =========================================================================
+    // CARD NUMBER PATTERNS (Expanded)
+    // =========================================================================
+    const CARD_NUMBER_PATTERNS = [
+        // Standard patterns with # symbol
+        /(?:card\s*)?#\s*([A-Za-z]*\d+[A-Za-z]*)/i,
+        // Prefix patterns like RC-1, SP-25, T-100, US-50
+        /\b([A-Z]{1,3}[-]?\d{1,4}[A-Za-z]?)\b/,
+        // "card 123" or "card# 123"
+        /card\s*#?\s*(\d+[A-Za-z]*)/i,
+        // Standalone numbers after player name (contextual - handled separately)
+    ];
+    
+    // =========================================================================
+    // SMART PARSER FOR CARD SEARCH STRINGS
+    // =========================================================================
+    
+    /**
+     * Smart parser for card search strings with confidence scoring
+     * Attempts to extract: Year, Set, Athlete, Card #, Variation/Parallel
+     * @param {string} searchString - The search query to parse
+     * @returns {Object} Parsed data with confidence levels
+     */
+    function parseSearchString(searchString) {
+        if (!searchString) {
+            return {
+                year: { value: null, confidence: 'none' },
+                set: { value: null, confidence: 'none' },
+                athlete: { value: null, confidence: 'none' },
+                cardNumber: { value: null, confidence: 'none' },
+                variation: { value: null, confidence: 'none' }
+            };
+        }
+        
+        const originalString = searchString;
+        let workingString = searchString;
+        
+        const parsed = {
+            year: { value: null, confidence: 'none' },
+            set: { value: null, confidence: 'none' },
+            athlete: { value: null, confidence: 'none' },
+            cardNumber: { value: null, confidence: 'none' },
+            variation: { value: null, confidence: 'none' }
+        };
+        
+        // =====================================================================
+        // STEP 1: Extract Year (4-digit number, typically 1900-2099)
+        // =====================================================================
+        const yearMatch = workingString.match(/\b(19\d{2}|20\d{2})\b/);
+        if (yearMatch) {
+            parsed.year = { value: yearMatch[1], confidence: 'high' };
+            // Remove year from working string
+            workingString = workingString.replace(yearMatch[0], ' ');
+        }
+        
+        // =====================================================================
+        // STEP 2: Extract Set Name
+        // =====================================================================
+        for (const setDef of SET_PATTERNS) {
+            const match = workingString.match(setDef.pattern);
+            if (match) {
+                parsed.set = { value: setDef.name, confidence: 'high' };
+                // Remove set from working string
+                workingString = workingString.replace(match[0], ' ');
                 break;
             }
         }
         
-        // Extract card number (# followed by digits, or just digits with context)
-        const cardNumMatch = searchString.match(/#\s*(\d+[A-Za-z]*)|card\s+(\d+[A-Za-z]*)/i);
-        if (cardNumMatch) {
-            parsed.cardNumber = cardNumMatch[1] || cardNumMatch[2];
+        // =====================================================================
+        // STEP 3: Extract Card Number
+        // =====================================================================
+        for (const pattern of CARD_NUMBER_PATTERNS) {
+            const match = workingString.match(pattern);
+            if (match && match[1]) {
+                // Validate it's not just a year or grading number
+                const numValue = match[1];
+                if (!/^(19|20)\d{2}$/.test(numValue) && !/^[1-9]\.?[05]?$/.test(numValue)) {
+                    parsed.cardNumber = { value: numValue, confidence: 'high' };
+                    workingString = workingString.replace(match[0], ' ');
+                    break;
+                }
+            }
         }
         
-        // Extract variation/parallel keywords
-        const variationPatterns = [
-            /refractor/i,
-            /prizm/i,
-            /silver/i,
-            /gold/i,
-            /auto(?:graph)?/i,
-            /rookie/i,
-            /rc\b/i,
-            /parallel/i,
-            /numbered/i,
-            /\/\d+/  // e.g., /99, /25
-        ];
-        
+        // =====================================================================
+        // STEP 4: Extract Variations/Parallels
+        // =====================================================================
         const variations = [];
-        for (const pattern of variationPatterns) {
-            const varMatch = searchString.match(pattern);
-            if (varMatch) {
-                variations.push(varMatch[0]);
+        let numberedTo = null;
+        
+        for (const varDef of VARIATION_PATTERNS) {
+            const match = workingString.match(varDef.pattern);
+            if (match) {
+                if (varDef.name === null && match[1]) {
+                    // Numbered card pattern (e.g., /99)
+                    numberedTo = match[0];
+                } else if (varDef.name) {
+                    // Don't add duplicate variation names
+                    if (!variations.includes(varDef.name)) {
+                        variations.push(varDef.name);
+                    }
+                }
+                // Remove from working string
+                workingString = workingString.replace(match[0], ' ');
             }
         }
         
-        if (variations.length > 0) {
-            parsed.variation = variations.join(' ');
+        // Combine variations
+        if (variations.length > 0 || numberedTo) {
+            let variationString = variations.join(' ');
+            if (numberedTo) {
+                variationString = variationString ? `${variationString} ${numberedTo}` : numberedTo;
+            }
+            parsed.variation = { value: variationString.trim(), confidence: 'high' };
         }
         
-        // Extract athlete name (heuristic: quoted strings or capitalized words)
-        const quotedMatch = searchString.match(/"([^"]+)"/);
-        if (quotedMatch) {
-            // Check if it's not a set name
-            const quoted = quotedMatch[1];
-            if (!setPatterns.some(p => p.test(quoted))) {
-                parsed.athlete = quoted;
-            }
-        } else {
-            // Try to find capitalized words that aren't set names
-            const words = searchString.split(/\s+/);
-            const capitalizedWords = words.filter(word => 
-                /^[A-Z][a-z]+/.test(word) && 
-                !setPatterns.some(p => p.test(word))
-            );
-            
-            if (capitalizedWords.length >= 2) {
-                parsed.athlete = capitalizedWords.slice(0, 3).join(' ');
-            }
-        }
+        // =====================================================================
+        // STEP 5: Extract Athlete Name
+        // =====================================================================
+        parsed.athlete = extractAthleteName(workingString, originalString);
+        
+        // Log for debugging
+        console.log('[COLLECTION] Parsed search string:', originalString);
+        console.log('[COLLECTION] Parsed result:', parsed);
         
         return parsed;
+    }
+    
+    /**
+     * Extract athlete name from search string
+     * Uses player database matching + heuristics
+     */
+    function extractAthleteName(workingString, originalString) {
+        // First, try to match against the player database
+        if (playersDatabase && playersDatabase.length > 0) {
+            const playerMatch = matchPlayerFromDatabase(originalString);
+            if (playerMatch) {
+                console.log('[COLLECTION] Parsed with player DB match:', playerMatch.name);
+                return { value: playerMatch.name, confidence: 'high' };
+            }
+        }
+        
+        // Fall back to heuristic extraction
+        return extractAthleteNameHeuristic(workingString);
+    }
+    
+    /**
+     * Match player name against the database
+     * Priority: full name match → alias match → last name match
+     */
+    function matchPlayerFromDatabase(searchString) {
+        if (!playersDatabase || playersDatabase.length === 0) {
+            return null;
+        }
+        
+        const lowerSearch = searchString.toLowerCase();
+        
+        // Priority 1: Full name match (case-insensitive)
+        for (const player of playersDatabase) {
+            if (lowerSearch.includes(player.name.toLowerCase())) {
+                return player;
+            }
+        }
+        
+        // Priority 2: Alias match
+        for (const player of playersDatabase) {
+            if (player.aliases) {
+                for (const alias of player.aliases) {
+                    // Use word boundary matching to avoid partial matches
+                    const aliasLower = alias.toLowerCase();
+                    const aliasRegex = new RegExp(`\\b${escapeRegex(aliasLower)}\\b`, 'i');
+                    if (aliasRegex.test(searchString)) {
+                        return player;
+                    }
+                }
+            }
+        }
+        
+        // Priority 3: Last name match (less confident, only for common names)
+        const words = searchString.split(/\s+/);
+        for (const player of playersDatabase) {
+            const nameParts = player.name.split(/\s+/);
+            const lastName = nameParts[nameParts.length - 1];
+            
+            // Skip very common/short last names to avoid false positives
+            if (lastName.length >= 4 && !isCommonWord(lastName)) {
+                for (const word of words) {
+                    if (word.toLowerCase() === lastName.toLowerCase()) {
+                        // Verify it's likely a name by checking if word is capitalized
+                        if (/^[A-Z]/.test(word)) {
+                            return player;
+                        }
+                    }
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Check if a word is a common non-name word
+     */
+    function isCommonWord(word) {
+        const commonWords = [
+            'card', 'base', 'auto', 'gold', 'silver', 'blue', 'red', 'green',
+            'black', 'white', 'pink', 'chrome', 'rookie', 'insert', 'parallel',
+            'first', 'best', 'update', 'series', 'draft', 'club'
+        ];
+        return commonWords.includes(word.toLowerCase());
+    }
+    
+    /**
+     * Escape special regex characters in a string
+     */
+    function escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    /**
+     * Heuristic extraction of athlete name from search string
+     * Used as fallback when player database doesn't match
+     */
+    function extractAthleteNameHeuristic(workingString) {
+        // Clean up the working string
+        let cleaned = workingString
+            .replace(/[#@$%^&*()_+=\[\]{}|\\:";'<>?,./]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        
+        // Check for quoted name first
+        const quotedMatch = cleaned.match(/"([^"]+)"/);
+        if (quotedMatch) {
+            const quoted = quotedMatch[1].trim();
+            if (!isNonNameTerm(quoted)) {
+                return { value: quoted, confidence: 'high' };
+            }
+        }
+        
+        // Split into words and filter
+        const words = cleaned.split(/\s+/);
+        const candidateWords = [];
+        
+        for (const word of words) {
+            // Skip if it's a non-name term
+            if (isNonNameTerm(word)) {
+                continue;
+            }
+            
+            // Skip numbers and very short words
+            if (/^\d+$/.test(word) || word.length < 2) {
+                continue;
+            }
+            
+            // Look for capitalized words or words that look like names
+            if (/^[A-Z][a-z]+/.test(word) || /^[A-Z]+$/.test(word)) {
+                candidateWords.push(word);
+            }
+        }
+        
+        // Try to form a name from consecutive capitalized words
+        if (candidateWords.length >= 2) {
+            // Take first 2-3 words that look like a name
+            const nameParts = candidateWords.slice(0, 3);
+            return { value: nameParts.join(' '), confidence: 'medium' };
+        } else if (candidateWords.length === 1) {
+            return { value: candidateWords[0], confidence: 'low' };
+        }
+        
+        return { value: null, confidence: 'none' };
+    }
+    
+    /**
+     * Check if a word/phrase is in the non-name terms list
+     */
+    function isNonNameTerm(word) {
+        if (!word) return true;
+        const lower = word.toLowerCase();
+        return NON_NAME_TERMS.includes(lower);
+    }
+    
+    /**
+     * Get value from parsed field only if confidence is high or medium
+     * @param {Object} field - Parsed field with value and confidence
+     * @returns {string} - Value or empty string
+     */
+    function getConfidentValue(field) {
+        if (!field || !field.value) return '';
+        if (field.confidence === 'high' || field.confidence === 'medium') {
+            return field.value;
+        }
+        return '';
+    }
+    
+    /**
+     * Get CSS style for confidence indicator
+     * @param {Object} field - Parsed field with value and confidence
+     * @returns {string} - CSS styles for the input
+     */
+    function getConfidenceStyle(field) {
+        if (!field || !field.value) return '';
+        if (field.confidence === 'high') {
+            return 'border-color: #34c759; background: linear-gradient(135deg, #f0fff4 0%, #e6ffe6 100%);';
+        } else if (field.confidence === 'medium') {
+            return 'border-color: #ff9500; background: linear-gradient(135deg, #fffaf0 0%, #fff5e6 100%);';
+        }
+        return '';
     }
     
     /**
@@ -121,6 +599,20 @@ const CollectionModule = (function() {
         // Parse the search string for smart auto-fill
         const parsed = parseSearchString(searchQuery);
         console.log('[COLLECTION] Parsed metadata:', parsed);
+        
+        // Extract confident values for auto-fill (only high/medium confidence)
+        const yearValue = getConfidentValue(parsed.year);
+        const setValue = getConfidentValue(parsed.set);
+        const athleteValue = getConfidentValue(parsed.athlete);
+        const cardNumberValue = getConfidentValue(parsed.cardNumber);
+        const variationValue = getConfidentValue(parsed.variation);
+        
+        // Get confidence styles for visual indicators
+        const yearStyle = getConfidenceStyle(parsed.year);
+        const setStyle = getConfidenceStyle(parsed.set);
+        const athleteStyle = getConfidenceStyle(parsed.athlete);
+        const cardNumberStyle = getConfidenceStyle(parsed.cardNumber);
+        const variationStyle = getConfidenceStyle(parsed.variation);
         
         // Create modal overlay
         const overlay = document.createElement('div');
@@ -159,6 +651,20 @@ const CollectionModule = (function() {
             animation: scaleIn 0.3s ease;
         `;
         
+        // Build confidence indicator legend HTML
+        const confidenceLegend = `
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--subtle-text-color); margin-bottom: 1rem; padding: 0.75rem; background: var(--background-color); border-radius: 8px;">
+                <span style="display: flex; align-items: center; gap: 0.25rem;">
+                    <span style="width: 12px; height: 12px; border-radius: 3px; background: linear-gradient(135deg, #f0fff4 0%, #e6ffe6 100%); border: 1px solid #34c759;"></span>
+                    Auto-filled (high confidence)
+                </span>
+                <span style="display: flex; align-items: center; gap: 0.25rem;">
+                    <span style="width: 12px; height: 12px; border-radius: 3px; background: linear-gradient(135deg, #fffaf0 0%, #fff5e6 100%); border: 1px solid #ff9500;"></span>
+                    Auto-filled (review suggested)
+                </span>
+            </div>
+        `;
+        
         modal.innerHTML = `
             <div class="auth-modal-header" style="padding: 2rem 2rem 1rem 2rem; border-bottom: 1px solid var(--border-color); position: relative; text-align: center;">
                 <h2 style="margin: 0; font-size: 1.75rem; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
@@ -170,6 +676,7 @@ const CollectionModule = (function() {
             </div>
             
             <div class="auth-modal-body" style="padding: 2rem;">
+                ${confidenceLegend}
                 <form id="add-to-collection-form">
                     <!-- Card Identity Section -->
                     <div style="margin-bottom: 2rem;">
@@ -180,28 +687,28 @@ const CollectionModule = (function() {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                             <div class="auth-form-group" style="margin-bottom: 0;">
                                 <label>Year</label>
-                                <input type="text" id="card-year" placeholder="e.g., 2024" value="${parsed.year || ''}" maxlength="4">
+                                <input type="text" id="card-year" placeholder="e.g., 2024" value="${yearValue}" maxlength="4" style="${yearStyle}">
                             </div>
                             
                             <div class="auth-form-group" style="margin-bottom: 0;">
                                 <label>Card Number</label>
-                                <input type="text" id="card-number" placeholder="e.g., 1, RC-1" value="${parsed.cardNumber || ''}">
+                                <input type="text" id="card-number" placeholder="e.g., 1, RC-1" value="${cardNumberValue}" style="${cardNumberStyle}">
                             </div>
                         </div>
                         
                         <div class="auth-form-group">
                             <label>Set</label>
-                            <input type="text" id="card-set" placeholder="e.g., Topps Chrome" value="${parsed.set || ''}">
+                            <input type="text" id="card-set" placeholder="e.g., Topps Chrome" value="${setValue}" style="${setStyle}">
                         </div>
                         
                         <div class="auth-form-group">
                             <label>Athlete Name</label>
-                            <input type="text" id="card-athlete" placeholder="e.g., Shohei Ohtani" value="${parsed.athlete || ''}">
+                            <input type="text" id="card-athlete" placeholder="e.g., Shohei Ohtani" value="${athleteValue}" style="${athleteStyle}">
                         </div>
                         
                         <div class="auth-form-group">
                             <label>Variation / Parallel</label>
-                            <input type="text" id="card-variation" placeholder="e.g., Silver Refractor, Base" value="${parsed.variation || ''}">
+                            <input type="text" id="card-variation" placeholder="e.g., Silver Refractor, Base" value="${variationValue}" style="${variationStyle}">
                         </div>
                     </div>
                     
@@ -1675,6 +2182,21 @@ const CollectionModule = (function() {
                                     This search query is used to automatically update the card's Fair Market Value. You can refine it if needed (e.g., after grading).
                                 </div>
                             </div>
+                            
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" id="edit-card-exclude-lots" ${card.exclude_lots ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                                    <span style="font-weight: 500; color: var(--text-color);">Exclude Lots</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" id="edit-card-raw-only" ${card.raw_only ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                                    <span style="font-weight: 500; color: var(--text-color);">Raw Only</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                    <input type="checkbox" id="edit-card-base-only" ${card.base_only ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
+                                    <span style="font-weight: 500; color: var(--text-color);">Base Only</span>
+                                </label>
+                            </div>
                         </div>
                         
                         <!-- Settings Section -->
@@ -1764,6 +2286,9 @@ const CollectionModule = (function() {
             purchase_date: document.getElementById('edit-card-purchase-date')?.value || null,
             current_fmv: parseFloat(document.getElementById('edit-card-current-fmv')?.value) || null,
             search_query_string: document.getElementById('editCardSearchQuery')?.value.trim() || '',
+            exclude_lots: document.getElementById('edit-card-exclude-lots')?.checked || false,
+            raw_only: document.getElementById('edit-card-raw-only')?.checked || false,
+            base_only: document.getElementById('edit-card-base-only')?.checked || false,
             tags: document.getElementById('edit-card-tags')?.value ?
                   document.getElementById('edit-card-tags').value.split(',').map(t => t.trim()) : [],
             auto_update: document.getElementById('edit-card-auto-update')?.checked || false
