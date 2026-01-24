@@ -27,6 +27,7 @@
   <meta name="twitter:description" content="Find baseball card values and eBay comps instantly. Compare PSA, BGS, SGC graded cards with real-time market data.">
   <meta name="twitter:image" content="https://kuyacomps.com/KuyaKompsLogo.png">
 
+  <link rel="stylesheet" href="css/shared-styles.css">
   <link rel="stylesheet" href="css/feedback.css">
   <link rel="stylesheet" href="css/collection.css">
   
@@ -1943,18 +1944,18 @@
   </header>
 
   <!-- Tab Navigation -->
-  <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('comps')">Comps & Analysis</button>
-    <button class="tab-btn" onclick="switchTab('intelligence')">Grading Intelligence</button>
-    <button class="tab-btn" onclick="switchTab('portfolio')" id="portfolio-tab-btn" style="display: none;">My Collection</button>
+  <div class="tab-nav" role="tablist" aria-label="Main navigation">
+    <button class="tab-btn active" onclick="switchTab('comps')" role="tab" aria-selected="true" aria-controls="comps-tab" id="tab-comps">Comps & Analysis</button>
+    <button class="tab-btn" onclick="switchTab('intelligence')" role="tab" aria-selected="false" aria-controls="intelligence-tab" id="tab-intelligence">Grading Intelligence</button>
+    <button class="tab-btn" onclick="switchTab('portfolio')" id="portfolio-tab-btn" style="display: none;" role="tab" aria-selected="false" aria-controls="portfolio-tab">My Collection</button>
   </div>
   
   <!-- Comps & Analysis Tab -->
-  <div id="comps-tab" class="tab-content active">
+  <div id="comps-tab" class="tab-content active" role="tabpanel" aria-labelledby="tab-comps">
     <div id="controls">
       <div>
         <label for="query">Search:</label>
-        <input id="query" type="text" placeholder="e.g. 2024 topps chrome elly de la cruz">
+        <input id="query" type="text" placeholder="e.g., 2024 Topps Chrome Elly De La Cruz" aria-label="Search for a baseball card">
       </div>
 
       <!-- Expandable Search Tips (novice-friendly) -->
@@ -2039,13 +2040,13 @@
     </div>
 
     <!-- Sub-tab Navigation -->
-    <div class="sub-tab-nav">
-      <button class="sub-tab-btn active" onclick="switchSubTab('comps')">Comps</button>
-      <button class="sub-tab-btn" onclick="switchSubTab('analysis')">Analysis</button>
+    <div class="sub-tab-nav" role="tablist" aria-label="Comps and Analysis sub-navigation">
+      <button class="sub-tab-btn active" onclick="switchSubTab('comps')" role="tab" aria-selected="true" aria-controls="comps-subtab" id="subtab-comps">Comps</button>
+      <button class="sub-tab-btn" onclick="switchSubTab('analysis')" role="tab" aria-selected="false" aria-controls="analysis-subtab" id="subtab-analysis">Analysis</button>
     </div>
 
     <!-- Comps Sub-tab -->
-    <div id="comps-subtab" class="sub-tab-content active">
+    <div id="comps-subtab" class="sub-tab-content active" role="tabpanel" aria-labelledby="subtab-comps">
       <div id="stats-container">
         <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
           <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Comps & Statistics</h3>
@@ -2063,7 +2064,7 @@
     </div>
 
     <!-- Analysis Sub-tab -->
-    <div id="analysis-subtab" class="sub-tab-content">
+    <div id="analysis-subtab" class="sub-tab-content" role="tabpanel" aria-labelledby="subtab-analysis">
       <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
         <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Market Analysis</h3>
         <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Search for a card to see advanced market analytics and insights</p>
@@ -2072,7 +2073,7 @@
   </div>
   
   <!-- Grading Intelligence Tab -->
-  <div id="intelligence-tab" class="tab-content">
+  <div id="intelligence-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-intelligence">
     <div id="controls">
       <div>
         <label for="intelligence-query">Search Specific Card:</label>
@@ -2132,13 +2133,13 @@
         </ul>
       </details>
       
-      <div style="margin-bottom: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%); border-radius: 12px; border-left: 4px solid #ff9500; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.1);">
-        <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--text-color);">
-          <strong style="color: #ff9500;">Search Tip:</strong> For best results, format your search as "Year and Set" "Athlete" "Variant" Card#
-          <br>
-          <span style="display: inline-block; margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: white; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.85rem; color: var(--subtle-text-color);">
-            "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1
-          </span>
+      <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%); border-radius: 12px; border-left: 4px solid #ff9500; box-shadow: 0 2px 8px rgba(255, 149, 0, 0.1);">
+        <h4 style="margin: 0 0 0.75rem 0; color: #ff9500; font-size: 1rem; font-weight: 600;">🧠 What is Grading Intelligence?</h4>
+        <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; line-height: 1.6; color: var(--text-color);">
+          Compare fair market values across different grading companies and grades for the same card. Enter your card details, then specify up to 3 different grader/grade combinations to see how they stack up.
+        </p>
+        <p style="margin: 0; font-size: 0.85rem; color: var(--subtle-text-color);">
+          <strong>Example:</strong> Compare PSA 10, BGS 9.5, and SGC 10 values for the same card to find the best value.
         </p>
       </div>
       
@@ -2211,7 +2212,7 @@
   </div>
   
   <!-- My Collection Tab -->
-  <div id="portfolio-tab" class="tab-content">
+  <div id="portfolio-tab" class="tab-content" role="tabpanel" aria-labelledby="portfolio-tab-btn">
     <div id="portfolio-container">
       <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
         <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📂 My Collection</h3>
@@ -2283,7 +2284,7 @@
 
 <!-- Authentication Modal -->
 <div id="auth-modal-overlay" class="auth-modal-overlay" style="display: none;">
-  <div class="auth-modal">
+  <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
     <div class="auth-modal-header">
       <h2 id="auth-modal-title">Welcome Back</h2>
       <button class="auth-modal-close" onclick="AuthModule.hideAuthModal()">&times;</button>
@@ -2363,6 +2364,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="js/config.js"></script>
+<script src="js/focusTrap.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/profile.js"></script>
 <script src="js/subscription.js"></script>

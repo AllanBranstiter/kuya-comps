@@ -258,6 +258,11 @@ const AuthModule = (function() {
             overlay.style.display = 'flex';
             // Default to login tab
             switchAuthTab('login');
+            
+            // Activate focus trap for accessibility
+            if (window.FocusTrap) {
+                FocusTrap.activate(document.querySelector('.auth-modal'));
+            }
         }
     }
     
@@ -265,6 +270,11 @@ const AuthModule = (function() {
      * Hide authentication modal
      */
     function hideAuthModal() {
+        // Deactivate focus trap before hiding modal
+        if (window.FocusTrap) {
+            FocusTrap.deactivate();
+        }
+        
         const overlay = document.getElementById('auth-modal-overlay');
         if (overlay) {
             overlay.style.display = 'none';
