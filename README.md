@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v0.5.0 (Production Beta)
+# eBay Baseball Card Comps Tool v0.5.1 (Production Beta)
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
@@ -13,6 +13,8 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
 *   **Password Protection**: Secure access with session management
 *   **Clean UI**: Modern interface with responsive design
+*   **Accessibility**: WCAG 2.1 Level A & AA compliant (skip-to-content, color contrast)
+*   **Reusable Components**: Modal system with focus trapping and ARIA support
 *   **Production Ready**: Environment-based configuration and deployment support
 
 ## Tech Stack
@@ -28,8 +30,11 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 
 ### Frontend
 *   **UI**: Vanilla HTML, CSS, and JavaScript (static files)
+*   **Styling**: External CSS with WCAG 2.1 AA compliant colors
 *   **Visualization**: Interactive beeswarm charts for price distribution
 *   **Security**: Password-protected with session management
+*   **Accessibility**: Skip-to-content link, proper color contrast ratios
+*   **Components**: Reusable Modal class with focus trapping, escape key handling, ARIA attributes
 
 ### Architecture
 *   **Modular Backend**: Organized in [`/backend/`](backend/) directory with routes, services, models, middleware, config, and cache modules
@@ -53,7 +58,17 @@ kuya-comps/
 │   ├── config/        # Configuration management
 │   └── cache/         # Redis caching layer
 ├── static/            # Frontend UI files (served at root)
-├── docs/              # Documentation (including SECURITY.md)
+│   ├── index.html     # Main application (~545 lines)
+│   ├── style.css      # Main stylesheet (extracted from index.html)
+│   ├── css/           # Component stylesheets
+│   │   └── shared-styles.css  # Shared styles (WCAG AA colors)
+│   └── js/            # JavaScript modules
+│       ├── modal.js   # Reusable modal component
+│       ├── auth.js    # Authentication (uses Modal)
+│       └── ...        # Other modules
+├── docs/              # Documentation
+│   ├── SECURITY.md
+│   └── MODAL_COMPONENT_API.md  # Modal component documentation
 ├── tests/             # Test suite
 ├── main.py            # FastAPI application entry point
 ├── requirements.txt   # Python dependencies
@@ -169,7 +184,30 @@ The application implements several strategies to manage API costs and maintain p
 
 ## Version History
 
-### Version 0.5.0 (Production Beta) - Current
+### Version 0.5.1 (UX Improvements) - Current
+
+Version 0.5.1 focuses on accessibility compliance and frontend architecture improvements. This release brings WCAG 2.1 Level A & AA compliance through skip-to-content navigation and color contrast fixes, extracts CSS from inline styles to external stylesheets, and introduces a reusable Modal component for consistent modal behavior across the application.
+
+**Accessibility & UX Improvements:**
+- **WCAG 2.1 Level A Compliance**: Skip-to-content link as first focusable element (Success Criterion 2.4.1)
+- **WCAG 2.1 Level AA Compliance**: All color contrast ratios meet 4.5:1 minimum
+  - Primary blue: `#007aff` → `#0066cc` (4.02:1 → 5.58:1)
+  - Accent green: `#34c759` → `#1d8348` (2.22:1 → 5.26:1)
+  - Accent orange: `#ff9500` → `#b35900` (2.21:1 → 4.76:1)
+  - Accent red: `#ff3b30` → `#c9302c` (3.55:1 → 5.01:1)
+- **CSS Extraction**: ~1,856 lines of inline CSS extracted from `index.html` to `style.css`
+  - Reduced index.html from ~2,400 lines to 545 lines
+  - Improved maintainability and caching
+- **Reusable Modal Component**: New [`static/js/modal.js`](static/js/modal.js) with Modal class
+  - Focus trapping for keyboard navigation
+  - Escape key to close
+  - Click outside to close
+  - ARIA attributes for screen readers
+  - CSS animations support
+  - Refactored auth.js and subscription.js to use Modal
+  - API documentation: [`docs/MODAL_COMPONENT_API.md`](docs/MODAL_COMPONENT_API.md)
+
+### Version 0.5.0 (Production Beta)
 
 Version 0.5.0 marks the transition to production beta with significant improvements to code organization and maintainability. This release focuses on cleaning up the project structure by removing extraneous standalone scripts and consolidating all testing into a formal test suite. The streamlined codebase now contains only essential runtime files in the root directory, making the project easier to navigate, maintain, and deploy.
 

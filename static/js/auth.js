@@ -249,19 +249,111 @@ const AuthModule = (function() {
         }
     }
     
+    // Modal instance for auth
+    let authModal = null;
+    
+    /**
+     * Initialize the auth modal using the Modal component
+     * @private
+     */
+    function initializeAuthModal() {
+        // Only initialize once
+        if (authModal) return;
+        
+        // Check if Modal component is available
+        if (typeof Modal === 'undefined') {
+            console.warn('[AUTH] Modal component not loaded, using fallback');
+            return;
+        }
+        
+        // Get the existing auth modal content from the DOM
+        const existingOverlay = document.getElementById('auth-modal-overlay');
+        if (!existingOverlay) {
+            console.warn('[AUTH] Auth modal overlay not found in DOM');
+            return;
+        }
+        
+        const existingModal = existingOverlay.querySelector('.auth-modal');
+        if (!existingModal) {
+            console.warn('[AUTH] Auth modal content not found in DOM');
+            return;
+        }
+        
+        // Extract the modal body content (forms and tabs)
+        const modalBody = existingModal.querySelector('.auth-modal-body');
+        if (!modalBody) {
+            console.warn('[AUTH] Auth modal body not found');
+            return;
+        }
+        
+        // Clone the content to use in the new Modal
+        const contentClone = modalBody.cloneNode(true);
+        
+        // Create the modal using the Modal component
+        authModal = new Modal({
+            id: 'auth-modal',
+            title: 'Welcome Back',
+            content: contentClone,
+            size: 'medium',
+            closeOnOverlayClick: true,
+            closeOnEscape: true,
+            onOpen: (modal) => {
+                console.log('[AUTH] Auth modal opened');
+                // Default to login tab when opening
+                switchAuthTab('login');
+            },
+            onClose: (modal) => {
+                console.log('[AUTH] Auth modal closed');
+                // Clear forms when closing
+                clearAuthForms();
+            }
+        });
+        
+        // Set up form event listeners on the new modal content
+        const contentElement = authModal.getContentElement();
+        
+        const loginForm = contentElement.querySelector('#login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', handleLogin);
+        }
+        
+        const signupForm = contentElement.querySelector('#signup-form');
+        if (signupForm) {
+            signupForm.addEventListener('submit', handleSignUp);
+        }
+        
+        // Hide the original modal overlay since we're using the Modal component
+        existingOverlay.style.display = 'none';
+        existingOverlay.setAttribute('aria-hidden', 'true');
+        
+        console.log('[AUTH] Auth modal initialized with Modal component');
+    }
+    
     /**
      * Show authentication modal
      */
     function showAuthModal() {
-        const overlay = document.getElementById('auth-modal-overlay');
-        if (overlay) {
-            overlay.style.display = 'flex';
-            // Default to login tab
-            switchAuthTab('login');
-            
-            // Activate focus trap for accessibility
-            if (window.FocusTrap) {
-                FocusTrap.activate(document.querySelector('.auth-modal'));
+        // Initialize modal if not already done
+        if (!authModal) {
+            initializeAuthModal();
+        }
+        
+        // If Modal component is available, use it
+        if (authModal) {
+            authModal.setTitle('Welcome Back');
+            authModal.open();
+        } else {
+            // Fallback to original implementation
+            const overlay = document.getElementById('auth-modal-overlay');
+            if (overlay) {
+                overlay.style.display = 'flex';
+                // Default to login tab
+                switchAuthTab('login');
+                
+                // Activate focus trap for accessibility
+                if (window.FocusTrap) {
+                    FocusTrap.activate(document.querySelector('.auth-modal'));
+                }
             }
         }
     }
@@ -270,16 +362,22 @@ const AuthModule = (function() {
      * Hide authentication modal
      */
     function hideAuthModal() {
-        // Deactivate focus trap before hiding modal
-        if (window.FocusTrap) {
-            FocusTrap.deactivate();
-        }
-        
-        const overlay = document.getElementById('auth-modal-overlay');
-        if (overlay) {
-            overlay.style.display = 'none';
-            // Clear forms
-            clearAuthForms();
+        // If using Modal component
+        if (authModal) {
+            authModal.close();
+        } else {
+            // Fallback to original implementation
+            // Deactivate focus trap before hiding modal
+            if (window.FocusTrap) {
+                FocusTrap.deactivate();
+            }
+            
+            const overlay = document.getElementById('auth-modal-overlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+                // Clear forms
+                clearAuthForms();
+            }
         }
     }
     
@@ -288,32 +386,60 @@ const AuthModule = (function() {
      * @param {string} tab - 'login' or 'signup'
      */
     function switchAuthTab(tab) {
+        // Get the container (either Modal content or fallback overlay)
+        let container;
+        if (authModal) {
+            container = authModal.getContentElement();
+            // Update modal title via Modal API
+            authModal.setTitle(tab === 'login' ? 'Welcome Back' : 'Create Account');
+        } else {
+            container = document.getElementById('auth-modal-overlay');
+            // Update modal title directly for fallback
+            const title = document.getElementById('auth-modal-title');
+            if (title) {
+                title.textContent = tab === 'login' ? 'Welcome Back' : 'Create Account';
+            }
+        }
+        
+        if (!container) return;
+        
         // Update tabs
-        document.querySelectorAll('.auth-tab').forEach(btn => {
+        container.querySelectorAll('.auth-tab').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tab === tab);
         });
         
         // Update forms
-        document.querySelectorAll('.auth-form').forEach(form => {
+        container.querySelectorAll('.auth-form').forEach(form => {
             form.classList.toggle('active', form.id === `${tab}-form`);
         });
-        
-        // Update modal title
-        const title = document.getElementById('auth-modal-title');
-        if (title) {
-            title.textContent = tab === 'login' ? 'Welcome Back' : 'Create Account';
-        }
         
         // Clear messages
         clearAuthMessages();
     }
     
     /**
+     * Get the auth form container (Modal content or fallback)
+     * @private
+     * @returns {HTMLElement|null} Container element
+     */
+    function getAuthContainer() {
+        if (authModal) {
+            return authModal.getContentElement();
+        }
+        return document.getElementById('auth-modal-overlay');
+    }
+    
+    /**
      * Clear all auth forms
      */
     function clearAuthForms() {
-        document.getElementById('login-form')?.reset();
-        document.getElementById('signup-form')?.reset();
+        const container = getAuthContainer();
+        if (container) {
+            const loginForm = container.querySelector('#login-form');
+            const signupForm = container.querySelector('#signup-form');
+            if (loginForm) loginForm.reset();
+            if (signupForm) signupForm.reset();
+        }
         clearAuthMessages();
     }
     
@@ -321,9 +447,12 @@ const AuthModule = (function() {
      * Clear auth error/success messages
      */
     function clearAuthMessages() {
+        const container = getAuthContainer();
+        if (!container) return;
+        
         const messageIds = ['login-error', 'login-success', 'signup-error', 'signup-success'];
         messageIds.forEach(id => {
-            const el = document.getElementById(id);
+            const el = container.querySelector(`#${id}`);
             if (el) {
                 el.style.display = 'none';
                 el.textContent = '';
@@ -337,7 +466,10 @@ const AuthModule = (function() {
      * @param {string} message - Message to display
      */
     function showAuthMessage(elementId, message) {
-        const el = document.getElementById(elementId);
+        const container = getAuthContainer();
+        if (!container) return;
+        
+        const el = container.querySelector(`#${elementId}`);
         if (el) {
             el.textContent = message;
             el.style.display = 'flex';
@@ -351,8 +483,9 @@ const AuthModule = (function() {
     async function handleLogin(event) {
         event.preventDefault();
         
-        const email = document.getElementById('login-email')?.value;
-        const password = document.getElementById('login-password')?.value;
+        const container = getAuthContainer();
+        const email = container?.querySelector('#login-email')?.value;
+        const password = container?.querySelector('#login-password')?.value;
         
         if (!email || !password) {
             showAuthMessage('login-error', 'Please enter both email and password');
@@ -404,11 +537,12 @@ const AuthModule = (function() {
     async function handleSignUp(event) {
         event.preventDefault();
         
-        const firstName = document.getElementById('signup-first-name')?.value;
-        const lastName = document.getElementById('signup-last-name')?.value;
-        const email = document.getElementById('signup-email')?.value;
-        const password = document.getElementById('signup-password')?.value;
-        const confirmPassword = document.getElementById('signup-password-confirm')?.value;
+        const container = getAuthContainer();
+        const firstName = container?.querySelector('#signup-first-name')?.value;
+        const lastName = container?.querySelector('#signup-last-name')?.value;
+        const email = container?.querySelector('#signup-email')?.value;
+        const password = container?.querySelector('#signup-password')?.value;
+        const confirmPassword = container?.querySelector('#signup-password-confirm')?.value;
         
         if (!firstName || !lastName || !email || !password || !confirmPassword) {
             showAuthMessage('signup-error', 'Please fill in all fields');
