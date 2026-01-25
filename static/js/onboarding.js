@@ -33,6 +33,42 @@ const OnboardingTour = (function() {
         }
     }
 
+    // Backdrop element for tour overlay
+    let backdropElement = null;
+
+    /**
+     * Create and show a custom backdrop overlay
+     */
+    function showBackdrop() {
+        if (backdropElement) return; // Already showing
+        
+        backdropElement = document.createElement('div');
+        backdropElement.id = 'kuya-tour-backdrop';
+        backdropElement.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 99998;
+            pointer-events: none;
+        `;
+        document.body.appendChild(backdropElement);
+        console.log('[ONBOARDING] Backdrop shown');
+    }
+
+    /**
+     * Hide and remove the custom backdrop overlay
+     */
+    function hideBackdrop() {
+        if (backdropElement) {
+            backdropElement.remove();
+            backdropElement = null;
+            console.log('[ONBOARDING] Backdrop hidden');
+        }
+    }
+
     /**
      * Mark onboarding as complete
      */
@@ -346,6 +382,9 @@ const OnboardingTour = (function() {
             },
             
             onDestroyed: () => {
+                // Hide our custom backdrop
+                hideBackdrop();
+                
                 markOnboardingComplete();
                 console.log('[ONBOARDING] Tour completed and saved');
                 
@@ -400,6 +439,9 @@ const OnboardingTour = (function() {
         // Configure steps
         const steps = getTourSteps();
         driverInstance.setSteps(steps);
+
+        // Show our custom backdrop
+        showBackdrop();
 
         // Start the tour
         console.log('[ONBOARDING] Starting tour with', steps.length, 'steps');
