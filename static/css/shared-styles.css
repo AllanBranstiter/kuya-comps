@@ -11,10 +11,10 @@
 /* ===== CSS VARIABLES ===== */
 :root {
   /* Primary Colors */
-  --primary-blue: #007aff;
-  --primary-blue-hover: #0056b3;
+  --primary-blue: #0066cc;
+  --primary-blue-hover: #004d99;
   --accent-purple: #5856d6;
-  --accent-green: #34c759;
+  --accent-green: #1d8348;
   
   /* Background Colors */
   --background-color: #f8fafd;
@@ -30,8 +30,8 @@
   --shadow-color-hover: rgba(0, 0, 0, 0.15);
   
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #007aff, #5856d6);
-  --gradient-accent: linear-gradient(135deg, #34c759, #30d158);
+  --gradient-primary: linear-gradient(135deg, #0066cc, #5856d6);
+  --gradient-accent: linear-gradient(135deg, #1d8348, #28a745);
   --gradient-background: linear-gradient(135deg, #f8fafd 0%, #ebf3ff 100%);
   
   /* Typography */
