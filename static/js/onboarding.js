@@ -397,7 +397,14 @@ const OnboardingTour = (function() {
             
             onNextClick: (element, step, options) => {
                 console.log('[ONBOARDING] Advancing to next step');
-                driverInstance.moveNext();
+                // Check if this is the last step
+                if (!driverInstance.hasNextStep()) {
+                    // On last step, finish the tour
+                    console.log('[ONBOARDING] Last step - finishing tour');
+                    driverInstance.destroy();
+                } else {
+                    driverInstance.moveNext();
+                }
             },
             
             onPrevClick: (element, step, options) => {
