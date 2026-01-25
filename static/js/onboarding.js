@@ -255,11 +255,21 @@ const OnboardingTour = (function() {
         // Check if Driver.js is loaded
         // Debug: Log what driver object looks like
         console.log('[ONBOARDING] driver object:', typeof driver, driver);
+        console.log('[ONBOARDING] driver keys:', driver ? Object.keys(driver).join(', ') : 'undefined');
+        
+        // Also check for other global variables
+        console.log('[ONBOARDING] window.driver:', typeof window.driver);
+        console.log('[ONBOARDING] window.Driver:', typeof window.Driver);
         
         // Driver.js v1.3.1 IIFE build detection
         let driverConstructor = null;
         
         if (typeof driver !== 'undefined') {
+            // Log all properties and their types
+            for (const key of Object.keys(driver)) {
+                console.log('[ONBOARDING] driver.' + key + ':', typeof driver[key]);
+            }
+            
             // Try different API patterns
             if (typeof driver === 'function') {
                 // Direct function: driver({...})
@@ -269,6 +279,10 @@ const OnboardingTour = (function() {
                 // Nested function: driver.driver({...})
                 driverConstructor = driver.driver;
                 console.log('[ONBOARDING] Using driver.driver()');
+            } else if (driver.default && typeof driver.default === 'function') {
+                // ES module default export pattern
+                driverConstructor = driver.default;
+                console.log('[ONBOARDING] Using driver.default()');
             } else if (typeof window.Driver !== 'undefined' && typeof window.Driver === 'function') {
                 // Alternative global: Driver({...})
                 driverConstructor = window.Driver;
@@ -278,7 +292,6 @@ const OnboardingTour = (function() {
         
         if (!driverConstructor) {
             console.error('[ONBOARDING] Driver.js library not loaded or API not recognized');
-            console.error('[ONBOARDING] Available driver keys:', driver ? Object.keys(driver) : 'undefined');
             return null;
         }
 
