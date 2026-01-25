@@ -9,15 +9,25 @@
  */
 
 /* ===== POPOVER CONTAINER ===== */
-.kuya-tour-popover {
-    background: var(--card-background);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    font-family: var(--font-family);
-    max-width: 360px;
+.kuya-tour-popover,
+.driver-popover.kuya-tour-popover {
+    background: var(--card-background) !important;
+    color: var(--text-color) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+    font-family: var(--font-family) !important;
+    max-width: 360px !important;
     animation: kuya-tour-fade-in 0.3s ease-out;
+}
+
+/* Remove any default Driver.js shadows/arrows */
+.driver-popover.kuya-tour-popover .driver-popover-arrow,
+.driver-popover.kuya-tour-popover .driver-popover-arrow-side-left,
+.driver-popover.kuya-tour-popover .driver-popover-arrow-side-right,
+.driver-popover.kuya-tour-popover .driver-popover-arrow-side-top,
+.driver-popover.kuya-tour-popover .driver-popover-arrow-side-bottom {
+    display: none !important;
 }
 
 /* Gradient accent bar at top of popover */
@@ -64,44 +74,55 @@
 
 /* ===== BUTTON BASE STYLES ===== */
 .kuya-tour-popover .driver-popover-next-btn,
-.kuya-tour-popover .driver-popover-prev-btn {
-    background: var(--primary-blue);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    font-family: var(--font-family);
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
-    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.25);
+.kuya-tour-popover .driver-popover-prev-btn,
+.driver-popover.kuya-tour-popover .driver-popover-next-btn,
+.driver-popover.kuya-tour-popover .driver-popover-prev-btn {
+    background: var(--primary-blue) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 0.5rem 1.25rem !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    font-family: var(--font-family) !important;
+    cursor: pointer !important;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    letter-spacing: 0.02em !important;
 }
 
 /* Next button - primary action style */
-.kuya-tour-popover .driver-popover-next-btn:hover {
-    background: var(--primary-blue-hover);
+.kuya-tour-popover .driver-popover-next-btn:hover,
+.driver-popover.kuya-tour-popover .driver-popover-next-btn:hover {
+    background: #0052a3 !important;
     transform: scale(1.02);
+    box-shadow: none !important;
 }
 
-.kuya-tour-popover .driver-popover-next-btn:active {
+.kuya-tour-popover .driver-popover-next-btn:active,
+.driver-popover.kuya-tour-popover .driver-popover-next-btn:active {
     transform: scale(0.98);
 }
 
 /* Previous button - outline style */
-.kuya-tour-popover .driver-popover-prev-btn {
-    background: transparent;
-    color: var(--primary-blue);
-    border: 1px solid var(--primary-blue);
-    box-shadow: none;
+.kuya-tour-popover .driver-popover-prev-btn,
+.driver-popover.kuya-tour-popover .driver-popover-prev-btn {
+    background: transparent !important;
+    color: var(--primary-blue) !important;
+    border: 1px solid var(--primary-blue) !important;
+    box-shadow: none !important;
 }
 
-.kuya-tour-popover .driver-popover-prev-btn:hover {
-    background: rgba(0, 102, 204, 0.1);
+.kuya-tour-popover .driver-popover-prev-btn:hover,
+.driver-popover.kuya-tour-popover .driver-popover-prev-btn:hover {
+    background: rgba(0, 102, 204, 0.15) !important;
     transform: scale(1.02);
+    box-shadow: none !important;
 }
 
-.kuya-tour-popover .driver-popover-prev-btn:active {
+.kuya-tour-popover .driver-popover-prev-btn:active,
+.driver-popover.kuya-tour-popover .driver-popover-prev-btn:active {
     transform: scale(0.98);
 }
 
