@@ -330,8 +330,13 @@ const OnboardingTour = (function() {
             animate: true,
             smoothScroll: true,
             
-            // Overlay
-            overlayColor: 'rgba(0, 0, 0, 0.7)',
+            // Overlay - set to fully opaque black to avoid anti-aliasing issues
+            overlayColor: 'rgb(0, 0, 0)',
+            overlayOpacity: 0.7,
+            
+            // Stage configuration - minimize to reduce blur artifacts
+            stagePadding: 0,
+            stageRadius: 0,
             
             // Popover styling
             popoverClass: 'kuya-tour-popover',
