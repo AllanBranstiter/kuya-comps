@@ -253,13 +253,36 @@ const OnboardingTour = (function() {
      */
     function createDriver() {
         // Check if Driver.js is loaded
-        // IIFE build exposes driver as an object with a nested driver function
-        if (typeof driver === 'undefined' || typeof driver.driver !== 'function') {
-            console.error('[ONBOARDING] Driver.js library not loaded or invalid API');
+        // Debug: Log what driver object looks like
+        console.log('[ONBOARDING] driver object:', typeof driver, driver);
+        
+        // Driver.js v1.3.1 IIFE build detection
+        let driverConstructor = null;
+        
+        if (typeof driver !== 'undefined') {
+            // Try different API patterns
+            if (typeof driver === 'function') {
+                // Direct function: driver({...})
+                driverConstructor = driver;
+                console.log('[ONBOARDING] Using driver() directly');
+            } else if (typeof driver.driver === 'function') {
+                // Nested function: driver.driver({...})
+                driverConstructor = driver.driver;
+                console.log('[ONBOARDING] Using driver.driver()');
+            } else if (typeof window.Driver !== 'undefined' && typeof window.Driver === 'function') {
+                // Alternative global: Driver({...})
+                driverConstructor = window.Driver;
+                console.log('[ONBOARDING] Using window.Driver()');
+            }
+        }
+        
+        if (!driverConstructor) {
+            console.error('[ONBOARDING] Driver.js library not loaded or API not recognized');
+            console.error('[ONBOARDING] Available driver keys:', driver ? Object.keys(driver) : 'undefined');
             return null;
         }
 
-        return driver.driver({
+        return driverConstructor({
             // Core configuration
             showProgress: true,
             showButtons: ['next', 'previous', 'close'],
