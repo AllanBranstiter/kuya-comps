@@ -330,11 +330,10 @@ const OnboardingTour = (function() {
             animate: true,
             smoothScroll: true,
             
-            // Overlay - set to fully opaque black to avoid anti-aliasing issues
-            overlayColor: 'rgb(0, 0, 0)',
-            overlayOpacity: 0.7,
+            // Disable overlay completely to avoid Safari SVG blur issues
+            overlayOpacity: 0,
             
-            // Stage configuration - minimize to reduce blur artifacts
+            // Stage configuration
             stagePadding: 0,
             stageRadius: 0,
             
