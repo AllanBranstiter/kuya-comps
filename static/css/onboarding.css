@@ -1,0 +1,292 @@
+/**
+ * Kuya Comps - Onboarding Tour Styles
+ * 
+ * Custom styles for Driver.js v1.3.1 onboarding tour.
+ * These styles integrate with Kuya Comps' existing design system using CSS variables.
+ * 
+ * Created: January 25, 2026
+ * Phase: 2 - Onboarding Implementation
+ */
+
+/* ===== POPOVER CONTAINER ===== */
+.kuya-tour-popover {
+    background: var(--card-background);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    font-family: var(--font-family);
+    max-width: 360px;
+    animation: kuya-tour-fade-in 0.3s ease-out;
+}
+
+/* Gradient accent bar at top of popover */
+.kuya-tour-popover::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-primary);
+    border-radius: 12px 12px 0 0;
+}
+
+/* ===== POPOVER TITLE ===== */
+.kuya-tour-popover .driver-popover-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+    padding-top: 0.25rem;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ===== POPOVER DESCRIPTION ===== */
+.kuya-tour-popover .driver-popover-description {
+    font-size: 0.95rem;
+    color: var(--subtle-text-color);
+    line-height: 1.5;
+    margin-bottom: 1rem;
+}
+
+/* ===== NAVIGATION CONTAINER ===== */
+.kuya-tour-popover .driver-popover-navigation {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+/* ===== BUTTON BASE STYLES ===== */
+.kuya-tour-popover .driver-popover-next-btn,
+.kuya-tour-popover .driver-popover-prev-btn {
+    background: var(--primary-blue);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: var(--font-family);
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.25);
+}
+
+/* Next button - primary action style */
+.kuya-tour-popover .driver-popover-next-btn:hover {
+    background: var(--primary-blue-hover);
+    transform: scale(1.02);
+}
+
+.kuya-tour-popover .driver-popover-next-btn:active {
+    transform: scale(0.98);
+}
+
+/* Previous button - outline style */
+.kuya-tour-popover .driver-popover-prev-btn {
+    background: transparent;
+    color: var(--primary-blue);
+    border: 1px solid var(--primary-blue);
+    box-shadow: none;
+}
+
+.kuya-tour-popover .driver-popover-prev-btn:hover {
+    background: rgba(0, 102, 204, 0.1);
+    transform: scale(1.02);
+}
+
+.kuya-tour-popover .driver-popover-prev-btn:active {
+    transform: scale(0.98);
+}
+
+/* ===== CLOSE BUTTON ===== */
+.kuya-tour-popover .driver-popover-close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: var(--subtle-text-color);
+    font-size: 1.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, color 0.2s, transform 0.2s;
+    box-shadow: none;
+    line-height: 1;
+}
+
+.kuya-tour-popover .driver-popover-close-btn:hover {
+    background: var(--background-color);
+    color: var(--text-color);
+    transform: rotate(90deg);
+}
+
+.kuya-tour-popover .driver-popover-close-btn:active {
+    transform: rotate(90deg) scale(0.95);
+}
+
+/* ===== PROGRESS INDICATOR ===== */
+.kuya-tour-popover .driver-popover-progress-text {
+    font-size: 0.8rem;
+    color: var(--subtle-text-color);
+    text-align: center;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* ===== FOCUS STATES (ACCESSIBILITY) ===== */
+.kuya-tour-popover .driver-popover-next-btn:focus-visible,
+.kuya-tour-popover .driver-popover-prev-btn:focus-visible,
+.kuya-tour-popover .driver-popover-close-btn:focus-visible {
+    outline: 2px solid var(--primary-blue);
+    outline-offset: 2px;
+}
+
+/* ===== ANIMATION KEYFRAMES ===== */
+@keyframes kuya-tour-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===== DRIVER.JS OVERLAY OVERRIDE ===== */
+.driver-overlay {
+    /* Ensure overlay respects theme and has consistent appearance */
+    background: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Highlighted element styling */
+.driver-highlighted-element {
+    /* Add subtle glow to highlighted elements */
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.3) !important;
+}
+
+/* ===== TOUR TRIGGER LINK (FOOTER) ===== */
+.tour-trigger-link {
+    color: var(--subtle-text-color);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+    cursor: pointer;
+}
+
+.tour-trigger-link:hover {
+    color: var(--primary-blue);
+    text-decoration: underline;
+}
+
+.tour-trigger-link:focus-visible {
+    outline: 2px solid var(--primary-blue);
+    outline-offset: 2px;
+}
+
+/* Tour trigger with icon */
+.tour-trigger-link::before {
+    content: '❓';
+    margin-right: 0.35rem;
+    font-size: 0.8em;
+}
+
+/* ===== REDUCED MOTION SUPPORT ===== */
+@media (prefers-reduced-motion: reduce) {
+    .kuya-tour-popover {
+        animation: none;
+    }
+    
+    .kuya-tour-popover .driver-popover-next-btn,
+    .kuya-tour-popover .driver-popover-prev-btn,
+    .kuya-tour-popover .driver-popover-close-btn {
+        transition: none;
+    }
+    
+    .kuya-tour-popover .driver-popover-close-btn:hover {
+        transform: none;
+    }
+}
+
+/* ===== MOBILE RESPONSIVENESS ===== */
+@media (max-width: 600px) {
+    .kuya-tour-popover {
+        max-width: 90vw;
+        margin: 0 1rem;
+        border-radius: 10px;
+    }
+    
+    .kuya-tour-popover .driver-popover-title {
+        font-size: 1.1rem;
+    }
+    
+    .kuya-tour-popover .driver-popover-description {
+        font-size: 0.9rem;
+    }
+    
+    .kuya-tour-popover .driver-popover-navigation {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    
+    .kuya-tour-popover .driver-popover-next-btn,
+    .kuya-tour-popover .driver-popover-prev-btn {
+        padding: 0.625rem 1.25rem;
+        font-size: 0.95rem;
+        min-height: 44px;
+        min-width: 80px;
+    }
+    
+    .kuya-tour-popover .driver-popover-close-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 1.35rem;
+        top: 6px;
+        right: 6px;
+    }
+    
+    .tour-trigger-link {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+    }
+}
+
+/* ===== TABLET STYLES ===== */
+@media (min-width: 601px) and (max-width: 768px) {
+    .kuya-tour-popover {
+        max-width: 340px;
+    }
+}
+
+/* ===== TOUCH DEVICE OPTIMIZATIONS ===== */
+@media (pointer: coarse) {
+    .kuya-tour-popover .driver-popover-next-btn,
+    .kuya-tour-popover .driver-popover-prev-btn {
+        min-height: 44px;
+        padding: 0.625rem 1.25rem;
+    }
+    
+    .kuya-tour-popover .driver-popover-close-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
+    .tour-trigger-link {
+        padding: 0.5rem;
+        display: inline-block;
+    }
+}
