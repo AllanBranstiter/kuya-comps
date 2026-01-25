@@ -250,28 +250,32 @@
 }
 
 /* ===== DRIVER.JS OVERLAY OVERRIDE ===== */
+/* Hide the SVG overlay completely - it causes anti-aliasing blur in Safari */
 .driver-overlay,
 .driver-overlay svg,
 svg.driver-overlay {
-    /* Ensure overlay respects theme and has consistent appearance */
-    background: transparent !important;
-    filter: none !important;
-    -webkit-filter: none !important;
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
 
-/* Fix SVG path rendering - eliminate anti-aliasing blur on cutout edges */
-.driver-overlay path,
-.driver-overlay svg path,
-svg.driver-overlay path {
-    stroke: rgba(0, 0, 0, 0.7) !important;
-    stroke-width: 1px !important;
-    filter: none !important;
-    -webkit-filter: none !important;
-    shape-rendering: crispEdges !important;
+/* Use a simple CSS-based backdrop instead */
+body.driver-active::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 99998; /* Just below the popover */
+    pointer-events: auto;
 }
 
-/* Highlighted element styling - disable glow to prevent blur */
+/* Highlighted element styling - bring to front above backdrop */
 .driver-highlighted-element {
+    position: relative !important;
+    z-index: 99999 !important;
     box-shadow: none !important;
     outline: 2px solid var(--primary-blue) !important;
     outline-offset: 2px !important;
