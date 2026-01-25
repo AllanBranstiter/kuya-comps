@@ -159,10 +159,17 @@
 }
 
 /* ===== BUTTON BASE STYLES ===== */
+/* Target buttons with maximum specificity */
+.driver-popover-next-btn,
+.driver-popover-prev-btn,
+button.driver-popover-next-btn,
+button.driver-popover-prev-btn,
 .kuya-tour-popover .driver-popover-next-btn,
 .kuya-tour-popover .driver-popover-prev-btn,
 .driver-popover.kuya-tour-popover .driver-popover-next-btn,
-.driver-popover.kuya-tour-popover .driver-popover-prev-btn {
+.driver-popover.kuya-tour-popover .driver-popover-prev-btn,
+.driver-popover .driver-popover-next-btn,
+.driver-popover .driver-popover-prev-btn {
     background: var(--primary-blue) !important;
     color: #ffffff !important;
     border: none !important;
@@ -172,10 +179,15 @@
     font-weight: 600 !important;
     font-family: var(--font-family) !important;
     cursor: pointer !important;
-    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s !important;
+    transition: background-color 0.2s, transform 0.1s !important;
     box-shadow: none !important;
+    -webkit-box-shadow: none !important;
+    -moz-box-shadow: none !important;
     text-shadow: none !important;
     letter-spacing: 0.02em !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    outline: none !important;
 }
 
 /* Next button - primary action style */
