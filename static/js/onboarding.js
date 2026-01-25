@@ -268,6 +268,13 @@ const OnboardingTour = (function() {
             // Log all properties and their types
             for (const key of Object.keys(driver)) {
                 console.log('[ONBOARDING] driver.' + key + ':', typeof driver[key]);
+                // Also log nested keys if it's an object
+                if (typeof driver[key] === 'object' && driver[key] !== null) {
+                    console.log('[ONBOARDING] driver.' + key + ' keys:', Object.keys(driver[key]).join(', '));
+                    for (const nestedKey of Object.keys(driver[key])) {
+                        console.log('[ONBOARDING] driver.' + key + '.' + nestedKey + ':', typeof driver[key][nestedKey]);
+                    }
+                }
             }
             
             // Try different API patterns
@@ -283,6 +290,14 @@ const OnboardingTour = (function() {
                 // ES module default export pattern
                 driverConstructor = driver.default;
                 console.log('[ONBOARDING] Using driver.default()');
+            } else if (driver.js && typeof driver.js === 'function') {
+                // IIFE namespace pattern: driver.js({...})
+                driverConstructor = driver.js;
+                console.log('[ONBOARDING] Using driver.js()');
+            } else if (driver.js && typeof driver.js.driver === 'function') {
+                // Deeply nested: driver.js.driver({...})
+                driverConstructor = driver.js.driver;
+                console.log('[ONBOARDING] Using driver.js.driver()');
             } else if (typeof window.Driver !== 'undefined' && typeof window.Driver === 'function') {
                 // Alternative global: Driver({...})
                 driverConstructor = window.Driver;
