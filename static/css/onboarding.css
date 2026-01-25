@@ -15,10 +15,35 @@
     color: var(--text-color) !important;
     border: 1px solid var(--border-color) !important;
     border-radius: 12px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
     font-family: var(--font-family) !important;
     max-width: 360px !important;
     animation: kuya-tour-fade-in 0.3s ease-out;
+    /* Ensure no extra pseudo-elements or filters */
+    filter: none !important;
+    -webkit-filter: none !important;
+}
+
+/* Hide the Driver.js popover arrow completely */
+.driver-popover-arrow,
+.driver-popover-arrow-side-left,
+.driver-popover-arrow-side-right,
+.driver-popover-arrow-side-top,
+.driver-popover-arrow-side-bottom,
+.driver-popover-arrow-side-left-center,
+.driver-popover-arrow-side-right-center,
+.driver-popover-arrow-side-top-center,
+.driver-popover-arrow-side-bottom-center,
+[class*="driver-popover-arrow"],
+.driver-popover > svg,
+.driver-popover svg {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    position: absolute !important;
+    left: -9999px !important;
 }
 
 /* Remove any default Driver.js shadows/arrows - aggressive override */
