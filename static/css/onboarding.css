@@ -46,6 +46,51 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
 }
 
+/* Hide Driver.js stage padding/glow effects */
+.driver-active-element,
+.driver-highlighted-element,
+[class*="driver-active"],
+[class*="driver-highlighted"] {
+    box-shadow: none !important;
+}
+
+/* Hide any popover tip/pointer elements */
+.driver-popover-tip,
+.driver-popover::before,
+.driver-popover::after,
+.driver-popover > *::before,
+.driver-popover > *::after {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+}
+
+/* Re-enable our custom top gradient bar */
+.kuya-tour-popover::before,
+.driver-popover.kuya-tour-popover::before {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 3px !important;
+    background: var(--gradient-primary) !important;
+    border-radius: 12px 12px 0 0 !important;
+    box-shadow: none !important;
+}
+
+/* Override driver-js stage (the highlight box around elements) */
+.driver-active-element-stage,
+.driver-fade-in-animation,
+.driver-fade-out-animation,
+[class*="driver-stage"] {
+    box-shadow: none !important;
+    border: none !important;
+}
+
 /* Gradient accent bar at top of popover */
 .kuya-tour-popover::before {
     content: '';
