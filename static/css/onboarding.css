@@ -287,17 +287,29 @@ button.driver-popover-prev-btn,
 }
 
 /* ===== DRIVER.JS OVERLAY OVERRIDE ===== */
-/* Hide the SVG overlay completely - it causes anti-aliasing blur in Safari */
+/* Re-enable SVG overlay but with fixed rendering */
 .driver-overlay,
 .driver-overlay svg,
 svg.driver-overlay {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
+    /* Use hardware acceleration to fix Safari rendering */
+    transform: translateZ(0) !important;
+    -webkit-transform: translateZ(0) !important;
+    backface-visibility: hidden !important;
+    -webkit-backface-visibility: hidden !important;
+    /* Disable any filters */
+    filter: none !important;
+    -webkit-filter: none !important;
 }
 
-/* Remove the CSS backdrop - it causes rendering issues in Safari */
-/* The popover will display without a dark overlay */
+/* Fix SVG path rendering in Safari */
+.driver-overlay path,
+svg.driver-overlay path {
+    /* Use crisp edges to avoid anti-aliasing blur */
+    shape-rendering: crispEdges !important;
+    /* No stroke to avoid edge artifacts */
+    stroke: none !important;
+    stroke-width: 0 !important;
+}
 
 /* Highlighted element styling - bring to front above backdrop */
 .driver-highlighted-element {
