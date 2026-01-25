@@ -484,6 +484,9 @@ const SubscriptionManager = (function() {
         });
     }
     
+    // Modal instance for subscription/upgrade prompts
+    let subscriptionModal = null;
+    
     /**
      * Show upgrade modal with limit information
      * @param {Object} options - Modal configuration
@@ -491,135 +494,152 @@ const SubscriptionManager = (function() {
     function showLimitModal(options) {
         const { title, icon, message, subtext, feature, requiredTier } = options;
         
-        // Remove existing modal
-        const existing = document.getElementById('subscription-limit-modal');
-        if (existing) existing.remove();
+        // Generate pricing content HTML
+        const memberCard = requiredTier !== TIERS.FOUNDER ? `
+            <div class="modal-pricing-card featured">
+                <h3 class="modal-pricing-title">Member</h3>
+                <div class="modal-pricing-price">
+                    $5<span>/month</span>
+                </div>
+                <ul class="modal-pricing-features">
+                    <li>50 searches/day</li>
+                    <li>Unlimited cards</li>
+                    <li>Auto-valuation updates</li>
+                </ul>
+                <button class="modal-btn modal-btn-primary" onclick="SubscriptionManager.createCheckoutSession('member', 'monthly'); Modal.getInstance('subscription-limit-modal').close();">
+                    Upgrade to Member
+                </button>
+            </div>
+        ` : '';
         
-        const overlay = document.createElement('div');
-        overlay.id = 'subscription-limit-modal';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
-            z-index: 10000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            animation: fadeIn 0.3s ease;
+        const founderCard = `
+            <div class="modal-pricing-card founder">
+                <h3 class="modal-pricing-title" style="color: var(--accent-purple);">Founder</h3>
+                <div class="modal-pricing-price">
+                    $10<span>/month</span>
+                </div>
+                <ul class="modal-pricing-features">
+                    <li>Unlimited searches</li>
+                    <li>Unlimited cards</li>
+                    <li>Auto-valuation updates</li>
+                    <li>Priority support</li>
+                </ul>
+                <button class="modal-btn modal-btn-primary" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary-blue)); box-shadow: 0 4px 12px rgba(88, 86, 214, 0.3);" onclick="SubscriptionManager.createCheckoutSession('founder', 'monthly'); Modal.getInstance('subscription-limit-modal').close();">
+                    Upgrade to Founder
+                </button>
+            </div>
         `;
         
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            background: var(--card-background);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            width: 90%;
-            max-width: 500px;
-            padding: 2rem;
-            position: relative;
-            border: 1px solid var(--border-color);
-            animation: scaleIn 0.3s ease;
-        `;
+        const footerNote = feature === 'search_limit_exceeded'
+            ? 'Searches reset at midnight UTC'
+            : 'See all features on the pricing page';
         
-        modal.innerHTML = `
+        const content = `
             <div style="text-align: center;">
-                <div style="font-size: 4rem; margin-bottom: 1rem;">${icon}</div>
-                <h2 style="font-size: 1.75rem; font-weight: 700; margin: 0 0 1rem 0; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${title}</h2>
+                <div class="modal-icon-box">
+                    <span class="modal-icon">${icon}</span>
+                </div>
                 <p style="font-size: 1rem; color: var(--text-color); margin: 0 0 0.5rem 0;">${message}</p>
                 <p style="font-size: 0.9rem; color: var(--subtle-text-color); margin: 0 0 2rem 0;">${subtext}</p>
                 
-                <div style="display: grid; gap: 1rem; margin-bottom: 1.5rem;">
-                    ${requiredTier !== TIERS.FOUNDER ? `
-                    <div style="padding: 1.5rem; border: 2px solid var(--primary-blue); border-radius: 12px; background: linear-gradient(135deg, rgba(0, 122, 255, 0.05), rgba(0, 122, 255, 0.02));">
-                        <h3 style="font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem 0; color: var(--primary-blue);">Member</h3>
-                        <div style="font-size: 2rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-color);">
-                            $5<span style="font-size: 1rem; font-weight: 500; color: var(--subtle-text-color);">/month</span>
-                        </div>
-                        <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 1rem 0; font-size: 0.9rem; color: var(--text-color);">
-                            <li style="margin-bottom: 0.5rem;">✓ 50 searches/day</li>
-                            <li style="margin-bottom: 0.5rem;">✓ Unlimited cards</li>
-                            <li style="margin-bottom: 0.5rem;">✓ Auto-valuation updates</li>
-                        </ul>
-                        <button onclick="SubscriptionManager.createCheckoutSession('member', 'monthly')" style="
-                            width: 100%;
-                            background: var(--gradient-primary);
-                            color: white;
-                            border: none;
-                            padding: 1rem;
-                            border-radius: 10px;
-                            font-size: 1rem;
-                            font-weight: 600;
-                            cursor: pointer;
-                            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-                            transition: all 0.3s ease;
-                        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(0, 122, 255, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(0, 122, 255, 0.3)'">
-                            Upgrade to Member
-                        </button>
-                    </div>
-                    ` : ''}
-                    
-                    <div style="padding: 1.5rem; border: 2px solid var(--accent-purple); border-radius: 12px; background: linear-gradient(135deg, rgba(88, 86, 214, 0.05), rgba(88, 86, 214, 0.02));">
-                        <h3 style="font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem 0; color: var(--accent-purple);">Founder</h3>
-                        <div style="font-size: 2rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-color);">
-                            $10<span style="font-size: 1rem; font-weight: 500; color: var(--subtle-text-color);">/month</span>
-                        </div>
-                        <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 1rem 0; font-size: 0.9rem; color: var(--text-color);">
-                            <li style="margin-bottom: 0.5rem;">✓ Unlimited searches</li>
-                            <li style="margin-bottom: 0.5rem;">✓ Unlimited cards</li>
-                            <li style="margin-bottom: 0.5rem;">✓ Auto-valuation updates</li>
-                            <li style="margin-bottom: 0.5rem;">✓ Priority support</li>
-                        </ul>
-                        <button onclick="SubscriptionManager.createCheckoutSession('founder', 'monthly')" style="
-                            width: 100%;
-                            background: linear-gradient(135deg, var(--accent-purple), var(--primary-blue));
-                            color: white;
-                            border: none;
-                            padding: 1rem;
-                            border-radius: 10px;
-                            font-size: 1rem;
-                            font-weight: 600;
-                            cursor: pointer;
-                            box-shadow: 0 4px 12px rgba(88, 86, 214, 0.3);
-                            transition: all 0.3s ease;
-                        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(88, 86, 214, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(88, 86, 214, 0.3)'">
-                            Upgrade to Founder
-                        </button>
-                    </div>
+                <div class="modal-pricing-grid">
+                    ${memberCard}
+                    ${founderCard}
                 </div>
                 
-                <p style="font-size: 0.85rem; color: var(--subtle-text-color); margin-bottom: 1rem;">
-                    ${feature === 'search_limit_exceeded' ? 'Searches reset at midnight UTC' : 'See all features on the pricing page'}
+                <p style="font-size: 0.85rem; color: var(--subtle-text-color); margin: 1.5rem 0 1rem 0;">
+                    ${footerNote}
                 </p>
                 
-                <button onclick="document.getElementById('subscription-limit-modal').remove()" style="
-                    background: transparent;
-                    color: var(--subtle-text-color);
-                    border: 1px solid var(--border-color);
-                    padding: 0.75rem 1.5rem;
-                    border-radius: 10px;
-                    font-size: 0.95rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
-                " onmouseover="this.style.background='var(--background-color)'; this.style.borderColor='var(--primary-blue)'; this.style.color='var(--primary-blue)'" onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)'; this.style.color='var(--subtle-text-color)'">
+                <button class="modal-btn modal-btn-secondary" onclick="Modal.getInstance('subscription-limit-modal').close();">
                     Maybe Later
                 </button>
             </div>
         `;
         
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-        
-        // Close on overlay click
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                overlay.remove();
+        // Check if Modal component is available
+        if (typeof Modal !== 'undefined') {
+            // Destroy existing modal if it exists
+            const existing = Modal.getInstance('subscription-limit-modal');
+            if (existing) {
+                existing.destroy();
             }
-        });
+            
+            // Create new modal using Modal component
+            subscriptionModal = new Modal({
+                id: 'subscription-limit-modal',
+                title: title,
+                content: content,
+                size: 'medium',
+                showCloseButton: true,
+                closeOnOverlayClick: true,
+                closeOnEscape: true
+            });
+            
+            subscriptionModal.open();
+        } else {
+            // Fallback to original implementation
+            const existing = document.getElementById('subscription-limit-modal');
+            if (existing) existing.remove();
+            
+            const overlay = document.createElement('div');
+            overlay.id = 'subscription-limit-modal';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                backdrop-filter: blur(8px);
+                z-index: 10000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                animation: fadeIn 0.3s ease;
+            `;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: var(--card-background);
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                width: 90%;
+                max-width: 500px;
+                padding: 2rem;
+                position: relative;
+                border: 1px solid var(--border-color);
+                animation: scaleIn 0.3s ease;
+            `;
+            
+            modal.innerHTML = `
+                <button onclick="this.closest('#subscription-limit-modal').remove()" style="
+                    position: absolute;
+                    top: 1rem;
+                    right: 1rem;
+                    background: transparent;
+                    border: none;
+                    font-size: 1.5rem;
+                    color: var(--subtle-text-color);
+                    cursor: pointer;
+                    padding: 0;
+                    width: 32px;
+                    height: 32px;
+                ">&times;</button>
+                <h2 style="font-size: 1.75rem; font-weight: 700; margin: 0 0 1rem 0; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-align: center;">${title}</h2>
+                ${content}
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        }
     }
     
     /**
@@ -639,70 +659,121 @@ const SubscriptionManager = (function() {
      * Show auth required message
      */
     function showAuthRequired() {
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--card-background);
-            padding: 2rem;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            z-index: 10001;
-            text-align: center;
-            border: 1px solid var(--border-color);
-        `;
-        
-        modal.innerHTML = `
-            <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 700; color: var(--text-color);">Login Required</h3>
-            <p style="margin: 0 0 1.5rem 0; color: var(--subtle-text-color);">Please log in to manage your subscription.</p>
-            <button onclick="AuthModule.showAuthModal(); this.parentElement.remove();" style="
-                background: var(--gradient-primary);
-                color: white;
-                border: none;
-                padding: 1rem 2rem;
-                border-radius: 10px;
-                font-size: 1rem;
-                font-weight: 600;
-                cursor: pointer;
-                box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-            ">Log In</button>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        setTimeout(() => modal.remove(), 5000);
+        // Check if Modal component is available
+        if (typeof Modal !== 'undefined') {
+            const existing = Modal.getInstance('auth-required-modal');
+            if (existing) {
+                existing.destroy();
+            }
+            
+            const content = `
+                <div style="text-align: center; padding: 1rem 0;">
+                    <div class="modal-icon-box">
+                        <span class="modal-icon">🔐</span>
+                    </div>
+                    <p style="margin: 0 0 1.5rem 0; color: var(--subtle-text-color);">Please log in to manage your subscription.</p>
+                    <button class="modal-btn modal-btn-primary" onclick="AuthModule.showAuthModal(); Modal.getInstance('auth-required-modal').close();">
+                        Log In
+                    </button>
+                </div>
+            `;
+            
+            const modal = new Modal({
+                id: 'auth-required-modal',
+                title: 'Login Required',
+                content: content,
+                size: 'small',
+                closeOnOverlayClick: true,
+                closeOnEscape: true
+            });
+            
+            modal.open();
+            
+            // Auto-close after 5 seconds
+            setTimeout(() => {
+                if (modal.isOpen) {
+                    modal.close();
+                }
+            }, 5000);
+        } else {
+            // Fallback to original implementation
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--card-background);
+                padding: 2rem;
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                z-index: 10001;
+                text-align: center;
+                border: 1px solid var(--border-color);
+            `;
+            
+            modal.innerHTML = `
+                <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 700; color: var(--text-color);">Login Required</h3>
+                <p style="margin: 0 0 1.5rem 0; color: var(--subtle-text-color);">Please log in to manage your subscription.</p>
+                <button onclick="AuthModule.showAuthModal(); this.parentElement.remove();" style="
+                    background: var(--gradient-primary);
+                    color: white;
+                    border: none;
+                    padding: 1rem 2rem;
+                    border-radius: 10px;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+                ">Log In</button>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            setTimeout(() => modal.remove(), 5000);
+        }
     }
     
     /**
      * Show error message
+     * Uses showAlertModal if Modal component is available, otherwise falls back to banner
      */
     function showError(message) {
-        const banner = document.createElement('div');
-        banner.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, #ff3b30, #ff6b6b);
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(255, 59, 48, 0.4);
-            z-index: 10001;
-            font-family: var(--font-family);
-            font-size: 0.95rem;
-            font-weight: 600;
-            text-align: center;
-            animation: slideDown 0.5s ease;
-            max-width: 90%;
-        `;
-        
-        banner.textContent = message;
-        document.body.appendChild(banner);
-        
-        setTimeout(() => banner.remove(), 5000);
+        // Check if showAlertModal is available (from modal.js)
+        if (typeof showAlertModal === 'function') {
+            showAlertModal('Error', message, {
+                id: 'subscription-error-modal',
+                icon: '❌',
+                size: 'small',
+                buttonText: 'OK'
+            });
+        } else {
+            // Fallback to banner
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #ff3b30, #ff6b6b);
+                color: white;
+                padding: 1rem 2rem;
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(255, 59, 48, 0.4);
+                z-index: 10001;
+                font-family: var(--font-family);
+                font-size: 0.95rem;
+                font-weight: 600;
+                text-align: center;
+                animation: slideDown 0.5s ease;
+                max-width: 90%;
+            `;
+            
+            banner.textContent = message;
+            document.body.appendChild(banner);
+            
+            setTimeout(() => banner.remove(), 5000);
+        }
     }
     
     /**
