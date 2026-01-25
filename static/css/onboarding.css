@@ -296,18 +296,8 @@ svg.driver-overlay {
     opacity: 0 !important;
 }
 
-/* Use a simple CSS-based backdrop instead */
-body.driver-active::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    z-index: 99998; /* Just below the popover */
-    pointer-events: auto;
-}
+/* Remove the CSS backdrop - it causes rendering issues in Safari */
+/* The popover will display without a dark overlay */
 
 /* Highlighted element styling - bring to front above backdrop */
 .driver-highlighted-element {
