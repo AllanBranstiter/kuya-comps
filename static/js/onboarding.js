@@ -253,12 +253,13 @@ const OnboardingTour = (function() {
      */
     function createDriver() {
         // Check if Driver.js is loaded
-        if (typeof driver === 'undefined') {
-            console.error('[ONBOARDING] Driver.js library not loaded');
+        // IIFE build exposes driver as an object with a nested driver function
+        if (typeof driver === 'undefined' || typeof driver.driver !== 'function') {
+            console.error('[ONBOARDING] Driver.js library not loaded or invalid API');
             return null;
         }
 
-        return driver({
+        return driver.driver({
             // Core configuration
             showProgress: true,
             showButtons: ['next', 'previous', 'close'],
