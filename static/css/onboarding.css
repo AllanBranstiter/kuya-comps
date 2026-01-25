@@ -250,15 +250,31 @@
 }
 
 /* ===== DRIVER.JS OVERLAY OVERRIDE ===== */
-.driver-overlay {
+.driver-overlay,
+.driver-overlay svg,
+svg.driver-overlay {
     /* Ensure overlay respects theme and has consistent appearance */
-    background: rgba(0, 0, 0, 0.7) !important;
+    background: transparent !important;
+    filter: none !important;
+    -webkit-filter: none !important;
 }
 
-/* Highlighted element styling */
+/* Fix SVG path rendering - eliminate anti-aliasing blur on cutout edges */
+.driver-overlay path,
+.driver-overlay svg path,
+svg.driver-overlay path {
+    stroke: rgba(0, 0, 0, 0.7) !important;
+    stroke-width: 1px !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    shape-rendering: crispEdges !important;
+}
+
+/* Highlighted element styling - disable glow to prevent blur */
 .driver-highlighted-element {
-    /* Add subtle glow to highlighted elements */
-    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.3) !important;
+    box-shadow: none !important;
+    outline: 2px solid var(--primary-blue) !important;
+    outline-offset: 2px !important;
 }
 
 /* ===== TOUR TRIGGER LINK (FOOTER) ===== */
