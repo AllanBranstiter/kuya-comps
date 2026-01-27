@@ -123,6 +123,38 @@ const GradingAdvisor = (function() {
     }
     
     /**
+     * Parse simple markdown to HTML for display
+     * Supports: **bold**, *italic*, \n (newlines), and bullet points (• or -)
+     * @param {string} text - Text with markdown formatting
+     * @returns {string} HTML string with formatting applied
+     */
+    function parseSimpleMarkdown(text) {
+        if (!text) return '';
+        
+        // First escape HTML to prevent XSS
+        let html = escapeHtml(text);
+        
+        // Convert **text** to <strong>text</strong> (bold)
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        
+        // Convert *text* to <em>text</em> (italic) - but not inside already converted strong tags
+        // Use negative lookbehind/lookahead to avoid matching already converted **
+        html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+        
+        // Convert newlines to <br>
+        html = html.replace(/\n/g, '<br>');
+        
+        // Handle bullet points at start of lines (after <br> or at start)
+        // Convert "• " or "- " at line starts to proper list formatting
+        html = html.replace(/(?:^|<br>)\s*[•\-]\s+/g, function(match) {
+            const prefix = match.startsWith('<br>') ? '<br>' : '';
+            return prefix + '<span class="advice-bullet">•</span> ';
+        });
+        
+        return html;
+    }
+    
+    /**
      * Show loading indicator and disable submit button
      */
     function showLoading() {
@@ -686,7 +718,7 @@ const GradingAdvisor = (function() {
         }
         
         return `
-            <div class="result-module" style="grid-column: 1 / -1;">
+            <div class="result-module financial-matrix-module" style="grid-column: 1 / -1;">
                 <div class="module-header">
                     <span class="icon">📋</span>
                     <h4>Profit/Loss by Grade</h4>
@@ -694,8 +726,10 @@ const GradingAdvisor = (function() {
                         <span class="tooltip-content">${TOOLTIP_CONTENT.roiCalculation}</span>
                     </span>
                 </div>
-                <div class="financial-matrix">
-                    ${cardsHtml}
+                <div class="financial-matrix-wrapper">
+                    <div class="financial-matrix">
+                        ${cardsHtml}
+                    </div>
                 </div>
             </div>
         `;
@@ -806,16 +840,19 @@ const GradingAdvisor = (function() {
     
     /**
      * Render Kuya's personalized advice section
-     * @param {string} adviceText - The advice text
+     * @param {string} adviceText - The advice text (may contain markdown)
      * @returns {string} HTML string
      */
     function renderKuyasAdvice(adviceText) {
+        // Parse markdown formatting in the advice text
+        const formattedAdvice = parseSimpleMarkdown(adviceText);
+        
         return `
             <div class="kuyas-advice">
                 <div class="advice-avatar">🧠</div>
                 <div class="advice-content">
                     <h4>Kuya's Take</h4>
-                    <p class="advice-text">${escapeHtml(adviceText)}</p>
+                    <p class="advice-text">${formattedAdvice}</p>
                 </div>
             </div>
         `;
