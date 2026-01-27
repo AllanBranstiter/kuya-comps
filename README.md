@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v0.5.1 (Production Beta)
+# eBay Baseball Card Comps Tool v0.5.2 (Production Beta)
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
@@ -11,6 +11,7 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
+*   **First-Time User Onboarding**: Interactive 9-step guided tour using Driver.js
 *   **Password Protection**: Secure access with session management
 *   **Clean UI**: Modern interface with responsive design
 *   **Accessibility**: WCAG 2.1 Level A & AA compliant (skip-to-content, color contrast)
@@ -61,9 +62,11 @@ kuya-comps/
 │   ├── index.html     # Main application (~545 lines)
 │   ├── style.css      # Main stylesheet (extracted from index.html)
 │   ├── css/           # Component stylesheets
+│   │   ├── onboarding.css  # Onboarding tour styles (Driver.js theme)
 │   │   └── shared-styles.css  # Shared styles (WCAG AA colors)
 │   └── js/            # JavaScript modules
 │       ├── modal.js   # Reusable modal component
+│       ├── onboarding.js  # First-time user tour (Driver.js)
 │       ├── auth.js    # Authentication (uses Modal)
 │       └── ...        # Other modules
 ├── docs/              # Documentation
@@ -184,7 +187,31 @@ The application implements several strategies to manage API costs and maintain p
 
 ## Version History
 
-### Version 0.5.1 (UX Improvements) - Current
+### Version 0.5.2 (First-Time User Onboarding) - Current
+
+Version 0.5.2 introduces an interactive onboarding tour to help first-time users understand the application's features. The tour uses Driver.js v1.3.1 to guide users through 9 key UI elements with highlighting and informative popovers.
+
+**Onboarding Tour:**
+- **Interactive 9-Step Tour**: Guides new users through main features
+  - Welcome & Introduction
+  - Main Search Input
+  - Search Filters (Raw Only, Base Only, etc.)
+  - Sold Listings Results
+  - Price Statistics Panel
+  - Beeswarm Chart Visualization
+  - Active Deals Section
+  - Grading Intelligence Tab
+  - User Account/Authentication
+- **Smart Auto-Start**: Tour auto-starts for first-time visitors only (localStorage persistence)
+- **Manual Restart**: "Take a Tour" link in footer for returning users
+- **Custom Styling**: Popovers themed to match Kuya Comps branding
+- **Element Highlighting**: Native Driver.js overlay with spotlight effect
+- **Keyboard Navigation**: Arrow keys and Escape key support
+- **Files Added**:
+  - [`static/js/onboarding.js`](static/js/onboarding.js) - Tour manager module (~490 lines)
+  - [`static/css/onboarding.css`](static/css/onboarding.css) - Custom theme overrides (~400 lines)
+
+### Version 0.5.1 (UX Improvements)
 
 Version 0.5.1 focuses on accessibility compliance and frontend architecture improvements. This release brings WCAG 2.1 Level A & AA compliance through skip-to-content navigation and color contrast fixes, extracts CSS from inline styles to external stylesheets, and introduces a reusable Modal component for consistent modal behavior across the application.
 
