@@ -195,8 +195,9 @@ const OnboardingTour = (function() {
                     description: `
                         <p>Compare prices across different grading companies!</p>
                         <p>See how PSA 10, BGS 9.5, and SGC 10 values compare for the same card.</p>
+                        <p style="margin-top: 0.75rem;"><strong>🎯 Grading Advisor:</strong> Use the Grading Advisor tab to analyze whether PSA grading is financially worth it. Enter PSA prices and population data to get a personalized recommendation.</p>
                         <p style="font-size: 0.9rem; color: var(--subtle-text-color);">
-                            Perfect for deciding which grade to buy or whether to cross-grade.
+                            Perfect for deciding which grade to buy, whether to cross-grade, or if grading a raw card makes sense.
                         </p>
                     `,
                     side: 'bottom',
