@@ -65,6 +65,7 @@ from backend.middleware.metrics import metrics
 
 # Import routers
 from backend.routes import health, comps, fmv, market_messages, feedback, admin_feedback, collection_valuation, billing, admin, profile
+from backend.routes.grading_advisor import router as grading_advisor_router
 
 # Initialize logger for this module
 logger = get_logger(__name__)
@@ -193,6 +194,9 @@ app.include_router(profile.router, tags=["Profile"])
 
 # Admin analytics endpoints (/api/admin/*)
 app.include_router(admin.router, tags=["Admin Analytics"])
+
+# Grading advisor endpoints (/api/grading-advisor/*)
+app.include_router(grading_advisor_router, tags=["Grading Advisor"])
 
 
 # ============================================================================

@@ -11,6 +11,16 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
+*   **Intelligent Grading Advisor**: A comprehensive tool that helps collectors decide whether grading a raw card is financially worthwhile
+    - Enter PSA market prices and population data for grades 1-10
+    - Input raw card purchase price and grading fees
+    - Get a color-coded verdict (Green Light, Yellow Caution, Red Stop)
+    - View scenario analysis (Optimistic, Realistic, Pessimistic outcomes)
+    - See break-even grade and expected value calculations
+    - Get personalized "Kuya's Advice" with recommendations
+    - Compare strategies for flippers vs. long-term collectors
+    - Population distribution visualization
+    - Copy results to share with others
 *   **First-Time User Onboarding**: Interactive 9-step guided tour using Driver.js
 *   **Password Protection**: Secure access with session management
 *   **Clean UI**: Modern interface with responsive design
@@ -125,7 +135,7 @@ kuya-comps/
 
 ## API
 
-The application exposes three main API endpoints:
+The application exposes the following main API endpoints:
 
 *   **`GET /comps`** - Search sold listings for market analysis
     - Returns historical sold data with price statistics
@@ -143,6 +153,13 @@ The application exposes three main API endpoints:
     - Quick Sale vs Patient Sale ranges
     - Volume-weighted price calculations
     - PSA grade-specific analysis
+
+*   **`POST /api/grading-advisor`** - Intelligent Grading Advisor analysis
+    - Accepts PSA market prices, population data, raw card cost, and grading fees
+    - Returns expected value calculations, break-even grade, and scenario analysis
+    - Provides color-coded verdict (Green Light, Yellow Caution, Red Stop)
+    - Generates personalized "Kuya's Advice" recommendations
+    - Includes flipper vs. collector strategy comparisons
 
 *   **`GET /metrics`** - Monitoring endpoint
     - Custom metrics for observability
