@@ -769,6 +769,19 @@
   border-top-color: var(--tooltip-bg);
 }
 
+/* Right-aligned tooltip for elements near container edges */
+.info-tooltip.tooltip-right .tooltip-content {
+  left: auto;
+  right: 0;
+  transform: translateX(0);
+}
+
+.info-tooltip.tooltip-right .tooltip-content::after {
+  left: auto;
+  right: 12px;
+  transform: translateX(0);
+}
+
 .info-tooltip:hover .tooltip-content,
 .info-tooltip:focus .tooltip-content {
   opacity: 1;

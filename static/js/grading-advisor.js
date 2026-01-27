@@ -639,8 +639,9 @@ const GradingAdvisor = (function() {
      * @returns {string} HTML string
      */
     function renderFinancialSummary(summary) {
-        const breakEvenBadge = summary.break_even_grade 
-            ? `<span style="background: var(--gradient-primary); color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: 600;">PSA ${summary.break_even_grade}+</span>`
+        // Show "PSA 10" (not "PSA 10+") since 10 is the highest grade
+        const breakEvenBadge = summary.break_even_grade
+            ? `<span style="background: var(--gradient-primary); color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: 600;">PSA ${summary.break_even_grade}${summary.break_even_grade < 10 ? '+' : ''}</span>`
             : '<span style="color: var(--subtle-text-color);">N/A</span>';
         
         return `
@@ -659,7 +660,7 @@ const GradingAdvisor = (function() {
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: linear-gradient(135deg, var(--background-color) 0%, #f0f4ff 100%); border-radius: 10px;">
                         <span style="font-weight: 500; color: var(--text-color); display: flex; align-items: center; gap: 0.5rem;">
                             Break-Even Grade
-                            <span class="info-tooltip" tabindex="0">?
+                            <span class="info-tooltip tooltip-right" tabindex="0">?
                                 <span class="tooltip-content">${TOOLTIP_CONTENT.breakEvenGrade}</span>
                             </span>
                         </span>
@@ -757,7 +758,9 @@ const GradingAdvisor = (function() {
         
         for (const grade of grades) {
             const pct = gradePercentages[grade.toString()] || 0;
-            const barWidth = (pct / maxPct) * 100;
+            // Use absolute percentage for bar width (not normalized to max)
+            // This shows the true distribution - if PSA 10 is 33.7%, bar is 33.7% filled
+            const barWidth = pct;
             const isHighlight = grade >= 9; // Highlight PSA 9 and 10
             
             barsHtml += `
@@ -775,11 +778,11 @@ const GradingAdvisor = (function() {
         }
         
         return `
-            <div class="result-module">
+            <div class="result-module" style="grid-column: 1 / -1;">
                 <div class="module-header">
                     <span class="icon">📊</span>
                     <h4>Population Distribution</h4>
-                    <span class="info-tooltip" tabindex="0">?
+                    <span class="info-tooltip tooltip-right" tabindex="0">?
                         <span class="tooltip-content">${TOOLTIP_CONTENT.populationData}</span>
                     </span>
                 </div>
