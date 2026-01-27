@@ -456,39 +456,45 @@ const GradingAdvisor = (function() {
             html += renderVerdictBanner(response.verdict, response.status);
         }
         
-        // Render Kuya's advice section
-        if (response.kuyas_advice) {
-            html += renderKuyasAdvice(response.kuyas_advice);
+        // Render Kuya's advice section (backend sends "advice_text")
+        if (response.advice_text) {
+            html += renderKuyasAdvice(response.advice_text);
         }
         
         // Start results grid
         html += '<div class="grading-results">';
         
-        // Render scenario analysis
-        if (response.scenarios) {
-            html += renderScenarioAnalysis(response.scenarios);
+        // Render scenario analysis (backend sends "scenario_analysis")
+        if (response.scenario_analysis) {
+            html += renderScenarioAnalysis(response.scenario_analysis);
         }
         
-        // Render financial details
-        if (response.financial_summary) {
-            html += renderFinancialSummary(response.financial_summary);
-        }
+        // Render financial summary (build from available response fields)
+        const financialSummary = {
+            total_investment: (response.expected_value !== undefined) ?
+                response.expected_value : 0,
+            break_even_grade: response.break_even_grade,
+            profitable_grade_count: response.profitable_grades ?
+                response.profitable_grades.length : 0,
+            expected_value: response.expected_value
+        };
+        html += renderFinancialSummary(financialSummary);
         
         // End first row, start second row
         html += '</div>';
         html += '<div class="grading-results">';
         
-        // Render financial matrix
-        if (response.grade_matrix) {
+        // Render financial matrix (backend sends "matrix")
+        if (response.matrix) {
             html += renderFinancialMatrix(
-                response.grade_matrix, 
+                response.matrix,
                 response.profitable_grades || []
             );
         }
         
-        // Render population chart
-        if (response.population_distribution) {
-            html += renderPopulationChart(response.population_distribution);
+        // Render population chart (backend sends "distribution")
+        if (response.distribution) {
+            html += renderPopulationChart(response.distribution);
         }
         
         html += '</div>';
@@ -554,8 +560,14 @@ const GradingAdvisor = (function() {
         const renderScenarioRow = (label, icon, data, className) => {
             if (!data) return '';
             
-            const profitClass = data.profit >= 0 ? 'profit' : 'loss';
-            const profitPrefix = data.profit >= 0 ? '+' : '';
+            // Backend sends profit_loss, not profit
+            const profit = data.profit_loss !== undefined ? data.profit_loss : (data.profit || 0);
+            const profitClass = profit >= 0 ? 'profit' : 'loss';
+            const profitPrefix = profit >= 0 ? '+' : '';
+            
+            // Calculate ROI from probability if not provided
+            const probability = data.probability || 0;
+            const probabilityPercent = (probability * 100).toFixed(1);
             
             return `
                 <div class="scenario-row ${className}">
@@ -564,8 +576,8 @@ const GradingAdvisor = (function() {
                         <span>${label} (Grade ${data.grade})</span>
                     </div>
                     <div class="scenario-value ${profitClass}">
-                        ${profitPrefix}${formatCurrency(data.profit)}
-                        <span style="font-size: 0.8em; opacity: 0.8;"> (${formatPercentage(data.roi)})</span>
+                        ${profitPrefix}${formatCurrency(profit)}
+                        <span style="font-size: 0.8em; opacity: 0.8;"> (${probabilityPercent}% likely)</span>
                     </div>
                 </div>
             `;
@@ -654,18 +666,21 @@ const GradingAdvisor = (function() {
         let cardsHtml = '';
         
         for (const grade of grades) {
-            const data = matrix[grade];
+            const data = matrix[grade.toString()];
             if (!data) continue;
             
-            const isProfitable = profitableGrades.includes(grade);
+            // Backend sends profit_loss and is_profitable, not profit
+            const profit = data.profit_loss !== undefined ? data.profit_loss : (data.profit || 0);
+            const roi = data.roi || 0;
+            const isProfitable = data.is_profitable || profitableGrades.includes(grade.toString());
             const cardClass = isProfitable ? 'profitable' : 'unprofitable';
-            const profitPrefix = data.profit >= 0 ? '+' : '';
+            const profitPrefix = profit >= 0 ? '+' : '';
             
             cardsHtml += `
                 <div class="grade-card ${cardClass}">
                     <div class="grade-number">${grade}</div>
-                    <div class="grade-profit">${profitPrefix}${formatCurrency(data.profit)}</div>
-                    <div class="grade-roi">${formatPercentage(data.roi)}</div>
+                    <div class="grade-profit">${profitPrefix}${formatCurrency(profit)}</div>
+                    <div class="grade-roi">${formatPercentage(roi)}</div>
                 </div>
             `;
         }
@@ -692,29 +707,35 @@ const GradingAdvisor = (function() {
      * @returns {string} HTML string
      */
     function renderPopulationChart(distribution) {
-        const grades = Object.keys(distribution)
+        // Backend sends PopulationDistribution object with grade_percentages
+        const gradePercentages = distribution.grade_percentages || distribution;
+        const totalPop = distribution.total_population || 0;
+        const rarityTier = distribution.rarity_tier || 'Unknown';
+        
+        const grades = Object.keys(gradePercentages)
+            .filter(g => !isNaN(parseInt(g, 10)))
             .map(g => parseInt(g, 10))
             .sort((a, b) => b - a); // Sort descending (10 to 1)
         
-        const maxPop = Math.max(...Object.values(distribution), 1);
+        const maxPct = Math.max(...Object.values(gradePercentages).filter(v => typeof v === 'number'), 1);
         
         let barsHtml = '';
         
         for (const grade of grades) {
-            const count = distribution[grade] || 0;
-            const percentage = (count / maxPop) * 100;
+            const pct = gradePercentages[grade.toString()] || 0;
+            const barWidth = (pct / maxPct) * 100;
             const isHighlight = grade >= 9; // Highlight PSA 9 and 10
             
             barsHtml += `
                 <div class="pop-bar">
                     <span class="pop-label">${grade}</span>
                     <div class="pop-bar-container">
-                        <div class="pop-bar-fill ${isHighlight ? 'highlight' : ''}" 
-                             style="width: ${percentage}%;"
-                             title="PSA ${grade}: ${count.toLocaleString()} graded">
+                        <div class="pop-bar-fill ${isHighlight ? 'highlight' : ''}"
+                             style="width: ${barWidth}%;"
+                             title="PSA ${grade}: ${pct.toFixed(1)}% of population">
                         </div>
                     </div>
-                    <span class="pop-count">${count.toLocaleString()}</span>
+                    <span class="pop-count">${pct.toFixed(1)}%</span>
                 </div>
             `;
         }
@@ -727,6 +748,11 @@ const GradingAdvisor = (function() {
                     <span class="info-tooltip" tabindex="0">?
                         <span class="tooltip-content">${TOOLTIP_CONTENT.populationData}</span>
                     </span>
+                </div>
+                <div style="margin-bottom: 0.75rem; text-align: center;">
+                    <span style="font-weight: 600; color: var(--text-color);">${totalPop.toLocaleString()}</span>
+                    <span style="color: var(--subtle-text-color);"> total graded</span>
+                    <span style="margin-left: 1rem; padding: 0.25rem 0.5rem; background: var(--card-background); border-radius: 8px; font-size: 0.85rem;">${rarityTier}</span>
                 </div>
                 <div class="population-chart">
                     ${barsHtml}
@@ -743,26 +769,33 @@ const GradingAdvisor = (function() {
     function renderCollectorProfiles(profiles) {
         let html = '<div class="collector-profiles">';
         
-        if (profiles.flipper) {
+        // Backend sends flipper_advice and long_term_advice
+        const flipperAdvice = profiles.flipper_advice || profiles.flipper;
+        const collectorAdvice = profiles.long_term_advice || profiles.collector;
+        const recommendedStrategy = profiles.recommended_strategy || '';
+        
+        if (flipperAdvice) {
             html += `
                 <div class="profile-card flipper">
                     <div class="profile-header">
                         <span class="profile-icon">🔄</span>
                         <h4 class="profile-title">For Flippers</h4>
+                        ${recommendedStrategy === 'flip' ? '<span style="margin-left: auto; background: var(--profitable-bg); color: var(--profitable-green); padding: 0.2rem 0.5rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600;">RECOMMENDED</span>' : ''}
                     </div>
-                    <p class="profile-advice">${escapeHtml(profiles.flipper)}</p>
+                    <p class="profile-advice">${escapeHtml(flipperAdvice)}</p>
                 </div>
             `;
         }
         
-        if (profiles.collector) {
+        if (collectorAdvice) {
             html += `
                 <div class="profile-card collector">
                     <div class="profile-header">
                         <span class="profile-icon">💎</span>
                         <h4 class="profile-title">For Collectors</h4>
+                        ${recommendedStrategy === 'hold' ? '<span style="margin-left: auto; background: var(--profitable-bg); color: var(--profitable-green); padding: 0.2rem 0.5rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600;">RECOMMENDED</span>' : ''}
                     </div>
-                    <p class="profile-advice">${escapeHtml(profiles.collector)}</p>
+                    <p class="profile-advice">${escapeHtml(collectorAdvice)}</p>
                 </div>
             `;
         }
