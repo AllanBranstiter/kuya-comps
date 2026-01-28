@@ -2,8 +2,8 @@
 
 > **Purpose:** This document provides context for AI assistants working on this project. It should be shared at the start of each new task to minimize token usage and accelerate onboarding.
 
-**Last Updated:** January 20, 2026
-**Version:** 0.5.0
+**Last Updated:** January 27, 2026
+**Version:** 0.6.0
 **Maintained By:** Allan Branstiter
 
 ---
@@ -18,7 +18,7 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 - **Smart Deal Finding:** Active listings filtered to show only items priced at or below Fair Market Value with discount indicators
 - **Market Analysis:** Fair Market Value calculations with Quick Sale/Patient Sale ranges using ML
 - **Interactive Visualization:** Beeswarm chart showing price distribution
-- **PSA Grade Intelligence:** Compare prices across different PSA grades
+- **Grading Advisor:** Backend-powered intelligent grading recommendations with grade value analysis, premium calculations, and market comparisons across grading companies (PSA, BGS, SGC, CGC)
 - **Advanced Analytics Dashboard:** Market pressure analysis, liquidity profiles, absorption ratios
 - **Collection Management (NEW):** Track card collections with binders and smart organization
 - **Editable Search Queries (NEW):** Edit search queries in Edit Card modal to refine automated valuations
@@ -30,7 +30,7 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 Baseball card collectors and flippers who want to:
 - Find fair market values for cards before buying or selling
 - Identify underpriced listings on eBay
-- Compare prices across different grading companies and grades
+- Compare prices across different grading companies and grades using Grading Advisor
 - Make data-driven pricing decisions
 - Track and manage their personal card collections
 - Monitor portfolio value and ROI over time
@@ -91,7 +91,8 @@ kuya-comps/
 │   │   ├── feedback.py  # User feedback submission
 │   │   ├── admin_feedback.py  # Admin dashboard API
 │   │   ├── market_messages.py # Market message content
-│   │   └── collection_valuation.py # Card valuation endpoints (Phase 4)
+│   │   ├── collection_valuation.py # Card valuation endpoints (Phase 4)
+│   │   └── grading_advisor.py  # API endpoints for grading analysis
 │   ├── services/        # Business logic
 │   │   ├── fmv_service.py         # FMV calculations
 │   │   ├── feedback_service.py    # Feedback CRUD
@@ -99,12 +100,14 @@ kuya-comps/
 │   │   ├── market_message_service.py
 │   │   ├── price_tier_service.py
 │   │   ├── collection_service.py  # Collection & binder management (Phase 2)
-│   │   └── valuation_service.py   # Automated valuation engine (Phase 4)
+│   │   ├── valuation_service.py   # Automated valuation engine (Phase 4)
+│   │   └── grading_advisor_service.py  # Business logic for grading recommendations (816 lines)
 │   ├── models/          # Data models & schemas
 │   │   ├── schemas.py   # Pydantic models
 │   │   ├── feedback.py  # Feedback request/response models
 │   │   ├── validators.py
-│   │   └── collection_schemas.py  # Collection/binder models (Phase 2)
+│   │   ├── collection_schemas.py  # Collection/binder models (Phase 2)
+│   │   └── grading_advisor_schemas.py  # Pydantic models for Grading Advisor API
 │   ├── middleware/      # Request processing chain
 │   │   ├── request_id.py    # Request ID tracking
 │   │   ├── metrics.py       # Performance metrics
@@ -123,7 +126,8 @@ kuya-comps/
 │   ├── script.js        # Main JavaScript
 │   ├── css/            # Stylesheets
 │   │   ├── collection.css  # Collection modal styles (Phase 1)
-│   │   └── feedback.css    # Feedback widget styles
+│   │   ├── feedback.css    # Feedback widget styles
+│   │   └── grading-advisor.css  # Styles for Grading Advisor (1,346 lines)
 │   └── js/             # JavaScript modules
 │       ├── config.js    # Frontend configuration
 │       ├── charts.js    # Visualization
@@ -135,7 +139,8 @@ kuya-comps/
 │       ├── auth.js      # Supabase authentication (Phase 2)
 │       ├── collection.js # Collection modal & management (Phase 1)
 │       ├── contentLoader.js # Dynamic content loading
-│       └── feedback.js  # Feedback widget
+│       ├── feedback.js  # Feedback widget
+│       └── grading-advisor.js  # Frontend for Grading Advisor tab (1,055 lines)
 ├── tests/               # Test suite
 │   ├── conftest.py
 │   ├── routes/
@@ -177,6 +182,11 @@ kuya-comps/
 | [`static/js/auth.js`](static/js/auth.js:1) | User authentication module | Supabase integration |
 | [`static/js/collection.js`](static/js/collection.js:1) | Collection modal & parsing | Smart search string parser |
 | [`cron_update_valuations.py`](cron_update_valuations.py:1) | Automated valuation cron job | Runs daily to update card values |
+| [`backend/models/grading_advisor_schemas.py`](backend/models/grading_advisor_schemas.py:1) | Pydantic request/response models for Grading Advisor API | Request validation & response formatting |
+| [`backend/routes/grading_advisor.py`](backend/routes/grading_advisor.py:1) | REST API endpoints for grading analysis | Routes for grading recommendations |
+| [`backend/services/grading_advisor_service.py`](backend/services/grading_advisor_service.py:1) | Core business logic for grade value analysis and recommendations | 816 lines of grading logic |
+| [`static/js/grading-advisor.js`](static/js/grading-advisor.js:1) | Frontend JavaScript for Grading Advisor UI | 1,055 lines |
+| [`static/css/grading-advisor.css`](static/css/grading-advisor.css:1) | CSS styles for Grading Advisor components | 1,346 lines |
 
 ---
 
@@ -231,7 +241,16 @@ kuya-comps/
    - **Implementation:** [`static/js/collection.js:showCardContextMenu()`](static/js/collection.js:1766)
    - **Note:** Move functionality fully integrated - users can reorganize cards between binders
 
-10. **Modern Options Button Design**
+10. **Grading Advisor Backend Architecture**
+    - **Why:** Grading Advisor was implemented with full backend support (unlike the previous frontend-only Grading Intelligence) to enable:
+      - Server-side data aggregation from multiple sources
+      - Caching of population reports and market data
+      - More complex calculations without client-side performance impact
+      - Future AI/ML integration for grading predictions
+    - **Impact:** Clean separation of concerns, better maintainability, improved performance
+    - **Implementation:** [`backend/services/grading_advisor_service.py`](backend/services/grading_advisor_service.py:1), [`backend/routes/grading_advisor.py`](backend/routes/grading_advisor.py:1)
+
+11. **Modern Options Button Design**
    - **Why:** Improved visual hierarchy, better accessibility, larger touch targets
    - **Impact:** Replaced Unicode "⋮" with pill-shaped buttons featuring three CSS dots
    - **Design:** 12px border-radius, #f5f5f7 background, blue (#007aff) hover state
@@ -385,6 +404,34 @@ GET /fmv?query=Mike+Trout+2011+PSA+10&grade=10
 **Search Active Listings:**
 ```bash
 GET /active?query=Mike+Trout+2011&bin_only=true
+```
+
+### Grading Advisor Endpoints
+
+| Method | Endpoint | Purpose | Auth Required |
+|--------|----------|---------|---------------|
+| POST | `/api/grading-advisor/analyze` | Analyze a card for grading value potential | No |
+| GET | `/api/grading-advisor/population/{card_id}` | Retrieve population report data for a card | No |
+
+**Analyze Card for Grading:**
+```bash
+POST /api/grading-advisor/analyze
+Content-Type: application/json
+
+{
+  "card_id": "123",
+  "condition": "near-mint",
+  "notes": "clean corners, centered well"
+}
+
+# Returns: grade recommendations, value analysis, premium calculations
+```
+
+**Get Population Report:**
+```bash
+GET /api/grading-advisor/population/123
+
+# Returns: population counts by grade across grading companies (PSA, BGS, SGC, CGC)
 ```
 
 ### Response Formats
@@ -815,9 +862,22 @@ alembic upgrade head
 
 ## 📝 Version History & Roadmap
 
-### Current Version: 0.5.0
+### Current Version: 0.6.0
 
-**Recent Changes (Phase 5 - Collections & Authentication):**
+**Recent Changes (v0.6.0 - Grading Advisor):**
+- **Deprecated:** Old frontend-only Grading Intelligence tab (~970 lines removed from script.js, validation.js, style.css)
+- **Implemented:** New backend-powered Grading Advisor system
+- **Backend Added:**
+  - [`grading_advisor_schemas.py`](backend/models/grading_advisor_schemas.py) (243 lines) - Pydantic models
+  - [`grading_advisor.py`](backend/routes/grading_advisor.py) (149 lines) - API routes
+  - [`grading_advisor_service.py`](backend/services/grading_advisor_service.py) (816 lines) - Business logic
+- **Frontend Added:**
+  - [`grading-advisor.js`](static/js/grading-advisor.js) (1,055 lines) - UI JavaScript
+  - [`grading-advisor.css`](static/css/grading-advisor.css) (1,346 lines) - Styles
+- **Features:** Grade value analysis, premium calculations, cross-company market comparisons (PSA, BGS, SGC, CGC)
+- **Bug Fix:** Fixed binder collection bug in collection.js
+
+**Previous Changes (v0.5.0 - Collections & Authentication):**
 - **User Authentication:** Supabase integration with JWT tokens, social logins
 - **Collection Management:** Track card collections with binders and smart organization
 - **Smart Collection Parser:** Auto-fills year, set, athlete, card number from search queries
@@ -983,7 +1043,7 @@ When starting a new task, review these first:
 
 ### Project Maturity
 
-**Current State:** Production (Beta v0.5.0)
+**Current State:** Production (Beta v0.6.0)
 **Test Coverage:** Partial (core services covered)
 **Documentation:** Complete
 **Active Development:** Yes

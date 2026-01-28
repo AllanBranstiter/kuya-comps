@@ -414,41 +414,6 @@ td a:hover {
  background: var(--primary-blue-hover);
 }
 
-/* Market Intelligence Styling */
-#market-intelligence {
- margin-bottom: 2.5rem;
- padding: 2rem;
- background: var(--card-background);
- border: 1px solid var(--border-color);
- border-radius: 16px;
- box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
- transition: all 0.3s ease;
- animation: scaleIn 0.5s ease;
- position: relative;
- overflow: hidden;
-}
-
-#market-intelligence::before {
- content: '';
- position: absolute;
- top: 0;
- left: 0;
- right: 0;
- height: 3px;
- background: linear-gradient(135deg, var(--accent-orange), #cc4400);
- opacity: 0;
- transition: opacity 0.3s ease;
-}
-
-#market-intelligence:hover {
- transform: translateY(-4px);
- box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-}
-
-#market-intelligence:hover::before {
- opacity: 1;
-}
-
 .insight-section {
  margin-bottom: 1.5rem;
 }
@@ -573,37 +538,6 @@ td a:hover {
  display: block;
 }
 
-#insights-container {
- min-height: 200px;
-}
-
-/* Intelligence Search Field Styling */
-#intelligence-query {
- width: 100%;
- box-sizing: border-box;
- font-size: 1.1rem !important;
- padding: 1rem !important;
- border-radius: 12px !important;
- border: 2px solid var(--border-color) !important;
- background: linear-gradient(135deg, #ffffff 0%, #f9fbff 100%) !important;
- transition: all 0.3s ease !important;
- box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
-}
-
-#intelligence-query:focus {
- border-color: var(--accent-orange) !important;
- box-shadow: 0 0 0 3px rgba(179, 89, 0, 0.2) !important;
- transform: translateY(-2px) !important;
-}
-
-#intelligence-controls {
- margin-bottom: 2rem;
-}
-
-#intelligence-controls > div {
- margin-bottom: 1.5rem;
-}
-
 /* PSA Comparison Results Styling */
 .psa-results-grid {
  display: grid;
@@ -680,27 +614,6 @@ td a:hover {
  margin-bottom: 1rem;
 }
 
-/* Intelligence Tab Orange Styling */
-.tab-btn[onclick="switchTab('intelligence')"].active {
- background: linear-gradient(135deg, var(--accent-orange), #cc4400) !important;
- color: white !important;
- box-shadow: 0 2px 8px rgba(179, 89, 0, 0.3) !important;
-}
-
-.tab-btn[onclick="switchTab('intelligence')"].active:hover {
- background: linear-gradient(135deg, var(--accent-orange), #cc4400) !important;
- color: white !important;
- transform: translateY(-1px);
- box-shadow: 0 4px 12px rgba(179, 89, 0, 0.4) !important;
-}
-
-.tab-btn[onclick="switchTab('intelligence')"]:not(.active):hover {
- background: rgba(179, 89, 0, 0.1) !important;
- color: var(--accent-orange) !important;
- transform: none;
- box-shadow: none;
-}
-
 /* ===== RESPONSIVE DESIGN ===== */
 
 /* Mobile First - Base styles for phones */
@@ -770,25 +683,6 @@ td a:hover {
    text-align: center;
  }
 
- /* Mobile Intelligence Search Tip */
- .intelligence-tip-box {
-   margin-bottom: 1.5rem;
-   padding: 1rem;
- }
-
- .intelligence-tip-box p {
-   font-size: 0.9rem !important;
-   line-height: 1.5 !important;
- }
-
- .intelligence-tip-box span {
-   display: block !important;
-   margin-top: 0.75rem !important;
-   padding: 0.75rem !important;
-   font-size: 0.8rem !important;
-   word-break: break-word;
- }
-
  /* Mobile Card Comparison Grid */
  .card-comparison-grid {
    grid-template-columns: 1fr !important;
@@ -811,25 +705,6 @@ td a:hover {
  .card-input-box label:first-child {
    font-size: 1rem !important;
    margin-bottom: 0.75rem !important;
- }
-
- /* Mobile Intelligence Insights */
- .intelligence-insights-empty {
-   padding: 2rem 1.5rem !important;
- }
-
- .intelligence-insights-empty h3 {
-   font-size: 1.25rem !important;
- }
-
- .intelligence-insights-empty p {
-   font-size: 0.95rem !important;
- }
-
- /* Mobile Intelligence Query Input */
- #intelligence-query {
-   font-size: 1rem !important;
-   padding: 0.875rem !important;
  }
 
  /* Mobile Controls */
@@ -1012,9 +887,6 @@ td a:hover {
    grid-template-columns: repeat(2, 1fr) !important;
  }
 
- .intelligence-tip-box {
-   padding: 1rem;
- }
 }
 
 /* Desktop Styles - Large screens */
@@ -1047,9 +919,6 @@ td a:hover {
    grid-template-columns: repeat(3, 1fr);
  }
 
- .intelligence-tip-box {
-   padding: 1rem;
- }
 }
 
 /* Large Desktop Styles */
@@ -1319,26 +1188,6 @@ display: block;
   width: 100%;
 }
 
-.btn-intelligence {
-  background: linear-gradient(135deg, var(--accent-orange), #cc4400);
-  box-shadow: 0 4px 12px rgba(179, 89, 0, 0.3);
-  min-width: 200px;
-}
-
-.btn-intelligence:hover {
-  box-shadow: 0 8px 20px rgba(179, 89, 0, 0.4);
-}
-
-.btn-clear-intelligence {
-  background: linear-gradient(135deg, var(--accent-red), #d9534f);
-  box-shadow: 0 4px 12px rgba(201, 48, 44, 0.3);
-  min-width: 200px;
-}
-
-.btn-clear-intelligence:hover {
-  box-shadow: 0 8px 20px rgba(201, 48, 44, 0.4);
-}
-
 /* Card comparison text inputs - stable height */
 input[id^="card"][id$="-grader"],
 input[id^="card"][id$="-grade"] {
@@ -1349,20 +1198,6 @@ input[id^="card"][id$="-grade"] {
   padding: 0.5rem !important;
   margin: 0 !important;
   vertical-align: top !important;
-}
-
-/* Intelligence search tip box */
-.intelligence-tip-box {
-  background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%);
-  border-radius: 12px;
-  border-left: 4px solid var(--accent-orange);
-  box-shadow: 0 2px 8px rgba(179, 89, 0, 0.1);
-  transition: all 0.3s ease;
-}
-
-.intelligence-tip-box:hover {
-  box-shadow: 0 4px 12px rgba(179, 89, 0, 0.15);
-  transform: translateY(-1px);
 }
 
 /* Card comparison container */
@@ -1390,16 +1225,6 @@ input[id^="card"][id$="-grade"] {
 .card-input-box:hover {
   border-color: var(--primary-blue);
   box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
-}
-
-/* Intelligence insights container */
-.intelligence-insights-empty {
-  text-align: center;
-  padding: 3rem 2rem;
-  background: var(--card-background);
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 /* eBay Search Tips Styling */

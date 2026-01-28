@@ -1,10 +1,19 @@
 /**
+<<<<<<< HEAD
  * Grading Advisor Module
  * Intelligent PSA Grading Decision Support Tool
  * 
  * Helps users determine if a card is worth submitting to PSA for grading
  * by analyzing potential ROI across different grade scenarios.
  * 
+=======
+ * Grading Intelligence Module
+ * Intelligent PSA Grading Decision Support Tool
+ *
+ * Helps users determine if a card is worth submitting to PSA for grading
+ * by analyzing potential ROI across different grade scenarios.
+ *
+>>>>>>> main
  * Created: January 27, 2026
  * Part of Kuya Comps - Baseball Card Market Analysis Platform
  */
@@ -192,7 +201,11 @@ const GradingAdvisor = (function() {
         const analyzeBtn = document.getElementById('analyze-btn');
         if (analyzeBtn) {
             analyzeBtn.disabled = false;
+<<<<<<< HEAD
             analyzeBtn.innerHTML = '📊 Analyze Grading Value';
+=======
+            analyzeBtn.innerHTML = 'Analyze Grading Value';
+>>>>>>> main
             analyzeBtn.style.opacity = '1';
         }
     }

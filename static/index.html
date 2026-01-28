@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="css/shared-styles.css">
   <link rel="stylesheet" href="css/feedback.css">
   <link rel="stylesheet" href="css/collection.css">
+  <link rel="stylesheet" href="css/grading-advisor.css">
   <link rel="stylesheet" href="style.css">
   
   <!-- Onboarding Tour (Driver.js) -->
@@ -55,7 +56,7 @@
       "price": "0",
       "priceCurrency": "USD"
     },
-    "featureList": "Baseball card valuation, eBay sold comps analysis, PSA grade comparison, Market intelligence, Fair market value calculation",
+    "featureList": "Baseball card valuation, eBay sold comps analysis, PSA grade comparison, Fair market value calculation, Collection management",
     "screenshot": "https://kuyacomps.com/KuyaKompsLogo.png"
   }
   </script>
@@ -121,8 +122,12 @@
   <!-- Tab Navigation -->
   <div class="tab-nav" role="tablist" aria-label="Main navigation">
     <button class="tab-btn active" onclick="switchTab('comps')" role="tab" aria-selected="true" aria-controls="comps-tab" id="tab-comps">Comps & Analysis</button>
+<<<<<<< HEAD
     <button class="tab-btn" onclick="switchTab('intelligence')" role="tab" aria-selected="false" aria-controls="intelligence-tab" id="tab-intelligence">Grading Intelligence</button>
     <button class="tab-btn" onclick="switchTab('grading-advisor')" role="tab" aria-selected="false" aria-controls="grading-advisor-panel" id="tab-grading-advisor">📊 Grading Advisor</button>
+=======
+    <button class="tab-btn" onclick="switchTab('grading-advisor')" role="tab" aria-selected="false" aria-controls="grading-advisor-panel" id="tab-grading-advisor">Grading Intelligence</button>
+>>>>>>> main
     <button class="tab-btn" onclick="switchTab('portfolio')" id="portfolio-tab-btn" style="display: none;" role="tab" aria-selected="false" aria-controls="portfolio-tab">My Collection</button>
   </div>
   
@@ -240,142 +245,171 @@
     </div>
   </div>
   
-  <!-- Grading Intelligence Tab -->
-  <div id="intelligence-tab" class="tab-content" role="tabpanel" aria-labelledby="tab-intelligence">
-    <div id="controls">
-      <div>
-        <label for="intelligence-query">Search Specific Card:</label>
-        <input id="intelligence-query" type="text" placeholder='e.g. "2024 Topps Chrome" "Shohei Ohtani" "X-fractor" #1'>
-      </div>
+  <!-- Grading Advisor Tab -->
+  <div id="grading-advisor-tab" class="tab-content" data-tab="grading-advisor" role="tabpanel" aria-labelledby="tab-grading-advisor">
+    <div class="grading-advisor-container">
+      <h2 class="section-title">
+        Grading Intelligence
+        <span class="info-tooltip" data-tooltip="Determine if your card is worth grading based on PSA prices and population data">
+          ℹ️
+        </span>
+      </h2>
+      <p class="section-description">
+        Enter PSA price and population data to get a financial analysis of whether grading is worth it.
+      </p>
 
-      <!-- Expandable Search Tips (novice-friendly) -->
-      <details class="ebay-tips">
-        <summary>Search Tips</summary>
-
-        <ul>
-          <li>
-            <strong>Use quotes to keep words together</strong>
-            <div>Example:</div>
-            <pre><code>"2024 Topps Chrome" "Elly De La Cruz"</code></pre>
-          </li>
-
-          <li>
-            <strong>Use a minus sign to remove unwanted results</strong>
-            <div>Example:</div>
-            <pre><code>"Elly De La Cruz" -graded</code></pre>
-          </li>
-
-          <li>
-            <strong>You can remove more than one thing at the same time</strong>
-            <div>Example:</div>
-            <pre><code>"Elly De La Cruz" -graded -auto -lot</code></pre>
-          </li>
-
-          <li>
-            <strong>Avoid removing very short words (they can hide good results)</strong>
-            <div>Instead of this:</div>
-            <pre><code>-El</code></pre>
-            <div>Do this:</div>
-            <pre><code>-"you pick"</code></pre>
-          </li>
-
-          <li>
-            <strong>Card numbers give the cleanest results</strong>
-            <div>Example:</div>
-            <pre><code>"Topps Chrome" "USC159"</code></pre>
-          </li>
-
-          <li>
-            <strong>Some variations use different spellings — remove all versions</strong>
-            <div>Example:</div>
-            <pre><code>"Topps Chrome" -xfractor -x-fractor -retrofractor</code></pre>
-          </li>
-
-          <li>
-            <strong>Start simple, then add filters if needed</strong>
-            <div>Start with:</div>
-            <pre><code>"Topps Chrome" "Elly De La Cruz"</code></pre>
-            <div>Then refine to:</div>
-            <pre><code>"Topps Chrome" "Elly De La Cruz" "USC159" -graded -auto</code></pre>
-          </li>
-        </ul>
-      </details>
-      
-      <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%); border-radius: 12px; border-left: 4px solid var(--accent-orange); box-shadow: 0 2px 8px rgba(179, 89, 0, 0.1);">
-        <h4 style="margin: 0 0 0.75rem 0; color: var(--accent-orange); font-size: 1rem; font-weight: 600;">🧠 What is Grading Intelligence?</h4>
-        <p style="margin: 0 0 0.75rem 0; font-size: 0.9rem; line-height: 1.6; color: var(--text-color);">
-          Compare fair market values across different grading companies and grades for the same card. Enter your card details, then specify up to 3 different grader/grade combinations to see how they stack up.
-        </p>
-        <p style="margin: 0; font-size: 0.85rem; color: var(--subtle-text-color);">
-          <strong>Example:</strong> Compare PSA 10, BGS 9.5, and SGC 10 values for the same card to find the best value.
-        </p>
-      </div>
-      
-      
-      <!-- Card Comparison Fields -->
-      <div class="card-comparison-container">
-        <h3>Compare Cards</h3>
-        
-        <div class="card-comparison-grid">
-          <!-- Card 1 -->
-          <div class="card-box">
-            <label class="card-box-title">Card 1</label>
-            <div class="card-inputs">
-              <div class="card-input-wrapper">
-                <label class="card-input-label">Grader:</label>
-                <input type="text" id="card1-grader" class="card-input" placeholder="PSA" maxlength="5">
-              </div>
-              <div class="card-input-wrapper">
-                <label class="card-input-label">Grade:</label>
-                <input type="text" id="card1-grade" class="card-input" placeholder="10" maxlength="5">
-              </div>
+      <form id="grading-advisor-form" class="grading-advisor-form">
+        <!-- Price Data Section -->
+        <fieldset class="form-section">
+          <legend>PSA Market Prices ($)</legend>
+          <p class="field-hint">Enter the current market value for each PSA grade</p>
+          <div class="grade-input-grid">
+            <div class="grade-column">
+              <label for="grade-price-10">PSA 10</label>
+              <input type="number" id="grade-price-10" name="price_10" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-9">PSA 9</label>
+              <input type="number" id="grade-price-9" name="price_9" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-8">PSA 8</label>
+              <input type="number" id="grade-price-8" name="price_8" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-7">PSA 7</label>
+              <input type="number" id="grade-price-7" name="price_7" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-6">PSA 6</label>
+              <input type="number" id="grade-price-6" name="price_6" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-5">PSA 5</label>
+              <input type="number" id="grade-price-5" name="price_5" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-4">PSA 4</label>
+              <input type="number" id="grade-price-4" name="price_4" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-3">PSA 3</label>
+              <input type="number" id="grade-price-3" name="price_3" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-2">PSA 2</label>
+              <input type="number" id="grade-price-2" name="price_2" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-1">PSA 1</label>
+              <input type="number" id="grade-price-1" name="price_1" min="0" step="0.01" placeholder="$0.00">
             </div>
           </div>
-          
-          <!-- Card 2 -->
-          <div class="card-box">
-            <label class="card-box-title">Card 2</label>
-            <div class="card-inputs">
-              <div class="card-input-wrapper">
-                <label class="card-input-label">Grader:</label>
-                <input type="text" id="card2-grader" class="card-input" placeholder="BGS" maxlength="5">
-              </div>
-              <div class="card-input-wrapper">
-                <label class="card-input-label">Grade:</label>
-                <input type="text" id="card2-grade" class="card-input" placeholder="9.5" maxlength="5">
-              </div>
+        </fieldset>
+
+        <!-- Population Data Section -->
+        <fieldset class="form-section">
+          <legend>
+            PSA Population
+            <span class="info-tooltip" data-tooltip="The number of cards that have been graded at each grade level. Find this on the PSA Population Report.">ℹ️</span>
+          </legend>
+          <p class="field-hint">Enter the population count for each PSA grade</p>
+          <div class="grade-input-grid">
+            <div class="grade-column">
+              <label for="grade-pop-10">PSA 10</label>
+              <input type="number" id="grade-pop-10" name="pop_10" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-9">PSA 9</label>
+              <input type="number" id="grade-pop-9" name="pop_9" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-8">PSA 8</label>
+              <input type="number" id="grade-pop-8" name="pop_8" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-7">PSA 7</label>
+              <input type="number" id="grade-pop-7" name="pop_7" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-6">PSA 6</label>
+              <input type="number" id="grade-pop-6" name="pop_6" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-5">PSA 5</label>
+              <input type="number" id="grade-pop-5" name="pop_5" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-4">PSA 4</label>
+              <input type="number" id="grade-pop-4" name="pop_4" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-3">PSA 3</label>
+              <input type="number" id="grade-pop-3" name="pop_3" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-2">PSA 2</label>
+              <input type="number" id="grade-pop-2" name="pop_2" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-1">PSA 1</label>
+              <input type="number" id="grade-pop-1" name="pop_1" min="0" step="1" placeholder="0">
             </div>
           </div>
-          
-          <!-- Card 3 -->
-          <div class="card-box">
-            <label class="card-box-title">Card 3</label>
-            <div class="card-inputs">
-              <div class="card-input-wrapper">
-                <label class="card-input-label">Grader:</label>
-                <input type="text" id="card3-grader" class="card-input" placeholder="SGC" maxlength="5">
-              </div>
-              <div class="card-input-wrapper">
-                <label class="card-input-label">Grade:</label>
-                <input type="text" id="card3-grade" class="card-input" placeholder="9" maxlength="5">
-              </div>
+        </fieldset>
+
+        <!-- Cost Inputs -->
+        <fieldset class="form-section">
+          <legend>Your Costs</legend>
+          <div class="purchase-inputs">
+            <div class="input-group">
+              <label for="raw-purchase-price">Raw Card Purchase Price *</label>
+              <input type="number" id="raw-purchase-price" name="raw_purchase_price" min="0" step="0.01" placeholder="$0.00" required>
+              <span class="field-hint">What you paid for the ungraded card</span>
+            </div>
+            <div class="input-group">
+              <label for="grading-fee">
+                PSA Grading Fee
+                <span class="info-tooltip" data-tooltip="Standard PSA service levels: Value ($21), Regular ($59), Express ($99), Super Express ($199)">ℹ️</span>
+              </label>
+              <input type="number" id="grading-fee" name="grading_fee" min="0" step="0.01" value="21.00" placeholder="$21.00">
+              <span class="field-hint">PSA grading service fee (default: $21)</span>
+            </div>
+            <div class="input-group">
+              <label for="expected-grade">Expected Grade (Optional)</label>
+              <select id="expected-grade" name="expected_grade">
+                <option value="">-- I'm not sure --</option>
+                <option value="1">PSA 1 - Poor</option>
+                <option value="2">PSA 2 - Good</option>
+                <option value="3">PSA 3 - VG</option>
+                <option value="4">PSA 4 - VG-EX</option>
+                <option value="5">PSA 5 - EX</option>
+                <option value="6">PSA 6 - EX-MT</option>
+                <option value="7">PSA 7 - NM</option>
+                <option value="8">PSA 8 - NM-MT</option>
+                <option value="9">PSA 9 - Mint</option>
+                <option value="10">PSA 10 - Gem Mint</option>
+              </select>
+              <span class="field-hint">Your best guess (affects "Abort Mission" scenario)</span>
             </div>
           </div>
+        </fieldset>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button type="submit" id="analyze-btn" class="btn btn-primary">
+            <span class="btn-icon">📊</span>
+            Analyze Grading Decision
+          </button>
+          <button type="button" id="reset-btn" class="btn btn-secondary">
+            <span class="btn-icon">🔄</span>
+            Reset
+          </button>
         </div>
-        
-        <!-- Find Card and Clear Buttons -->
-        <div class="card-comparison-buttons">
-          <button onclick="runIntelligenceSearch()" class="btn-intelligence">Find Card</button>
-          <button onclick="clearIntelligenceSearch()" class="btn-clear-intelligence">Clear</button>
-        </div>
-      </div>
-    </div>
-    
-    <div id="insights-container">
-      <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
-        <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">Grading Intelligence</h3>
-        <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Enter a specific card search above to see advanced analytics and insights</p>
-      </div>
+      </form>
+
+      <!-- Results Container (populated by JavaScript) -->
+      <div id="grading-results-container" class="grading-results" aria-live="polite"></div>
     </div>
   </div>
   
@@ -570,12 +604,12 @@
     
     <div>
       <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">📊 Real-Time Market Analysis</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Get comprehensive market intelligence including Fair Market Value (FMV), quick sale prices, and patient sale estimates. Our volume-weighted analysis gives more importance to competitive auctions with multiple bids.</p>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Get comprehensive market data including Fair Market Value (FMV), quick sale prices, and patient sale estimates. Our volume-weighted analysis gives more importance to competitive auctions with multiple bids.</p>
     </div>
     
     <div>
       <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">⚖️ Compare Graded Card Values</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Use our Grading Intelligence feature to compare prices across different grading companies and grades. See how PSA 10, BGS 9.5, and SGC 10 cards compare for the same player and set.</p>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Compare prices across different grading companies and grades. See how PSA 10, BGS 9.5, and SGC 10 cards compare for the same player and set.</p>
     </div>
     
     <div>
@@ -723,6 +757,7 @@
 <script src="js/charts.js"></script>
 <script src="js/contentLoader.js"></script>
 <script src="js/analysis.js"></script>
+<script src="js/grading-advisor.js"></script>
 <script src="script.js"></script>
 <script src="js/feedback.js"></script>
 <script src="js/onboarding.js"></script>
