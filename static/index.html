@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="css/shared-styles.css">
   <link rel="stylesheet" href="css/feedback.css">
   <link rel="stylesheet" href="css/collection.css">
+  <link rel="stylesheet" href="css/grading-advisor.css">
   <link rel="stylesheet" href="style.css">
   
   <link rel="icon" type="image/png" href="KuyaCompsFavicon.png">
@@ -116,6 +117,7 @@
   <!-- Tab Navigation -->
   <div class="tab-nav" role="tablist" aria-label="Main navigation">
     <button class="tab-btn active" onclick="switchTab('comps')" role="tab" aria-selected="true" aria-controls="comps-tab" id="tab-comps">Comps & Analysis</button>
+    <button class="tab-btn" onclick="switchTab('grading-advisor')" role="tab" aria-selected="false" aria-controls="grading-advisor-panel" id="tab-grading-advisor">📊 Grading Advisor</button>
     <button class="tab-btn" onclick="switchTab('portfolio')" id="portfolio-tab-btn" style="display: none;" role="tab" aria-selected="false" aria-controls="portfolio-tab">My Collection</button>
   </div>
   
@@ -230,6 +232,174 @@
         <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Market Analysis</h3>
         <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Search for a card to see advanced market analytics and insights</p>
       </div>
+    </div>
+  </div>
+  
+  <!-- Grading Advisor Tab -->
+  <div id="grading-advisor-tab" class="tab-content" data-tab="grading-advisor" role="tabpanel" aria-labelledby="tab-grading-advisor">
+    <div class="grading-advisor-container">
+      <h2 class="section-title">
+        Intelligent Grading Advisor
+        <span class="info-tooltip" data-tooltip="Determine if your card is worth grading based on PSA prices and population data">
+          ℹ️
+        </span>
+      </h2>
+      <p class="section-description">
+        Enter PSA price and population data to get a financial analysis of whether grading is worth it.
+      </p>
+
+      <form id="grading-advisor-form" class="grading-advisor-form">
+        <!-- Price Data Section -->
+        <fieldset class="form-section">
+          <legend>PSA Market Prices ($)</legend>
+          <p class="field-hint">Enter the current market value for each PSA grade</p>
+          <div class="grade-input-grid">
+            <div class="grade-column">
+              <label for="grade-price-10">PSA 10</label>
+              <input type="number" id="grade-price-10" name="price_10" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-9">PSA 9</label>
+              <input type="number" id="grade-price-9" name="price_9" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-8">PSA 8</label>
+              <input type="number" id="grade-price-8" name="price_8" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-7">PSA 7</label>
+              <input type="number" id="grade-price-7" name="price_7" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-6">PSA 6</label>
+              <input type="number" id="grade-price-6" name="price_6" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-5">PSA 5</label>
+              <input type="number" id="grade-price-5" name="price_5" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-4">PSA 4</label>
+              <input type="number" id="grade-price-4" name="price_4" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-3">PSA 3</label>
+              <input type="number" id="grade-price-3" name="price_3" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-2">PSA 2</label>
+              <input type="number" id="grade-price-2" name="price_2" min="0" step="0.01" placeholder="$0.00">
+            </div>
+            <div class="grade-column">
+              <label for="grade-price-1">PSA 1</label>
+              <input type="number" id="grade-price-1" name="price_1" min="0" step="0.01" placeholder="$0.00">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Population Data Section -->
+        <fieldset class="form-section">
+          <legend>
+            PSA Population
+            <span class="info-tooltip" data-tooltip="The number of cards that have been graded at each grade level. Find this on the PSA Population Report.">ℹ️</span>
+          </legend>
+          <p class="field-hint">Enter the population count for each PSA grade</p>
+          <div class="grade-input-grid">
+            <div class="grade-column">
+              <label for="grade-pop-10">PSA 10</label>
+              <input type="number" id="grade-pop-10" name="pop_10" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-9">PSA 9</label>
+              <input type="number" id="grade-pop-9" name="pop_9" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-8">PSA 8</label>
+              <input type="number" id="grade-pop-8" name="pop_8" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-7">PSA 7</label>
+              <input type="number" id="grade-pop-7" name="pop_7" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-6">PSA 6</label>
+              <input type="number" id="grade-pop-6" name="pop_6" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-5">PSA 5</label>
+              <input type="number" id="grade-pop-5" name="pop_5" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-4">PSA 4</label>
+              <input type="number" id="grade-pop-4" name="pop_4" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-3">PSA 3</label>
+              <input type="number" id="grade-pop-3" name="pop_3" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-2">PSA 2</label>
+              <input type="number" id="grade-pop-2" name="pop_2" min="0" step="1" placeholder="0">
+            </div>
+            <div class="grade-column">
+              <label for="grade-pop-1">PSA 1</label>
+              <input type="number" id="grade-pop-1" name="pop_1" min="0" step="1" placeholder="0">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Cost Inputs -->
+        <fieldset class="form-section">
+          <legend>Your Costs</legend>
+          <div class="purchase-inputs">
+            <div class="input-group">
+              <label for="raw-purchase-price">Raw Card Purchase Price *</label>
+              <input type="number" id="raw-purchase-price" name="raw_purchase_price" min="0" step="0.01" placeholder="$0.00" required>
+              <span class="field-hint">What you paid for the ungraded card</span>
+            </div>
+            <div class="input-group">
+              <label for="grading-fee">
+                PSA Grading Fee
+                <span class="info-tooltip" data-tooltip="Standard PSA service levels: Value ($21), Regular ($59), Express ($99), Super Express ($199)">ℹ️</span>
+              </label>
+              <input type="number" id="grading-fee" name="grading_fee" min="0" step="0.01" value="21.00" placeholder="$21.00">
+              <span class="field-hint">PSA grading service fee (default: $21)</span>
+            </div>
+            <div class="input-group">
+              <label for="expected-grade">Expected Grade (Optional)</label>
+              <select id="expected-grade" name="expected_grade">
+                <option value="">-- I'm not sure --</option>
+                <option value="1">PSA 1 - Poor</option>
+                <option value="2">PSA 2 - Good</option>
+                <option value="3">PSA 3 - VG</option>
+                <option value="4">PSA 4 - VG-EX</option>
+                <option value="5">PSA 5 - EX</option>
+                <option value="6">PSA 6 - EX-MT</option>
+                <option value="7">PSA 7 - NM</option>
+                <option value="8">PSA 8 - NM-MT</option>
+                <option value="9">PSA 9 - Mint</option>
+                <option value="10">PSA 10 - Gem Mint</option>
+              </select>
+              <span class="field-hint">Your best guess (affects "Abort Mission" scenario)</span>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Form Actions -->
+        <div class="form-actions">
+          <button type="submit" id="analyze-btn" class="btn btn-primary">
+            <span class="btn-icon">📊</span>
+            Analyze Grading Decision
+          </button>
+          <button type="button" id="reset-btn" class="btn btn-secondary">
+            <span class="btn-icon">🔄</span>
+            Reset
+          </button>
+        </div>
+      </form>
+
+      <!-- Results Container (populated by JavaScript) -->
+      <div id="grading-results-container" class="grading-results" aria-live="polite"></div>
     </div>
   </div>
   
@@ -399,6 +569,7 @@
 <script src="js/charts.js"></script>
 <script src="js/contentLoader.js"></script>
 <script src="js/analysis.js"></script>
+<script src="js/grading-advisor.js"></script>
 <script src="script.js"></script>
 <script src="js/feedback.js"></script>
 
