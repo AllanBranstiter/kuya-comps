@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # eBay Baseball Card Comps Tool v0.5.2 (Production Beta)
+=======
+# eBay Baseball Card Comps Tool v0.6.0 (Production Beta)
+>>>>>>> main
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
@@ -10,6 +14,7 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
+<<<<<<< HEAD
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
 *   **Intelligent Grading Advisor**: A comprehensive tool that helps collectors decide whether grading a raw card is financially worthwhile
     - Enter PSA market prices and population data for grades 1-10
@@ -22,6 +27,9 @@ A web application for scraping and analyzing eBay baseball card sold/active list
     - Population distribution visualization
     - Copy results to share with others
 *   **First-Time User Onboarding**: Interactive 9-step guided tour using Driver.js
+=======
+*   **Grading Advisor**: Backend-powered intelligent grading recommendations with grade value analysis, premium calculations, and market comparisons
+>>>>>>> main
 *   **Password Protection**: Secure access with session management
 *   **Clean UI**: Modern interface with responsive design
 *   **Accessibility**: WCAG 2.1 Level A & AA compliant (skip-to-content, color contrast)
@@ -63,8 +71,11 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 kuya-comps/
 ├── backend/           # All server-side logic
 │   ├── routes/        # API endpoint handlers
+│   │   └── grading_advisor.py           # API endpoints for grading analysis
 │   ├── services/      # Business logic and external API integration
+│   │   └── grading_advisor_service.py   # Business logic for grading recommendations
 │   ├── models/        # Data models and schemas
+│   │   └── grading_advisor_schemas.py   # Pydantic models for Grading Advisor
 │   ├── middleware/    # Request processing chain
 │   ├── config/        # Configuration management
 │   └── cache/         # Redis caching layer
@@ -72,12 +83,18 @@ kuya-comps/
 │   ├── index.html     # Main application (~545 lines)
 │   ├── style.css      # Main stylesheet (extracted from index.html)
 │   ├── css/           # Component stylesheets
+<<<<<<< HEAD
 │   │   ├── onboarding.css  # Onboarding tour styles (Driver.js theme)
 │   │   └── shared-styles.css  # Shared styles (WCAG AA colors)
+=======
+│   │   ├── shared-styles.css  # Shared styles (WCAG AA colors)
+│   │   └── grading-advisor.css  # Styles for Grading Advisor
+>>>>>>> main
 │   └── js/            # JavaScript modules
 │       ├── modal.js   # Reusable modal component
 │       ├── onboarding.js  # First-time user tour (Driver.js)
 │       ├── auth.js    # Authentication (uses Modal)
+│       ├── grading-advisor.js   # Frontend for Grading Advisor tab
 │       └── ...        # Other modules
 ├── docs/              # Documentation
 │   ├── SECURITY.md
@@ -165,6 +182,15 @@ The application exposes the following main API endpoints:
     - Custom metrics for observability
     - Request counts and performance data
 
+*   **`POST /api/grading-advisor/analyze`** - Analyze a card for grading value
+    - Returns grade value analysis with premium calculations
+    - Market comparisons across grading companies
+    - Intelligent grading recommendations
+
+*   **`GET /api/grading-advisor/population/{card_id}`** - Get population report data
+    - Population data for specific cards
+    - Market supply analysis
+
 All endpoints support comprehensive filtering and include rate limiting (10 requests/minute per IP).
 
 ## Security
@@ -204,6 +230,7 @@ The application implements several strategies to manage API costs and maintain p
 
 ## Version History
 
+<<<<<<< HEAD
 ### Version 0.5.2 (First-Time User Onboarding) - Current
 
 Version 0.5.2 introduces an interactive onboarding tour to help first-time users understand the application's features. The tour uses Driver.js v1.3.1 to guide users through 9 key UI elements with highlighting and informative popovers.
@@ -227,6 +254,31 @@ Version 0.5.2 introduces an interactive onboarding tour to help first-time users
 - **Files Added**:
   - [`static/js/onboarding.js`](static/js/onboarding.js) - Tour manager module (~490 lines)
   - [`static/css/onboarding.css`](static/css/onboarding.css) - Custom theme overrides (~400 lines)
+=======
+### Version 0.6.0 (Grading Advisor) - Current
+
+Version 0.6.0 introduces a major refactoring of the grading system, transitioning from the frontend-only "Grading Intelligence" to a full backend-powered "Grading Advisor" system. This release adds comprehensive API support with Pydantic models, dedicated service layer, and new endpoints for intelligent grading analysis.
+
+**Backend Architecture:**
+- **Deprecated**: Old frontend-only Grading Intelligence tab
+- **New Grading Advisor System**: Complete backend implementation
+  - [`backend/models/grading_advisor_schemas.py`](backend/models/grading_advisor_schemas.py) - Pydantic models for request/response validation
+  - [`backend/routes/grading_advisor.py`](backend/routes/grading_advisor.py) - API endpoints for grading analysis
+  - [`backend/services/grading_advisor_service.py`](backend/services/grading_advisor_service.py) - Business logic for grading recommendations
+
+**New Features:**
+- **Grade Value Analysis**: Intelligent analysis of card grading potential
+- **Premium Calculations**: Calculate value premiums for different grades
+- **Market Comparisons**: Compare prices across PSA, BGS, SGC, and other grading companies
+- **Population Data Integration**: Access population report data for informed decisions
+
+**Frontend Updates:**
+- [`static/js/grading-advisor.js`](static/js/grading-advisor.js) - New frontend module for Grading Advisor tab
+- [`static/css/grading-advisor.css`](static/css/grading-advisor.css) - Dedicated styles for Grading Advisor
+
+**Bug Fixes:**
+- Fixed binder collection bug
+>>>>>>> main
 
 ### Version 0.5.1 (UX Improvements)
 
@@ -268,7 +320,7 @@ Version 0.5.0 marks the transition to production beta with significant improveme
 
 ### Version 0.4.0
 
-Version 0.4.0 represents a major evolution of the application with professional infrastructure and enhanced user experience. Behind the scenes, the backend has been completely restructured into organized modules, making it easier to maintain and add new features. We've added intelligent caching to dramatically speed up searches and reduce costs, implemented smart rate limiting to prevent abuse, and integrated machine learning tools for more accurate price predictions. The app now includes professional monitoring and error tracking for reliability. On the user-facing side, the interface has been redesigned with mobile devices in mind, featuring a powerful new "Analytics Dashboard" that provides market pressure analysis, liquidity profiles, absorption ratios, and personalized pricing recommendations tailored to your selling strategy. There's also an upgraded "Grading Intelligence" tool that lets you compare different grading companies and grades side-by-side, better organized tabs for different analysis types, and improved search tips to help you find exactly what you're looking for. The entire frontend code has been reorganized into specialized modules for better performance and future enhancements. Whether you're accessing the site from your phone, tablet, or computer, you'll notice faster load times, smoother interactions, and a more polished experience overall.
+Version 0.4.0 represents a major evolution of the application with professional infrastructure and enhanced user experience. Behind the scenes, the backend has been completely restructured into organized modules, making it easier to maintain and add new features. We've added intelligent caching to dramatically speed up searches and reduce costs, implemented smart rate limiting to prevent abuse, and integrated machine learning tools for more accurate price predictions. The app now includes professional monitoring and error tracking for reliability. On the user-facing side, the interface has been redesigned with mobile devices in mind, featuring a powerful new "Analytics Dashboard" that provides market pressure analysis, liquidity profiles, absorption ratios, and personalized pricing recommendations tailored to your selling strategy. There's also the "Grading Intelligence" tool that lets you compare different grading companies and grades side-by-side, better organized tabs for different analysis types, and improved search tips to help you find exactly what you're looking for. The entire frontend code has been reorganized into specialized modules for better performance and future enhancements. Whether you're accessing the site from your phone, tablet, or computer, you'll notice faster load times, smoother interactions, and a more polished experience overall.
 
 **Backend Infrastructure:**
 - **Architecture Overhaul**: Complete modular restructure with organized [`/backend/`](backend/) directory
@@ -307,7 +359,7 @@ Version 0.4.0 represents a major evolution of the application with professional 
   - [`rendering.js`](static/js/rendering.js) - UI rendering functions
   - [`charts.js`](static/js/charts.js) - Beeswarm chart visualization
   - [`analysis.js`](static/js/analysis.js) - Market analysis features
-- **Grading Intelligence Tab**: New dedicated interface for comparing graded cards
+- **Grading Intelligence Tab**: Dedicated interface for comparing graded cards
   - Compare up to 3 cards simultaneously with different graders (PSA, BGS, SGC) and grades
   - Card-specific search with grading parameter inputs
   - Side-by-side price comparison across different grades
@@ -326,7 +378,7 @@ Version 0.4.0 represents a major evolution of the application with professional 
 - **Enhanced Search Tips**: Expandable collapsible search guidance
   - Beginner-friendly examples with visual formatting
   - Advanced eBay search operators (quotes, exclusions, card numbers)
-  - Context-specific tips for both Comps and Intelligence tabs
+  - Context-specific tips for both Comps and Grading Intelligence tabs
 - **Mobile-First Responsive Design**: Comprehensive responsive layouts
   - Optimized for phones (< 768px), tablets (769-1024px), and desktops (> 1024px)
   - Touch-friendly button sizes (48px minimum) and spacing

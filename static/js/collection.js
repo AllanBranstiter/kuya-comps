@@ -813,7 +813,7 @@ const CollectionModule = (function() {
                     </div>
                     
                     <!-- Hidden field for search query -->
-                    <input type="hidden" id="card-search-query" value="${escapeHtml(searchQuery)}">
+                    <input type="hidden" id="card-search-query" value="${escapeHtmlAttr(searchQuery)}">
                     
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit-btn" style="width: 100%; padding: 1rem; background: var(--gradient-primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); margin-top: 1rem;">
@@ -1055,7 +1055,12 @@ const CollectionModule = (function() {
         }
         
         try {
+            // Get the selected binder, validate it exists
             let binderId = formData.binder;
+            
+            if (!binderId) {
+                return { error: { message: 'Please select or create a binder before adding a card.' } };
+            }
             
             // Create new binder if needed
             if (formData.binder === '__new__' && formData.newBinderName) {
@@ -1359,7 +1364,7 @@ const CollectionModule = (function() {
                 <div class="binder-card" onclick="CollectionModule.showBinderDetails('${binder.id}')" style="background: var(--card-background); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; cursor: pointer; position: relative;">
                     <div style="position: absolute; top: 1rem; right: 1rem;">
                         <button
-                            onclick="CollectionModule.showBinderContextMenu('${binder.id}', '${escapeHtml(binder.name).replace(/'/g, "\\'")}', event); event.stopPropagation();"
+                            onclick="CollectionModule.showBinderContextMenu('${binder.id}', '${escapeHtmlAttr(binder.name).replace(/'/g, "\\'")}', event); event.stopPropagation();"
                             class="options-button"
                             style="
                                 background: #f5f5f7;
@@ -1673,7 +1678,7 @@ const CollectionModule = (function() {
                 // Status indicators
                 let statusHTML = '';
                 if (card.review_required) {
-                    statusHTML += `<span class="review-flag" title="${escapeHtml(card.review_reason || 'Review required')}" style="color: #ff3b30; font-size: 1rem; cursor: help;">⚠️</span> `;
+                    statusHTML += `<span class="review-flag" title="${escapeHtmlAttr(card.review_reason || 'Review required')}" style="color: #ff3b30; font-size: 1rem; cursor: help;">⚠️</span> `;
                 }
                 if (isStale && card.auto_update) {
                     statusHTML += `<span class="stale-warning" title="Data older than 30 days" style="color: #ff9500; font-size: 0.85rem;">⏰</span>`;
@@ -1754,6 +1759,20 @@ const CollectionModule = (function() {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    /**
+     * Helper function to escape HTML for use in attribute values
+     * Properly escapes quotes which break attribute parsing
+     */
+    function escapeHtmlAttr(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
     }
     
     /**
@@ -2177,7 +2196,7 @@ const CollectionModule = (function() {
                             
                             <div class="auth-form-group">
                                 <label>Search Query</label>
-                                <input type="text" id="editCardSearchQuery" value="${escapeHtml(card.search_query_string || '')}" placeholder="e.g., 2024 Topps Chrome Shohei Ohtani PSA 10">
+                                <input type="text" id="editCardSearchQuery" value="${escapeHtmlAttr(card.search_query_string || '')}" placeholder="e.g., 2024 Topps Chrome Shohei Ohtani PSA 10">
                                 <div style="font-size: 0.75rem; color: var(--subtle-text-color); margin-top: 0.25rem;">
                                     This search query is used to automatically update the card's Fair Market Value. You can refine it if needed (e.g., after grading).
                                 </div>
