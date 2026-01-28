@@ -54,58 +54,6 @@ function validatePages(pages) {
 }
 
 /**
- * Validate intelligence search inputs
- * @param {string} query - Base search query
- * @param {Array} cardSelections - Array of card selections
- * @returns {Object} - {valid: boolean, error: string}
- */
-function validateIntelligenceSearch(query, cardSelections) {
-    // Validate query
-    if (!validateSearchQuery(query)) {
-        return {
-            valid: false,
-            error: 'Please enter a valid search query'
-        };
-    }
-    
-    // Validate card selections
-    if (!cardSelections || cardSelections.length === 0) {
-        return {
-            valid: false,
-            error: 'Please enter at least one complete card (both Grader and Grade)'
-        };
-    }
-    
-    // Validate each card selection
-    for (const card of cardSelections) {
-        if (!card.grader || !card.grade) {
-            return {
-                valid: false,
-                error: `Card ${card.cardNumber}: Please enter both Grader and Grade, or leave both empty`
-            };
-        }
-        
-        // Validate grader length (reasonable limit)
-        if (card.grader.length > 10) {
-            return {
-                valid: false,
-                error: `Card ${card.cardNumber}: Grader name is too long`
-            };
-        }
-        
-        // Validate grade length (reasonable limit)
-        if (card.grade.length > 10) {
-            return {
-                valid: false,
-                error: `Card ${card.cardNumber}: Grade is too long`
-            };
-        }
-    }
-    
-    return { valid: true, error: null };
-}
-
-/**
  * Setup real-time validation for an input element
  * @param {string} inputId - ID of input element
  * @param {Function} validator - Validation function

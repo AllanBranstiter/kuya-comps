@@ -10,7 +10,7 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
-*   **PSA Grade Intelligence**: Compare prices across different PSA grades
+*   **Grading Advisor**: Compare prices across different grading companies and grades with intelligent recommendations
 *   **Password Protection**: Secure access with session management
 *   **Clean UI**: Modern interface with responsive design
 *   **Accessibility**: WCAG 2.1 Level A & AA compliant (skip-to-content, color contrast)
@@ -224,7 +224,7 @@ Version 0.5.0 marks the transition to production beta with significant improveme
 
 ### Version 0.4.0
 
-Version 0.4.0 represents a major evolution of the application with professional infrastructure and enhanced user experience. Behind the scenes, the backend has been completely restructured into organized modules, making it easier to maintain and add new features. We've added intelligent caching to dramatically speed up searches and reduce costs, implemented smart rate limiting to prevent abuse, and integrated machine learning tools for more accurate price predictions. The app now includes professional monitoring and error tracking for reliability. On the user-facing side, the interface has been redesigned with mobile devices in mind, featuring a powerful new "Analytics Dashboard" that provides market pressure analysis, liquidity profiles, absorption ratios, and personalized pricing recommendations tailored to your selling strategy. There's also an upgraded "Grading Intelligence" tool that lets you compare different grading companies and grades side-by-side, better organized tabs for different analysis types, and improved search tips to help you find exactly what you're looking for. The entire frontend code has been reorganized into specialized modules for better performance and future enhancements. Whether you're accessing the site from your phone, tablet, or computer, you'll notice faster load times, smoother interactions, and a more polished experience overall.
+Version 0.4.0 represents a major evolution of the application with professional infrastructure and enhanced user experience. Behind the scenes, the backend has been completely restructured into organized modules, making it easier to maintain and add new features. We've added intelligent caching to dramatically speed up searches and reduce costs, implemented smart rate limiting to prevent abuse, and integrated machine learning tools for more accurate price predictions. The app now includes professional monitoring and error tracking for reliability. On the user-facing side, the interface has been redesigned with mobile devices in mind, featuring a powerful new "Analytics Dashboard" that provides market pressure analysis, liquidity profiles, absorption ratios, and personalized pricing recommendations tailored to your selling strategy. There's also the "Grading Advisor" tool that lets you compare different grading companies and grades side-by-side, better organized tabs for different analysis types, and improved search tips to help you find exactly what you're looking for. The entire frontend code has been reorganized into specialized modules for better performance and future enhancements. Whether you're accessing the site from your phone, tablet, or computer, you'll notice faster load times, smoother interactions, and a more polished experience overall.
 
 **Backend Infrastructure:**
 - **Architecture Overhaul**: Complete modular restructure with organized [`/backend/`](backend/) directory
@@ -263,7 +263,7 @@ Version 0.4.0 represents a major evolution of the application with professional 
   - [`rendering.js`](static/js/rendering.js) - UI rendering functions
   - [`charts.js`](static/js/charts.js) - Beeswarm chart visualization
   - [`analysis.js`](static/js/analysis.js) - Market analysis features
-- **Grading Intelligence Tab**: New dedicated interface for comparing graded cards
+- **Grading Advisor Tab**: Dedicated interface for comparing graded cards *(Note: Supersedes the deprecated Grading Intelligence tab with enhanced functionality)*
   - Compare up to 3 cards simultaneously with different graders (PSA, BGS, SGC) and grades
   - Card-specific search with grading parameter inputs
   - Side-by-side price comparison across different grades
@@ -282,7 +282,7 @@ Version 0.4.0 represents a major evolution of the application with professional 
 - **Enhanced Search Tips**: Expandable collapsible search guidance
   - Beginner-friendly examples with visual formatting
   - Advanced eBay search operators (quotes, exclusions, card numbers)
-  - Context-specific tips for both Comps and Intelligence tabs
+  - Context-specific tips for both Comps and Grading Advisor tabs
 - **Mobile-First Responsive Design**: Comprehensive responsive layouts
   - Optimized for phones (< 768px), tablets (769-1024px), and desktops (> 1024px)
   - Touch-friendly button sizes (48px minimum) and spacing
@@ -335,7 +335,7 @@ Version 0.4.0 represents a major evolution of the application with professional 
 - **Code Cleanup**:
   - Removed Test Mode functionality (always production)
   - Removed CSV export feature
-  - Simplified Smart Market Insights in Grading Intelligence tab
+  - Simplified Smart Market Insights in Grading Advisor tab *(Note: Grading Intelligence was later deprecated and replaced by Grading Advisor)*
   - Clean API parameter handling without test mode complexity
 
 ### Version 0.1.0 (Initial Release)
