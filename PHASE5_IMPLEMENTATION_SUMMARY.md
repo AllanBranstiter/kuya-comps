@@ -101,7 +101,7 @@ window.deleteSavedSearch = deleteSavedSearch;
 1. Sees "Login" button in header
 2. Portfolio tab is hidden
 3. Analysis sub-tab shows login prompt
-4. Can use Comps tab and Grading Advisor normally *(Note: Grading Intelligence has been deprecated and superseded by Grading Advisor, which provides enhanced functionality including intelligent grading recommendations)*
+4. Can use Comps tab and Grading Intelligence normally
 5. Cannot save searches (Save button hidden)
 
 ### Logged-In User

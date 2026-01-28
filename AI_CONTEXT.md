@@ -18,7 +18,7 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 - **Smart Deal Finding:** Active listings filtered to show only items priced at or below Fair Market Value with discount indicators
 - **Market Analysis:** Fair Market Value calculations with Quick Sale/Patient Sale ranges using ML
 - **Interactive Visualization:** Beeswarm chart showing price distribution
-- **Grading Advisor:** Compare prices across different grading companies and grades with intelligent recommendations
+- **Grading Intelligence:** Compare prices across different grading companies and grades with intelligent recommendations
 - **Advanced Analytics Dashboard:** Market pressure analysis, liquidity profiles, absorption ratios
 - **Collection Management (NEW):** Track card collections with binders and smart organization
 - **Editable Search Queries (NEW):** Edit search queries in Edit Card modal to refine automated valuations
@@ -30,7 +30,7 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 Baseball card collectors and flippers who want to:
 - Find fair market values for cards before buying or selling
 - Identify underpriced listings on eBay
-- Compare prices across different grading companies and grades using Grading Advisor
+- Compare prices across different grading companies and grades using Grading Intelligence
 - Make data-driven pricing decisions
 - Track and manage their personal card collections
 - Monitor portfolio value and ROI over time
