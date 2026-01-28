@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v0.5.1 (Production Beta)
+# eBay Baseball Card Comps Tool v0.6.0 (Production Beta)
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
@@ -10,7 +10,7 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
-*   **Grading Intelligence**: Compare prices across different grading companies and grades with intelligent recommendations
+*   **Grading Advisor**: Backend-powered intelligent grading recommendations with grade value analysis, premium calculations, and market comparisons
 *   **Password Protection**: Secure access with session management
 *   **Clean UI**: Modern interface with responsive design
 *   **Accessibility**: WCAG 2.1 Level A & AA compliant (skip-to-content, color contrast)
@@ -52,8 +52,11 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 kuya-comps/
 ├── backend/           # All server-side logic
 │   ├── routes/        # API endpoint handlers
+│   │   └── grading_advisor.py           # API endpoints for grading analysis
 │   ├── services/      # Business logic and external API integration
+│   │   └── grading_advisor_service.py   # Business logic for grading recommendations
 │   ├── models/        # Data models and schemas
+│   │   └── grading_advisor_schemas.py   # Pydantic models for Grading Advisor
 │   ├── middleware/    # Request processing chain
 │   ├── config/        # Configuration management
 │   └── cache/         # Redis caching layer
@@ -61,10 +64,12 @@ kuya-comps/
 │   ├── index.html     # Main application (~545 lines)
 │   ├── style.css      # Main stylesheet (extracted from index.html)
 │   ├── css/           # Component stylesheets
-│   │   └── shared-styles.css  # Shared styles (WCAG AA colors)
+│   │   ├── shared-styles.css  # Shared styles (WCAG AA colors)
+│   │   └── grading-advisor.css  # Styles for Grading Advisor
 │   └── js/            # JavaScript modules
 │       ├── modal.js   # Reusable modal component
 │       ├── auth.js    # Authentication (uses Modal)
+│       ├── grading-advisor.js   # Frontend for Grading Advisor tab
 │       └── ...        # Other modules
 ├── docs/              # Documentation
 │   ├── SECURITY.md
@@ -145,6 +150,15 @@ The application exposes three main API endpoints:
     - Custom metrics for observability
     - Request counts and performance data
 
+*   **`POST /api/grading-advisor/analyze`** - Analyze a card for grading value
+    - Returns grade value analysis with premium calculations
+    - Market comparisons across grading companies
+    - Intelligent grading recommendations
+
+*   **`GET /api/grading-advisor/population/{card_id}`** - Get population report data
+    - Population data for specific cards
+    - Market supply analysis
+
 All endpoints support comprehensive filtering and include rate limiting (10 requests/minute per IP).
 
 ## Security
@@ -184,7 +198,31 @@ The application implements several strategies to manage API costs and maintain p
 
 ## Version History
 
-### Version 0.5.1 (UX Improvements) - Current
+### Version 0.6.0 (Grading Advisor) - Current
+
+Version 0.6.0 introduces a major refactoring of the grading system, transitioning from the frontend-only "Grading Intelligence" to a full backend-powered "Grading Advisor" system. This release adds comprehensive API support with Pydantic models, dedicated service layer, and new endpoints for intelligent grading analysis.
+
+**Backend Architecture:**
+- **Deprecated**: Old frontend-only Grading Intelligence tab
+- **New Grading Advisor System**: Complete backend implementation
+  - [`backend/models/grading_advisor_schemas.py`](backend/models/grading_advisor_schemas.py) - Pydantic models for request/response validation
+  - [`backend/routes/grading_advisor.py`](backend/routes/grading_advisor.py) - API endpoints for grading analysis
+  - [`backend/services/grading_advisor_service.py`](backend/services/grading_advisor_service.py) - Business logic for grading recommendations
+
+**New Features:**
+- **Grade Value Analysis**: Intelligent analysis of card grading potential
+- **Premium Calculations**: Calculate value premiums for different grades
+- **Market Comparisons**: Compare prices across PSA, BGS, SGC, and other grading companies
+- **Population Data Integration**: Access population report data for informed decisions
+
+**Frontend Updates:**
+- [`static/js/grading-advisor.js`](static/js/grading-advisor.js) - New frontend module for Grading Advisor tab
+- [`static/css/grading-advisor.css`](static/css/grading-advisor.css) - Dedicated styles for Grading Advisor
+
+**Bug Fixes:**
+- Fixed binder collection bug
+
+### Version 0.5.1 (UX Improvements)
 
 Version 0.5.1 focuses on accessibility compliance and frontend architecture improvements. This release brings WCAG 2.1 Level A & AA compliance through skip-to-content navigation and color contrast fixes, extracts CSS from inline styles to external stylesheets, and introduces a reusable Modal component for consistent modal behavior across the application.
 
