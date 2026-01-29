@@ -601,7 +601,7 @@ def _find_break_even_grade(matrix: Dict[str, GradeAnalysis]) -> Optional[str]:
     """
     for grade_num in range(1, 11):
         grade = str(grade_num)
-        if grade in matrix and matrix[grade].profit_loss >= 0:
+        if grade in matrix and matrix[grade].profit_loss is not None and matrix[grade].profit_loss >= 0:
             return grade
     return None
 
@@ -731,9 +731,14 @@ def _generate_scenario_analysis(
             break
     
     # If no profitable grade, use PSA 10 anyway as "best case"
-    if optimistic_profit <= 0 and "10" in matrix:
+    # Check for None before comparison
+    if optimistic_profit is not None and optimistic_profit <= 0 and "10" in matrix:
         optimistic_grade = "10"
         optimistic_profit = matrix["10"].profit_loss
+    
+    # If profit_loss is None (no price data), default to 0 for display
+    if optimistic_profit is None:
+        optimistic_profit = 0.0
     
     # Calculate optimistic probability based on population
     optimistic_prob = distribution.grade_percentages.get(optimistic_grade, 0.0) / 100
@@ -759,6 +764,10 @@ def _generate_scenario_analysis(
     )).profit_loss
     realistic_prob = max_pop_pct / 100
     
+    # If profit_loss is None (no price data), default to 0 for display
+    if realistic_profit is None:
+        realistic_profit = 0.0
+    
     realistic = ScenarioResult(
         grade=max_pop_grade,
         profit_loss=realistic_profit,
@@ -771,6 +780,10 @@ def _generate_scenario_analysis(
         grade="1", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
     )).profit_loss
     pessimistic_prob = distribution.grade_percentages.get("1", 0.0) / 100
+    
+    # If profit_loss is None (no price data), default to 0 for display
+    if pessimistic_profit is None:
+        pessimistic_profit = 0.0
     
     pessimistic = ScenarioResult(
         grade=pessimistic_grade,
