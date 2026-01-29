@@ -86,6 +86,28 @@ class PopulationDistribution(BaseModel):
         default="moderate",
         description="CSS class for gem rate styling: 'rare-gems', 'quality', 'moderate', or 'common-gems'"
     )
+    era: str = Field(
+        default="Unknown",
+        description="Card era: 'Vintage', 'Junk Wax Era', 'Modern', 'Ultra-Modern'"
+    )
+    era_class: str = Field(
+        default="unknown",
+        description="CSS class: 'vintage', 'junk-wax', 'modern', 'ultra-modern'"
+    )
+    high_grade_rate: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description="Percentage at PSA 7+ (vintage cards only)"
+    )
+    high_grade_tier: Optional[str] = Field(
+        default=None,
+        description="'Elite', 'Quality', 'Average', 'Difficult'"
+    )
+    high_grade_class: Optional[str] = Field(
+        default=None,
+        description="CSS class for high-grade rate"
+    )
     
     @field_validator('rarity_tier')
     @classmethod
@@ -160,10 +182,16 @@ class GradingAdvisorRequest(BaseModel):
         description="Cost to grade the card (default: $21.00 for PSA Value tier)"
     )
     expected_grade: Optional[int] = Field(
-        default=None, 
-        ge=1, 
-        le=10, 
+        default=None,
+        ge=1,
+        le=10,
         description="User's predicted grade (1-10, optional)"
+    )
+    card_year: Optional[int] = Field(
+        default=None,
+        ge=1800,
+        le=2026,
+        description="Year the card was manufactured (used for era classification)"
     )
     
     @field_validator('price_data')

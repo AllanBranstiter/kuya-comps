@@ -294,12 +294,23 @@ const GradingAdvisor = (function() {
             }
         }
         
+        // Get optional card year
+        const cardYearInput = document.getElementById('card-year');
+        let cardYear = null;
+        if (cardYearInput && cardYearInput.value) {
+            cardYear = parseInt(cardYearInput.value, 10);
+            if (isNaN(cardYear) || cardYear < 1800 || cardYear > 2026) {
+                cardYear = null;
+            }
+        }
+        
         return {
             price_data: priceData,
             population_data: populationData,
             raw_purchase_price: rawPurchasePrice,
             grading_fee: gradingFee,
-            expected_grade: expectedGrade
+            expected_grade: expectedGrade,
+            card_year: cardYear
         };
     }
     
@@ -826,28 +837,87 @@ const GradingAdvisor = (function() {
             breakEvenDisplay = 'None (all unprofitable)';
         }
         
-        // 8. Build the HTML with Confidence Score and Gem Rate
+        // 8. Build the HTML with Confidence Score and Gem/High-Grade Rate
+        // Get era data from distribution
+        const era = distribution.era || 'Unknown';
+        const eraClass = distribution.era_class || 'unknown';
+        const highGradeRate = distribution.high_grade_rate;
+        const highGradeTier = distribution.high_grade_tier;
+        const highGradeClass = distribution.high_grade_class;
+        
         // Get gem rate data from distribution
         const gemRate = distribution.gem_rate || 0;
         const gemRateTier = distribution.gem_rate_tier || 'Unknown';
         const gemRateClass = distribution.gem_rate_class || 'moderate';
         
-        // Determine contextual hint based on gem rate class
-        let gemRateContext = '';
-        if (gemRateClass === 'rare-gems') {
-            gemRateContext = 'Almost No PSA 10s - PSA 9s Are Valuable';
-        } else if (gemRateClass === 'quality') {
-            gemRateContext = 'Few PSA 10s - PSA 9s Hold Value';
-        } else if (gemRateClass === 'moderate') {
-            gemRateContext = 'Avg Gem Rate - Weak PSA 9 Values';
-        } else if (gemRateClass === 'common-gems') {
-            gemRateContext = 'Common PSA 10s - PSA 9 Values Are Dead';
+        // Determine if we should show high-grade rate (vintage only)
+        const isVintage = eraClass === 'vintage';
+        
+        // Build era badge
+        const eraBadgeHtml = era !== 'Unknown' ? `
+            <div class="era-badge ${eraClass}">
+                <span class="era-icon">📅</span>
+                <span class="era-text">${escapeHtml(era)}</span>
+            </div>
+        ` : '';
+        
+        // Build rate display (Gem Rate or High-Grade Rate)
+        let rateDisplayHtml = '';
+        if (isVintage && highGradeRate !== null && highGradeRate !== undefined) {
+            // Show High-Grade Rate for vintage cards
+            let highGradeContext = '';
+            if (highGradeClass === 'elite') {
+                highGradeContext = 'Excellent Condition Survival Rate';
+            } else if (highGradeClass === 'quality') {
+                highGradeContext = 'Good High-Grade Population';
+            } else if (highGradeClass === 'average') {
+                highGradeContext = 'Average High-Grade Survival';
+            } else if (highGradeClass === 'difficult') {
+                highGradeContext = 'Very Difficult to Grade High';
+            } else {
+                highGradeContext = 'High-Grade (PSA 7+) Rate';
+            }
+            
+            rateDisplayHtml = `
+                <div class="gem-rate-display ${highGradeClass || 'average'}">
+                    <span class="label">High-Grade Rate (PSA 7+)</span>
+                    <div class="gem-rate-value">
+                        <span class="percentage">${highGradeRate.toFixed(1)}%</span>
+                        <span class="tier-badge">${escapeHtml(highGradeTier || 'Unknown')}</span>
+                    </div>
+                    <span class="gem-rate-hint">${highGradeContext}</span>
+                </div>
+            `;
         } else {
-            gemRateContext = 'PSA 10 Population';
+            // Show Gem Rate for non-vintage cards
+            let gemRateContext = '';
+            if (gemRateClass === 'rare-gems') {
+                gemRateContext = 'Almost No PSA 10s - PSA 9s Are Valuable';
+            } else if (gemRateClass === 'quality') {
+                gemRateContext = 'Few PSA 10s - PSA 9s Hold Value';
+            } else if (gemRateClass === 'moderate') {
+                gemRateContext = 'Avg Gem Rate - Weak PSA 9 Values';
+            } else if (gemRateClass === 'common-gems') {
+                gemRateContext = 'Common PSA 10s - PSA 9 Values Are Dead';
+            } else {
+                gemRateContext = 'PSA 10 Population';
+            }
+            
+            rateDisplayHtml = `
+                <div class="gem-rate-display ${gemRateClass}">
+                    <span class="label">Gem Rate</span>
+                    <div class="gem-rate-value">
+                        <span class="percentage">${gemRate.toFixed(1)}%</span>
+                        <span class="tier-badge">${gemRateTier}</span>
+                    </div>
+                    <span class="gem-rate-hint">${gemRateContext}</span>
+                </div>
+            `;
         }
         
         return `
             <div class="decision-summary-card ${cardClass}">
+                ${eraBadgeHtml}
                 <div class="summary-content">
                     <div class="confidence-score ${scoreClass}">
                         <span class="label">Grading Confidence</span>
@@ -856,14 +926,7 @@ const GradingAdvisor = (function() {
                             <span class="score-label">${scoreLabel}</span>
                         </div>
                     </div>
-                    <div class="gem-rate-display ${gemRateClass}">
-                        <span class="label">Gem Rate</span>
-                        <div class="gem-rate-value">
-                            <span class="percentage">${gemRate.toFixed(1)}%</span>
-                            <span class="tier-badge">${gemRateTier}</span>
-                        </div>
-                        <span class="gem-rate-hint">${gemRateContext}</span>
-                    </div>
+                    ${rateDisplayHtml}
                     <div class="summary-stats">
                         <div class="stat break-even">
                             <span class="stat-label">Break-Even Grade</span>

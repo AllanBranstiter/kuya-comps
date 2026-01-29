@@ -49,6 +49,48 @@ HIGH_CONCENTRATION_THRESHOLD = 50.0  # Percent
 
 
 # ============================================================================
+# Era Classification Functions
+# ============================================================================
+
+def _classify_card_era(year: Optional[int]) -> Tuple[str, str]:
+    """Classify card era based on year. Returns (era_name, era_class)."""
+    if not year or year < 1800:
+        return ('Unknown', 'unknown')
+    if year < 1984:
+        return ('Vintage', 'vintage')
+    elif year <= 1994:
+        return ('Junk Wax Era', 'junk-wax')
+    elif year <= 2019:
+        return ('Modern', 'modern')
+    else:
+        return ('Ultra-Modern', 'ultra-modern')
+
+def _calculate_high_grade_rate(
+    population_data: Dict[str, int],
+    era: str
+) -> Tuple[Optional[float], Optional[str], Optional[str]]:
+    """Calculate PSA 7+ rate for vintage cards."""
+    if era != 'vintage':
+        return (None, None, None)
+    
+    total_population = sum(population_data.get(str(i), 0) for i in range(1, 11))
+    if total_population == 0:
+        return (0.0, 'Unknown', 'unknown')
+    
+    high_grade_pop = sum(population_data.get(str(i), 0) for i in range(7, 11))
+    high_grade_rate = (high_grade_pop / total_population) * 100
+    
+    if high_grade_rate > 40.0:
+        return (round(high_grade_rate, 1), "Elite", "elite")
+    elif high_grade_rate >= 25.0:
+        return (round(high_grade_rate, 1), "Quality", "quality")
+    elif high_grade_rate >= 10.0:
+        return (round(high_grade_rate, 1), "Average", "average")
+    else:
+        return (round(high_grade_rate, 1), "Difficult", "difficult")
+
+
+# ============================================================================
 # Main Analysis Function
 # ============================================================================
 
@@ -103,7 +145,7 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
             profitable_grades.append(grade)
     
     # Calculate population distribution
-    distribution = _calculate_population_distribution(request.population_data)
+    distribution = _calculate_population_distribution(request.population_data, request.card_year)
     
     # Calculate success rate
     success_rate = (len(profitable_grades) / 10) * 100
@@ -235,13 +277,15 @@ def _calculate_grade_analysis(
 
 
 def _calculate_population_distribution(
-    population_data: Dict[str, int]
+    population_data: Dict[str, int],
+    card_year: Optional[int] = None
 ) -> PopulationDistribution:
     """
     Calculate population distribution statistics.
     
     Args:
         population_data: Dict mapping grade strings to population counts
+        card_year: Optional year for era classification
     
     Returns:
         PopulationDistribution with total, percentages, rarity tier, and gem rate
@@ -266,13 +310,26 @@ def _calculate_population_distribution(
     gem_rate = grade_percentages.get("10", 0.0)
     gem_rate_tier, gem_rate_class = _calculate_gem_rate_tier(gem_rate)
     
+    # Classify card era
+    era, era_class = _classify_card_era(card_year)
+    
+    # Calculate high-grade rate for vintage cards
+    high_grade_rate, high_grade_tier, high_grade_class = _calculate_high_grade_rate(
+        population_data, era_class
+    )
+    
     return PopulationDistribution(
         total_population=total_population,
         grade_percentages=grade_percentages,
         rarity_tier=rarity_tier,
         gem_rate=gem_rate,
         gem_rate_tier=gem_rate_tier,
-        gem_rate_class=gem_rate_class
+        gem_rate_class=gem_rate_class,
+        era=era,
+        era_class=era_class,
+        high_grade_rate=high_grade_rate,
+        high_grade_tier=high_grade_tier,
+        high_grade_class=high_grade_class
     )
 
 
@@ -700,6 +757,90 @@ def _generate_warnings(
         List of warning message strings
     """
     warnings: List[str] = []
+    
+    # Era-specific warnings with enhanced contextual guidance
+    era_class = distribution.era_class
+    high_grade_rate = distribution.high_grade_rate
+    gem_rate = distribution.gem_rate
+
+    # =========================================================================
+    # Vintage Era Warnings (Pre-1983) - Enhanced
+    # =========================================================================
+    if era_class == 'vintage':
+        # Keep existing basic warning
+        if high_grade_rate is not None:
+            warnings.append(
+                f"📚 Vintage Era: For pre-1983 cards, PSA 7-8 is high-grade. "
+                f"Only {high_grade_rate:.1f}% achieve PSA 7+. "
+                "Centering issues and paper aging are common."
+            )
+        
+        # NEW: 7-to-8 jump warning (contextual)
+        if break_even_grade and int(break_even_grade) in [7, 8]:
+            warnings.append(
+                "💰 The PSA 7-to-8 jump can mean thousands of dollars for vintage cards. "
+                "Inspect corners with a loupe for micro-fraying before submitting."
+            )
+        
+        # NEW: Centering guidance (always for vintage)
+        warnings.append(
+            "📐 Centering is critical for vintage cards. 50/50 centering can be worth "
+            "significantly more than 70/30, even with identical corners."
+        )
+        
+        # NEW: Crease warning (if break-even is low)
+        if break_even_grade and int(break_even_grade) <= 6:
+            warnings.append(
+                "⚠️ Check for creases, even 'spider creases' only visible under light. "
+                "Any crease will instantly drop a vintage card to PSA 4 or lower."
+            )
+    
+    # =========================================================================
+    # Junk Wax Era Warnings (1984-1994) - Enhanced
+    # =========================================================================
+    elif era_class == 'junk-wax':
+        # Keep existing mass production warning
+        if distribution.total_population > 10000 or (20.0 <= gem_rate <= 40.0):
+            warnings.append(
+                f"📦 Junk Wax Era (1984-1994): Mass production with {distribution.total_population:,} graded copies. "
+                "Only submit cards you're confident will grade PSA 9+. "
+                "Low QC during production means centering/print defects are common. "
+                "High populations limit value appreciation—grading fees must be justified by the grade spread."
+            )
+        
+        # NEW: Stronger population warning (contextual)
+        psa_10_pop = population_data.get("10", 0)
+        if psa_10_pop > 5000:
+            warnings.append(
+                f"📊 With {psa_10_pop:,} PSA 10s already graded, a PSA 9 may be worth less "
+                "than your grading costs. Check the population report carefully."
+            )
+        
+        # NEW: Commons warning (always for junk wax)
+        warnings.append(
+            "💸 Avoid grading common players from this era. Even in PSA 10, "
+            "most cards struggle to cover the $20+ grading fee."
+        )
+    
+    # =========================================================================
+    # Modern Era Warnings (1995-2019) - NEW
+    # =========================================================================
+    elif era_class == 'modern':
+        if break_even_grade and int(break_even_grade) >= 9:
+            warnings.append(
+                "🏆 For modern cards, PSA commands highest ROI for Gem Mint 10s. "
+                "Consider BGS for thick cards (memorabilia/patches) or if chasing the rare BGS Black Label 10."
+            )
+    
+    # =========================================================================
+    # Ultra-Modern Era Warnings (2020+) - NEW
+    # =========================================================================
+    elif era_class == 'ultra-modern':
+        if gem_rate > 60:
+            warnings.append(
+                "🔍 Ultra-modern chrome/refractor cards require technical perfection. "
+                "Check for print lines, dimples, or surface scratches invisible to the naked eye that will prevent a PSA 10."
+            )
     
     # Get gem rate and grade percentages
     gem_rate = distribution.gem_rate

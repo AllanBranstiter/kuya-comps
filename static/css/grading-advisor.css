@@ -631,6 +631,108 @@
   color: white;
 }
 
+/* High-Grade Rate (PSA 7+) Color Variants for Vintage Cards */
+.gem-rate-display.elite {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-color: #22c55e;
+}
+
+.gem-rate-display.elite .percentage {
+  color: #16a34a;
+}
+
+.gem-rate-display.elite .tier-badge {
+  background: #16a34a;
+  color: white;
+}
+
+.gem-rate-display.average {
+  background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
+  border-color: #eab308;
+}
+
+.gem-rate-display.average .percentage {
+  color: #ca8a04;
+}
+
+.gem-rate-display.average .tier-badge {
+  background: #ca8a04;
+  color: white;
+}
+
+.gem-rate-display.difficult {
+  background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+  border-color: #ef4444;
+}
+
+.gem-rate-display.difficult .percentage {
+  color: #dc2626;
+}
+
+.gem-rate-display.difficult .tier-badge {
+  background: #dc2626;
+  color: white;
+}
+
+/* ===== ERA BADGE ===== */
+.era-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  border: 2px solid;
+  transition: all 0.3s ease;
+  align-self: flex-start;
+}
+
+.era-badge:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.era-icon {
+  font-size: 1rem;
+}
+
+.era-text {
+  line-height: 1;
+}
+
+/* Era Badge Color Variants */
+.era-badge.vintage {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.era-badge.junk-wax {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  border-color: #6366f1;
+  color: #3730a3;
+}
+
+.era-badge.modern {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-color: #3b82f6;
+  color: #1e40af;
+}
+
+.era-badge.ultra-modern {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border-color: #22c55e;
+  color: #166534;
+}
+
+.era-badge.unknown {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border-color: #9ca3af;
+  color: #4b5563;
+}
+
 .summary-stats {
   display: contents;
 }
