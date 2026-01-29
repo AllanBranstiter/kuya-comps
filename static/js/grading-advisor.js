@@ -652,37 +652,56 @@ const GradingAdvisor = (function() {
      * @returns {string} HTML string
      */
     function createDecisionSummaryCard(data) {
-        if (!data || !data.analysis || !data.analysis.grades) {
+        // Check for matrix data (actual API response structure)
+        if (!data || !data.matrix) {
+            console.log('[GRADING ADVISOR] Decision card: No matrix data found');
             return '';
         }
         
-        const grades = data.analysis.grades;
-        const gradingFee = data.analysis.grading_fee || 0;
-        const rawPrice = data.analysis.raw_price || 0;
+        // Get distribution data for probability calculations
+        const distribution = data.distribution || {};
+        const gradePercentages = distribution.grade_percentages || {};
+        
+        // Convert matrix object to array format for calculations
+        const grades = Object.keys(data.matrix)
+            .filter(g => !isNaN(parseInt(g, 10)))
+            .map(gradeStr => {
+                const gradeNum = parseInt(gradeStr, 10);
+                const gradeData = data.matrix[gradeStr];
+                return {
+                    grade: gradeNum,
+                    profit_loss: gradeData.profit_loss !== undefined ? gradeData.profit_loss : 0,
+                    probability: gradePercentages[gradeStr] || 0,
+                    is_profitable: gradeData.is_profitable || false
+                };
+            });
+        
+        if (grades.length === 0) {
+            console.log('[GRADING ADVISOR] Decision card: No grades in matrix');
+            return '';
+        }
         
         // 1. Calculate expected value (weighted average profit)
         let expectedValue = 0;
         grades.forEach(g => {
-            const profit = g.profit_loss !== undefined ? g.profit_loss : 0;
-            const probability = g.probability || 0;
+            const profit = g.profit_loss;
+            const probability = g.probability;
             expectedValue += (profit * probability / 100);
         });
         
         // 2. Calculate success probability (sum of probabilities for profitable grades)
         let successProb = 0;
         grades.forEach(g => {
-            const profit = g.profit_loss !== undefined ? g.profit_loss : 0;
-            if (profit > 0) {
-                successProb += (g.probability || 0);
+            if (g.is_profitable || g.profit_loss > 0) {
+                successProb += g.probability;
             }
         });
         
-        // 3. Find break-even grade (first grade with profit >= 0)
+        // 3. Find break-even grade (lowest grade with profit >= 0)
         const sortedGrades = [...grades].sort((a, b) => a.grade - b.grade);
         let breakEvenGrade = null;
         for (const g of sortedGrades) {
-            const profit = g.profit_loss !== undefined ? g.profit_loss : 0;
-            if (profit >= 0) {
+            if (g.profit_loss >= 0) {
                 breakEvenGrade = g.grade;
                 break;
             }
