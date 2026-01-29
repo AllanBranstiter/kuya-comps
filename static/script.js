@@ -8,6 +8,12 @@ let volumeProfileBins = null; // Store current number of bins for Volume Profile
 let beeswarmCrosshairX = null; // Store crosshair position for FMV beeswarm chart (persists)
 let volumeProfileCrosshairX = null; // Store crosshair position for Volume Profile chart (persists)
 
+// PERFORMANCE FIX: Guard flags to prevent infinite redraw loops
+let isRedrawingBeeswarm = false;
+let isRedrawingVolumeProfile = false;
+let beeswarmListenersAttached = false;
+let volumeProfileListenersAttached = false;
+
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -61,6 +67,28 @@ if (isIOS) {
 let expectLowGlobal = null;
 let expectHighGlobal = null;
 let marketValueGlobal = null;
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Debounce helper function to prevent rapid-fire function calls
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Milliseconds to wait before executing
+ * @returns {Function} Debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
 // Security: HTML sanitization function to prevent XSS attacks
 function escapeHtml(unsafe) {
@@ -3658,17 +3686,26 @@ function drawBeeswarm(prices) {
   const canvas = document.getElementById("beeswarmCanvas");
   if (!canvas || !prices || prices.length === 0) return;
 
-  // Ensure canvas is properly sized to its container
-  resizeCanvas();
-  
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const margin = { top: 60, right: 40, bottom: 70, left: 40 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
+  // PERFORMANCE FIX: Guard to prevent recursive redraws
+  if (isRedrawingBeeswarm) {
+    console.warn('[BEESWARM] Blocked recursive redraw attempt');
+    return;
+  }
 
-  ctx.clearRect(0, 0, width, height);
+  isRedrawingBeeswarm = true;
+
+  try {
+    // Ensure canvas is properly sized to its container
+    resizeCanvas();
+    
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+    const margin = { top: 60, right: 40, bottom: 70, left: 40 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    ctx.clearRect(0, 0, width, height);
   
   // Draw chart title
   ctx.fillStyle = "#1d1d1f";
@@ -3945,21 +3982,24 @@ function drawBeeswarm(prices) {
   // Make canvas interactive
   canvas.style.cursor = 'crosshair';
   
-  // Remove old event listeners if they exist
-  canvas.removeEventListener('mousemove', handleBeeswarmHover);
-  canvas.removeEventListener('click', handleBeeswarmClick);
-  canvas.removeEventListener('touchmove', handleBeeswarmTouch);
-  canvas.removeEventListener('touchend', handleBeeswarmTouchEnd);
-  
-  // Add event listeners for interactive crosshair
-  canvas.addEventListener('mousemove', handleBeeswarmHover);
-  canvas.addEventListener('click', handleBeeswarmClick);
-  canvas.addEventListener('touchmove', handleBeeswarmTouch, { passive: false });
-  canvas.addEventListener('touchend', handleBeeswarmTouchEnd);
+  // PERFORMANCE FIX: Only attach event listeners once to prevent accumulation
+  if (!beeswarmListenersAttached) {
+    canvas.addEventListener('mousemove', handleBeeswarmHover);
+    canvas.addEventListener('click', handleBeeswarmClick);
+    canvas.addEventListener('touchmove', handleBeeswarmTouch, { passive: false });
+    canvas.addEventListener('touchend', handleBeeswarmTouchEnd);
+    beeswarmListenersAttached = true;
+    console.log('[BEESWARM] Event listeners attached (one-time setup)');
+  }
   
   // Draw persisted crosshair if it exists (without recursive redraw)
   if (beeswarmCrosshairX !== null) {
       drawBeeswarmCrosshairDirect(canvas, beeswarmCrosshairX);
+  }
+
+  } finally {
+    // PERFORMANCE FIX: Always reset guard flag
+    isRedrawingBeeswarm = false;
   }
 }
 
@@ -3971,6 +4011,14 @@ function drawPriceDistributionChart(soldData, activeData) {
         soldItems: soldData?.items?.length || 0,
         activeItems: activeData?.items?.length || 0
     });
+
+    // PERFORMANCE FIX: Guard to prevent recursive redraws
+    if (isRedrawingVolumeProfile) {
+        console.warn('[VOLUME PROFILE] Blocked recursive redraw attempt');
+        return;
+    }
+
+    isRedrawingVolumeProfile = true;
     
     try {
         const canvas = document.getElementById("priceDistributionCanvas");
@@ -4225,17 +4273,15 @@ function drawPriceDistributionChart(soldData, activeData) {
   canvas.dataset.innerWidth = innerWidth;
   canvas.dataset.innerHeight = innerHeight;
   
-  // Remove old event listeners if they exist
-  canvas.removeEventListener('mousemove', handleVolumeProfileHover);
-  canvas.removeEventListener('mouseleave', handleVolumeProfileLeave);
-  canvas.removeEventListener('touchmove', handleVolumeProfileTouch);
-  canvas.removeEventListener('touchend', handleVolumeProfileLeave);
-  
-  // Add event listeners for interactive crosshair
-  canvas.addEventListener('mousemove', handleVolumeProfileHover);
-  canvas.addEventListener('click', handleVolumeProfileClick);
-  canvas.addEventListener('touchmove', handleVolumeProfileTouch, { passive: false });
-  canvas.addEventListener('touchend', handleVolumeProfileTouchEnd);
+  // PERFORMANCE FIX: Only attach event listeners once to prevent accumulation
+  if (!volumeProfileListenersAttached) {
+    canvas.addEventListener('mousemove', handleVolumeProfileHover);
+    canvas.addEventListener('click', handleVolumeProfileClick);
+    canvas.addEventListener('touchmove', handleVolumeProfileTouch, { passive: false });
+    canvas.addEventListener('touchend', handleVolumeProfileTouchEnd);
+    volumeProfileListenersAttached = true;
+    console.log('[VOLUME PROFILE] Event listeners attached (one-time setup)');
+  }
   
   // Draw persisted crosshair if it exists (without recursive redraw)
   if (volumeProfileCrosshairX !== null) {
@@ -4254,6 +4300,9 @@ function drawPriceDistributionChart(soldData, activeData) {
       console.error('[CHART ERROR] Failed to draw price distribution chart (non-blocking):', error);
       console.error('[CHART ERROR] Stack trace:', error.stack);
       // Chart failure is graceful - won't block other functionality
+  } finally {
+      // PERFORMANCE FIX: Always reset guard flag
+      isRedrawingVolumeProfile = false;
   }
 }
 
@@ -4262,10 +4311,10 @@ function drawPriceDistributionChart(soldData, activeData) {
 // ============================================================================
 
 /**
- * Handle mouse movement over Volume Profile chart
+ * Handle mouse movement over Volume Profile chart (debounced for performance)
  * Shows interactive crosshair with price label
  */
-function handleVolumeProfileHover(e) {
+const handleVolumeProfileHover = debounce(function(e) {
     const canvas = e.target;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -4277,7 +4326,7 @@ function handleVolumeProfileHover(e) {
     if (x >= marginLeft && x <= canvas.width - marginRight) {
         drawVolumeProfileCrosshair(canvas, x);
     }
-}
+}, 16); // ~60fps
 
 /**
  * Handle touch movement over Volume Profile chart
@@ -4435,9 +4484,9 @@ function resetVolumeBins() {
 // ============================================================================
 
 /**
- * Handle mouse movement over FMV beeswarm chart
+ * Handle mouse movement over FMV beeswarm chart (debounced for performance)
  */
-function handleBeeswarmHover(e) {
+const handleBeeswarmHover = debounce(function(e) {
     const canvas = e.target;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -4448,7 +4497,7 @@ function handleBeeswarmHover(e) {
     if (x >= marginLeft && x <= canvas.width - marginRight) {
         drawBeeswarmCrosshair(canvas, x, false);
     }
-}
+}, 16); // ~60fps
 
 /**
  * Handle click on FMV beeswarm chart - persist crosshair
