@@ -36,6 +36,12 @@ VERY_RARE_MAX = 100
 RARE_MAX = 500
 UNCOMMON_MAX = 2000
 
+# Gem rate thresholds (PSA 10 percentage of total population)
+GEM_RATE_RARE = 5.0           # <5% = Rare gems (PSA 9s very valuable)
+GEM_RATE_QUALITY = 30.0       # 5-30% = Quality card (PSA 9s valuable)
+GEM_RATE_MODERATE = 60.0      # 30-60% = Moderate (PSA 9s declining value)
+# 60%+ = Common gems (PSA 9s nearly worthless, must get PSA 10)
+
 # Warning thresholds
 HIGH_PSA_10_POP_THRESHOLD = 1000
 LOW_POPULATION_THRESHOLD = 50
@@ -232,7 +238,7 @@ def _calculate_population_distribution(
         population_data: Dict mapping grade strings to population counts
     
     Returns:
-        PopulationDistribution with total, percentages, and rarity tier
+        PopulationDistribution with total, percentages, rarity tier, and gem rate
     """
     total_population = sum(population_data.get(str(i), 0) for i in range(1, 11))
     
@@ -250,10 +256,17 @@ def _calculate_population_distribution(
     # Determine rarity tier
     rarity_tier = _calculate_rarity_tier(total_population)
     
+    # Calculate gem rate (PSA 10 percentage)
+    gem_rate = grade_percentages.get("10", 0.0)
+    gem_rate_tier, gem_rate_class = _calculate_gem_rate_tier(gem_rate)
+    
     return PopulationDistribution(
         total_population=total_population,
         grade_percentages=grade_percentages,
-        rarity_tier=rarity_tier
+        rarity_tier=rarity_tier,
+        gem_rate=gem_rate,
+        gem_rate_tier=gem_rate_tier,
+        gem_rate_class=gem_rate_class
     )
 
 
@@ -275,6 +288,30 @@ def _calculate_rarity_tier(total_pop: int) -> str:
         return "Uncommon"
     else:
         return "Common"
+
+
+def _calculate_gem_rate_tier(gem_rate: float) -> Tuple[str, str]:
+    """
+    Classify card based on PSA 10 concentration (gem rate).
+    
+    Gem rate is the percentage of the total population that is PSA 10.
+    Low gem rates mean PSA 9s retain good value since 10s are rare.
+    High gem rates mean PSA 9s lose value since 10s are common.
+    
+    Args:
+        gem_rate: Percentage of population at PSA 10 (0-100)
+    
+    Returns:
+        Tuple of (tier_label, tier_class) for UI display and styling
+    """
+    if gem_rate < GEM_RATE_RARE:
+        return ("Rare Gems", "rare-gems")
+    elif gem_rate < GEM_RATE_QUALITY:
+        return ("Quality Card", "quality")
+    elif gem_rate < GEM_RATE_MODERATE:
+        return ("Moderate", "moderate")
+    else:
+        return ("Common Gems", "common-gems")
 
 
 # ============================================================================
@@ -622,10 +659,12 @@ def _generate_warnings(
     Generate warning messages for notable conditions.
     
     Warnings are generated for:
-    - High PSA 10 population (> 1000)
+    - High/low gem rate (PSA 10 percentage) - impacts PSA 9 value
+    - Moderate gem rates with context
     - Low total population (limited market data)
     - Negative expected value
     - High concentration in a single grade (> 50%)
+    - PSA 9 value context based on gem rate
     
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
@@ -638,11 +677,67 @@ def _generate_warnings(
     """
     warnings: List[str] = []
     
-    # Check PSA 10 population
-    psa_10_pop = population_data.get("10", 0)
-    if psa_10_pop > HIGH_PSA_10_POP_THRESHOLD:
+    # Get gem rate and grade percentages
+    gem_rate = distribution.gem_rate
+    psa_9_pct = distribution.grade_percentages.get("9", 0.0)
+    psa_8_pct = distribution.grade_percentages.get("8", 0.0)
+    
+    # Gem rate warnings with nuanced context
+    if gem_rate > 60.0:
+        # Very high gem rate - PSA 9s nearly worthless
         warnings.append(
-            f"High PSA 10 population ({psa_10_pop:,}) may limit future value appreciation."
+            f"⚠️ {gem_rate:.1f}% gem rate - PSA 10s are common. "
+            "PSA 9s have minimal value. You need a perfect 10 to profit."
+        )
+        # Additional context for PSA 8 if it's also common
+        if psa_8_pct > 15.0:
+            warnings.append(
+                f"PSA 8 represents {psa_8_pct:.1f}% of population. "
+                "With this gem rate, even PSA 8s may have limited value."
+            )
+    elif gem_rate >= 30.0 and gem_rate <= 60.0:
+        # Moderate gem rate - PSA 9 value declining
+        psa_9_profitable = matrix.get("9", GradeAnalysis(
+            grade="9", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
+        )).is_profitable
+        
+        if psa_9_profitable:
+            warnings.append(
+                f"Gem rate is {gem_rate:.1f}%. PSA 9s are profitable but declining in value. "
+                "Consider grading only if confident of PSA 9 or better."
+            )
+        else:
+            warnings.append(
+                f"Gem rate is {gem_rate:.1f}%. PSA 9s are not profitable at this price point. "
+                "This is a 'gem or bust' situation - you need PSA 10."
+            )
+    elif gem_rate >= 5.0 and gem_rate < 30.0:
+        # Quality card - PSA 9s retain value
+        warnings.append(
+            f"Quality gem rate of {gem_rate:.1f}%. PSA 9s retain strong value since 10s are relatively scarce."
+        )
+    elif gem_rate < 5.0 and gem_rate > 0:
+        # Rare gems - PSA 9s very valuable
+        warnings.append(
+            f"💎 {gem_rate:.1f}% gem rate - PSA 10s are rare! "
+            "Even PSA 9s retain excellent value due to gem scarcity."
+        )
+        # Extra context if PSA 9s are also rare
+        if psa_9_pct < 10.0:
+            warnings.append(
+                f"PSA 9s only {psa_9_pct:.1f}% of population. High-grade examples are exceptionally scarce."
+            )
+    
+    # Modern vs Vintage context based on gem rate
+    if gem_rate > 50.0 and distribution.total_population > 1000:
+        warnings.append(
+            "High gem rate with large population suggests modern card (post-2000s). "
+            "Modern cards typically have inflated PSA 10 populations."
+        )
+    elif gem_rate < 3.0 and distribution.total_population > 200:
+        warnings.append(
+            "Low gem rate suggests vintage or difficult-to-grade card. "
+            "Vintage cards (pre-1980) typically have lower gem rates."
         )
     
     # Check low total population
@@ -652,15 +747,15 @@ def _generate_warnings(
             "may affect price accuracy."
         )
     
-    # Check negative expected value - use risk-focused language instead
+    # Check negative expected value - use risk-focused language
     if expected_value < 0:
         warnings.append(
             "Based on population data, grading this card carries elevated risk. Consider selling raw or buying already graded."
         )
     
-    # Check for high concentration in single grade
+    # Check for high concentration in single grade (excluding gem rate which we already covered)
     for grade, percentage in distribution.grade_percentages.items():
-        if percentage > HIGH_CONCENTRATION_THRESHOLD:
+        if percentage > HIGH_CONCENTRATION_THRESHOLD and grade != "10":
             warnings.append(
                 f"{percentage:.1f}% of population in grade {grade} - unusual distribution pattern."
             )

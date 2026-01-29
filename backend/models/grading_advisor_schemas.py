@@ -65,12 +65,26 @@ class PopulationDistribution(BaseModel):
     """
     total_population: int = Field(..., ge=0, description="Total PSA population across all grades")
     grade_percentages: Dict[str, float] = Field(
-        ..., 
+        ...,
         description="Percentage of population at each grade (keys: '1'-'10')"
     )
     rarity_tier: str = Field(
-        ..., 
+        ...,
         description="Rarity classification: 'Common', 'Uncommon', 'Rare', or 'Very Rare'"
+    )
+    gem_rate: float = Field(
+        default=0.0,
+        ge=0,
+        le=100,
+        description="Percentage of population at PSA 10 (gem rate)"
+    )
+    gem_rate_tier: str = Field(
+        default="Unknown",
+        description="Gem rate classification: 'Rare Gems', 'Quality Card', 'Moderate', or 'Common Gems'"
+    )
+    gem_rate_class: str = Field(
+        default="moderate",
+        description="CSS class for gem rate styling: 'rare-gems', 'quality', 'moderate', or 'common-gems'"
     )
     
     @field_validator('rarity_tier')
@@ -80,6 +94,24 @@ class PopulationDistribution(BaseModel):
         allowed = ['Common', 'Uncommon', 'Rare', 'Very Rare']
         if v not in allowed:
             raise ValueError(f"rarity_tier must be one of {allowed}")
+        return v
+    
+    @field_validator('gem_rate_tier')
+    @classmethod
+    def validate_gem_rate_tier(cls, v: str) -> str:
+        """Validate gem rate tier is one of the allowed values."""
+        allowed = ['Rare Gems', 'Quality Card', 'Moderate', 'Common Gems', 'Unknown']
+        if v not in allowed:
+            raise ValueError(f"gem_rate_tier must be one of {allowed}")
+        return v
+    
+    @field_validator('gem_rate_class')
+    @classmethod
+    def validate_gem_rate_class(cls, v: str) -> str:
+        """Validate gem rate class is one of the allowed values."""
+        allowed = ['rare-gems', 'quality', 'moderate', 'common-gems']
+        if v not in allowed:
+            raise ValueError(f"gem_rate_class must be one of {allowed}")
         return v
 
 

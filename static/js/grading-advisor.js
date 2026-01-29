@@ -826,7 +826,12 @@ const GradingAdvisor = (function() {
             breakEvenDisplay = 'None (all unprofitable)';
         }
         
-        // 8. Build the HTML with Confidence Score instead of Expected Value
+        // 8. Build the HTML with Confidence Score and Gem Rate
+        // Get gem rate data from distribution
+        const gemRate = distribution.gem_rate || 0;
+        const gemRateTier = distribution.gem_rate_tier || 'Unknown';
+        const gemRateClass = distribution.gem_rate_class || 'moderate';
+        
         return `
             <div class="decision-summary-card ${cardClass}">
                 <div class="summary-header">
@@ -842,6 +847,14 @@ const GradingAdvisor = (function() {
                             <span class="dots">${dots}</span>
                             <span class="score-label">${scoreLabel}</span>
                         </div>
+                    </div>
+                    <div class="gem-rate-display ${gemRateClass}">
+                        <span class="label">Gem Rate</span>
+                        <div class="gem-rate-value">
+                            <span class="percentage">${gemRate.toFixed(1)}%</span>
+                            <span class="tier-badge">${gemRateTier}</span>
+                        </div>
+                        <span class="gem-rate-hint">PSA 10 Population</span>
                     </div>
                     <div class="summary-stats">
                         <div class="stat break-even">
@@ -927,15 +940,17 @@ const GradingAdvisor = (function() {
             .map(g => parseInt(g, 10))
             .sort((a, b) => b - a);
         
-        // Find max percentage to normalize bar heights
-        const maxPct = Math.max(...Object.values(gradePercentages).filter(v => typeof v === 'number'), 1);
+        // Find max percentage to normalize bar heights (use actual max, minimum 1 to avoid division by zero)
+        const percentageValues = Object.values(gradePercentages).filter(v => typeof v === 'number' && v > 0);
+        const maxPct = percentageValues.length > 0 ? Math.max(...percentageValues) : 1;
         
         let columnsHtml = '';
         
         for (const grade of grades) {
             const pct = gradePercentages[grade.toString()] || 0;
             // Normalize bar height relative to max percentage for visual impact
-            const barHeight = (pct / maxPct) * 100;
+            // Ensure minimum height of 4px for grades with any population
+            const barHeight = pct > 0 ? Math.max((pct / maxPct) * 100, 2) : 0;
             
             // Determine profitability from matrix data
             let isProfitable = false;
