@@ -726,10 +726,14 @@ const GradingAdvisor = (function() {
             cardClass = 'negative';
         }
         
-        // 5. Format break-even display
+        // 5. Format break-even display with "or Higher" format
         let breakEvenDisplay = 'N/A';
         if (breakEvenGrade) {
-            breakEvenDisplay = breakEvenGrade < 10 ? `PSA ${breakEvenGrade}+` : `PSA ${breakEvenGrade}`;
+            if (breakEvenGrade === 10) {
+                breakEvenDisplay = 'PSA 10';
+            } else {
+                breakEvenDisplay = `PSA ${breakEvenGrade} or Higher`;
+            }
         } else {
             breakEvenDisplay = 'None (all unprofitable)';
         }
@@ -753,13 +757,13 @@ const GradingAdvisor = (function() {
                         <span class="value">${expectedValuePrefix}${formatCurrency(expectedValue)}</span>
                     </div>
                     <div class="summary-stats">
-                        <div class="stat success-rate">
-                            <span class="stat-label">Success Rate</span>
-                            <span class="stat-value">${successProb.toFixed(0)}%</span>
-                        </div>
                         <div class="stat break-even">
-                            <span class="stat-label">Break-Even</span>
-                            <span class="stat-value">${escapeHtml(breakEvenDisplay)}</span>
+                            <span class="stat-label">Break-Even Grade</span>
+                            <span class="stat-value">${breakEvenDisplay}</span>
+                        </div>
+                        <div class="stat pop-above">
+                            <span class="stat-label">Population Above Break-Even Grade</span>
+                            <span class="stat-value">${successProb.toFixed(1)}%</span>
                         </div>
                     </div>
                 </div>
