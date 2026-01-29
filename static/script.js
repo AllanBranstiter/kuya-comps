@@ -14,6 +14,10 @@ let isRedrawingVolumeProfile = false;
 let beeswarmListenersAttached = false;
 let volumeProfileListenersAttached = false;
 
+// PERFORMANCE FIX: Track pending redraws to batch updates
+let pendingBeeswarmRedraw = null;
+let pendingVolumeProfileRedraw = null;
+
 // Mobile detection for deep link functionality
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -3682,30 +3686,24 @@ function calculateWeightedMedian(prices) {
     return uniquePrices[uniquePrices.length - 1];
 }
 
-function drawBeeswarm(prices) {
+/**
+ * Internal drawing function - does the actual rendering without guards
+ */
+function drawBeeswarmInternal(prices) {
   const canvas = document.getElementById("beeswarmCanvas");
   if (!canvas || !prices || prices.length === 0) return;
 
-  // PERFORMANCE FIX: Guard to prevent recursive redraws
-  if (isRedrawingBeeswarm) {
-    console.warn('[BEESWARM] Blocked recursive redraw attempt');
-    return;
-  }
+  // Ensure canvas is properly sized to its container
+  resizeCanvas();
+  
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const margin = { top: 60, right: 40, bottom: 70, left: 40 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
 
-  isRedrawingBeeswarm = true;
-
-  try {
-    // Ensure canvas is properly sized to its container
-    resizeCanvas();
-    
-    const ctx = canvas.getContext("2d");
-    const width = canvas.width;
-    const height = canvas.height;
-    const margin = { top: 60, right: 40, bottom: 70, left: 40 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
-
-    ctx.clearRect(0, 0, width, height);
+  ctx.clearRect(0, 0, width, height);
   
   // Draw chart title
   ctx.fillStyle = "#1d1d1f";
@@ -3993,14 +3991,29 @@ function drawBeeswarm(prices) {
   }
   
   // Draw persisted crosshair if it exists (without recursive redraw)
-  if (beeswarmCrosshairX !== null) {
+  if (beeswarmCrosshairX !== null && !isRedrawingBeeswarm) {
       drawBeeswarmCrosshairDirect(canvas, beeswarmCrosshairX);
   }
+}
 
-  } finally {
-    // PERFORMANCE FIX: Always reset guard flag
-    isRedrawingBeeswarm = false;
+/**
+ * Public wrapper function for drawing beeswarm chart
+ * Guards against recursive redraws during crosshair interactions
+ */
+function drawBeeswarm(prices) {
+  // PERFORMANCE FIX: Add diagnostic logging to track call source
+  const stack = new Error().stack;
+  const callerLine = stack.split('\n')[2]?.trim() || 'unknown';
+  console.log('[BEESWARM] drawBeeswarm called from:', callerLine);
+  
+  // PERFORMANCE FIX: Don't redraw if we're in the middle of a crosshair update
+  if (isRedrawingBeeswarm) {
+    console.warn('[BEESWARM] Blocked recursive redraw during crosshair update');
+    return;
   }
+  
+  // Call internal drawing function
+  drawBeeswarmInternal(prices);
 }
 
 // Draw Price Distribution Bar Chart
@@ -4311,22 +4324,15 @@ function drawPriceDistributionChart(soldData, activeData) {
 // ============================================================================
 
 /**
- * Handle mouse movement over Volume Profile chart (debounced for performance)
- * Shows interactive crosshair with price label
+ * Handle mouse movement over Volume Profile chart
+ * PERFORMANCE FIX: Disabled hover crosshairs to prevent infinite loop
+ * Crosshairs now only work on click/touch
  */
-const handleVolumeProfileHover = debounce(function(e) {
-    const canvas = e.target;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    
-    const marginLeft = parseFloat(canvas.dataset.marginLeft);
-    const marginRight = parseFloat(canvas.dataset.marginRight);
-    
-    // Only show crosshair within chart area
-    if (x >= marginLeft && x <= canvas.width - marginRight) {
-        drawVolumeProfileCrosshair(canvas, x);
-    }
-}, 16); // ~60fps
+const handleVolumeProfileHover = function(e) {
+    // DISABLED: Hover crosshairs cause infinite redraw loops
+    // Use click or touch to place persistent crosshair instead
+    return;
+};
 
 /**
  * Handle touch movement over Volume Profile chart
@@ -4484,20 +4490,15 @@ function resetVolumeBins() {
 // ============================================================================
 
 /**
- * Handle mouse movement over FMV beeswarm chart (debounced for performance)
+ * Handle mouse movement over FMV beeswarm chart
+ * PERFORMANCE FIX: Disabled hover crosshairs to prevent infinite loop
+ * Crosshairs now only work on click/touch
  */
-const handleBeeswarmHover = debounce(function(e) {
-    const canvas = e.target;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    
-    const marginLeft = parseFloat(canvas.dataset.marginLeft);
-    const marginRight = parseFloat(canvas.dataset.marginRight);
-    
-    if (x >= marginLeft && x <= canvas.width - marginRight) {
-        drawBeeswarmCrosshair(canvas, x, false);
-    }
-}, 16); // ~60fps
+const handleBeeswarmHover = function(e) {
+    // DISABLED: Hover crosshairs cause infinite redraw loops
+    // Use click or touch to place persistent crosshair instead
+    return;
+};
 
 /**
  * Handle click on FMV beeswarm chart - persist crosshair
@@ -4559,20 +4560,26 @@ function handleBeeswarmTouchEnd(e) {
 
 /**
  * Draw interactive crosshair on FMV beeswarm chart
+ * PERFORMANCE FIX: Only redraws chart for persistent (clicked) crosshairs
  */
 function drawBeeswarmCrosshair(canvas, x, isPersisted) {
-    // Save the persisted position and clear it temporarily to avoid recursion
+    // Only redraw for persistent crosshairs (clicks), not hover
+    if (!isPersisted) {
+        return; // Skip hover crosshairs to prevent infinite loops
+    }
+    
+    // For persistent crosshairs (clicks), do a full redraw
     const savedCrosshair = beeswarmCrosshairX;
     beeswarmCrosshairX = null;
     
-    // Redraw chart first (without persisted crosshair)
+    // Redraw chart without crosshair
     const prices = currentBeeswarmPrices;
-    drawBeeswarm(prices);
+    if (prices && prices.length > 0) {
+        drawBeeswarmInternal(prices);
+    }
     
-    // Restore the persisted position
+    // Restore and draw persistent crosshair
     beeswarmCrosshairX = savedCrosshair;
-    
-    // Now draw the crosshair directly
     drawBeeswarmCrosshairDirect(canvas, x, isPersisted);
 }
 
@@ -4682,19 +4689,26 @@ function handleVolumeProfileTouchEnd(e) {
 
 /**
  * Draw interactive crosshair on Volume Profile chart with persistence
+ * PERFORMANCE FIX: Only redraws chart for persistent (clicked) crosshairs
  */
 function drawVolumeProfileCrosshair(canvas, x, isPersisted) {
-    // Save the persisted position and clear it temporarily to avoid recursion
+    // Only redraw for persistent crosshairs (clicks), not hover
+    if (!isPersisted) {
+        return; // Skip hover crosshairs to prevent infinite loops
+    }
+    
+    // For persistent crosshairs (clicks), do a full redraw
     const savedCrosshair = volumeProfileCrosshairX;
     volumeProfileCrosshairX = null;
     
-    // Redraw chart first (without persisted crosshair)
-    drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    // Redraw chart without crosshair
+    if (lastChartData.soldData) {
+        // Call public function which has guard
+        drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
+    }
     
-    // Restore the persisted position
+    // Restore and draw persistent crosshair
     volumeProfileCrosshairX = savedCrosshair;
-    
-    // Now draw the crosshair directly
     drawVolumeProfileCrosshairDirect(canvas, x, isPersisted);
 }
 
