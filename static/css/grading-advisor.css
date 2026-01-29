@@ -163,6 +163,71 @@
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.2);
 }
 
+/* ===== FORM ACTION BUTTONS ===== */
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  justify-content: flex-start;
+}
+
+.grading-advisor-form .btn {
+  font-family: var(--font-family);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.8rem 1.5rem;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  border: none;
+}
+
+.grading-advisor-form .btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.grading-advisor-form .btn:hover::before {
+  left: 100%;
+}
+
+.grading-advisor-form .btn:active {
+  transform: translateY(-1px);
+}
+
+/* Primary button (Analyze) - Blue like Get Comps */
+.grading-advisor-form .btn-primary {
+  background: var(--gradient-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.grading-advisor-form .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 122, 255, 0.4);
+}
+
+/* Secondary button (Reset) - Red like Clear */
+.grading-advisor-form .btn-secondary {
+  background: linear-gradient(135deg, var(--accent-red), #d9534f);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(201, 48, 44, 0.3);
+}
+
+.grading-advisor-form .btn-secondary:hover {
+  background: linear-gradient(135deg, #a82824, #c9302c);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(201, 48, 44, 0.4);
+}
+
 /* Expected grade dropdown */
 .expected-grade-select {
   width: 100%;

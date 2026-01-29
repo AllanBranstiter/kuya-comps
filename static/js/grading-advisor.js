@@ -77,18 +77,19 @@ const GradingAdvisor = (function() {
     /**
      * Format a number as USD currency
      * @param {number} amount - The amount to format
-     * @returns {string} Formatted currency string (e.g., "$125.50")
+     * @param {number} decimals - Number of decimal places (default: 2)
+     * @returns {string} Formatted currency string (e.g., "$125.50" or "$125")
      */
-    function formatCurrency(amount) {
+    function formatCurrency(amount, decimals = 2) {
         if (amount === null || amount === undefined || isNaN(amount)) {
-            return '$0.00';
+            return decimals === 0 ? '$0' : '$0.00';
         }
         const absAmount = Math.abs(amount);
         const formatted = absAmount.toLocaleString('en-US', {
             style: 'currency',
             currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
         });
         return amount < 0 ? `-${formatted}` : formatted;
     }
@@ -192,7 +193,7 @@ const GradingAdvisor = (function() {
         const analyzeBtn = document.getElementById('analyze-btn');
         if (analyzeBtn) {
             analyzeBtn.disabled = false;
-            analyzeBtn.innerHTML = '<span class="btn-icon">📊</span>Analyze Grading Decision';
+            analyzeBtn.innerHTML = 'Analyze Grading Decision';
             analyzeBtn.style.opacity = '1';
         }
     }
@@ -593,7 +594,7 @@ const GradingAdvisor = (function() {
                         <span>${label} (Grade ${data.grade})</span>
                     </div>
                     <div class="scenario-value ${profitClass}">
-                        ${profitPrefix}${formatCurrency(profit)}
+                        ${profitPrefix}${formatCurrency(profit, 0)}
                         <span style="font-size: 0.8em; opacity: 0.8;"> (${probabilityPercent}% likely)</span>
                     </div>
                 </div>
@@ -759,52 +760,11 @@ const GradingAdvisor = (function() {
         // Store scenario warning data on the data object for use in renderResults
         data._scenarioWarning = generateScenarioWarning(grades, breakEvenGrade, maxLoss);
         
-        // 5. Calculate Confidence Score based on breakEvenGrade and highGradePopPercent
-        let confidenceScore, scoreLabel, scoreClass, dots;
-        
-        if (!breakEvenGrade) {
-            // No profitable grades at all
-            confidenceScore = 1;
-            scoreLabel = 'RISKY';
-            scoreClass = 'risky';
-            dots = '●○○○○';
-        } else if (breakEvenGrade === 10) {
-            // Need PSA 10 to profit - risky
-            confidenceScore = 1;
-            scoreLabel = 'RISKY';
-            scoreClass = 'risky';
-            dots = '●○○○○';
-        } else if (breakEvenGrade <= 7 && highGradePopPercent > 50) {
-            // Excellent: low break-even AND high pop at PSA 9+
-            confidenceScore = 5;
-            scoreLabel = 'EXCELLENT';
-            scoreClass = 'excellent';
-            dots = '●●●●●';
-        } else if (breakEvenGrade <= 8 && highGradePopPercent > 40) {
-            // High: break-even at 8 or below AND good pop at PSA 9+
-            confidenceScore = 4;
-            scoreLabel = 'HIGH';
-            scoreClass = 'high';
-            dots = '●●●●○';
-        } else if (breakEvenGrade === 9 && highGradePopPercent > 30) {
-            // Moderate: need PSA 9 but decent pop there
-            confidenceScore = 3;
-            scoreLabel = 'MODERATE';
-            scoreClass = 'moderate';
-            dots = '●●●○○';
-        } else if (breakEvenGrade === 9 && highGradePopPercent <= 30) {
-            // Marginal: need PSA 9 but low pop at high grades
-            confidenceScore = 2;
-            scoreLabel = 'MARGINAL';
-            scoreClass = 'marginal';
-            dots = '●●○○○';
-        } else {
-            // Default fallback for edge cases (e.g., breakEvenGrade 8 with low pop)
-            confidenceScore = 2;
-            scoreLabel = 'MARGINAL';
-            scoreClass = 'marginal';
-            dots = '●●○○○';
-        }
+        // 5. Get confidence from backend (era-adjusted)
+        const confidenceScore = data.confidence_score || 2;
+        const scoreLabel = data.confidence_label || 'MODERATE';
+        const scoreClass = data.confidence_class || 'moderate';
+        const dots = data.confidence_dots || '●●●○○';
         
         // 6. Generate recommendation based on confidence score
         let recommendation, recommendationIcon, recommendationClass, cardClass;
@@ -969,7 +929,7 @@ const GradingAdvisor = (function() {
             cardsHtml += `
                 <div class="grade-card ${cardClass}">
                     <div class="grade-number">${grade}</div>
-                    <div class="grade-profit">${profitPrefix}${formatCurrency(profit)}</div>
+                    <div class="grade-profit">${profitPrefix}${formatCurrency(profit, 0)}</div>
                     <div class="grade-roi">${formatPercentage(roi)}</div>
                 </div>
             `;

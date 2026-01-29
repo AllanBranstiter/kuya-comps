@@ -159,6 +159,15 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
     # Find target grade (highest profitable grade)
     target_grade = _find_target_grade(matrix, profitable_grades)
     
+    # Calculate era-adjusted confidence score
+    high_grade_pop_percent = distribution.grade_percentages.get("9", 0) + distribution.grade_percentages.get("10", 0)
+    confidence_score, confidence_label, confidence_class, confidence_dots = _calculate_era_adjusted_confidence(
+        break_even_grade=break_even_grade,
+        high_grade_pop_percent=high_grade_pop_percent,
+        gem_rate=distribution.gem_rate,
+        era_class=distribution.era_class
+    )
+    
     # Determine verdict based on scenarios
     verdict, status = _determine_verdict(
         success_rate=success_rate,
@@ -210,6 +219,10 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
     response = GradingAdvisorResponse(
         verdict=verdict,
         status=status,
+        confidence_score=confidence_score,
+        confidence_label=confidence_label,
+        confidence_class=confidence_class,
+        confidence_dots=confidence_dots,
         success_rate=success_rate,
         expected_value=expected_value,
         break_even_grade=break_even_grade,
@@ -375,6 +388,138 @@ def _calculate_gem_rate_tier(gem_rate: float) -> Tuple[str, str]:
         return ("Average", "moderate")
     else:
         return ("Plentiful", "common-gems")
+
+
+def _calculate_era_adjusted_confidence(
+    break_even_grade: Optional[str],
+    high_grade_pop_percent: float,
+    gem_rate: float,
+    era_class: str
+) -> Tuple[int, str, str, str]:
+    """
+    Calculate confidence score with era-specific thresholds.
+    
+    Different eras have different grading standards:
+    - Vintage: PSA 8 is excellent (PSA 10s are <1%)
+    - Junk Wax: PSA 9 is good (moderate gem rates)
+    - Modern: PSA 9 needed (increasing gem rates)
+    - Ultra-Modern: PSA 10 often required (high gem rates 60-80%)
+    
+    Args:
+        break_even_grade: Minimum grade needed to profit
+        high_grade_pop_percent: PSA 9 + PSA 10 percentage
+        gem_rate: PSA 10 percentage
+        era_class: Era classification ('vintage', 'junk-wax', 'modern', 'ultra-modern')
+    
+    Returns:
+        Tuple of (confidence_score, label, css_class, dots_display)
+    
+    Confidence Levels:
+        5 = EXCELLENT (●●●●●)
+        4 = HIGH (●●●●○)
+        3 = MODERATE (●●●○○)
+        2 = MARGINAL (●●○○○)
+        1 = RISKY (●○○○○)
+    """
+    if not break_even_grade:
+        # No profitable grades at all
+        return (1, 'RISKY', 'risky', '●○○○○')
+    
+    be_grade = int(break_even_grade)
+    
+    # =========================================================================
+    # VINTAGE ERA (Pre-1983) - PSA 8 is "high grade"
+    # =========================================================================
+    if era_class == 'vintage':
+        if be_grade <= 6:
+            # Excellent: Only need PSA 6 to profit (very achievable for vintage)
+            return (5, 'EXCELLENT', 'excellent', '●●●●●')
+        elif be_grade == 7:
+            # High: Need PSA 7, which is good for vintage
+            if high_grade_pop_percent > 20:
+                return (4, 'HIGH', 'high', '●●●●○')
+            else:
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+        elif be_grade == 8:
+            # Moderate: PSA 8 is high grade for vintage, but not guaranteed
+            if high_grade_pop_percent > 15:
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+            else:
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+        elif be_grade == 9:
+            # Marginal: PSA 9 is rare for vintage (typically <10% of pop)
+            return (2, 'MARGINAL', 'marginal', '●●○○○')
+        else:  # PSA 10 required
+            # Risky: PSA 10 vintage is extremely rare (<1%)
+            return (1, 'RISKY', 'risky', '●○○○○')
+    
+    # =========================================================================
+    # JUNK WAX ERA (1984-1994) - High pops, PSA 9-10 achievable
+    # =========================================================================
+    elif era_class == 'junk-wax':
+        if be_grade <= 7:
+            # Excellent: Low break-even for junk wax
+            return (5, 'EXCELLENT', 'excellent', '●●●●●')
+        elif be_grade == 8:
+            # High: PSA 8 is common for junk wax
+            if high_grade_pop_percent > 30:
+                return (4, 'HIGH', 'high', '●●●●○')
+            else:
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+        elif be_grade == 9:
+            # Moderate-Marginal: Depends on gem rate
+            if gem_rate < 30:  # PSA 9s still valuable
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+            else:  # High gem rate, PSA 9s declining
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+        else:  # PSA 10 required
+            # Marginal: Junk wax has PSA 10s but not as common as ultra-modern
+            if gem_rate > 40:
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+            else:
+                return (1, 'RISKY', 'risky', '●○○○○')
+    
+    # =========================================================================
+    # MODERN ERA (1995-2019) - Transition period
+    # =========================================================================
+    elif era_class == 'modern':
+        if be_grade <= 7:
+            # Excellent: Very low break-even
+            return (5, 'EXCELLENT', 'excellent', '●●●●●')
+        elif be_grade == 8:
+            # High: PSA 8 is achievable
+            if high_grade_pop_percent > 40:
+                return (4, 'HIGH', 'high', '●●●●○')
+            else:
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+        elif be_grade == 9:
+            # Moderate-Marginal: Depends on gem rate
+            if gem_rate < 50:  # PSA 9s still have value
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+            else:  # High gem rate, PSA 9 value weak
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+        else:  # PSA 10 required
+            # Marginal-Risky: Gem or bust scenario
+            if gem_rate > 60:
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+            else:
+                return (1, 'RISKY', 'risky', '●○○○○')
+    
+    # =========================================================================
+    # ULTRA-MODERN (2020+) - Current system logic (gem or bust)
+    # =========================================================================
+    else:  # ultra-modern or unknown
+        # Use existing logic from frontend (works well for ultra-modern)
+        if be_grade <= 7 and high_grade_pop_percent > 50:
+            return (5, 'EXCELLENT', 'excellent', '●●●●●')
+        elif be_grade <= 8 and high_grade_pop_percent > 40:
+            return (4, 'HIGH', 'high', '●●●●○')
+        elif be_grade == 9 and high_grade_pop_percent > 30:
+            return (3, 'MODERATE', 'moderate', '●●●○○')
+        elif be_grade == 9 and high_grade_pop_percent <= 30:
+            return (2, 'MARGINAL', 'marginal', '●●○○○')
+        else:  # PSA 10 required
+            return (1, 'RISKY', 'risky', '●○○○○')
 
 
 # ============================================================================

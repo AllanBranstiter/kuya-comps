@@ -228,13 +228,19 @@ class GradingAdvisorResponse(BaseModel):
     """
     # Primary verdict
     verdict: str = Field(
-        ..., 
+        ...,
         description="Display text (e.g., '✅ GREEN LIGHT: SUBMIT')"
     )
     status: Literal["green", "yellow", "red"] = Field(
-        ..., 
+        ...,
         description="Color status for UI styling"
     )
+    
+    # Confidence metrics (era-adjusted)
+    confidence_score: int = Field(..., ge=1, le=5, description="Confidence score 1-5")
+    confidence_label: str = Field(..., description="EXCELLENT, HIGH, MODERATE, MARGINAL, or RISKY")
+    confidence_class: str = Field(..., description="CSS class for styling")
+    confidence_dots: str = Field(..., description="Visual dots display (e.g., '●●●●●')")
     
     # Summary metrics
     success_rate: float = Field(
