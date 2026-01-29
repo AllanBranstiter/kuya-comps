@@ -1,19 +1,10 @@
 /**
-<<<<<<< HEAD
- * Grading Advisor Module
- * Intelligent PSA Grading Decision Support Tool
- * 
- * Helps users determine if a card is worth submitting to PSA for grading
- * by analyzing potential ROI across different grade scenarios.
- * 
-=======
  * Grading Intelligence Module
  * Intelligent PSA Grading Decision Support Tool
  *
  * Helps users determine if a card is worth submitting to PSA for grading
  * by analyzing potential ROI across different grade scenarios.
  *
->>>>>>> main
  * Created: January 27, 2026
  * Part of Kuya Comps - Baseball Card Market Analysis Platform
  */
@@ -201,11 +192,7 @@ const GradingAdvisor = (function() {
         const analyzeBtn = document.getElementById('analyze-btn');
         if (analyzeBtn) {
             analyzeBtn.disabled = false;
-<<<<<<< HEAD
-            analyzeBtn.innerHTML = '📊 Analyze Grading Value';
-=======
-            analyzeBtn.innerHTML = 'Analyze Grading Value';
->>>>>>> main
+            analyzeBtn.innerHTML = '<span class="btn-icon">📊</span>Analyze Grading Decision';
             analyzeBtn.style.opacity = '1';
         }
     }
@@ -496,40 +483,10 @@ const GradingAdvisor = (function() {
         
         let html = '';
         
-        // Render verdict banner
-        if (response.verdict && response.status) {
-            html += renderVerdictBanner(response.verdict, response.status);
-        }
+        // Start results grid - single column for full-width cards
+        html += '<div class="grading-results" style="display: flex; flex-direction: column; gap: 1.5rem;">';
         
-        // Render Kuya's advice section (backend sends "advice_text")
-        if (response.advice_text) {
-            html += renderKuyasAdvice(response.advice_text);
-        }
-        
-        // Start results grid
-        html += '<div class="grading-results">';
-        
-        // Render scenario analysis (backend sends "scenario_analysis")
-        if (response.scenario_analysis) {
-            html += renderScenarioAnalysis(response.scenario_analysis);
-        }
-        
-        // Render financial summary (build from available response fields)
-        const financialSummary = {
-            total_investment: (response.expected_value !== undefined) ?
-                response.expected_value : 0,
-            break_even_grade: response.break_even_grade,
-            profitable_grade_count: response.profitable_grades ?
-                response.profitable_grades.length : 0,
-            expected_value: response.expected_value
-        };
-        html += renderFinancialSummary(financialSummary);
-        
-        // End first row, start second row
-        html += '</div>';
-        html += '<div class="grading-results">';
-        
-        // Render financial matrix (backend sends "matrix")
+        // Render financial matrix (Profit/Loss by Grade) - FULL WIDTH
         if (response.matrix) {
             html += renderFinancialMatrix(
                 response.matrix,
@@ -537,32 +494,19 @@ const GradingAdvisor = (function() {
             );
         }
         
-        // Render population chart (backend sends "distribution")
+        // Render population chart (Population Distribution) - FULL WIDTH
         if (response.distribution) {
             html += renderPopulationChart(response.distribution);
         }
         
-        html += '</div>';
-        
-        // Render collector profiles
-        if (response.collector_profiles) {
-            html += renderCollectorProfiles(response.collector_profiles);
-        }
-        
-        // Render warnings
+        // Render warnings (Important Considerations) - FULL WIDTH
         if (response.warnings && response.warnings.length > 0) {
             html += renderWarnings(response.warnings);
         }
         
-        // Render copy button
-        if (response.copy_text) {
-            html += renderCopyButton(response.copy_text);
-        }
+        html += '</div>';
         
         container.innerHTML = html;
-        
-        // Set up copy button event listener
-        setupCopyButtonListener();
     }
     
     /**
@@ -732,7 +676,7 @@ const GradingAdvisor = (function() {
         }
         
         return `
-            <div class="result-module financial-matrix-module" style="grid-column: 1 / -1;">
+            <div class="result-module financial-matrix-module" style="width: 100%;">
                 <div class="module-header">
                     <span class="icon">📋</span>
                     <h4>Profit/Loss by Grade</h4>
@@ -791,7 +735,7 @@ const GradingAdvisor = (function() {
         }
         
         return `
-            <div class="result-module" style="grid-column: 1 / -1;">
+            <div class="result-module" style="width: 100%;">
                 <div class="module-header">
                     <span class="icon">📊</span>
                     <h4>Population Distribution</h4>
@@ -804,7 +748,7 @@ const GradingAdvisor = (function() {
                     <span style="color: var(--subtle-text-color);"> total graded</span>
                     <span style="margin-left: 1rem; padding: 0.25rem 0.5rem; background: var(--card-background); border-radius: 8px; font-size: 0.85rem;">${rarityTier}</span>
                 </div>
-                <div class="population-chart">
+                <div class="population-chart" style="display: flex; flex-direction: column; gap: 0.75rem;">
                     ${barsHtml}
                 </div>
             </div>
@@ -890,7 +834,7 @@ const GradingAdvisor = (function() {
         `).join('');
         
         return `
-            <div class="result-module" style="grid-column: 1 / -1;">
+            <div class="result-module" style="width: 100%;">
                 <div class="module-header">
                     <span class="icon">⚠️</span>
                     <h4>Important Considerations</h4>
