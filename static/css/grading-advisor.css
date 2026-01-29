@@ -983,9 +983,17 @@
   gap: 0.375rem;
 }
 
-.pop-bar-vertical {
+.pop-bar-container-vertical {
+  height: 180px;
   width: 100%;
   max-width: 50px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.pop-bar-vertical {
+  width: 100%;
   min-height: 4px;
   border-radius: 6px 6px 0 0;
   transition: height 0.5s ease, background-color 0.3s ease;
@@ -1067,8 +1075,12 @@
     padding: 0.5rem 0.25rem;
   }
   
-  .pop-bar-vertical {
+  .pop-bar-container-vertical {
+    height: 120px;
     max-width: 28px;
+  }
+  
+  .pop-bar-vertical {
     border-radius: 4px 4px 0 0;
   }
   
@@ -1091,8 +1103,12 @@
     padding: 0.75rem 0.375rem;
   }
   
-  .pop-bar-vertical {
+  .pop-bar-container-vertical {
+    height: 150px;
     max-width: 36px;
+  }
+  
+  .pop-bar-vertical {
     border-radius: 5px 5px 0 0;
   }
   
@@ -1114,7 +1130,8 @@
     gap: 0.5rem;
   }
   
-  .pop-bar-vertical {
+  .pop-bar-container-vertical {
+    height: 180px;
     max-width: 45px;
   }
   
@@ -1291,21 +1308,47 @@
 
 .warning-list {
   list-style: none;
-  padding: 0;
-  margin: 1rem 0 0 0;
+  padding: 1.25rem;
+  margin: 0;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
 }
 
+.warning-list li {
+  padding: 0.625rem 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-color);
+  position: relative;
+}
+
+.warning-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #6c757d;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.warning-list li:not(:last-child) {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Legacy warning-item styling for errors */
 .warning-item {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.875rem;
-  background: var(--verdict-yellow-bg);
-  border: 1px solid var(--verdict-yellow-border);
+  background: var(--verdict-red-bg);
+  border: 1px solid var(--verdict-red-border);
   border-radius: 10px;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
-  color: var(--verdict-yellow);
+  color: var(--verdict-red);
 }
 
 .warning-item:last-child {
@@ -1315,12 +1358,6 @@
 .warning-item .warning-icon {
   font-size: 1rem;
   flex-shrink: 0;
-}
-
-.warning-item.error {
-  background: var(--verdict-red-bg);
-  border-color: var(--verdict-red-border);
-  color: var(--verdict-red);
 }
 
 /* ===== EDUCATIONAL TOOLTIPS ===== */

@@ -835,25 +835,19 @@ const GradingAdvisor = (function() {
         // Determine contextual hint based on gem rate class
         let gemRateContext = '';
         if (gemRateClass === 'rare-gems') {
-            gemRateContext = 'Elite Gems - PSA 9s Are Highly Valuable';
+            gemRateContext = 'Almost No PSA 10s - PSA 9s Are Valuable';
         } else if (gemRateClass === 'quality') {
-            gemRateContext = 'Rare Gems - PSA 9s Holding Value';
+            gemRateContext = 'Few PSA 10s - PSA 9s Hold Value';
         } else if (gemRateClass === 'moderate') {
-            gemRateContext = 'Average Gems - PSA 9 Values Are Weak';
+            gemRateContext = 'Avg Gem Rate - Weak PSA 9 Values';
         } else if (gemRateClass === 'common-gems') {
-            gemRateContext = 'Common Gems - PSA 9 Values Are Dead';
+            gemRateContext = 'Common PSA 10s - PSA 9 Values Are Dead';
         } else {
             gemRateContext = 'PSA 10 Population';
         }
         
         return `
             <div class="decision-summary-card ${cardClass}">
-                <div class="summary-header">
-                    <span class="recommendation ${recommendationClass}">
-                        <span>${recommendationIcon}</span>
-                        <span>${recommendation}</span>
-                    </span>
-                </div>
                 <div class="summary-content">
                     <div class="confidence-score ${scoreClass}">
                         <span class="label">Grading Confidence</span>
@@ -975,9 +969,11 @@ const GradingAdvisor = (function() {
             
             columnsHtml += `
                 <div class="pop-column ${profitClass}">
-                    <div class="pop-bar-vertical"
-                         style="height: ${barHeight}%;"
-                         title="PSA ${grade}: ${pct.toFixed(1)}% of population">
+                    <div class="pop-bar-container-vertical">
+                        <div class="pop-bar-vertical"
+                             style="height: ${barHeight}%;"
+                             title="PSA ${grade}: ${pct.toFixed(1)}% of population">
+                        </div>
                     </div>
                     <span class="pop-label">${grade}</span>
                     <span class="pop-count">${pct.toFixed(1)}%</span>
@@ -1077,16 +1073,13 @@ const GradingAdvisor = (function() {
         if (!warnings || warnings.length === 0) return '';
         
         const items = warnings.map(warning => `
-            <div class="warning-item">
-                <span class="warning-icon">⚠️</span>
-                <span>${escapeHtml(warning)}</span>
-            </div>
+            <li>${escapeHtml(warning)}</li>
         `).join('');
         
         return `
             <div class="result-module" style="width: 100%;">
                 <div class="module-header">
-                    <span class="icon">⚠️</span>
+                    <span class="icon">ℹ️</span>
                     <h4>Important Considerations</h4>
                 </div>
                 <ul class="warning-list">

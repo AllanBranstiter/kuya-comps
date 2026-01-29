@@ -311,13 +311,13 @@ def _calculate_gem_rate_tier(gem_rate: float) -> Tuple[str, str]:
         Tuple of (tier_label, tier_class) for UI display and styling
     """
     if gem_rate < GEM_RATE_RARE:
-        return ("Rare Gems", "rare-gems")
+        return ("Ultra-Rare", "rare-gems")
     elif gem_rate < GEM_RATE_QUALITY:
-        return ("Quality Card", "quality")
+        return ("Rare", "quality")
     elif gem_rate < GEM_RATE_MODERATE:
-        return ("Moderate", "moderate")
+        return ("Average", "moderate")
     else:
-        return ("Common Gems", "common-gems")
+        return ("Plentiful", "common-gems")
 
 
 # ============================================================================

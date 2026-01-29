@@ -100,7 +100,7 @@ class PopulationDistribution(BaseModel):
     @classmethod
     def validate_gem_rate_tier(cls, v: str) -> str:
         """Validate gem rate tier is one of the allowed values."""
-        allowed = ['Rare Gems', 'Quality Card', 'Moderate', 'Common Gems', 'Unknown']
+        allowed = ['Ultra-Rare', 'Rare', 'Average', 'Plentiful', 'Unknown']
         if v not in allowed:
             raise ValueError(f"gem_rate_tier must be one of {allowed}")
         return v
