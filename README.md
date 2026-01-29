@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+# eBay Baseball Card Comps Tool v0.5.2 (Production Beta)
+=======
 # eBay Baseball Card Comps Tool v0.6.0 (Production Beta)
+>>>>>>> main
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
@@ -10,7 +14,22 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
+<<<<<<< HEAD
+*   **PSA Grade Intelligence**: Compare prices across different PSA grades
+*   **Intelligent Grading Advisor**: A comprehensive tool that helps collectors decide whether grading a raw card is financially worthwhile
+    - Enter PSA market prices and population data for grades 1-10
+    - Input raw card purchase price and grading fees
+    - Get a color-coded verdict (Green Light, Yellow Caution, Red Stop)
+    - View scenario analysis (Optimistic, Realistic, Pessimistic outcomes)
+    - See break-even grade and expected value calculations
+    - Get personalized "Kuya's Advice" with recommendations
+    - Compare strategies for flippers vs. long-term collectors
+    - Population distribution visualization
+    - Copy results to share with others
+*   **First-Time User Onboarding**: Interactive 9-step guided tour using Driver.js
+=======
 *   **Grading Advisor**: Backend-powered intelligent grading recommendations with grade value analysis, premium calculations, and market comparisons
+>>>>>>> main
 *   **Password Protection**: Secure access with session management
 *   **Clean UI**: Modern interface with responsive design
 *   **Accessibility**: WCAG 2.1 Level A & AA compliant (skip-to-content, color contrast)
@@ -64,10 +83,16 @@ kuya-comps/
 │   ├── index.html     # Main application (~545 lines)
 │   ├── style.css      # Main stylesheet (extracted from index.html)
 │   ├── css/           # Component stylesheets
+<<<<<<< HEAD
+│   │   ├── onboarding.css  # Onboarding tour styles (Driver.js theme)
+│   │   └── shared-styles.css  # Shared styles (WCAG AA colors)
+=======
 │   │   ├── shared-styles.css  # Shared styles (WCAG AA colors)
 │   │   └── grading-advisor.css  # Styles for Grading Advisor
+>>>>>>> main
 │   └── js/            # JavaScript modules
 │       ├── modal.js   # Reusable modal component
+│       ├── onboarding.js  # First-time user tour (Driver.js)
 │       ├── auth.js    # Authentication (uses Modal)
 │       ├── grading-advisor.js   # Frontend for Grading Advisor tab
 │       └── ...        # Other modules
@@ -127,7 +152,7 @@ kuya-comps/
 
 ## API
 
-The application exposes three main API endpoints:
+The application exposes the following main API endpoints:
 
 *   **`GET /comps`** - Search sold listings for market analysis
     - Returns historical sold data with price statistics
@@ -145,6 +170,13 @@ The application exposes three main API endpoints:
     - Quick Sale vs Patient Sale ranges
     - Volume-weighted price calculations
     - PSA grade-specific analysis
+
+*   **`POST /api/grading-advisor`** - Intelligent Grading Advisor analysis
+    - Accepts PSA market prices, population data, raw card cost, and grading fees
+    - Returns expected value calculations, break-even grade, and scenario analysis
+    - Provides color-coded verdict (Green Light, Yellow Caution, Red Stop)
+    - Generates personalized "Kuya's Advice" recommendations
+    - Includes flipper vs. collector strategy comparisons
 
 *   **`GET /metrics`** - Monitoring endpoint
     - Custom metrics for observability
@@ -198,6 +230,31 @@ The application implements several strategies to manage API costs and maintain p
 
 ## Version History
 
+<<<<<<< HEAD
+### Version 0.5.2 (First-Time User Onboarding) - Current
+
+Version 0.5.2 introduces an interactive onboarding tour to help first-time users understand the application's features. The tour uses Driver.js v1.3.1 to guide users through 9 key UI elements with highlighting and informative popovers.
+
+**Onboarding Tour:**
+- **Interactive 9-Step Tour**: Guides new users through main features
+  - Welcome & Introduction
+  - Main Search Input
+  - Search Filters (Raw Only, Base Only, etc.)
+  - Sold Listings Results
+  - Price Statistics Panel
+  - Beeswarm Chart Visualization
+  - Active Deals Section
+  - Grading Intelligence Tab
+  - User Account/Authentication
+- **Smart Auto-Start**: Tour auto-starts for first-time visitors only (localStorage persistence)
+- **Manual Restart**: "Take a Tour" link in footer for returning users
+- **Custom Styling**: Popovers themed to match Kuya Comps branding
+- **Element Highlighting**: Native Driver.js overlay with spotlight effect
+- **Keyboard Navigation**: Arrow keys and Escape key support
+- **Files Added**:
+  - [`static/js/onboarding.js`](static/js/onboarding.js) - Tour manager module (~490 lines)
+  - [`static/css/onboarding.css`](static/css/onboarding.css) - Custom theme overrides (~400 lines)
+=======
 ### Version 0.6.0 (Grading Advisor) - Current
 
 Version 0.6.0 introduces a major refactoring of the grading system, transitioning from the frontend-only "Grading Intelligence" to a full backend-powered "Grading Advisor" system. This release adds comprehensive API support with Pydantic models, dedicated service layer, and new endpoints for intelligent grading analysis.
@@ -221,6 +278,7 @@ Version 0.6.0 introduces a major refactoring of the grading system, transitionin
 
 **Bug Fixes:**
 - Fixed binder collection bug
+>>>>>>> main
 
 ### Version 0.5.1 (UX Improvements)
 

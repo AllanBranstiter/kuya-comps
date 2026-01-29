@@ -65,12 +65,48 @@ class PopulationDistribution(BaseModel):
     """
     total_population: int = Field(..., ge=0, description="Total PSA population across all grades")
     grade_percentages: Dict[str, float] = Field(
-        ..., 
+        ...,
         description="Percentage of population at each grade (keys: '1'-'10')"
     )
     rarity_tier: str = Field(
-        ..., 
+        ...,
         description="Rarity classification: 'Common', 'Uncommon', 'Rare', or 'Very Rare'"
+    )
+    gem_rate: float = Field(
+        default=0.0,
+        ge=0,
+        le=100,
+        description="Percentage of population at PSA 10 (gem rate)"
+    )
+    gem_rate_tier: str = Field(
+        default="Unknown",
+        description="Gem rate classification: 'Rare Gems', 'Quality Card', 'Moderate', or 'Common Gems'"
+    )
+    gem_rate_class: str = Field(
+        default="moderate",
+        description="CSS class for gem rate styling: 'rare-gems', 'quality', 'moderate', or 'common-gems'"
+    )
+    era: str = Field(
+        default="Unknown",
+        description="Card era: 'Vintage', 'Junk Wax Era', 'Modern', 'Ultra-Modern'"
+    )
+    era_class: str = Field(
+        default="unknown",
+        description="CSS class: 'vintage', 'junk-wax', 'modern', 'ultra-modern'"
+    )
+    high_grade_rate: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=100,
+        description="Percentage at PSA 7+ (vintage cards only)"
+    )
+    high_grade_tier: Optional[str] = Field(
+        default=None,
+        description="'Elite', 'Quality', 'Average', 'Difficult'"
+    )
+    high_grade_class: Optional[str] = Field(
+        default=None,
+        description="CSS class for high-grade rate"
     )
     
     @field_validator('rarity_tier')
@@ -80,6 +116,24 @@ class PopulationDistribution(BaseModel):
         allowed = ['Common', 'Uncommon', 'Rare', 'Very Rare']
         if v not in allowed:
             raise ValueError(f"rarity_tier must be one of {allowed}")
+        return v
+    
+    @field_validator('gem_rate_tier')
+    @classmethod
+    def validate_gem_rate_tier(cls, v: str) -> str:
+        """Validate gem rate tier is one of the allowed values."""
+        allowed = ['Ultra-Rare', 'Rare', 'Average', 'Plentiful', 'Unknown']
+        if v not in allowed:
+            raise ValueError(f"gem_rate_tier must be one of {allowed}")
+        return v
+    
+    @field_validator('gem_rate_class')
+    @classmethod
+    def validate_gem_rate_class(cls, v: str) -> str:
+        """Validate gem rate class is one of the allowed values."""
+        allowed = ['rare-gems', 'quality', 'moderate', 'common-gems']
+        if v not in allowed:
+            raise ValueError(f"gem_rate_class must be one of {allowed}")
         return v
 
 
@@ -128,10 +182,16 @@ class GradingAdvisorRequest(BaseModel):
         description="Cost to grade the card (default: $21.00 for PSA Value tier)"
     )
     expected_grade: Optional[int] = Field(
-        default=None, 
-        ge=1, 
-        le=10, 
+        default=None,
+        ge=1,
+        le=10,
         description="User's predicted grade (1-10, optional)"
+    )
+    card_year: Optional[int] = Field(
+        default=None,
+        ge=1800,
+        le=2026,
+        description="Year the card was manufactured (used for era classification)"
     )
     
     @field_validator('price_data')
@@ -168,13 +228,19 @@ class GradingAdvisorResponse(BaseModel):
     """
     # Primary verdict
     verdict: str = Field(
-        ..., 
+        ...,
         description="Display text (e.g., '✅ GREEN LIGHT: SUBMIT')"
     )
     status: Literal["green", "yellow", "red"] = Field(
-        ..., 
+        ...,
         description="Color status for UI styling"
     )
+    
+    # Confidence metrics (era-adjusted)
+    confidence_score: int = Field(..., ge=1, le=5, description="Confidence score 1-5")
+    confidence_label: str = Field(..., description="EXCELLENT, HIGH, MODERATE, MARGINAL, or RISKY")
+    confidence_class: str = Field(..., description="CSS class for styling")
+    confidence_dots: str = Field(..., description="Visual dots display (e.g., '●●●●●')")
     
     # Summary metrics
     success_rate: float = Field(

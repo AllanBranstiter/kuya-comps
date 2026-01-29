@@ -36,10 +36,58 @@ VERY_RARE_MAX = 100
 RARE_MAX = 500
 UNCOMMON_MAX = 2000
 
+# Gem rate thresholds (PSA 10 percentage of total population)
+GEM_RATE_RARE = 5.0           # <5% = Rare gems (PSA 9s very valuable)
+GEM_RATE_QUALITY = 30.0       # 5-30% = Quality card (PSA 9s valuable)
+GEM_RATE_MODERATE = 60.0      # 30-60% = Moderate (PSA 9s declining value)
+# 60%+ = Common gems (PSA 9s nearly worthless, must get PSA 10)
+
 # Warning thresholds
 HIGH_PSA_10_POP_THRESHOLD = 1000
 LOW_POPULATION_THRESHOLD = 50
 HIGH_CONCENTRATION_THRESHOLD = 50.0  # Percent
+
+
+# ============================================================================
+# Era Classification Functions
+# ============================================================================
+
+def _classify_card_era(year: Optional[int]) -> Tuple[str, str]:
+    """Classify card era based on year. Returns (era_name, era_class)."""
+    if not year or year < 1800:
+        return ('Unknown', 'unknown')
+    if year < 1984:
+        return ('Vintage', 'vintage')
+    elif year <= 1994:
+        return ('Junk Wax Era', 'junk-wax')
+    elif year <= 2019:
+        return ('Modern', 'modern')
+    else:
+        return ('Ultra-Modern', 'ultra-modern')
+
+def _calculate_high_grade_rate(
+    population_data: Dict[str, int],
+    era: str
+) -> Tuple[Optional[float], Optional[str], Optional[str]]:
+    """Calculate PSA 7+ rate for vintage cards."""
+    if era != 'vintage':
+        return (None, None, None)
+    
+    total_population = sum(population_data.get(str(i), 0) for i in range(1, 11))
+    if total_population == 0:
+        return (0.0, 'Unknown', 'unknown')
+    
+    high_grade_pop = sum(population_data.get(str(i), 0) for i in range(7, 11))
+    high_grade_rate = (high_grade_pop / total_population) * 100
+    
+    if high_grade_rate > 40.0:
+        return (round(high_grade_rate, 1), "Elite", "elite")
+    elif high_grade_rate >= 25.0:
+        return (round(high_grade_rate, 1), "Quality", "quality")
+    elif high_grade_rate >= 10.0:
+        return (round(high_grade_rate, 1), "Average", "average")
+    else:
+        return (round(high_grade_rate, 1), "Difficult", "difficult")
 
 
 # ============================================================================
@@ -97,7 +145,7 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
             profitable_grades.append(grade)
     
     # Calculate population distribution
-    distribution = _calculate_population_distribution(request.population_data)
+    distribution = _calculate_population_distribution(request.population_data, request.card_year)
     
     # Calculate success rate
     success_rate = (len(profitable_grades) / 10) * 100
@@ -110,6 +158,15 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
     
     # Find target grade (highest profitable grade)
     target_grade = _find_target_grade(matrix, profitable_grades)
+    
+    # Calculate era-adjusted confidence score
+    high_grade_pop_percent = distribution.grade_percentages.get("9", 0) + distribution.grade_percentages.get("10", 0)
+    confidence_score, confidence_label, confidence_class, confidence_dots = _calculate_era_adjusted_confidence(
+        break_even_grade=break_even_grade,
+        high_grade_pop_percent=high_grade_pop_percent,
+        gem_rate=distribution.gem_rate,
+        era_class=distribution.era_class
+    )
     
     # Determine verdict based on scenarios
     verdict, status = _determine_verdict(
@@ -137,7 +194,13 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         matrix=matrix,
         distribution=distribution,
         expected_value=expected_value,
-        population_data=request.population_data
+        population_data=request.population_data,
+        raw_purchase_price=request.raw_purchase_price,
+        grading_fee=request.grading_fee,
+        target_grade=target_grade,
+        break_even_grade=break_even_grade,
+        success_rate=success_rate,
+        expected_grade=request.expected_grade
     )
     
     # Generate advice text
@@ -156,6 +219,10 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
     response = GradingAdvisorResponse(
         verdict=verdict,
         status=status,
+        confidence_score=confidence_score,
+        confidence_label=confidence_label,
+        confidence_class=confidence_class,
+        confidence_dots=confidence_dots,
         success_rate=success_rate,
         expected_value=expected_value,
         break_even_grade=break_even_grade,
@@ -223,16 +290,18 @@ def _calculate_grade_analysis(
 
 
 def _calculate_population_distribution(
-    population_data: Dict[str, int]
+    population_data: Dict[str, int],
+    card_year: Optional[int] = None
 ) -> PopulationDistribution:
     """
     Calculate population distribution statistics.
     
     Args:
         population_data: Dict mapping grade strings to population counts
+        card_year: Optional year for era classification
     
     Returns:
-        PopulationDistribution with total, percentages, and rarity tier
+        PopulationDistribution with total, percentages, rarity tier, and gem rate
     """
     total_population = sum(population_data.get(str(i), 0) for i in range(1, 11))
     
@@ -250,10 +319,30 @@ def _calculate_population_distribution(
     # Determine rarity tier
     rarity_tier = _calculate_rarity_tier(total_population)
     
+    # Calculate gem rate (PSA 10 percentage)
+    gem_rate = grade_percentages.get("10", 0.0)
+    gem_rate_tier, gem_rate_class = _calculate_gem_rate_tier(gem_rate)
+    
+    # Classify card era
+    era, era_class = _classify_card_era(card_year)
+    
+    # Calculate high-grade rate for vintage cards
+    high_grade_rate, high_grade_tier, high_grade_class = _calculate_high_grade_rate(
+        population_data, era_class
+    )
+    
     return PopulationDistribution(
         total_population=total_population,
         grade_percentages=grade_percentages,
-        rarity_tier=rarity_tier
+        rarity_tier=rarity_tier,
+        gem_rate=gem_rate,
+        gem_rate_tier=gem_rate_tier,
+        gem_rate_class=gem_rate_class,
+        era=era,
+        era_class=era_class,
+        high_grade_rate=high_grade_rate,
+        high_grade_tier=high_grade_tier,
+        high_grade_class=high_grade_class
     )
 
 
@@ -275,6 +364,162 @@ def _calculate_rarity_tier(total_pop: int) -> str:
         return "Uncommon"
     else:
         return "Common"
+
+
+def _calculate_gem_rate_tier(gem_rate: float) -> Tuple[str, str]:
+    """
+    Classify card based on PSA 10 concentration (gem rate).
+    
+    Gem rate is the percentage of the total population that is PSA 10.
+    Low gem rates mean PSA 9s retain good value since 10s are rare.
+    High gem rates mean PSA 9s lose value since 10s are common.
+    
+    Args:
+        gem_rate: Percentage of population at PSA 10 (0-100)
+    
+    Returns:
+        Tuple of (tier_label, tier_class) for UI display and styling
+    """
+    if gem_rate < GEM_RATE_RARE:
+        return ("Ultra-Rare", "rare-gems")
+    elif gem_rate < GEM_RATE_QUALITY:
+        return ("Rare", "quality")
+    elif gem_rate < GEM_RATE_MODERATE:
+        return ("Average", "moderate")
+    else:
+        return ("Plentiful", "common-gems")
+
+
+def _calculate_era_adjusted_confidence(
+    break_even_grade: Optional[str],
+    high_grade_pop_percent: float,
+    gem_rate: float,
+    era_class: str
+) -> Tuple[int, str, str, str]:
+    """
+    Calculate confidence score with era-specific thresholds.
+    
+    Different eras have different grading standards:
+    - Vintage: PSA 8 is excellent (PSA 10s are <1%)
+    - Junk Wax: PSA 9 is good (moderate gem rates)
+    - Modern: PSA 9 needed (increasing gem rates)
+    - Ultra-Modern: PSA 10 often required (high gem rates 60-80%)
+    
+    Args:
+        break_even_grade: Minimum grade needed to profit
+        high_grade_pop_percent: PSA 9 + PSA 10 percentage
+        gem_rate: PSA 10 percentage
+        era_class: Era classification ('vintage', 'junk-wax', 'modern', 'ultra-modern')
+    
+    Returns:
+        Tuple of (confidence_score, label, css_class, dots_display)
+    
+    Confidence Levels:
+        5 = EXCELLENT (●●●●●)
+        4 = HIGH (●●●●○)
+        3 = MODERATE (●●●○○)
+        2 = MARGINAL (●●○○○)
+        1 = RISKY (●○○○○)
+    """
+    if not break_even_grade:
+        # No profitable grades at all
+        return (1, 'RISKY', 'risky', '●○○○○')
+    
+    be_grade = int(break_even_grade)
+    
+    # =========================================================================
+    # VINTAGE ERA (Pre-1983) - PSA 8 is "high grade"
+    # =========================================================================
+    if era_class == 'vintage':
+        if be_grade <= 6:
+            # Excellent: Only need PSA 6 to profit (very achievable for vintage)
+            return (5, 'EXCELLENT', 'excellent', '●●●●●')
+        elif be_grade == 7:
+            # High: Need PSA 7, which is good for vintage
+            if high_grade_pop_percent > 20:
+                return (4, 'HIGH', 'high', '●●●●○')
+            else:
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+        elif be_grade == 8:
+            # Moderate: PSA 8 is high grade for vintage, but not guaranteed
+            if high_grade_pop_percent > 15:
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+            else:
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+        elif be_grade == 9:
+            # Marginal: PSA 9 is rare for vintage (typically <10% of pop)
+            return (2, 'MARGINAL', 'marginal', '●●○○○')
+        else:  # PSA 10 required
+            # Risky: PSA 10 vintage is extremely rare (<1%)
+            return (1, 'RISKY', 'risky', '●○○○○')
+    
+    # =========================================================================
+    # JUNK WAX ERA (1984-1994) - High pops, PSA 9-10 achievable
+    # =========================================================================
+    elif era_class == 'junk-wax':
+        if be_grade <= 7:
+            # Excellent: Low break-even for junk wax
+            return (5, 'EXCELLENT', 'excellent', '●●●●●')
+        elif be_grade == 8:
+            # High: PSA 8 is common for junk wax
+            if high_grade_pop_percent > 30:
+                return (4, 'HIGH', 'high', '●●●●○')
+            else:
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+        elif be_grade == 9:
+            # Moderate-Marginal: Depends on gem rate
+            if gem_rate < 30:  # PSA 9s still valuable
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+            else:  # High gem rate, PSA 9s declining
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+        else:  # PSA 10 required
+            # Marginal: Junk wax has PSA 10s but not as common as ultra-modern
+            if gem_rate > 40:
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+            else:
+                return (1, 'RISKY', 'risky', '●○○○○')
+    
+    # =========================================================================
+    # MODERN ERA (1995-2019) - Transition period
+    # =========================================================================
+    elif era_class == 'modern':
+        if be_grade <= 7:
+            # Excellent: Very low break-even
+            return (5, 'EXCELLENT', 'excellent', '●●●●●')
+        elif be_grade == 8:
+            # High: PSA 8 is achievable
+            if high_grade_pop_percent > 40:
+                return (4, 'HIGH', 'high', '●●●●○')
+            else:
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+        elif be_grade == 9:
+            # Moderate-Marginal: Depends on gem rate
+            if gem_rate < 50:  # PSA 9s still have value
+                return (3, 'MODERATE', 'moderate', '●●●○○')
+            else:  # High gem rate, PSA 9 value weak
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+        else:  # PSA 10 required
+            # Marginal-Risky: Gem or bust scenario
+            if gem_rate > 60:
+                return (2, 'MARGINAL', 'marginal', '●●○○○')
+            else:
+                return (1, 'RISKY', 'risky', '●○○○○')
+    
+    # =========================================================================
+    # ULTRA-MODERN (2020+) - Current system logic (gem or bust)
+    # =========================================================================
+    else:  # ultra-modern or unknown
+        # Use existing logic from frontend (works well for ultra-modern)
+        if be_grade <= 7 and high_grade_pop_percent > 50:
+            return (5, 'EXCELLENT', 'excellent', '●●●●●')
+        elif be_grade <= 8 and high_grade_pop_percent > 40:
+            return (4, 'HIGH', 'high', '●●●●○')
+        elif be_grade == 9 and high_grade_pop_percent > 30:
+            return (3, 'MODERATE', 'moderate', '●●●○○')
+        elif be_grade == 9 and high_grade_pop_percent <= 30:
+            return (2, 'MARGINAL', 'marginal', '●●○○○')
+        else:  # PSA 10 required
+            return (1, 'RISKY', 'risky', '●○○○○')
 
 
 # ============================================================================
@@ -616,51 +861,322 @@ def _generate_warnings(
     matrix: Dict[str, GradeAnalysis],
     distribution: PopulationDistribution,
     expected_value: float,
-    population_data: Dict[str, int]
+    population_data: Dict[str, int],
+    raw_purchase_price: float,
+    grading_fee: float,
+    target_grade: Optional[str],
+    break_even_grade: Optional[str],
+    success_rate: float,
+    expected_grade: Optional[int]
 ) -> List[str]:
     """
-    Generate warning messages for notable conditions.
+    Generate comprehensive warning messages for notable conditions.
     
-    Warnings are generated for:
-    - High PSA 10 population (> 1000)
-    - Low total population (limited market data)
+    Warnings generated (prioritized list):
+    - Gem rate analysis - impacts PSA 9 value
+    - Price gap analysis - lottery ticket scenarios
+    - Grading cost efficiency - fees vs card value
+    - Break-even confidence score - probability of success
+    - Physical condition requirements
+    - Raw card market alternatives
+    - Market liquidity concerns
+    - Population pump warnings
+    - Risk/reward proximity
+    - Modern vs vintage indicators
+    - Low population warnings
     - Negative expected value
-    - High concentration in a single grade (> 50%)
     
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
         distribution: PopulationDistribution data
         expected_value: Calculated expected value
         population_data: Original population data dict
+        raw_purchase_price: What user paid for raw card
+        grading_fee: Cost to grade the card
+        target_grade: Recommended target grade
+        break_even_grade: Minimum grade to break even
+        success_rate: Percentage of profitable grades
+        expected_grade: User's predicted grade
     
     Returns:
         List of warning message strings
     """
     warnings: List[str] = []
     
-    # Check PSA 10 population
-    psa_10_pop = population_data.get("10", 0)
-    if psa_10_pop > HIGH_PSA_10_POP_THRESHOLD:
+    # Era-specific warnings with enhanced contextual guidance
+    era_class = distribution.era_class
+    high_grade_rate = distribution.high_grade_rate
+    gem_rate = distribution.gem_rate
+
+    # =========================================================================
+    # Vintage Era Warnings (Pre-1983) - Enhanced
+    # =========================================================================
+    if era_class == 'vintage':
+        # Keep existing basic warning
+        if high_grade_rate is not None:
+            warnings.append(
+                f"📚 Vintage Era: For pre-1983 cards, PSA 7-8 is high-grade. "
+                f"Only {high_grade_rate:.1f}% achieve PSA 7+. "
+                "Centering issues and paper aging are common."
+            )
+        
+        # NEW: 7-to-8 jump warning (contextual)
+        if break_even_grade and int(break_even_grade) in [7, 8]:
+            warnings.append(
+                "💰 The PSA 7-to-8 jump can mean thousands of dollars for vintage cards. "
+                "Inspect corners with a loupe for micro-fraying before submitting."
+            )
+        
+        # NEW: Centering guidance (always for vintage)
         warnings.append(
-            f"High PSA 10 population ({psa_10_pop:,}) may limit future value appreciation."
+            "📐 Centering is critical for vintage cards. 50/50 centering can be worth "
+            "significantly more than 70/30, even with identical corners."
+        )
+        
+        # NEW: Crease warning (if break-even is low)
+        if break_even_grade and int(break_even_grade) <= 6:
+            warnings.append(
+                "⚠️ Check for creases, even 'spider creases' only visible under light. "
+                "Any crease will instantly drop a vintage card to PSA 4 or lower."
+            )
+    
+    # =========================================================================
+    # Junk Wax Era Warnings (1984-1994) - Enhanced
+    # =========================================================================
+    elif era_class == 'junk-wax':
+        # Keep existing mass production warning
+        if distribution.total_population > 10000 or (20.0 <= gem_rate <= 40.0):
+            warnings.append(
+                f"📦 Junk Wax Era (1984-1994): Mass production with {distribution.total_population:,} graded copies. "
+                "Only submit cards you're confident will grade PSA 9+. "
+                "Low QC during production means centering/print defects are common. "
+                "High populations limit value appreciation—grading fees must be justified by the grade spread."
+            )
+        
+        # NEW: Stronger population warning (contextual)
+        psa_10_pop = population_data.get("10", 0)
+        if psa_10_pop > 5000:
+            warnings.append(
+                f"📊 With {psa_10_pop:,} PSA 10s already graded, a PSA 9 may be worth less "
+                "than your grading costs. Check the population report carefully."
+            )
+        
+        # NEW: Commons warning (always for junk wax)
+        warnings.append(
+            "💸 Avoid grading common players from this era. Even in PSA 10, "
+            "most cards struggle to cover the $20+ grading fee."
         )
     
-    # Check low total population
-    if distribution.total_population < LOW_POPULATION_THRESHOLD:
+    # =========================================================================
+    # Modern Era Warnings (1995-2019) - NEW
+    # =========================================================================
+    elif era_class == 'modern':
+        if break_even_grade and int(break_even_grade) >= 9:
+            warnings.append(
+                "🏆 For modern cards, PSA commands highest ROI for Gem Mint 10s. "
+                "Consider BGS for thick cards (memorabilia/patches) or if chasing the rare BGS Black Label 10."
+            )
+    
+    # =========================================================================
+    # Ultra-Modern Era Warnings (2020+) - NEW
+    # =========================================================================
+    elif era_class == 'ultra-modern':
+        if gem_rate > 60:
+            warnings.append(
+                "🔍 Ultra-modern chrome/refractor cards require technical perfection. "
+                "Check for print lines, dimples, or surface scratches invisible to the naked eye that will prevent a PSA 10."
+            )
+    
+    # Get gem rate and grade percentages
+    gem_rate = distribution.gem_rate
+    psa_9_pct = distribution.grade_percentages.get("9", 0.0)
+    psa_8_pct = distribution.grade_percentages.get("8", 0.0)
+    
+    # Gem rate warnings with nuanced context
+    if gem_rate > 60.0:
+        # Very high gem rate - PSA 9s nearly worthless
+        warnings.append(
+            f"⚠️ {gem_rate:.1f}% gem rate - PSA 10s are common. "
+            "PSA 9s have minimal value. You need a perfect 10 to profit."
+        )
+        # Additional context for PSA 8 if it's also common
+        if psa_8_pct > 15.0:
+            warnings.append(
+                f"PSA 8 represents {psa_8_pct:.1f}% of population. "
+                "With this gem rate, even PSA 8s may have limited value."
+            )
+    elif gem_rate >= 30.0 and gem_rate <= 60.0:
+        # Moderate gem rate - PSA 9 value declining
+        psa_9_profitable = matrix.get("9", GradeAnalysis(
+            grade="9", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
+        )).is_profitable
+        
+        if psa_9_profitable:
+            warnings.append(
+                f"Gem rate is {gem_rate:.1f}%. PSA 9s are profitable but declining in value. "
+                "Consider grading only if confident of PSA 9 or better."
+            )
+        else:
+            warnings.append(
+                f"Gem rate is {gem_rate:.1f}%. PSA 9s are not profitable at this price point. "
+                "This is a 'gem or bust' situation - you need PSA 10."
+            )
+    elif gem_rate >= 5.0 and gem_rate < 30.0:
+        # Quality card - PSA 9s retain value
+        warnings.append(
+            f"Quality gem rate of {gem_rate:.1f}%. PSA 9s retain strong value since 10s are relatively scarce."
+        )
+    elif gem_rate < 5.0 and gem_rate > 0:
+        # Rare gems - PSA 9s very valuable
+        warnings.append(
+            f"💎 {gem_rate:.1f}% gem rate - PSA 10s are rare! "
+            "Even PSA 9s retain excellent value due to gem scarcity."
+        )
+        # Extra context if PSA 9s are also rare
+        if psa_9_pct < 10.0:
+            warnings.append(
+                f"PSA 9s only {psa_9_pct:.1f}% of population. High-grade examples are exceptionally scarce."
+            )
+    
+    # Modern vs Vintage context based on gem rate
+    if gem_rate > 50.0 and distribution.total_population > 1000:
+        warnings.append(
+            "High gem rate with large population suggests modern card (post-2000s). "
+            "Modern cards typically have inflated PSA 10 populations."
+        )
+    elif gem_rate < 3.0 and distribution.total_population > 200:
+        warnings.append(
+            "Low gem rate suggests vintage or difficult-to-grade card. "
+            "Vintage cards (pre-1980) typically have lower gem rates."
+        )
+    
+    # =========================================================================
+    # Recommendation #1: Price Gap Analysis (Lottery Ticket Warning)
+    # =========================================================================
+    psa_9_value = matrix.get("9", GradeAnalysis(
+        grade="9", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
+    )).market_value
+    psa_10_value = matrix.get("10", GradeAnalysis(
+        grade="10", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
+    )).market_value
+    
+    if psa_9_value > 0:
+        price_multiplier = psa_10_value / psa_9_value
+        if price_multiplier > 5.0:
+            warnings.append(
+                f"PSA 10 worth {price_multiplier:.1f}x more than PSA 9 "
+                f"(${psa_10_value:.0f} vs ${psa_9_value:.0f}). "
+                "Half-grade difference creates massive value swing."
+            )
+    
+    # =========================================================================
+    # Recommendation #2: Grading Cost Efficiency Warning
+    # =========================================================================
+    if target_grade:
+        target_value = matrix.get(target_grade, GradeAnalysis(
+            grade=target_grade, market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
+        )).market_value
+        
+        if target_value > 0:
+            grading_fee_pct = (grading_fee / target_value) * 100
+            
+            if grading_fee_pct > 25.0:
+                warnings.append(
+                    f"Grading fee (${grading_fee:.0f}) is {grading_fee_pct:.0f}% "
+                    f"of target grade value (${target_value:.0f}). "
+                    "Consider lower-cost grading options or selling raw."
+                )
+    
+    # =========================================================================
+    # Recommendation #4: Break-Even Confidence Score
+    # =========================================================================
+    if break_even_grade:
+        prob_above_breakeven = sum(
+            distribution.grade_percentages.get(str(g), 0)
+            for g in range(int(break_even_grade), 11)
+        )
+        
+        if prob_above_breakeven < 30.0:
+            warnings.append(
+                f"Only {prob_above_breakeven:.0f}% of graded copies achieve "
+                f"PSA {break_even_grade}+. Low probability of profitability."
+            )
+    
+    # =========================================================================
+    # Recommendation #5: Physical Condition Reminders
+    # =========================================================================
+    if break_even_grade and int(break_even_grade) >= 8:
+        warnings.append(
+            f"Achieving PSA {break_even_grade}+ requires: "
+            "60/40 or better centering, sharp corners, clean edges, "
+            "and no surface scratches. Inspect carefully under light."
+        )
+    
+    # =========================================================================
+    # Recommendation #6: Raw Card Market Alternative
+    # =========================================================================
+    if raw_purchase_price > 100 and success_rate < 40:
+        warnings.append(
+            f"You paid ${raw_purchase_price:.0f} for this raw card. "
+            "With low success rate, consider selling raw to another collector "
+            "rather than risking grading fees."
+        )
+    
+    # =========================================================================
+    # Recommendation #7: Market Liquidity Warning (Enhanced)
+    # =========================================================================
+    if distribution.total_population < 200:
+        warnings.append(
+            f"With only {distribution.total_population} graded copies, "
+            "this card may be difficult to sell quickly. "
+            "Lower liquidity means wider bid-ask spreads."
+        )
+    elif distribution.total_population < LOW_POPULATION_THRESHOLD:
         warnings.append(
             f"Low population card ({distribution.total_population} total) - limited market data "
             "may affect price accuracy."
         )
     
-    # Check negative expected value
-    if expected_value < 0:
+    # =========================================================================
+    # Recommendation #11: Population Pump Warning
+    # =========================================================================
+    if distribution.total_population > 5000 and 30 < gem_rate < 60:
         warnings.append(
-            f"Expected value is negative (${expected_value:.2f}) - consider alternatives."
+            f"Large population ({distribution.total_population:,}) with moderate gem rate "
+            "suggests heavy submission volume. More grading could further dilute "
+            "PSA 9 values over time."
         )
     
-    # Check for high concentration in single grade
+    # =========================================================================
+    # Recommendation #12: Risk/Reward Proximity Warning
+    # =========================================================================
+    if expected_grade and break_even_grade:
+        grade_gap = int(expected_grade) - int(break_even_grade)
+        
+        if grade_gap == 0:
+            warnings.append(
+                "Your expected grade exactly matches break-even. "
+                "Any grading variance means you lose money. High risk."
+            )
+        elif grade_gap == 1:
+            warnings.append(
+                "Your expected grade is only 1 point above break-even. "
+                "One grade lower and you lose money. Proceed with caution."
+            )
+    
+    # =========================================================================
+    # Existing Warnings
+    # =========================================================================
+    
+    # Check negative expected value - use risk-focused language
+    if expected_value < 0:
+        warnings.append(
+            "Based on population data, grading this card carries elevated risk. Consider selling raw or buying already graded."
+        )
+    
+    # Check for high concentration in single grade (excluding gem rate which we already covered)
     for grade, percentage in distribution.grade_percentages.items():
-        if percentage > HIGH_CONCENTRATION_THRESHOLD:
+        if percentage > HIGH_CONCENTRATION_THRESHOLD and grade != "10":
             warnings.append(
                 f"{percentage:.1f}% of population in grade {grade} - unusual distribution pattern."
             )
@@ -728,17 +1244,7 @@ def _generate_advice_text(
     else:
         lines.append("• **No grades are currently profitable** at this price point")
     
-    lines.append("")
-    
-    # Expected value interpretation
-    if expected_value >= 0:
-        lines.append(
-            f"• Expected value: **+${expected_value:.2f}** (weighted by population distribution)"
-        )
-    else:
-        lines.append(
-            f"• Expected value: **-${abs(expected_value):.2f}** (you're likely to lose money)"
-        )
+    # Removed expected value display - now using Confidence Score on frontend instead
     
     lines.append("")
     
@@ -786,6 +1292,28 @@ def _generate_copy_text(
     Returns:
         Pre-formatted text suitable for copying/sharing
     """
+    # Calculate confidence level for copy text
+    high_grade_pop = (
+        response.distribution.grade_percentages.get("10", 0) +
+        response.distribution.grade_percentages.get("9", 0)
+    )
+    
+    # Determine confidence level
+    if response.break_even_grade:
+        be_grade = int(response.break_even_grade)
+        if be_grade <= 7 and high_grade_pop > 50:
+            confidence_label = "EXCELLENT"
+        elif be_grade <= 8 and high_grade_pop > 40:
+            confidence_label = "HIGH"
+        elif be_grade == 9 and high_grade_pop > 30:
+            confidence_label = "MODERATE"
+        elif be_grade == 9:
+            confidence_label = "MARGINAL"
+        else:
+            confidence_label = "RISKY"
+    else:
+        confidence_label = "RISKY"
+    
     lines: List[str] = [
         "🎴 Grading Analysis",
         f"Card Cost: ${request.raw_purchase_price:.2f} | Grading Fee: ${request.grading_fee:.2f}",
@@ -795,12 +1323,12 @@ def _generate_copy_text(
     ]
     
     if response.break_even_grade:
-        lines.append(f"Break-even: PSA {response.break_even_grade}")
+        lines.append(f"Break-even: PSA {response.break_even_grade}+")
     else:
         lines.append("Break-even: None (no profitable grades)")
     
-    lines.append(f"Expected Value: ${response.expected_value:+.2f}")
-    lines.append(f"Success Rate: {response.success_rate:.0f}%")
+    lines.append(f"Grading Confidence: {confidence_label}")
+    lines.append(f"Population Above Break-Even: {response.success_rate:.0f}%")
     
     if response.profitable_grades:
         lines.append(f"Profitable Grades: {', '.join(f'PSA {g}' for g in sorted(response.profitable_grades, key=int))}")
