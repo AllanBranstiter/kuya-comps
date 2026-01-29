@@ -652,10 +652,10 @@ def _generate_warnings(
             "may affect price accuracy."
         )
     
-    # Check negative expected value
+    # Check negative expected value - use risk-focused language instead
     if expected_value < 0:
         warnings.append(
-            f"Expected value is negative (${expected_value:.2f}) - consider alternatives."
+            "Based on population data, grading this card carries elevated risk. Consider selling raw or buying already graded."
         )
     
     # Check for high concentration in single grade
@@ -728,17 +728,7 @@ def _generate_advice_text(
     else:
         lines.append("• **No grades are currently profitable** at this price point")
     
-    lines.append("")
-    
-    # Expected value interpretation
-    if expected_value >= 0:
-        lines.append(
-            f"• Expected value: **+${expected_value:.2f}** (weighted by population distribution)"
-        )
-    else:
-        lines.append(
-            f"• Expected value: **-${abs(expected_value):.2f}** (you're likely to lose money)"
-        )
+    # Removed expected value display - now using Confidence Score on frontend instead
     
     lines.append("")
     
@@ -786,6 +776,28 @@ def _generate_copy_text(
     Returns:
         Pre-formatted text suitable for copying/sharing
     """
+    # Calculate confidence level for copy text
+    high_grade_pop = (
+        response.distribution.grade_percentages.get("10", 0) +
+        response.distribution.grade_percentages.get("9", 0)
+    )
+    
+    # Determine confidence level
+    if response.break_even_grade:
+        be_grade = int(response.break_even_grade)
+        if be_grade <= 7 and high_grade_pop > 50:
+            confidence_label = "EXCELLENT"
+        elif be_grade <= 8 and high_grade_pop > 40:
+            confidence_label = "HIGH"
+        elif be_grade == 9 and high_grade_pop > 30:
+            confidence_label = "MODERATE"
+        elif be_grade == 9:
+            confidence_label = "MARGINAL"
+        else:
+            confidence_label = "RISKY"
+    else:
+        confidence_label = "RISKY"
+    
     lines: List[str] = [
         "🎴 Grading Analysis",
         f"Card Cost: ${request.raw_purchase_price:.2f} | Grading Fee: ${request.grading_fee:.2f}",
@@ -795,12 +807,12 @@ def _generate_copy_text(
     ]
     
     if response.break_even_grade:
-        lines.append(f"Break-even: PSA {response.break_even_grade}")
+        lines.append(f"Break-even: PSA {response.break_even_grade}+")
     else:
         lines.append("Break-even: None (no profitable grades)")
     
-    lines.append(f"Expected Value: ${response.expected_value:+.2f}")
-    lines.append(f"Success Rate: {response.success_rate:.0f}%")
+    lines.append(f"Grading Confidence: {confidence_label}")
+    lines.append(f"Population Above Break-Even: {response.success_rate:.0f}%")
     
     if response.profitable_grades:
         lines.append(f"Profitable Grades: {', '.join(f'PSA {g}' for g in sorted(response.profitable_grades, key=int))}")
