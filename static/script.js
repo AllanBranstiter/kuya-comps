@@ -24,6 +24,15 @@ const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera
 // iOS-specific detection for link handling
 const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
+// Debug configuration - set to false in production
+window.DEBUG_MODE = {
+  PRICE_CALC: false,
+  OUTLIER_FILTER: false,
+  BEESWARM: false,
+  CHART: false,
+  API: false
+};
+
 // Track page visibility for iOS app switching diagnostics and fix touch issues
 if (isIOS) {
     document.addEventListener('visibilitychange', () => {
@@ -763,7 +772,9 @@ function switchSubTab(subTabName) {
         setTimeout(() => {
             const canvas = document.getElementById("priceDistributionCanvas");
             if (canvas && canvas.offsetParent !== null) {
-                console.log('[CHART] Analysis tab activated, redrawing price distribution chart');
+                if (window.DEBUG_MODE.CHART) {
+                    console.log('[CHART] Analysis tab activated, redrawing price distribution chart');
+                }
                 // Chart will be redrawn using stored data from last search
                 const analysisContainer = document.getElementById("analysis-subtab");
                 if (analysisContainer && analysisContainer.innerHTML.includes('priceDistributionCanvas')) {
@@ -795,12 +806,16 @@ function initializeApp() {
 }
 
 function setupResponsiveCanvas() {
-    // Handle window resize
+    // Handle window resize with debouncing
+    let resizeTimeout;
     window.addEventListener('resize', () => {
-        if (currentBeeswarmPrices.length > 0) {
-            resizeCanvas();
-            drawBeeswarm(currentBeeswarmPrices);
-        }
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            if (currentBeeswarmPrices.length > 0) {
+                resizeCanvas();
+                drawBeeswarm(currentBeeswarmPrices);
+            }
+        }, 150); // Wait 150ms after last resize
     });
 }
 
@@ -1016,15 +1031,17 @@ async function renderData(data, secondData = null, marketValue = null) {
                 }
                 
                 // Debug logging for price calculation
-                console.log('[ACTIVE LISTING PRICE]', {
-                  item_id: item.item_id,
-                  title: item.title?.substring(0, 40),
-                  total_price: item.total_price,
-                  extracted_price: item.extracted_price,
-                  extracted_shipping: item.extracted_shipping,
-                  calculated_price: itemPrice,
-                  displaying: itemPrice
-                });
+                if (window.DEBUG_MODE.PRICE_CALC) {
+                  console.log('[ACTIVE LISTING PRICE]', {
+                    item_id: item.item_id,
+                    title: item.title?.substring(0, 40),
+                    total_price: item.total_price,
+                    extracted_price: item.extracted_price,
+                    extracted_shipping: item.extracted_shipping,
+                    calculated_price: itemPrice,
+                    displaying: itemPrice
+                  });
+                }
                 
                 // Use deep link on mobile devices, standard link otherwise
                 const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
@@ -2589,38 +2606,57 @@ async function renderMarketAssessment(marketPressure, liquidityRisk, priceBands,
  */
 async function fetchTierMarketMessage(params) {
     try {
-        console.log('[TIER MESSAGE] Fetching with params:', params);
+        const payload = {
+            fmv: params.fmv || null,
+            avg_listing_price: params.avg_listing_price || null,
+            market_pressure: params.market_pressure || 0,
+            liquidity_score: params.liquidity_score || 0,
+            market_confidence: params.market_confidence || 0,
+            absorption_below: params.absorption_below || null,
+            absorption_above: params.absorption_above || null,
+            below_fmv_count: params.below_fmv_count || 0,
+            above_fmv_count: params.above_fmv_count || 0,
+            sales_below: params.sales_below || 0,
+            sales_above: params.sales_above || 0
+        };
+        
+        if (window.DEBUG_MODE.API) {
+            console.log('[TIER MESSAGE] Fetching with params:', params);
+            console.log('[TIER MESSAGE] Payload:', payload);
+        }
         
         const response = await fetch('/market-message', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                fmv: params.fmv || null,
-                avg_listing_price: params.avg_listing_price || null,
-                market_pressure: params.market_pressure || 0,
-                liquidity_score: params.liquidity_score || 0,
-                market_confidence: params.market_confidence || 0,
-                absorption_below: params.absorption_below || null,
-                absorption_above: params.absorption_above || null,
-                below_fmv_count: params.below_fmv_count || 0,
-                above_fmv_count: params.above_fmv_count || 0,
-                sales_below: params.sales_below || 0,
-                sales_above: params.sales_above || 0
-            })
+            body: JSON.stringify(payload)
         });
         
         if (!response.ok) {
-            throw new Error(`API returned ${response.status}`);
+            // Parse 400 response body for better error messages
+            if (response.status === 400) {
+                try {
+                    const errorData = await response.json();
+                    console.warn('[TIER MESSAGE] Bad request (400):', errorData);
+                    return null; // Fallback to hardcoded logic
+                } catch (parseError) {
+                    console.warn('[TIER MESSAGE] Bad request (400), could not parse error body');
+                    return null;
+                }
+            }
+            console.warn('[TIER MESSAGE] API returned non-OK status:', response.status);
+            return null;
         }
         
         const data = await response.json();
-        console.log('[TIER MESSAGE] Received:', data);
+        if (window.DEBUG_MODE.API) {
+            console.log('[TIER MESSAGE] Received:', data);
+        }
         
         return data;
     } catch (error) {
-        console.error('[TIER MESSAGE] Error fetching:', error);
+        console.warn('[TIER MESSAGE] Request failed, using fallback:', error.message);
         // Return null to allow fallback to current hardcoded logic
         return null;
     }
@@ -3057,12 +3093,14 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
         try {
             const canvas = document.getElementById("priceDistributionCanvas");
             if (canvas) {
-                console.log('[CHART] Drawing price distribution chart with data:', {
-                    hasSoldData: !!data,
-                    hasActiveData: !!activeData,
-                    soldItems: data?.items?.length || 0,
-                    activeItems: activeData?.items?.length || 0
-                });
+                if (window.DEBUG_MODE.CHART) {
+                    console.log('[CHART] Drawing price distribution chart with data:', {
+                        hasSoldData: !!data,
+                        hasActiveData: !!activeData,
+                        soldItems: data?.items?.length || 0,
+                        activeItems: activeData?.items?.length || 0
+                    });
+                }
                 drawPriceDistributionChart(data, activeData);
             } else {
                 console.error('[CHART] Price distribution canvas element not found');
@@ -3076,13 +3114,17 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
 
 // Add event listener for redrawing the price distribution chart
 window.addEventListener('redrawPriceDistribution', () => {
-    console.log('[CHART] Redraw event triggered');
+    if (window.DEBUG_MODE.CHART) {
+        console.log('[CHART] Redraw event triggered');
+    }
     if (lastChartData.soldData) {
         setTimeout(() => {
             try {
                 const canvas = document.getElementById("priceDistributionCanvas");
                 if (canvas && canvas.offsetParent !== null) {
-                    console.log('[CHART] Redrawing price distribution chart');
+                    if (window.DEBUG_MODE.CHART) {
+                        console.log('[CHART] Redrawing price distribution chart');
+                    }
                     drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
                 }
             } catch (error) {
@@ -3622,10 +3664,25 @@ async function updateFmv(data) {
   }
 }
 
+// Outlier filter cache for performance optimization
+const outlierCache = new Map();
+
 function filterOutliers(prices) {
+  if (!prices || prices.length === 0) return [];
+  
   if (prices.length < 4) {
     // Need at least 4 data points for meaningful outlier detection
     return prices;
+  }
+  
+  // Create cache key from price array (using length and samples to avoid expensive serialization)
+  const key = `${prices.length}-${prices[0]}-${prices[prices.length-1]}-${prices[Math.floor(prices.length/2)]}`;
+  
+  if (outlierCache.has(key)) {
+    if (window.DEBUG_MODE.OUTLIER_FILTER) {
+      console.log('[OUTLIER FILTER] Using cached result');
+    }
+    return outlierCache.get(key);
   }
   
   // Sort prices to find quartiles
@@ -3646,8 +3703,19 @@ function filterOutliers(prices) {
   // Filter out outliers
   const filtered = prices.filter(price => price >= lowerBound && price <= upperBound);
   
-  console.log(`[OUTLIER FILTER] Original: ${prices.length} items, Filtered: ${filtered.length} items (${prices.length - filtered.length} outliers removed)`);
-  console.log(`[OUTLIER FILTER] Bounds: $${lowerBound.toFixed(2)} - $${upperBound.toFixed(2)}`);
+  if (window.DEBUG_MODE.OUTLIER_FILTER) {
+    console.log(`[OUTLIER FILTER] Original: ${prices.length} items, Filtered: ${filtered.length} items (${prices.length - filtered.length} outliers removed)`);
+    console.log(`[OUTLIER FILTER] Bounds: $${lowerBound.toFixed(2)} - $${upperBound.toFixed(2)}`);
+  }
+  
+  // Cache the result
+  outlierCache.set(key, filtered);
+  
+  // Limit cache size to prevent memory bloat (keep last 100 results)
+  if (outlierCache.size > 100) {
+    const firstKey = outlierCache.keys().next().value;
+    outlierCache.delete(firstKey);
+  }
   
   return filtered;
 }
@@ -3987,7 +4055,9 @@ function drawBeeswarmInternal(prices) {
     canvas.addEventListener('touchmove', handleBeeswarmTouch, { passive: false });
     canvas.addEventListener('touchend', handleBeeswarmTouchEnd);
     beeswarmListenersAttached = true;
-    console.log('[BEESWARM] Event listeners attached (one-time setup)');
+    if (window.DEBUG_MODE.BEESWARM) {
+        console.log('[BEESWARM] Event listeners attached (one-time setup)');
+    }
   }
   
   // Draw persisted crosshair if it exists (without recursive redraw)
@@ -4002,13 +4072,17 @@ function drawBeeswarmInternal(prices) {
  */
 function drawBeeswarm(prices) {
   // PERFORMANCE FIX: Add diagnostic logging to track call source
-  const stack = new Error().stack;
-  const callerLine = stack.split('\n')[2]?.trim() || 'unknown';
-  console.log('[BEESWARM] drawBeeswarm called from:', callerLine);
+  if (window.DEBUG_MODE.BEESWARM) {
+    const stack = new Error().stack;
+    const callerLine = stack.split('\n')[2]?.trim() || 'unknown';
+    console.log('[BEESWARM] drawBeeswarm called from:', callerLine);
+  }
   
   // PERFORMANCE FIX: Don't redraw if we're in the middle of a crosshair update
   if (isRedrawingBeeswarm) {
-    console.warn('[BEESWARM] Blocked recursive redraw during crosshair update');
+    if (window.DEBUG_MODE.BEESWARM) {
+      console.warn('[BEESWARM] Blocked recursive redraw during crosshair update');
+    }
     return;
   }
   
@@ -4018,16 +4092,20 @@ function drawBeeswarm(prices) {
 
 // Draw Price Distribution Bar Chart
 function drawPriceDistributionChart(soldData, activeData) {
-    console.log('[CHART] drawPriceDistributionChart called with:', {
-        hasSoldData: !!soldData,
-        hasActiveData: !!activeData,
-        soldItems: soldData?.items?.length || 0,
-        activeItems: activeData?.items?.length || 0
-    });
+    if (window.DEBUG_MODE.CHART) {
+        console.log('[CHART] drawPriceDistributionChart called with:', {
+            hasSoldData: !!soldData,
+            hasActiveData: !!activeData,
+            soldItems: soldData?.items?.length || 0,
+            activeItems: activeData?.items?.length || 0
+        });
+    }
 
     // PERFORMANCE FIX: Guard to prevent recursive redraws
     if (isRedrawingVolumeProfile) {
-        console.warn('[VOLUME PROFILE] Blocked recursive redraw attempt');
+        if (window.DEBUG_MODE.CHART) {
+            console.warn('[VOLUME PROFILE] Blocked recursive redraw attempt');
+        }
         return;
     }
 
@@ -4043,20 +4121,34 @@ function drawPriceDistributionChart(soldData, activeData) {
             return;
         }
         
-        // Check if canvas is visible
+        // PERFORMANCE FIX: Use IntersectionObserver for lazy chart rendering
+        // Check if canvas is currently visible
         const isVisible = canvas.offsetParent !== null;
-        console.log('[CHART] Canvas found, visibility:', {
-            isVisible,
-            width: canvas.width,
-            height: canvas.height,
-            offsetWidth: canvas.offsetWidth,
-            offsetHeight: canvas.offsetHeight
-        });
         
-        // If not visible, schedule a retry when it becomes visible
         if (!isVisible) {
-            console.warn('[CHART] Canvas not visible yet, will retry when Analysis tab is active');
+            // Set up IntersectionObserver to draw when canvas becomes visible
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && soldData) {
+                        if (window.DEBUG_MODE.CHART) {
+                            console.log('[CHART] Canvas became visible, drawing chart');
+                        }
+                        observer.disconnect(); // Stop observing after first render
+                        drawPriceDistributionChart(soldData, activeData);
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            observer.observe(canvas);
+            
+            if (window.DEBUG_MODE.CHART) {
+                console.log('[CHART] Canvas not visible, IntersectionObserver attached');
+            }
             return;
+        }
+        
+        if (window.DEBUG_MODE.CHART) {
+            console.log('[CHART] Canvas is visible, proceeding with drawing');
         }
         
         // Set canvas size
@@ -4088,7 +4180,9 @@ function drawPriceDistributionChart(soldData, activeData) {
         ctx.clearRect(0, 0, width, height);
         
         // Draw a test background to verify canvas is rendering
-        console.log('[CHART] Drawing test background...');
+        if (window.DEBUG_MODE.CHART) {
+            console.log('[CHART] Drawing test background...');
+        }
         ctx.fillStyle = '#f0f0f0';
         ctx.fillRect(0, 0, width, height);
         
@@ -4103,12 +4197,14 @@ function drawPriceDistributionChart(soldData, activeData) {
         return item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
     }).filter(p => p > 0) || [];
     
-    console.log('[CHART] Prepared price data (before outlier filtering):', {
-        soldCount: soldPrices.length,
-        activeCount: activePrices.length,
-        soldSample: soldPrices.slice(0, 3),
-        activeSample: activePrices.slice(0, 3)
-    });
+    if (window.DEBUG_MODE.CHART) {
+        console.log('[CHART] Prepared price data (before outlier filtering):', {
+            soldCount: soldPrices.length,
+            activeCount: activePrices.length,
+            soldSample: soldPrices.slice(0, 3),
+            activeSample: activePrices.slice(0, 3)
+        });
+    }
     
     // Filter outliers from both datasets using IQR method
     const soldOriginalCount = soldPrices.length;
@@ -4116,26 +4212,34 @@ function drawPriceDistributionChart(soldData, activeData) {
     
     if (soldPrices.length >= 4) {
         soldPrices = filterOutliers(soldPrices);
-        console.log('[CHART] Filtered sold outliers:', soldOriginalCount - soldPrices.length, 'removed');
+        if (window.DEBUG_MODE.CHART) {
+            console.log('[CHART] Filtered sold outliers:', soldOriginalCount - soldPrices.length, 'removed');
+        }
     }
     
     if (activePrices.length >= 4) {
         activePrices = filterOutliers(activePrices);
-        console.log('[CHART] Filtered active outliers:', activeOriginalCount - activePrices.length, 'removed');
+        if (window.DEBUG_MODE.CHART) {
+            console.log('[CHART] Filtered active outliers:', activeOriginalCount - activePrices.length, 'removed');
+        }
     }
     
-    console.log('[CHART] After outlier filtering:', {
-        soldCount: soldPrices.length,
-        activeCount: activePrices.length,
-        soldMin: soldPrices.length > 0 ? Math.min(...soldPrices) : 'N/A',
-        soldMax: soldPrices.length > 0 ? Math.max(...soldPrices) : 'N/A',
-        activeMin: activePrices.length > 0 ? Math.min(...activePrices) : 'N/A',
-        activeMax: activePrices.length > 0 ? Math.max(...activePrices) : 'N/A'
-    });
+    if (window.DEBUG_MODE.CHART) {
+        console.log('[CHART] After outlier filtering:', {
+            soldCount: soldPrices.length,
+            activeCount: activePrices.length,
+            soldMin: soldPrices.length > 0 ? Math.min(...soldPrices) : 'N/A',
+            soldMax: soldPrices.length > 0 ? Math.max(...soldPrices) : 'N/A',
+            activeMin: activePrices.length > 0 ? Math.min(...activePrices) : 'N/A',
+            activeMax: activePrices.length > 0 ? Math.max(...activePrices) : 'N/A'
+        });
+    }
   
   // Show message if no data, but continue to test rendering
   if (soldPrices.length === 0 && activePrices.length === 0) {
-      console.warn('[CHART] No price data available for distribution chart - showing message');
+      if (window.DEBUG_MODE.CHART) {
+          console.warn('[CHART] No price data available for distribution chart - showing message');
+      }
       ctx.fillStyle = "#1d1d1f";
       ctx.font = "bold 16px " + getComputedStyle(document.body).fontFamily;
       ctx.textAlign = "center";
@@ -4144,11 +4248,15 @@ function drawPriceDistributionChart(soldData, activeData) {
       ctx.font = "14px " + getComputedStyle(document.body).fontFamily;
       ctx.fillStyle = "#6e6e73";
       ctx.fillText("(Sold and active listing data required)", width / 2, height / 2 + 30);
-      console.log('[CHART] Message drawn on canvas');
+      if (window.DEBUG_MODE.CHART) {
+          console.log('[CHART] Message drawn on canvas');
+      }
       return;
   }
   
-  console.log('[CHART] Sufficient data, proceeding with chart drawing...');
+  if (window.DEBUG_MODE.CHART) {
+      console.log('[CHART] Sufficient data, proceeding with chart drawing...');
+  }
   
   // Find global min and max across both datasets
   const allPrices = [...soldPrices, ...activePrices];
@@ -4293,7 +4401,9 @@ function drawPriceDistributionChart(soldData, activeData) {
     canvas.addEventListener('touchmove', handleVolumeProfileTouch, { passive: false });
     canvas.addEventListener('touchend', handleVolumeProfileTouchEnd);
     volumeProfileListenersAttached = true;
-    console.log('[VOLUME PROFILE] Event listeners attached (one-time setup)');
+    if (window.DEBUG_MODE.CHART) {
+        console.log('[VOLUME PROFILE] Event listeners attached (one-time setup)');
+    }
   }
   
   // Draw persisted crosshair if it exists (without recursive redraw)
@@ -4301,13 +4411,15 @@ function drawPriceDistributionChart(soldData, activeData) {
       drawVolumeProfileCrosshairDirect(canvas, volumeProfileCrosshairX);
   }
   
-  console.log('[CHART] Price distribution chart drawing completed successfully!');
-  console.log('[CHART] Final canvas state:', {
-      width: canvas.width,
-      height: canvas.height,
-      displayWidth: canvas.style.width,
-      displayHeight: canvas.style.height
-  });
+  if (window.DEBUG_MODE.CHART) {
+      console.log('[CHART] Price distribution chart drawing completed successfully!');
+      console.log('[CHART] Final canvas state:', {
+          width: canvas.width,
+          height: canvas.height,
+          displayWidth: canvas.style.width,
+          displayHeight: canvas.style.height
+      });
+  }
   
   } catch (error) {
       console.error('[CHART ERROR] Failed to draw price distribution chart (non-blocking):', error);
@@ -4458,9 +4570,13 @@ function adjustVolumeBins(delta) {
             drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
         }
         
-        console.log('[VOLUME PROFILE] Adjusted bins to:', newBins);
+        if (window.DEBUG_MODE.CHART) {
+            console.log('[VOLUME PROFILE] Adjusted bins to:', newBins);
+        }
     } else {
-        console.log('[VOLUME PROFILE] Bin adjustment blocked - would exceed limits (5-50)');
+        if (window.DEBUG_MODE.CHART) {
+            console.log('[VOLUME PROFILE] Bin adjustment blocked - would exceed limits (5-50)');
+        }
     }
 }
 
@@ -4482,7 +4598,9 @@ function resetVolumeBins() {
         drawPriceDistributionChart(lastChartData.soldData, lastChartData.activeData);
     }
     
-    console.log('[VOLUME PROFILE] Reset bins to default:', defaultBins);
+    if (window.DEBUG_MODE.CHART) {
+        console.log('[VOLUME PROFILE] Reset bins to default:', defaultBins);
+    }
 }
 
 // ============================================================================
@@ -4514,7 +4632,9 @@ function handleBeeswarmClick(e) {
     if (x >= marginLeft && x <= canvas.width - marginRight) {
         beeswarmCrosshairX = x;
         drawBeeswarmCrosshair(canvas, x, true);
-        console.log('[BEESWARM] Crosshair locked at x:', x);
+        if (window.DEBUG_MODE.BEESWARM) {
+            console.log('[BEESWARM] Crosshair locked at x:', x);
+        }
     }
 }
 
@@ -4553,7 +4673,9 @@ function handleBeeswarmTouchEnd(e) {
         if (x >= marginLeft && x <= canvas.width - marginRight) {
             beeswarmCrosshairX = x;
             drawBeeswarmCrosshair(canvas, x, true);
-            console.log('[BEESWARM] Crosshair locked at x:', x);
+            if (window.DEBUG_MODE.BEESWARM) {
+                console.log('[BEESWARM] Crosshair locked at x:', x);
+            }
         }
     }
 }
@@ -4661,7 +4783,9 @@ function handleVolumeProfileClick(e) {
     if (x >= marginLeft && x <= canvas.width - marginRight) {
         volumeProfileCrosshairX = x;
         drawVolumeProfileCrosshair(canvas, x, true);
-        console.log('[VOLUME PROFILE] Crosshair locked at x:', x);
+        if (window.DEBUG_MODE.CHART) {
+            console.log('[VOLUME PROFILE] Crosshair locked at x:', x);
+        }
     }
 }
 
@@ -4682,7 +4806,9 @@ function handleVolumeProfileTouchEnd(e) {
         if (x >= marginLeft && x <= canvas.width - marginRight) {
             volumeProfileCrosshairX = x;
             drawVolumeProfileCrosshair(canvas, x, true);
-            console.log('[VOLUME PROFILE] Crosshair locked at x:', x);
+            if (window.DEBUG_MODE.CHART) {
+                console.log('[VOLUME PROFILE] Crosshair locked at x:', x);
+            }
         }
     }
 }

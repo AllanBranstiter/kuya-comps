@@ -486,6 +486,9 @@ const GradingAdvisor = (function() {
         // Start results grid - single column for full-width cards
         html += '<div class="grading-results" style="display: flex; flex-direction: column; gap: 1.5rem;">';
         
+        // Render Decision Summary Hero Card FIRST - provides clear recommendation
+        html += createDecisionSummaryCard(response);
+        
         // Render financial matrix (Profit/Loss by Grade) - FULL WIDTH
         if (response.matrix) {
             html += renderFinancialMatrix(
@@ -637,6 +640,109 @@ const GradingAdvisor = (function() {
                         </span>
                     </div>
                     ` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    /**
+     * Create Decision Summary Hero Card
+     * Provides clear, actionable guidance on whether to grade a card
+     * @param {Object} data - API response data with analysis results
+     * @returns {string} HTML string
+     */
+    function createDecisionSummaryCard(data) {
+        if (!data || !data.analysis || !data.analysis.grades) {
+            return '';
+        }
+        
+        const grades = data.analysis.grades;
+        const gradingFee = data.analysis.grading_fee || 0;
+        const rawPrice = data.analysis.raw_price || 0;
+        
+        // 1. Calculate expected value (weighted average profit)
+        let expectedValue = 0;
+        grades.forEach(g => {
+            const profit = g.profit_loss !== undefined ? g.profit_loss : 0;
+            const probability = g.probability || 0;
+            expectedValue += (profit * probability / 100);
+        });
+        
+        // 2. Calculate success probability (sum of probabilities for profitable grades)
+        let successProb = 0;
+        grades.forEach(g => {
+            const profit = g.profit_loss !== undefined ? g.profit_loss : 0;
+            if (profit > 0) {
+                successProb += (g.probability || 0);
+            }
+        });
+        
+        // 3. Find break-even grade (first grade with profit >= 0)
+        const sortedGrades = [...grades].sort((a, b) => a.grade - b.grade);
+        let breakEvenGrade = null;
+        for (const g of sortedGrades) {
+            const profit = g.profit_loss !== undefined ? g.profit_loss : 0;
+            if (profit >= 0) {
+                breakEvenGrade = g.grade;
+                break;
+            }
+        }
+        
+        // 4. Generate recommendation based on expected value
+        let recommendation, recommendationIcon, recommendationClass, cardClass;
+        if (expectedValue > 10) {
+            recommendation = 'Recommended';
+            recommendationIcon = '✅';
+            recommendationClass = 'positive';
+            cardClass = 'positive';
+        } else if (expectedValue >= 0) {
+            recommendation = 'Marginal';
+            recommendationIcon = '⚠️';
+            recommendationClass = 'warning';
+            cardClass = 'warning';
+        } else {
+            recommendation = 'Not Recommended';
+            recommendationIcon = '❌';
+            recommendationClass = 'negative';
+            cardClass = 'negative';
+        }
+        
+        // 5. Format break-even display
+        let breakEvenDisplay = 'N/A';
+        if (breakEvenGrade) {
+            breakEvenDisplay = breakEvenGrade < 10 ? `PSA ${breakEvenGrade}+` : `PSA ${breakEvenGrade}`;
+        } else {
+            breakEvenDisplay = 'None (all unprofitable)';
+        }
+        
+        // 6. Determine expected value class for styling
+        const expectedValueClass = expectedValue >= 0 ? 'positive' : 'negative';
+        const expectedValuePrefix = expectedValue >= 0 ? '+' : '';
+        
+        // 7. Build the HTML
+        return `
+            <div class="decision-summary-card ${cardClass}">
+                <div class="summary-header">
+                    <span class="recommendation ${recommendationClass}">
+                        <span>${recommendationIcon}</span>
+                        <span>${recommendation}</span>
+                    </span>
+                </div>
+                <div class="summary-content">
+                    <div class="expected-value ${expectedValueClass}">
+                        <span class="label">Expected Value</span>
+                        <span class="value">${expectedValuePrefix}${formatCurrency(expectedValue)}</span>
+                    </div>
+                    <div class="summary-stats">
+                        <div class="stat success-rate">
+                            <span class="stat-label">Success Rate</span>
+                            <span class="stat-value">${successProb.toFixed(0)}%</span>
+                        </div>
+                        <div class="stat break-even">
+                            <span class="stat-label">Break-Even</span>
+                            <span class="stat-value">${escapeHtml(breakEvenDisplay)}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -974,6 +1080,7 @@ const GradingAdvisor = (function() {
         
         // Results rendering
         renderResults: renderResults,
+        createDecisionSummaryCard: createDecisionSummaryCard,
         renderVerdictBanner: renderVerdictBanner,
         renderScenarioAnalysis: renderScenarioAnalysis,
         renderFinancialMatrix: renderFinancialMatrix,
