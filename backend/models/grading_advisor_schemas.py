@@ -25,9 +25,10 @@ class GradeAnalysis(BaseModel):
     grade: str = Field(..., description="PSA grade (1-10)")
     market_value: float = Field(..., ge=0, description="Current market value for this grade")
     population: int = Field(..., ge=0, description="PSA population count for this grade")
-    profit_loss: float = Field(..., description="Profit or loss if card receives this grade")
-    roi: float = Field(..., description="Return on investment percentage")
+    profit_loss: Optional[float] = Field(None, description="Profit or loss if card receives this grade (null if no price data)")
+    roi: Optional[float] = Field(None, description="Return on investment percentage (null if no price data)")
     is_profitable: bool = Field(..., description="Whether this grade outcome is profitable")
+    has_price_data: bool = Field(default=True, description="Whether price data is available for this grade")
 
 
 class ScenarioResult(BaseModel):
@@ -164,21 +165,21 @@ class GradingAdvisorRequest(BaseModel):
     submitting to PSA for professional grading.
     """
     price_data: Dict[str, float] = Field(
-        ..., 
-        description="PSA price data for grades 1-10 (keys: '1', '2', ..., '10')"
+        default_factory=dict,
+        description="PSA price data for grades 1-10 (keys: '1', '2', ..., '10'). Can be empty for population-only analysis."
     )
     population_data: Dict[str, int] = Field(
-        ..., 
+        ...,
         description="PSA population data for grades 1-10 (keys: '1', '2', ..., '10')"
     )
     raw_purchase_price: float = Field(
-        ..., 
-        ge=0, 
+        ...,
+        ge=0,
         description="What the user paid for the raw (ungraded) card"
     )
     grading_fee: float = Field(
-        default=21.00, 
-        ge=0, 
+        default=21.00,
+        ge=0,
         description="Cost to grade the card (default: $21.00 for PSA Value tier)"
     )
     expected_grade: Optional[int] = Field(
@@ -187,11 +188,11 @@ class GradingAdvisorRequest(BaseModel):
         le=10,
         description="User's predicted grade (1-10, optional)"
     )
-    card_year: Optional[int] = Field(
-        default=None,
+    card_year: int = Field(
+        ...,
         ge=1800,
         le=2026,
-        description="Year the card was manufactured (used for era classification)"
+        description="Year the card was manufactured (required for era classification)"
     )
     
     @field_validator('price_data')
@@ -206,12 +207,22 @@ class GradingAdvisorRequest(BaseModel):
     
     @field_validator('population_data')
     @classmethod
+    def validate_population_requirement(cls, v: Dict[str, int]) -> Dict[str, int]:
+        """Validate that at least one population entry exists."""
+        if not v or sum(v.values()) == 0:
+            raise ValueError("Population data must contain at least one entry with a non-zero value")
+        return v
+    
+    @field_validator('population_data')
+    @classmethod
     def validate_population_data(cls, v: Dict[str, int]) -> Dict[str, int]:
-        """Validate that population data contains valid grade keys."""
+        """Validate that population data contains valid grade keys and has at least one entry."""
         valid_grades = {str(i) for i in range(1, 11)}
         for key in v.keys():
             if key not in valid_grades:
                 raise ValueError(f"Invalid grade key '{key}'. Must be '1' through '10'")
+        if not v or sum(v.values()) == 0:
+            raise ValueError("Population data must contain at least one entry with a non-zero value")
         return v
 
 
@@ -236,6 +247,12 @@ class GradingAdvisorResponse(BaseModel):
         description="Color status for UI styling"
     )
     
+    # Analysis mode
+    analysis_mode: Literal["population-only", "partial", "full"] = Field(
+        default="full",
+        description="Type of analysis: population-only (no prices), partial (1 price), or full (2+ prices)"
+    )
+    
     # Confidence metrics (era-adjusted)
     confidence_score: int = Field(..., ge=1, le=5, description="Confidence score 1-5")
     confidence_label: str = Field(..., description="EXCELLENT, HIGH, MODERATE, MARGINAL, or RISKY")
@@ -244,21 +261,21 @@ class GradingAdvisorResponse(BaseModel):
     
     # Summary metrics
     success_rate: float = Field(
-        ..., 
-        ge=0, 
-        le=100, 
+        ...,
+        ge=0,
+        le=100,
         description="Percentage of grades that would be profitable"
     )
     expected_value: float = Field(
-        ..., 
+        ...,
         description="Weighted expected profit/loss across all scenarios"
     )
     break_even_grade: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Minimum grade needed to break even (e.g., '8')"
     )
     target_grade: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="Recommended target grade for optimal returns"
     )
     

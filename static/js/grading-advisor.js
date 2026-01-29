@@ -333,23 +333,32 @@ const GradingAdvisor = (function() {
             errors.push('Please enter a valid grading fee');
         }
         
-        // Check if at least some price data is provided
-        const priceCount = Object.keys(data.price_data).length;
-        if (priceCount < 2) {
-            errors.push('Please enter prices for at least 2 grade levels to enable analysis');
+        // Check if card year is provided (now required)
+        if (!data.card_year || data.card_year < 1800 || data.card_year > 2026) {
+            errors.push('Please enter a valid card year (1800-2026)');
         }
         
-        // Validate price data makes sense (higher grades should generally cost more)
-        const prices = Object.entries(data.price_data)
-            .map(([grade, price]) => ({ grade: parseInt(grade), price }))
-            .sort((a, b) => a.grade - b.grade);
+        // Check if at least some population data is provided
+        const popCount = Object.keys(data.population_data).length;
+        if (popCount === 0) {
+            errors.push('Please enter population data for at least 1 grade level');
+        }
         
-        if (prices.length >= 2) {
-            const lowest = prices[0];
-            const highest = prices[prices.length - 1];
-            if (highest.price < lowest.price) {
-                // This is a warning, not an error - some cards have inverse value curves
-                console.warn('[GRADING ADVISOR] Warning: Higher grades priced lower than lower grades');
+        // Price data is now optional - only validate if provided
+        const priceCount = Object.keys(data.price_data).length;
+        if (priceCount > 0) {
+            // Validate price data makes sense (higher grades should generally cost more)
+            const prices = Object.entries(data.price_data)
+                .map(([grade, price]) => ({ grade: parseInt(grade), price }))
+                .sort((a, b) => a.grade - b.grade);
+            
+            if (prices.length >= 2) {
+                const lowest = prices[0];
+                const highest = prices[prices.length - 1];
+                if (highest.price < lowest.price) {
+                    // This is a warning, not an error - some cards have inverse value curves
+                    console.warn('[GRADING ADVISOR] Warning: Higher grades priced lower than lower grades');
+                }
             }
         }
         
@@ -919,20 +928,34 @@ const GradingAdvisor = (function() {
             const data = matrix[grade.toString()];
             if (!data) continue;
             
-            // Backend sends profit_loss and is_profitable, not profit
-            const profit = data.profit_loss !== undefined ? data.profit_loss : (data.profit || 0);
-            const roi = data.roi || 0;
-            const isProfitable = data.is_profitable || profitableGrades.includes(grade.toString());
-            const cardClass = isProfitable ? 'profitable' : 'unprofitable';
-            const profitPrefix = profit >= 0 ? '+' : '';
+            // Check if price data is available for this grade
+            const hasPriceData = data.has_price_data !== false;
             
-            cardsHtml += `
-                <div class="grade-card ${cardClass}">
-                    <div class="grade-number">${grade}</div>
-                    <div class="grade-profit">${profitPrefix}${formatCurrency(profit, 0)}</div>
-                    <div class="grade-roi">${formatPercentage(roi)}</div>
-                </div>
-            `;
+            if (!hasPriceData) {
+                // No price data available - render with disabled styling
+                cardsHtml += `
+                    <div class="grade-card no-data">
+                        <div class="grade-number">${grade}</div>
+                        <div class="grade-profit">No Price Data</div>
+                        <div class="grade-roi"></div>
+                    </div>
+                `;
+            } else {
+                // Has price data - render normally
+                const profit = data.profit_loss !== undefined ? data.profit_loss : (data.profit || 0);
+                const roi = data.roi || 0;
+                const isProfitable = data.is_profitable || profitableGrades.includes(grade.toString());
+                const cardClass = isProfitable ? 'profitable' : 'unprofitable';
+                const profitPrefix = profit >= 0 ? '+' : '';
+                
+                cardsHtml += `
+                    <div class="grade-card ${cardClass}">
+                        <div class="grade-number">${grade}</div>
+                        <div class="grade-profit">${profitPrefix}${formatCurrency(profit, 0)}</div>
+                        <div class="grade-roi">${formatPercentage(roi)}</div>
+                    </div>
+                `;
+            }
         }
         
         return `

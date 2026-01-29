@@ -123,6 +123,15 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
     """
     total_cost = request.raw_purchase_price + request.grading_fee
     
+    # Determine analysis mode based on available data
+    price_count = len(request.price_data)
+    if price_count == 0:
+        analysis_mode = "population-only"
+    elif price_count == 1:
+        analysis_mode = "partial"
+    else:
+        analysis_mode = "full"
+    
     # Build grade-by-grade analysis matrix
     matrix: Dict[str, GradeAnalysis] = {}
     profitable_grades: List[str] = []
@@ -130,18 +139,33 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
     for grade_num in range(1, 11):
         grade = str(grade_num)
         price = request.price_data.get(grade, 0.0)
+        has_price_data = grade in request.price_data and price > 0
         population = request.population_data.get(grade, 0)
         
-        analysis = _calculate_grade_analysis(
-            grade=grade,
-            market_value=price,
-            population=population,
-            raw_purchase_price=request.raw_purchase_price,
-            grading_fee=request.grading_fee
-        )
+        if has_price_data:
+            analysis = _calculate_grade_analysis(
+                grade=grade,
+                market_value=price,
+                population=population,
+                raw_purchase_price=request.raw_purchase_price,
+                grading_fee=request.grading_fee,
+                has_price_data=True
+            )
+        else:
+            # No price data available for this grade
+            analysis = GradeAnalysis(
+                grade=grade,
+                market_value=0.0,
+                population=population,
+                profit_loss=None,
+                roi=None,
+                is_profitable=False,
+                has_price_data=False
+            )
+        
         matrix[grade] = analysis
         
-        if analysis.is_profitable:
+        if has_price_data and analysis.is_profitable:
             profitable_grades.append(grade)
     
     # Calculate population distribution
@@ -200,7 +224,8 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         target_grade=target_grade,
         break_even_grade=break_even_grade,
         success_rate=success_rate,
-        expected_grade=request.expected_grade
+        expected_grade=request.expected_grade,
+        status=status
     )
     
     # Generate advice text
@@ -219,6 +244,7 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
     response = GradingAdvisorResponse(
         verdict=verdict,
         status=status,
+        analysis_mode=analysis_mode,
         confidence_score=confidence_score,
         confidence_label=confidence_label,
         confidence_class=confidence_class,
@@ -253,7 +279,8 @@ def _calculate_grade_analysis(
     market_value: float,
     population: int,
     raw_purchase_price: float,
-    grading_fee: float
+    grading_fee: float,
+    has_price_data: bool = True
 ) -> GradeAnalysis:
     """
     Calculate profit/loss analysis for a single grade level.
@@ -264,6 +291,7 @@ def _calculate_grade_analysis(
         population: PSA population count for this grade
         raw_purchase_price: What user paid for raw card
         grading_fee: Cost to grade the card
+        has_price_data: Whether price data is available for this grade
     
     Returns:
         GradeAnalysis with profit_loss, roi, and is_profitable calculated
@@ -283,9 +311,10 @@ def _calculate_grade_analysis(
         grade=grade,
         market_value=market_value,
         population=population,
-        profit_loss=round(profit_loss, 2),
-        roi=round(roi, 2),
-        is_profitable=is_profitable
+        profit_loss=round(profit_loss, 2) if has_price_data else None,
+        roi=round(roi, 2) if has_price_data else None,
+        is_profitable=is_profitable,
+        has_price_data=has_price_data
     )
 
 
@@ -535,6 +564,7 @@ def _calculate_expected_value(
     
     Uses population distribution as probability weights:
     EV = sum(grade_profit_loss * (grade_population / total_population))
+    Only includes grades with price data available.
     
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
@@ -548,6 +578,10 @@ def _calculate_expected_value(
     
     expected_value = 0.0
     for grade, analysis in matrix.items():
+        # Skip grades without price data
+        if not getattr(analysis, 'has_price_data', True) or analysis.profit_loss is None:
+            continue
+        
         # Weight by population percentage (convert from percentage to fraction)
         weight = distribution.grade_percentages.get(grade, 0.0) / 100
         expected_value += analysis.profit_loss * weight
@@ -567,7 +601,7 @@ def _find_break_even_grade(matrix: Dict[str, GradeAnalysis]) -> Optional[str]:
     """
     for grade_num in range(1, 11):
         grade = str(grade_num)
-        if grade in matrix and matrix[grade].profit_loss >= 0:
+        if grade in matrix and matrix[grade].profit_loss is not None and matrix[grade].profit_loss >= 0:
             return grade
     return None
 
@@ -697,9 +731,14 @@ def _generate_scenario_analysis(
             break
     
     # If no profitable grade, use PSA 10 anyway as "best case"
-    if optimistic_profit <= 0 and "10" in matrix:
+    # Check for None before comparison
+    if optimistic_profit is not None and optimistic_profit <= 0 and "10" in matrix:
         optimistic_grade = "10"
         optimistic_profit = matrix["10"].profit_loss
+    
+    # If profit_loss is None (no price data), default to 0 for display
+    if optimistic_profit is None:
+        optimistic_profit = 0.0
     
     # Calculate optimistic probability based on population
     optimistic_prob = distribution.grade_percentages.get(optimistic_grade, 0.0) / 100
@@ -725,6 +764,10 @@ def _generate_scenario_analysis(
     )).profit_loss
     realistic_prob = max_pop_pct / 100
     
+    # If profit_loss is None (no price data), default to 0 for display
+    if realistic_profit is None:
+        realistic_profit = 0.0
+    
     realistic = ScenarioResult(
         grade=max_pop_grade,
         profit_loss=realistic_profit,
@@ -737,6 +780,10 @@ def _generate_scenario_analysis(
         grade="1", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
     )).profit_loss
     pessimistic_prob = distribution.grade_percentages.get("1", 0.0) / 100
+    
+    # If profit_loss is None (no price data), default to 0 for display
+    if pessimistic_profit is None:
+        pessimistic_profit = 0.0
     
     pessimistic = ScenarioResult(
         grade=pessimistic_grade,
@@ -867,12 +914,14 @@ def _generate_warnings(
     target_grade: Optional[str],
     break_even_grade: Optional[str],
     success_rate: float,
-    expected_grade: Optional[int]
+    expected_grade: Optional[int],
+    status: str = ""
 ) -> List[str]:
     """
     Generate comprehensive warning messages for notable conditions.
     
     Warnings generated (prioritized list):
+    - Buy the Slab warning (when status is red)
     - Gem rate analysis - impacts PSA 9 value
     - Price gap analysis - lottery ticket scenarios
     - Grading cost efficiency - fees vs card value
@@ -897,11 +946,21 @@ def _generate_warnings(
         break_even_grade: Minimum grade to break even
         success_rate: Percentage of profitable grades
         expected_grade: User's predicted grade
+        status: The status color ("green", "yellow", "red")
     
     Returns:
         List of warning message strings
     """
     warnings: List[str] = []
+    
+    # =========================================================================
+    # "Buy the Slab" Warning (highest priority for red status)
+    # =========================================================================
+    if status == "red":
+        warnings.append(
+            "💡 Instead of purchasing this card raw and grading it, you should consider buying one that's already been graded. "
+            "You can likely find a PSA 9 or PSA 10 on eBay for less than your total grading investment."
+        )
     
     # Era-specific warnings with enhanced contextual guidance
     era_class = distribution.era_class

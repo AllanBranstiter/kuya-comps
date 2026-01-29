@@ -836,7 +836,7 @@
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-color);
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .stat.success-rate .stat-value {
@@ -1033,6 +1033,28 @@
 
 .grade-card.unprofitable:hover {
   box-shadow: 0 6px 18px rgba(201, 48, 44, 0.25);
+}
+
+.grade-card.no-data {
+  border-color: #d1d5db;
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.grade-card.no-data:hover {
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.grade-card.no-data .grade-number {
+  color: #9ca3af;
+}
+
+.grade-card.no-data .grade-profit {
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .grade-number {
