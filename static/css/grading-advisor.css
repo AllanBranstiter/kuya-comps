@@ -426,7 +426,8 @@
   text-align: center;
   transition: all 0.3s ease;
   min-height: 140px;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .confidence-score:hover {
@@ -438,7 +439,7 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--subtle-text-color);
-  margin-bottom: auto;
+  margin-bottom: 0.5rem;
   font-weight: 600;
 }
 
@@ -525,7 +526,8 @@
   text-align: center;
   transition: all 0.3s ease;
   min-height: 140px;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .gem-rate-display:hover {
@@ -642,8 +644,9 @@
   min-height: 140px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   text-align: center;
+  gap: 0.5rem;
 }
 
 .stat:hover {
