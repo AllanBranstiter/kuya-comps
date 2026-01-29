@@ -143,7 +143,13 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         matrix=matrix,
         distribution=distribution,
         expected_value=expected_value,
-        population_data=request.population_data
+        population_data=request.population_data,
+        raw_purchase_price=request.raw_purchase_price,
+        grading_fee=request.grading_fee,
+        target_grade=target_grade,
+        break_even_grade=break_even_grade,
+        success_rate=success_rate,
+        expected_grade=request.expected_grade
     )
     
     # Generate advice text
@@ -653,24 +659,42 @@ def _generate_warnings(
     matrix: Dict[str, GradeAnalysis],
     distribution: PopulationDistribution,
     expected_value: float,
-    population_data: Dict[str, int]
+    population_data: Dict[str, int],
+    raw_purchase_price: float,
+    grading_fee: float,
+    target_grade: Optional[str],
+    break_even_grade: Optional[str],
+    success_rate: float,
+    expected_grade: Optional[int]
 ) -> List[str]:
     """
-    Generate warning messages for notable conditions.
+    Generate comprehensive warning messages for notable conditions.
     
-    Warnings are generated for:
-    - High/low gem rate (PSA 10 percentage) - impacts PSA 9 value
-    - Moderate gem rates with context
-    - Low total population (limited market data)
+    Warnings generated (prioritized list):
+    - Gem rate analysis - impacts PSA 9 value
+    - Price gap analysis - lottery ticket scenarios
+    - Grading cost efficiency - fees vs card value
+    - Break-even confidence score - probability of success
+    - Physical condition requirements
+    - Raw card market alternatives
+    - Market liquidity concerns
+    - Population pump warnings
+    - Risk/reward proximity
+    - Modern vs vintage indicators
+    - Low population warnings
     - Negative expected value
-    - High concentration in a single grade (> 50%)
-    - PSA 9 value context based on gem rate
     
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
         distribution: PopulationDistribution data
         expected_value: Calculated expected value
         population_data: Original population data dict
+        raw_purchase_price: What user paid for raw card
+        grading_fee: Cost to grade the card
+        target_grade: Recommended target grade
+        break_even_grade: Minimum grade to break even
+        success_rate: Percentage of profitable grades
+        expected_grade: User's predicted grade
     
     Returns:
         List of warning message strings
@@ -740,12 +764,123 @@ def _generate_warnings(
             "Vintage cards (pre-1980) typically have lower gem rates."
         )
     
-    # Check low total population
-    if distribution.total_population < LOW_POPULATION_THRESHOLD:
+    # =========================================================================
+    # Recommendation #1: Price Gap Analysis (Lottery Ticket Warning)
+    # =========================================================================
+    psa_9_value = matrix.get("9", GradeAnalysis(
+        grade="9", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
+    )).market_value
+    psa_10_value = matrix.get("10", GradeAnalysis(
+        grade="10", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
+    )).market_value
+    
+    if psa_9_value > 0:
+        price_multiplier = psa_10_value / psa_9_value
+        if price_multiplier > 5.0:
+            warnings.append(
+                f"PSA 10 worth {price_multiplier:.1f}x more than PSA 9 "
+                f"(${psa_10_value:.0f} vs ${psa_9_value:.0f}). "
+                "Half-grade difference creates massive value swing."
+            )
+    
+    # =========================================================================
+    # Recommendation #2: Grading Cost Efficiency Warning
+    # =========================================================================
+    if target_grade:
+        target_value = matrix.get(target_grade, GradeAnalysis(
+            grade=target_grade, market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
+        )).market_value
+        
+        if target_value > 0:
+            grading_fee_pct = (grading_fee / target_value) * 100
+            
+            if grading_fee_pct > 25.0:
+                warnings.append(
+                    f"Grading fee (${grading_fee:.0f}) is {grading_fee_pct:.0f}% "
+                    f"of target grade value (${target_value:.0f}). "
+                    "Consider lower-cost grading options or selling raw."
+                )
+    
+    # =========================================================================
+    # Recommendation #4: Break-Even Confidence Score
+    # =========================================================================
+    if break_even_grade:
+        prob_above_breakeven = sum(
+            distribution.grade_percentages.get(str(g), 0)
+            for g in range(int(break_even_grade), 11)
+        )
+        
+        if prob_above_breakeven < 30.0:
+            warnings.append(
+                f"Only {prob_above_breakeven:.0f}% of graded copies achieve "
+                f"PSA {break_even_grade}+. Low probability of profitability."
+            )
+    
+    # =========================================================================
+    # Recommendation #5: Physical Condition Reminders
+    # =========================================================================
+    if break_even_grade and int(break_even_grade) >= 8:
+        warnings.append(
+            f"Achieving PSA {break_even_grade}+ requires: "
+            "60/40 or better centering, sharp corners, clean edges, "
+            "and no surface scratches. Inspect carefully under light."
+        )
+    
+    # =========================================================================
+    # Recommendation #6: Raw Card Market Alternative
+    # =========================================================================
+    if raw_purchase_price > 100 and success_rate < 40:
+        warnings.append(
+            f"You paid ${raw_purchase_price:.0f} for this raw card. "
+            "With low success rate, consider selling raw to another collector "
+            "rather than risking grading fees."
+        )
+    
+    # =========================================================================
+    # Recommendation #7: Market Liquidity Warning (Enhanced)
+    # =========================================================================
+    if distribution.total_population < 200:
+        warnings.append(
+            f"With only {distribution.total_population} graded copies, "
+            "this card may be difficult to sell quickly. "
+            "Lower liquidity means wider bid-ask spreads."
+        )
+    elif distribution.total_population < LOW_POPULATION_THRESHOLD:
         warnings.append(
             f"Low population card ({distribution.total_population} total) - limited market data "
             "may affect price accuracy."
         )
+    
+    # =========================================================================
+    # Recommendation #11: Population Pump Warning
+    # =========================================================================
+    if distribution.total_population > 5000 and 30 < gem_rate < 60:
+        warnings.append(
+            f"Large population ({distribution.total_population:,}) with moderate gem rate "
+            "suggests heavy submission volume. More grading could further dilute "
+            "PSA 9 values over time."
+        )
+    
+    # =========================================================================
+    # Recommendation #12: Risk/Reward Proximity Warning
+    # =========================================================================
+    if expected_grade and break_even_grade:
+        grade_gap = int(expected_grade) - int(break_even_grade)
+        
+        if grade_gap == 0:
+            warnings.append(
+                "Your expected grade exactly matches break-even. "
+                "Any grading variance means you lose money. High risk."
+            )
+        elif grade_gap == 1:
+            warnings.append(
+                "Your expected grade is only 1 point above break-even. "
+                "One grade lower and you lose money. Proceed with caution."
+            )
+    
+    # =========================================================================
+    # Existing Warnings
+    # =========================================================================
     
     # Check negative expected value - use risk-focused language
     if expected_value < 0:

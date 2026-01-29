@@ -832,6 +832,20 @@ const GradingAdvisor = (function() {
         const gemRateTier = distribution.gem_rate_tier || 'Unknown';
         const gemRateClass = distribution.gem_rate_class || 'moderate';
         
+        // Determine contextual hint based on gem rate class
+        let gemRateContext = '';
+        if (gemRateClass === 'rare-gems') {
+            gemRateContext = 'Elite Gems - PSA 9s Are Highly Valuable';
+        } else if (gemRateClass === 'quality') {
+            gemRateContext = 'Rare Gems - PSA 9s Holding Value';
+        } else if (gemRateClass === 'moderate') {
+            gemRateContext = 'Average Gems - PSA 9 Values Are Weak';
+        } else if (gemRateClass === 'common-gems') {
+            gemRateContext = 'Common Gems - PSA 9 Values Are Dead';
+        } else {
+            gemRateContext = 'PSA 10 Population';
+        }
+        
         return `
             <div class="decision-summary-card ${cardClass}">
                 <div class="summary-header">
@@ -854,7 +868,7 @@ const GradingAdvisor = (function() {
                             <span class="percentage">${gemRate.toFixed(1)}%</span>
                             <span class="tier-badge">${gemRateTier}</span>
                         </div>
-                        <span class="gem-rate-hint">PSA 10 Population</span>
+                        <span class="gem-rate-hint">${gemRateContext}</span>
                     </div>
                     <div class="summary-stats">
                         <div class="stat break-even">
