@@ -3646,28 +3646,6 @@ async function updateFmv(data) {
             </button>
           </div>
         ` : ''}
-        <div style="text-align: center; margin-top: 1rem;">
-          <button onclick="window.ShareModule.openShareModal({
-            quickSale: ${quickSale},
-            marketValue: ${marketValue},
-            patientSale: ${patientSale},
-            count: ${fmvData.count}
-          })" style="
-            background: linear-gradient(135deg, #007aff, #0056d6);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
-            transition: all 0.3s ease;
-            margin-top: 0.5rem;
-          " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(0, 122, 255, 0.4)';" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(0, 122, 255, 0.3)';">
-            📤 Share Results
-          </button>
-        </div>
       </div>
     `;
     // Technical details hidden from UI: Auction sales weighted higher than Buy-It-Now • More bids = higher weight
