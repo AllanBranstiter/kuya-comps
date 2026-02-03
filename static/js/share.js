@@ -131,6 +131,14 @@
                         </select>
                     </div>
                     
+                    <div class="form-group">
+                        <label for="share-theme">Theme:</label>
+                        <select id="share-theme">
+                            <option value="light">Light Mode (Apple Style)</option>
+                            <option value="dark" selected>Dark Mode (Cyberpunk)</option>
+                        </select>
+                    </div>
+                    
                     <div class="form-group checkbox-group">
                         <label>
                             <input type="checkbox" id="share-include-chart" checked />
@@ -169,6 +177,7 @@
         // Set up event listeners
         document.getElementById('share-card-name').addEventListener('input', updatePreview);
         document.getElementById('share-aspect-ratio').addEventListener('change', updatePreview);
+        document.getElementById('share-theme').addEventListener('change', updatePreview);
         document.getElementById('share-include-chart').addEventListener('change', updatePreview);
         document.getElementById('share-download-btn').addEventListener('click', downloadImage);
 
@@ -182,10 +191,11 @@
     function updatePreview() {
         const cardName = document.getElementById('share-card-name').value;
         const aspectRatio = document.getElementById('share-aspect-ratio').value;
+        const theme = document.getElementById('share-theme').value;
         const includeChart = document.getElementById('share-include-chart').checked;
 
         try {
-            generateShareImage(cardName, aspectRatio, includeChart, true);
+            generateShareImage(cardName, aspectRatio, theme, includeChart, true);
         } catch (error) {
             console.error('[SHARE] Error generating preview:', error);
         }
@@ -195,10 +205,11 @@
      * Generate the share image on canvas
      * @param {string} cardName - Card name to display
      * @param {string} aspectRatio - Aspect ratio (1:1, 4:5, 9:16)
+     * @param {string} theme - Theme to use ('light' or 'dark')
      * @param {boolean} includeChart - Whether to include the beeswarm chart
      * @param {boolean} isPreview - Whether this is a preview (smaller canvas)
      */
-    function generateShareImage(cardName, aspectRatio, includeChart, isPreview = false) {
+    function generateShareImage(cardName, aspectRatio, theme, includeChart, isPreview = false) {
         const layout = LAYOUTS[aspectRatio][includeChart ? 'withChart' : 'withoutChart'];
         const canvas = previewCanvas;
         const ctx = canvas.getContext('2d');
@@ -214,37 +225,336 @@
         // Apply scaling
         ctx.scale(scale, scale);
 
-        // Draw background gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, layout.canvas.h);
-        gradient.addColorStop(0, '#f5f5f7');
-        gradient.addColorStop(1, '#fafafa');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, layout.canvas.w, layout.canvas.h);
+        // Render based on theme
+        if (theme === 'dark') {
+            // Dark theme rendering
+            renderDarkBackground(ctx, layout);
+            renderDarkHeader(ctx, layout, cardName);
+            
+            let yPos = layout.header + layout.padding;
+            renderDarkCards(ctx, layout, yPos);
+            yPos += layout.cards + layout.padding;
+            
+            if (includeChart && window.currentBeeswarmPrices && window.currentBeeswarmPrices.length > 0) {
+                renderDarkChart(ctx, layout, yPos);
+            }
+            
+            renderDarkFooter(ctx, layout.canvas.w, layout.canvas.h);
+        } else {
+            // Light theme rendering (existing)
+            const gradient = ctx.createLinearGradient(0, 0, 0, layout.canvas.h);
+            gradient.addColorStop(0, '#f5f5f7');
+            gradient.addColorStop(1, '#fafafa');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, layout.canvas.w, layout.canvas.h);
 
-        // Draw header with card name
-        renderHeader(ctx, layout, cardName);
+            renderHeader(ctx, layout, cardName);
 
-        // Calculate vertical positions
-        let yPos = layout.header + layout.padding;
+            let yPos = layout.header + layout.padding;
+            renderFMVCards(ctx, layout, yPos);
+            yPos += layout.cards + layout.padding;
 
-        // Draw FMV cards
-        renderFMVCards(ctx, layout, yPos);
-        yPos += layout.cards + layout.padding;
+            if (includeChart && window.currentBeeswarmPrices && window.currentBeeswarmPrices.length > 0) {
+                renderBeeswarmChart(ctx, layout, yPos);
+            }
 
-        // Draw beeswarm chart if included
-        if (includeChart && window.currentBeeswarmPrices && window.currentBeeswarmPrices.length > 0) {
-            renderBeeswarmChart(ctx, layout, yPos);
+            addWatermark(ctx, layout.canvas.w, layout.canvas.h);
         }
-
-        // Add watermark
-        addWatermark(ctx, layout.canvas.w, layout.canvas.h);
 
         // Reset transform
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
     /**
-     * Render the header with card name
+     * Render dark theme background
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} layout - Layout configuration
+     */
+    function renderDarkBackground(ctx, layout) {
+        const gradient = ctx.createLinearGradient(0, 0, layout.canvas.w, layout.canvas.h);
+        gradient.addColorStop(0, '#1a1b3a');
+        gradient.addColorStop(1, '#251a3a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, layout.canvas.w, layout.canvas.h);
+    }
+
+    /**
+     * Render dark theme header with gradient logo
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} layout - Layout configuration
+     * @param {string} cardName - Card name to display
+     */
+    function renderDarkHeader(ctx, layout, cardName) {
+        // Draw "Kuya Comps" logo with blue gradient at top
+        const logoGradient = ctx.createLinearGradient(0, 20, 0, 60);
+        logoGradient.addColorStop(0, '#007aff');
+        logoGradient.addColorStop(1, '#0056d6');
+        ctx.fillStyle = logoGradient;
+        ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('KUYA COMPS', layout.canvas.w / 2, 50);
+        
+        // Draw card name in WHITE, BOLD, UPPERCASE
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 42px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        
+        // Convert to uppercase and wrap text
+        const upperCardName = cardName.toUpperCase();
+        const maxWidth = layout.canvas.w - (layout.padding * 4);
+        const lineHeight = 50;
+        const words = upperCardName.split(' ');
+        const lines = [];
+        let currentLine = '';
+        
+        for (const word of words) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const metrics = ctx.measureText(testLine);
+            
+            if (metrics.width > maxWidth && currentLine !== '') {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        
+        // Limit to 2 lines max as per spec
+        if (lines.length > 2) {
+            lines.length = 2;
+            lines[1] = lines[1].substring(0, lines[1].length - 3) + '...';
+        }
+        
+        // Draw each line centered
+        const startY = 80 + (lines.length === 1 ? 25 : 0);
+        lines.forEach((line, i) => {
+            ctx.fillText(line, layout.canvas.w / 2, startY + (i * lineHeight));
+        });
+    }
+
+    /**
+     * Render dark theme FMV cards with neon glow
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} layout - Layout configuration
+     * @param {number} yPos - Y position to start rendering
+     */
+    function renderDarkCards(ctx, layout, yPos) {
+        if (!currentFmvData) return;
+
+        const cardWidth = (layout.canvas.w - (layout.padding * 4)) / 3;
+        const cardHeight = layout.cards;
+        const startX = layout.padding;
+
+        const cards = [
+            { label: 'QUICK SALE', icon: '⏱️', value: currentFmvData.quickSale, color: '#3b82f6', borderColor: '#3b82f6' },
+            { label: 'MARKET VALUE', icon: '⚖️', value: currentFmvData.marketValue, color: '#22c55e', borderColor: '#22c55e' },
+            { label: 'PATIENT SALE', icon: '🕰️', value: currentFmvData.patientSale, color: '#a855f7', borderColor: '#a855f7' }
+        ];
+
+        cards.forEach((card, index) => {
+            const x = startX + (index * (cardWidth + layout.padding));
+            
+            // Draw card background with semi-transparent dark and glow
+            ctx.shadowColor = card.color;
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            ctx.fillStyle = 'rgba(26, 27, 58, 0.6)';
+            roundRect(ctx, x, yPos, cardWidth, cardHeight, 16);
+            ctx.fill();
+            
+            // Draw colored border
+            ctx.strokeStyle = card.borderColor;
+            ctx.lineWidth = 3;
+            roundRect(ctx, x, yPos, cardWidth, cardHeight, 16);
+            ctx.stroke();
+            
+            // Reset shadow
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+
+            // Draw icon at top
+            ctx.font = '36px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(card.icon, x + cardWidth / 2, yPos + 45);
+
+            // Draw label below icon
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(card.label, x + cardWidth / 2, yPos + 75);
+
+            // Draw value in card color
+            ctx.fillStyle = card.color;
+            ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(formatMoney(card.value), x + cardWidth / 2, yPos + 130);
+        });
+        
+        // Add subtitle below cards
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        const salesCount = currentFmvData.count || 0;
+        ctx.fillText(`Based on ${salesCount} recent sales`, layout.canvas.w / 2, yPos + cardHeight + 25);
+    }
+
+    /**
+     * Render dark theme chart with horizontal scatter plot
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} layout - Layout configuration
+     * @param {number} yPos - Y position to start rendering
+     */
+    function renderDarkChart(ctx, layout, yPos) {
+        try {
+            if (!window.currentBeeswarmPrices || window.currentBeeswarmPrices.length === 0) {
+                console.warn('[Share] No beeswarm data available');
+                return;
+            }
+            
+            const prices = window.currentBeeswarmPrices;
+            const chartWidth = layout.canvas.w - (layout.padding * 2);
+            const chartHeight = layout.chart;
+            const chartX = layout.padding;
+            const chartY = yPos;
+
+            // Draw chart background with semi-transparent dark
+            ctx.fillStyle = 'rgba(26, 27, 58, 0.4)';
+            roundRect(ctx, chartX, chartY, chartWidth, chartHeight, 16);
+            ctx.fill();
+
+            // Chart margins
+            const margin = { top: 80, right: 60, bottom: 80, left: 60 };
+            const innerWidth = chartWidth - margin.left - margin.right;
+            const innerHeight = chartHeight - margin.top - margin.bottom;
+            const innerX = chartX + margin.left;
+            const innerY = chartY + margin.top;
+
+            // Get min/max prices
+            const validPrices = prices.filter(p => p > 0);
+            if (validPrices.length === 0) {
+                console.warn('[Share] No valid prices to display');
+                return;
+            }
+
+            const minPrice = Math.min(...validPrices);
+            const maxPrice = Math.max(...validPrices);
+            const priceRange = maxPrice - minPrice;
+
+            // Scale function
+            const xScale = (price) => {
+                if (priceRange === 0) return innerX + innerWidth / 2;
+                return innerX + ((price - minPrice) / priceRange) * innerWidth;
+            };
+
+            // Draw horizontal track line
+            const trackY = innerY + innerHeight / 2;
+            ctx.strokeStyle = '#4b5563';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(innerX, trackY);
+            ctx.lineTo(innerX + innerWidth, trackY);
+            ctx.stroke();
+
+            // Draw green FMV zone (using quickSale to patientSale)
+            if (currentFmvData && currentFmvData.quickSale && currentFmvData.patientSale) {
+                const x1 = xScale(currentFmvData.quickSale);
+                const x2 = xScale(currentFmvData.patientSale);
+                const zoneHeight = 40;
+                
+                ctx.fillStyle = 'rgba(34, 197, 94, 0.3)';
+                ctx.fillRect(x1, trackY - zoneHeight/2, x2 - x1, zoneHeight);
+                
+                // Green zone borders
+                ctx.strokeStyle = '#22c55e';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x1, trackY - zoneHeight/2, x2 - x1, zoneHeight);
+                
+                // Display quickSale and patientSale values above zone
+                ctx.fillStyle = '#22c55e';
+                ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(formatMoney(currentFmvData.quickSale), x1, trackY - zoneHeight/2 - 10);
+                ctx.fillText(formatMoney(currentFmvData.patientSale), x2, trackY - zoneHeight/2 - 10);
+            }
+
+            // Draw orange/gold FMV marker at center
+            if (currentFmvData && currentFmvData.marketValue) {
+                const fmvX = xScale(currentFmvData.marketValue);
+                
+                // Draw marker circle
+                ctx.beginPath();
+                ctx.arc(fmvX, trackY, 12, 0, 2 * Math.PI);
+                ctx.fillStyle = '#f59e0b';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // Draw "FMV" label below
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('FMV', fmvX, trackY + 40);
+            }
+
+            // Draw ~20 randomly scattered blue dots
+            const numDots = Math.min(20, validPrices.length);
+            const samplePrices = [];
+            if (validPrices.length <= 20) {
+                samplePrices.push(...validPrices);
+            } else {
+                // Sample evenly distributed prices
+                const step = Math.floor(validPrices.length / numDots);
+                for (let i = 0; i < numDots; i++) {
+                    samplePrices.push(validPrices[i * step]);
+                }
+            }
+            
+            samplePrices.forEach((price, i) => {
+                const x = xScale(price);
+                // Add slight random vertical offset for visual variety
+                const yOffset = (Math.random() - 0.5) * 30;
+                
+                ctx.beginPath();
+                ctx.arc(x, trackY + yOffset, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.7)';
+                ctx.fill();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // Draw min/max labels at track ends
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(formatMoney(minPrice), innerX, trackY + 70);
+            ctx.textAlign = 'right';
+            ctx.fillText(formatMoney(maxPrice), innerX + innerWidth, trackY + 70);
+            
+        } catch (error) {
+            console.error('[Share] Dark chart rendering error:', error);
+        }
+    }
+
+    /**
+     * Render dark theme footer
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {number} width - Canvas width
+     * @param {number} height - Canvas height
+     */
+    function renderDarkFooter(ctx, width, height) {
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Powered by Kuya Comps', width / 2, height - 30);
+    }
+
+    /**
+     * Render the header with card name (Light theme)
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {Object} layout - Layout configuration
      * @param {string} cardName - Card name to display
@@ -483,6 +793,7 @@
     function downloadImage() {
         const cardName = document.getElementById('share-card-name').value;
         const aspectRatio = document.getElementById('share-aspect-ratio').value;
+        const theme = document.getElementById('share-theme').value;
         const includeChart = document.getElementById('share-include-chart').checked;
 
         // Create a full-resolution canvas
@@ -498,11 +809,12 @@
             // Temporarily swap canvas
             const originalCanvas = previewCanvas;
             previewCanvas = downloadCanvas;
-            generateShareImage(cardName, aspectRatio, includeChart, false);
+            generateShareImage(cardName, aspectRatio, theme, includeChart, false);
             previewCanvas = originalCanvas;
 
             // Trigger download
-            const filename = `kuya-comps-${cardName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${aspectRatio.replace(':', 'x')}.png`;
+            const themeLabel = theme === 'dark' ? 'dark' : 'light';
+            const filename = `kuya-comps-${cardName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${themeLabel}-${aspectRatio.replace(':', 'x')}.png`;
             
             downloadCanvas.toBlob((blob) => {
                 const url = URL.createObjectURL(blob);
