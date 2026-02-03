@@ -743,15 +743,8 @@ const GradingAdvisor = (function() {
             }
         });
         
-        // 2. Find break-even grade (lowest grade with profit >= 0)
-        const sortedGrades = [...grades].sort((a, b) => a.grade - b.grade);
-        let breakEvenGrade = null;
-        for (const g of sortedGrades) {
-            if (g.profit_loss >= 0) {
-                breakEvenGrade = g.grade;
-                break;
-            }
-        }
+        // 2. Use backend-calculated break-even grade (already correct)
+        const breakEvenGrade = data.break_even_grade ? parseInt(data.break_even_grade, 10) : null;
         
         // 3. Calculate high grade population percentage (PSA 9 + PSA 10)
         const psa10Pop = gradePercentages['10'] || 0;
