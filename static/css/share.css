@@ -1,0 +1,285 @@
+/**
+ * Share Modal Styles
+ * 
+ * Styles for the social media share feature modal
+ * Follows the existing Kuya Comps design system
+ * 
+ * Created: February 2, 2026
+ * @version 1.0.0
+ */
+
+/* ===== SHARE MODAL SPECIFIC STYLES ===== */
+.share-modal .modal-container {
+    max-width: 900px;
+}
+
+.share-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 1rem 0;
+}
+
+/* ===== FORM SECTION ===== */
+.share-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.share-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.share-form label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-color);
+}
+
+.share-form input[type="text"],
+.share-form select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-family: var(--font-family);
+    font-size: 1rem;
+    color: var(--text-color);
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.share-form input[type="text"]:focus,
+.share-form select:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.share-form .checkbox-group {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.share-form .checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.share-form input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary-blue);
+}
+
+/* ===== PREVIEW SECTION ===== */
+.share-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.share-preview h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.preview-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 2rem;
+    min-height: 400px;
+}
+
+.preview-container canvas {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.preview-hint {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--subtle-text-color);
+    font-style: italic;
+    margin: 0;
+}
+
+/* ===== ACTION BUTTONS ===== */
+.share-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.share-actions .btn {
+    font-family: var(--font-family);
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.85rem 2rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 160px;
+}
+
+.share-actions .btn-primary {
+    background: linear-gradient(135deg, #007aff, #0056d6);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.share-actions .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.4);
+}
+
+.share-actions .btn-primary:active {
+    transform: translateY(-1px);
+}
+
+.share-actions .btn-secondary {
+    background: #f5f5f7;
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.share-actions .btn-secondary:hover {
+    background: #e5e5ea;
+    transform: translateY(-2px);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media screen and (max-width: 768px) {
+    .share-modal .modal-container {
+        max-width: 100%;
+        margin: 1rem;
+    }
+
+    .share-modal-body {
+        gap: 1.5rem;
+    }
+
+    .preview-container {
+        padding: 1rem;
+        min-height: 300px;
+    }
+
+    .share-actions {
+        flex-direction: column;
+    }
+
+    .share-actions .btn {
+        width: 100%;
+        min-width: auto;
+    }
+
+    .share-form input[type="text"],
+    .share-form select {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .preview-container {
+        padding: 0.75rem;
+        min-height: 250px;
+    }
+
+    .share-preview h3 {
+        font-size: 1rem;
+    }
+
+    .preview-hint {
+        font-size: 0.8rem;
+    }
+}
+
+/* ===== MODAL SIZE OVERRIDE ===== */
+.modal-size-large .share-modal-body {
+    max-width: 100%;
+}
+
+/* ===== LOADING STATE ===== */
+.share-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 3rem 2rem;
+}
+
+.share-loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--primary-blue);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.share-loading-text {
+    font-size: 1rem;
+    color: var(--subtle-text-color);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ===== ACCESSIBILITY ===== */
+.share-form label {
+    cursor: pointer;
+}
+
+.share-form input:focus,
+.share-form select:focus {
+    outline: 2px solid var(--primary-blue);
+    outline-offset: 2px;
+}
+
+/* For screen readers */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* ===== TOUCH DEVICE OPTIMIZATIONS ===== */
+@media (pointer: coarse) {
+    .share-form input[type="checkbox"] {
+        width: 24px;
+        height: 24px;
+    }
+
+    .share-actions .btn {
+        min-height: 48px;
+        touch-action: manipulation;
+    }
+}
