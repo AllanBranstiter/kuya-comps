@@ -251,23 +251,44 @@
      */
     function renderHeader(ctx, layout, cardName) {
         ctx.fillStyle = '#1d1d1f';
-        ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.font = 'bold 42px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         
-        // Truncate card name if too long
-        let displayName = cardName;
-        const maxWidth = layout.canvas.w - (layout.padding * 2);
-        let textWidth = ctx.measureText(displayName).width;
+        // Wrap text to multiple lines if too long
+        const maxWidth = layout.canvas.w - (layout.padding * 4);
+        const lineHeight = 50;
+        const words = cardName.split(' ');
+        const lines = [];
+        let currentLine = '';
         
-        if (textWidth > maxWidth) {
-            while (textWidth > maxWidth && displayName.length > 0) {
-                displayName = displayName.slice(0, -1);
-                textWidth = ctx.measureText(displayName + '...').width;
+        for (const word of words) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const metrics = ctx.measureText(testLine);
+            
+            if (metrics.width > maxWidth && currentLine !== '') {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
             }
-            displayName += '...';
+        }
+        if (currentLine) {
+            lines.push(currentLine);
         }
         
-        ctx.fillText(displayName, layout.canvas.w / 2, layout.header / 2 + 16);
+        // Limit to 3 lines max
+        if (lines.length > 3) {
+            lines.length = 3;
+            lines[2] = lines[2].substring(0, lines[2].length - 3) + '...';
+        }
+        
+        // Draw each line centered vertically in header
+        const totalHeight = (lines.length - 1) * lineHeight;
+        const startY = (layout.header / 2) - (totalHeight / 2) + 16;
+        
+        lines.forEach((line, i) => {
+            ctx.fillText(line, layout.canvas.w / 2, startY + (i * lineHeight));
+        });
     }
 
     /**
@@ -307,16 +328,16 @@
             ctx.shadowBlur = 0;
             ctx.shadowOffsetY = 0;
 
-            // Draw label
+            // Draw label at top of card with proper spacing
             ctx.fillStyle = '#6e6e73';
             ctx.font = '24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText(card.label, x + cardWidth / 2, startY + 50);
+            ctx.fillText(card.label, x + cardWidth / 2, startY + 40);
 
-            // Draw value
+            // Draw value below label with sufficient spacing to prevent overlap
             ctx.fillStyle = card.color;
             ctx.font = 'bold 56px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.fillText(formatMoney(card.value), x + cardWidth / 2, startY + cardHeight / 2 + 20);
+            ctx.fillText(formatMoney(card.value), x + cardWidth / 2, startY + 110);
         });
     }
 
@@ -327,13 +348,20 @@
      * @param {number} yPos - Y position to start rendering
      */
     function renderBeeswarmChart(ctx, layout, yPos) {
-        const prices = window.currentBeeswarmPrices || [];
-        if (prices.length === 0) return;
-
-        const chartWidth = layout.canvas.w - (layout.padding * 2);
-        const chartHeight = layout.chart;
-        const chartX = layout.padding;
-        const chartY = yPos;
+        try {
+            // Check if chart data exists
+            if (!window.currentBeeswarmPrices || window.currentBeeswarmPrices.length === 0) {
+                console.warn('[Share] No beeswarm data available');
+                return;
+            }
+            
+            const prices = window.currentBeeswarmPrices;
+            console.log('[Share] Drawing chart with', prices.length, 'prices');
+            
+            const chartWidth = layout.canvas.w - (layout.padding * 2);
+            const chartHeight = layout.chart;
+            const chartX = layout.padding;
+            const chartY = yPos;
 
         // Draw chart background
         ctx.fillStyle = '#ffffff';
@@ -359,74 +387,81 @@
         const innerX = chartX + margin.left;
         const innerY = chartY + margin.top;
 
-        // Get min/max prices
-        const validPrices = prices.filter(p => p > 0);
-        if (validPrices.length === 0) return;
+            // Get min/max prices
+            const validPrices = prices.filter(p => p > 0);
+            if (validPrices.length === 0) {
+                console.warn('[Share] No valid prices to display');
+                return;
+            }
 
-        const minPrice = Math.min(...validPrices);
-        const maxPrice = Math.max(...validPrices);
-        const priceRange = maxPrice - minPrice;
+            const minPrice = Math.min(...validPrices);
+            const maxPrice = Math.max(...validPrices);
+            const priceRange = maxPrice - minPrice;
 
-        // Scale function
-        const xScale = (price) => {
-            if (priceRange === 0) return innerX + innerWidth / 2;
-            return innerX + ((price - minPrice) / priceRange) * innerWidth;
-        };
+            // Scale function
+            const xScale = (price) => {
+                if (priceRange === 0) return innerX + innerWidth / 2;
+                return innerX + ((price - minPrice) / priceRange) * innerWidth;
+            };
 
-        // Draw FMV band if available
-        if (window.expectLowGlobal !== null && window.expectHighGlobal !== null && priceRange > 0) {
-            const x1 = xScale(window.expectLowGlobal);
-            const x2 = xScale(window.expectHighGlobal);
-            
-            ctx.fillStyle = 'rgba(52, 199, 89, 0.15)';
-            ctx.fillRect(x1, innerY, x2 - x1, innerHeight);
-            
-            // FMV band borders
-            ctx.strokeStyle = 'rgba(52, 199, 89, 0.6)';
+            // Draw FMV band if available
+            if (window.expectLowGlobal !== null && window.expectHighGlobal !== null && priceRange > 0) {
+                const x1 = xScale(window.expectLowGlobal);
+                const x2 = xScale(window.expectHighGlobal);
+                
+                ctx.fillStyle = 'rgba(52, 199, 89, 0.15)';
+                ctx.fillRect(x1, innerY, x2 - x1, innerHeight);
+                
+                // FMV band borders
+                ctx.strokeStyle = 'rgba(52, 199, 89, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 4]);
+                ctx.beginPath();
+                ctx.moveTo(x1, innerY);
+                ctx.lineTo(x1, innerY + innerHeight);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(x2, innerY);
+                ctx.lineTo(x2, innerY + innerHeight);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Draw price points (simplified - just dots without collision detection)
+            const centerY = innerY + innerHeight / 2;
+            const pointRadius = 6;
+
+            validPrices.forEach(price => {
+                const x = xScale(price);
+                
+                ctx.beginPath();
+                ctx.arc(x, centerY, pointRadius, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(0, 122, 255, 0.7)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0, 122, 255, 0.9)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // Draw axis
+            ctx.strokeStyle = '#d2d2d7';
             ctx.lineWidth = 2;
-            ctx.setLineDash([8, 4]);
             ctx.beginPath();
-            ctx.moveTo(x1, innerY);
-            ctx.lineTo(x1, innerY + innerHeight);
+            ctx.moveTo(innerX, innerY + innerHeight);
+            ctx.lineTo(innerX + innerWidth, innerY + innerHeight);
             ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(x2, innerY);
-            ctx.lineTo(x2, innerY + innerHeight);
-            ctx.stroke();
-            ctx.setLineDash([]);
+
+            // Draw min/max labels
+            ctx.fillStyle = '#6e6e73';
+            ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(formatMoney(minPrice), innerX, innerY + innerHeight + 35);
+            ctx.textAlign = 'right';
+            ctx.fillText(formatMoney(maxPrice), innerX + innerWidth, innerY + innerHeight + 35);
+            
+        } catch (error) {
+            console.error('[Share] Chart rendering error:', error);
         }
-
-        // Draw price points (simplified - just dots without collision detection)
-        const centerY = innerY + innerHeight / 2;
-        const pointRadius = 6;
-
-        validPrices.forEach(price => {
-            const x = xScale(price);
-            
-            ctx.beginPath();
-            ctx.arc(x, centerY, pointRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(0, 122, 255, 0.7)';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(0, 122, 255, 0.9)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-        });
-
-        // Draw axis
-        ctx.strokeStyle = '#d2d2d7';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(innerX, innerY + innerHeight);
-        ctx.lineTo(innerX + innerWidth, innerY + innerHeight);
-        ctx.stroke();
-
-        // Draw min/max labels
-        ctx.fillStyle = '#6e6e73';
-        ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(formatMoney(minPrice), innerX, innerY + innerHeight + 35);
-        ctx.textAlign = 'right';
-        ctx.fillText(formatMoney(maxPrice), innerX + innerWidth, innerY + innerHeight + 35);
     }
 
     /**
