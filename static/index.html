@@ -121,7 +121,7 @@
   <!-- Tab Navigation -->
   <div class="tab-nav" role="tablist" aria-label="Main navigation">
     <button class="tab-btn active" onclick="switchTab('comps')" role="tab" aria-selected="true" aria-controls="comps-tab" id="tab-comps">Comps & Analysis</button>
-    <button class="tab-btn" onclick="switchTab('grading-advisor')" role="tab" aria-selected="false" aria-controls="grading-advisor-panel" id="tab-grading-advisor">Grading Intelligence</button>
+    <button class="tab-btn" onclick="switchTab('grading-advisor')" role="tab" aria-selected="false" aria-controls="grading-advisor-panel" id="tab-grading-advisor">Grading Advisor</button>
     <button class="tab-btn" onclick="switchTab('portfolio')" id="portfolio-tab-btn" style="display: none;" role="tab" aria-selected="false" aria-controls="portfolio-tab">My Collection</button>
   </div>
   
@@ -254,8 +254,8 @@
     <div class="grading-advisor-container">
       <h2 class="section-title">
         Intelligent Grading Advisor
-        <span class="info-tooltip" data-tooltip="Determine if your card is worth grading based on PSA prices and population data">
-          ℹ️
+        <span class="info-tooltip" tabindex="0">ℹ️
+          <span class="tooltip-content">Determine if your card is worth grading based on PSA prices and population data</span>
         </span>
       </h2>
       <p class="section-description">
@@ -267,7 +267,9 @@
         <fieldset class="form-section">
           <legend>
             PSA Population
-            <span class="info-tooltip" data-tooltip="The number of cards that have been graded at each grade level. Find this on the PSA Population Report.">ℹ️</span>
+            <span class="info-tooltip" tabindex="0">ℹ️
+              <span class="tooltip-content">The number of cards that have been graded at each grade level. Find this on the PSA Population Report.</span>
+            </span>
           </legend>
           <p class="field-hint">Enter the population count for each PSA grade</p>
           <div class="grade-input-grid">
@@ -384,7 +386,9 @@
             <div class="input-group">
               <label for="grading-fee">
                 PSA Grading Fee
-                <span class="info-tooltip" data-tooltip="Standard PSA service levels: Value ($21), Regular ($59), Express ($99), Super Express ($199)">ℹ️</span>
+                <span class="info-tooltip" tabindex="0">ℹ️
+                  <span class="tooltip-content">Standard PSA service levels: Value ($21), Regular ($59), Express ($99), Super Express ($199)</span>
+                </span>
               </label>
               <input type="number" id="grading-fee" name="grading_fee" min="0" step="0.01" value="21.00" placeholder="$21.00">
               <span class="field-hint">PSA grading service fee (default: $21)</span>
@@ -432,8 +436,8 @@
   
   <div style="display: grid; gap: 2rem;">
     <div>
-      <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">🔍 Find Baseball Card Values Instantly</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Search for any baseball card by entering the year, set, player name, and card details. Our tool instantly analyzes eBay sold listings (comps) to show you real market values for PSA, BGS, SGC graded cards and raw cards.</p>
+      <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">🔍 Find Baseball Card Values & Track Your Collection</h3>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Search for any baseball card by entering the year, set, player name, and card details. Our tool instantly analyzes eBay sold listings (comps) to show you real market values for PSA, BGS, SGC graded cards and raw cards. Save cards to your personal collection and organize them in custom binders. Premium subscribers get automated FMV updates every 90 days to keep collection values current.</p>
     </div>
     
     <div>
@@ -442,8 +446,8 @@
     </div>
     
     <div>
-      <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">⚖️ Compare Graded Card Values</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Compare prices across different grading companies and grades. See how PSA 10, BGS 9.5, and SGC 10 cards compare for the same player and set.</p>
+      <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">🎯 Make Smart Grading Decisions</h3>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Decide if your raw card is worth sending to PSA with our Intelligent Grading Advisor. Enter population data and market prices to get break-even analysis, expected value calculations, and era-specific insights. Perfect for both flippers seeking quick ROI and collectors building long-term value.</p>
     </div>
     
     <div>
@@ -469,12 +473,37 @@
     
     <div>
       <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">Is this tool free to use?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Yes! Kuya Comps is completely free for baseball card collectors and dealers. Search unlimited cards, analyze market trends, and compare graded card values at no cost.</p>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Kuya Comps offers both free and premium features. The core search and FMV analysis tools are free to use. Premium features like collection management with automated valuation updates require a subscription. <a href="/pricing.html" style="color: var(--primary-blue); text-decoration: underline;">Visit our pricing page</a> to learn more about subscription tiers.</p>
     </div>
     
     <div>
       <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">How accurate are the Fair Market Values?</h3>
       <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Our FMV calculations use volume-weighted analysis, giving more importance to competitive auctions with multiple bids. We filter outliers and provide ranges for quick sales and patient sales. <strong>In general, FMV estimates work best when there are plenty of recent sales to sample and your search terms are tight and accurate.</strong></p>
+    </div>
+    
+    <div>
+      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">What is the Grading Advisor and how do I use it?</h3>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">The Grading Advisor helps you decide if it's financially worthwhile to send a raw card to PSA for grading. Enter the card's purchase price, grading fee, PSA population data, and current market prices for each grade. The tool calculates your break-even grade, expected value, and provides recommendations for flippers vs. long-term collectors. It supports vintage through ultra-modern cards with era-specific grading insights.</p>
+    </div>
+    
+    <div>
+      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">How do I save cards to my collection?</h3>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">After creating a free account, click "Save to Collection" on any search result. Our smart parser automatically fills in card details from your search. Organize cards into custom binders and track your portfolio manually or with premium automated updates. Premium subscribers (Member/Founder tiers) receive automated FMV updates every 90 days to keep collection values current without manual effort.</p>
+    </div>
+    
+    <div>
+      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">What's the difference between sold comps and active deals?</h3>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Sold comps show what cards actually sold for on eBay (historical data). Active deals show current eBay listings priced at or below Fair Market Value—these are potential buying opportunities. Use sold comps to understand market value, then check active deals to find cards you can buy right now.</p>
+    </div>
+    
+    <div>
+      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">Where does your data come from?</h3>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">We aggregate data from eBay's official API and verified sold listings. Our system analyzes recent sales to calculate Fair Market Values using volume-weighted analysis. Data is cached for performance but refreshed regularly to reflect current market conditions.</p>
+    </div>
+    
+    <div>
+      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">How do I get the most accurate results?</h3>
+      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Use specific search terms with quotes around multi-word phrases. Include the card number when possible for the cleanest results. Exclude unwanted terms with a minus sign (e.g., -graded -auto -lot). Check the Search Tips section above the search box for detailed examples.</p>
     </div>
     
     <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid var(--accent-orange);">
