@@ -14,9 +14,9 @@ export default defineConfig({
     setupFiles: './src/test/setup.js',
   },
   
-  // Build output to static/react folder so both old and new can coexist
+  // Build output to frontend/dist folder for production deployment
   build: {
-    outDir: '../static/react',
+    outDir: 'dist',
     emptyOutDir: true,
     // Generate sourcemaps for debugging
     sourcemap: true,
@@ -37,8 +37,8 @@ export default defineConfig({
   },
   
   // Set base path for FastAPI serving
-  // In production, assets will be served from /static/react/
-  base: '/static/react/',
+  // In production, assets will be served from root
+  base: '/',
   
   // Development server configuration
   server: {

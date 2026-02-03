@@ -221,5 +221,5 @@ async def get_metrics():
 # Static File Serving (Must be last)
 # ============================================================================
 
-# Serve the UI
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+# Serve the React UI from frontend/dist
+app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static")
