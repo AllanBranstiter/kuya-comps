@@ -20,22 +20,14 @@
 }
 
 /* ===========================
-   CHARTS SECTION - Mobile First
+   CHARTS SECTION - Full Width Vertical Stack
    =========================== */
 .chartsSection {
-  /* Mobile: stack vertically */
+  /* Always stack vertically in single column for full width */
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-xl);
-}
-
-/* Tablet and up: 2 columns with equal heights */
-@media (min-width: 768px) {
-  .chartsSection {
-    grid-template-columns: 1fr 1fr;
-    align-items: stretch;
-  }
 }
 
 /* ===========================

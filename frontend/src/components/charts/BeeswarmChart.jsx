@@ -73,12 +73,6 @@ const BeeswarmChart = () => {
     ctx.fillStyle = '#f8f9fa';
     ctx.fillRect(0, 0, width, height);
     
-    // Draw title
-    ctx.fillStyle = CHART_COLORS.textColor;
-    ctx.font = 'bold 16px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Fair Market Value Ranges', width / 2, 25);
-    
     // Filter and validate prices
     const validPrices = prices.filter(p => p != null && !isNaN(p) && p > 0);
     
