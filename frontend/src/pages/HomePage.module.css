@@ -1,0 +1,82 @@
+/* HomePage CSS Module - Grid Layout with Alignment Fixes */
+
+/* Stats Section - 2 column grid with equal heights */
+.statsSection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  align-items: stretch; /* Force equal heights */
+}
+
+/* Charts Section - 2 column grid with equal heights */
+.chartsSection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  align-items: stretch; /* Force equal heights */
+}
+
+/* Chart Container - Fixed aspect ratio for uniform sizing */
+.chartContainer {
+  background: var(--card-background);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  min-height: 400px; /* Ensures uniform minimum height */
+}
+
+.chartContainer h3 {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-color);
+  flex-shrink: 0;
+}
+
+/* Chart Wrapper - Maintains aspect ratio */
+.chartWrapper {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive Design */
+
+/* Tablet - Single column layout */
+@media (max-width: 1024px) {
+  .statsSection,
+  .chartsSection {
+    grid-template-columns: 1fr;
+  }
+  
+  .chartContainer {
+    min-height: 350px;
+  }
+}
+
+/* Mobile - Maintain layout */
+@media (max-width: 768px) {
+  .chartContainer {
+    padding: var(--spacing-md);
+    min-height: 300px;
+  }
+  
+  .chartContainer h3 {
+    font-size: 1rem;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .chartContainer {
+    min-height: 250px;
+  }
+}

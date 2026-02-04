@@ -352,23 +352,23 @@ const VolumeProfileChart = ({ defaultBins = 25 }) => {
       
       {/* Legend */}
       <div className="chart-legend">
-        <div className="chart-legend-item">
-          <div 
-            className="chart-legend-color" 
-            style={{ 
+        <div className="legend-item">
+          <div
+            className="legend-color"
+            style={{
               background: CHART_COLORS.soldBlue,
-              borderColor: CHART_COLORS.soldBlueBorder 
-            }} 
+              borderColor: CHART_COLORS.soldBlueBorder
+            }}
           />
           <span>Sold Listings</span>
         </div>
-        <div className="chart-legend-item">
-          <div 
-            className="chart-legend-color" 
-            style={{ 
+        <div className="legend-item">
+          <div
+            className="legend-color"
+            style={{
               background: CHART_COLORS.activeRed,
-              borderColor: CHART_COLORS.activeRedBorder 
-            }} 
+              borderColor: CHART_COLORS.activeRedBorder
+            }}
           />
           <span>Active Listings</span>
         </div>

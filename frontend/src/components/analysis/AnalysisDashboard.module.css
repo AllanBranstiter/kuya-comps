@@ -1,0 +1,46 @@
+/* AnalysisDashboard CSS Module - Grid Layout with Alignment Fixes */
+
+/* Indicators Grid - 3 columns for Market Pressure, Confidence, and Liquidity */
+.indicatorsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+  align-items: stretch; /* Force equal heights */
+}
+
+/* Details Grid - 2 columns for Market Assessment and Pricing Recommendations */
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+  align-items: stretch; /* Force equal heights */
+}
+
+/* Responsive Design */
+
+/* Tablet - Keep 3 columns for indicators, stack details */
+@media screen and (max-width: 1024px) {
+  .indicatorsGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-md);
+  }
+  
+  .detailsGrid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+  }
+}
+
+/* Mobile - Single column for everything */
+@media screen and (max-width: 768px) {
+  .indicatorsGrid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+  
+  .detailsGrid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+}

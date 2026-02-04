@@ -2,6 +2,7 @@ import { SearchForm, SoldListingsTable, ActiveListingsTable, StatsGrid, FMVDispl
 import { BeeswarmChart, VolumeProfileChart } from '../components/charts';
 import { AnalysisDashboard } from '../components/analysis';
 import useSearchStore from '../stores/searchStore';
+import styles from './HomePage.module.css';
 
 /**
  * Home Page - Comps & Analysis (main search page)
@@ -31,17 +32,17 @@ function HomePage() {
       
       {hasResults && (
         <>
-          <section className="stats-section">
+          <section className={styles.statsSection}>
             <StatsGrid />
             <FMVDisplay />
           </section>
           
-          <section className="charts-section">
-            <div className="chart-container">
+          <section className={styles.chartsSection}>
+            <div className={styles.chartContainer}>
               <h3>Price Distribution</h3>
               <BeeswarmChart />
             </div>
-            <div className="chart-container">
+            <div className={styles.chartContainer}>
               <h3>Volume Profile</h3>
               <VolumeProfileChart />
             </div>

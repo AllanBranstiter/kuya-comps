@@ -5,6 +5,7 @@ import MarketConfidenceCard from './MarketConfidenceCard';
 import LiquidityScoreCard from './LiquidityScoreCard';
 import MarketAssessment from './MarketAssessment';
 import PricingRecommendations from './PricingRecommendations';
+import styles from './AnalysisDashboard.module.css';
 
 /**
  * AnalysisDashboard - Container component that assembles all market analysis components
@@ -99,7 +100,7 @@ function AnalysisDashboard() {
       </div>
 
       {/* Indicator Cards Grid */}
-      <div className="analysis-indicators-grid">
+      <div className={styles.indicatorsGrid}>
         <MarketPressureCard
           pressure={marketMetrics?.pressure}
           fmv={fmvValue}
@@ -119,7 +120,7 @@ function AnalysisDashboard() {
       </div>
 
       {/* Market Assessment and Pricing side by side */}
-      <div className="analysis-details-grid">
+      <div className={styles.detailsGrid}>
         <MarketAssessment
           tier={marketTier}
           advice={marketAdvice}
