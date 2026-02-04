@@ -40,7 +40,7 @@
 }
 
 /* ===========================
-   CHART CONTAINER - Responsive with Optimized Aspect Ratios
+   CHART CONTAINER - Responsive with Forced Aspect Ratios
    =========================== */
 .chartContainer {
   background: var(--card-background);
@@ -49,21 +49,16 @@
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  
+  /* Mobile: 4:3 aspect ratio */
+  aspect-ratio: 4 / 3;
   overflow: hidden; /* Prevent canvas leakage */
 }
 
-/* Mobile: Fixed height for compact display */
-@media (max-width: 767px) {
-  .chartContainer {
-    min-height: 280px;
-    max-height: 320px;
-  }
-}
-
-/* Desktop: Shallow aspect ratio for horizontal charts (reduces white space) */
+/* Desktop: 16:9 aspect ratio */
 @media (min-width: 768px) {
   .chartContainer {
-    aspect-ratio: 5 / 2; /* Shallower ratio for horizontal charts like beeswarm */
+    aspect-ratio: 16 / 9;
   }
 }
 

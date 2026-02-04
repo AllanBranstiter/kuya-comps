@@ -1634,8 +1634,6 @@
 
 .listings-table-wrapper {
   overflow-x: auto;
-  max-height: 500px; /* Approximately 10 rows */
-  overflow-y: auto;
 }
 
 .listings-table {
@@ -1898,13 +1896,13 @@
   grid-template-columns: repeat(3, 1fr);
   gap: var(--spacing-md);
   flex: 1;
-  align-items: center; /* Center cards vertically */
+  align-items: end;
 }
 
 .fmv-item {
   display: flex;
   flex-direction: column;
-  justify-content: center; /* Center content vertically within each card */
+  justify-content: flex-end;
   text-align: center;
   padding: 1.25rem 1rem;
   background: var(--background-color);
@@ -1918,7 +1916,8 @@
 }
 
 .fmv-item-main {
-  border-left: 3px solid var(--primary-blue); /* Match Average card style */
+  background: linear-gradient(135deg, rgba(0, 102, 204, 0.1), rgba(0, 122, 255, 0.05));
+  border: 1px solid rgba(0, 102, 204, 0.2);
 }
 
 .fmv-item-quick {
@@ -1937,7 +1936,7 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: var(--spacing-sm);
-  /* Removed margin-top: auto to allow vertical centering */
+  margin-top: auto;
 }
 
 .fmv-value {
@@ -2968,7 +2967,7 @@
 
 .pricing-card-target {
   border-left: 3px solid var(--primary-blue);
-  /* Removed gradient background to match other pricing cards */
+  background: linear-gradient(135deg, rgba(0, 102, 204, 0.05), rgba(0, 122, 255, 0.02));
 }
 
 .pricing-card-patient {

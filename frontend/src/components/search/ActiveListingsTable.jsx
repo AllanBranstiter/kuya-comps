@@ -137,7 +137,7 @@ function ActiveListingsTable({ className = '' }) {
   if (loadingActive) {
     return (
       <div className={`listings-table-container ${className}`}>
-        <h3 className="listings-table-title">Active BIN Listings Below Market Value</h3>
+        <h3 className="listings-table-title">Active Listings</h3>
         <div className="listings-table-loading">
           <div className="spinner spinner-md spinner-primary" role="status">
             <span className="visually-hidden">Loading active listings...</span>
@@ -152,7 +152,7 @@ function ActiveListingsTable({ className = '' }) {
   if (!activeListings || activeListings.length === 0) {
     return (
       <div className={`listings-table-container ${className}`}>
-        <h3 className="listings-table-title">Active BIN Listings Below Market Value</h3>
+        <h3 className="listings-table-title">Active Listings</h3>
         <div className="listings-table-empty">
           <div className="listings-empty-icon">🛒</div>
           <p className="listings-empty-text">No active listings found</p>
@@ -166,7 +166,7 @@ function ActiveListingsTable({ className = '' }) {
   if (!showAll && sortedListings.length === 0) {
     return (
       <div className={`listings-table-container ${className}`}>
-        <h3 className="listings-table-title">Active BIN Listings Below Market Value</h3>
+        <h3 className="listings-table-title">Active Listings</h3>
         <div className="listings-table-controls">
           <label className="listings-toggle-label">
             <input
@@ -189,7 +189,7 @@ function ActiveListingsTable({ className = '' }) {
 
   return (
     <div className={`listings-table-container ${className}`}>
-      <h3 className="listings-table-title">Active BIN Listings Below Market Value</h3>
+      <h3 className="listings-table-title">Active Listings</h3>
       
       <div className="listings-table-controls">
         <label className="listings-toggle-label">
@@ -201,13 +201,16 @@ function ActiveListingsTable({ className = '' }) {
           />
           <span>See All ({activeListings.length} total)</span>
         </label>
+        <p className="listings-table-count">
+          🏷️ {sortedListings.length} {showAll ? 'listings' : 'below market value'}
+        </p>
       </div>
       
       <div className="listings-table-wrapper">
         <table className="listings-table">
           <thead>
             <tr>
-              <th
+              <th 
                 onClick={() => handleSort('title')}
                 className="sortable-header"
                 role="columnheader"
@@ -215,7 +218,7 @@ function ActiveListingsTable({ className = '' }) {
               >
                 Title{getSortIndicator('title')}
               </th>
-              <th
+              <th 
                 onClick={() => handleSort('price')}
                 className="sortable-header"
                 role="columnheader"
@@ -223,7 +226,7 @@ function ActiveListingsTable({ className = '' }) {
               >
                 Price{getSortIndicator('price')}
               </th>
-              <th
+              <th 
                 onClick={() => handleSort('discount')}
                 className="sortable-header"
                 role="columnheader"
@@ -231,7 +234,15 @@ function ActiveListingsTable({ className = '' }) {
               >
                 Discount{getSortIndicator('discount')}
               </th>
-              <th
+              <th 
+                onClick={() => handleSort('type')}
+                className="sortable-header"
+                role="columnheader"
+                aria-sort={sortColumn === 'type' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+              >
+                Type{getSortIndicator('type')}
+              </th>
+              <th 
                 onClick={() => handleSort('item_id')}
                 className="sortable-header"
                 role="columnheader"
@@ -247,7 +258,7 @@ function ActiveListingsTable({ className = '' }) {
               const { text: discountText, colorClass } = formatDiscount(discount);
               
               return (
-                <tr
+                <tr 
                   key={item.item_id}
                   onClick={() => handleRowClick(item.item_id)}
                   className={selectedRow === item.item_id ? 'row-selected' : ''}
@@ -261,8 +272,11 @@ function ActiveListingsTable({ className = '' }) {
                   <td className={`listing-discount-cell ${colorClass}`}>
                     {marketValue > 0 ? discountText : 'N/A'}
                   </td>
+                  <td className="listing-type-cell">
+                    {getBuyingType(item)}
+                  </td>
                   <td className="listing-id-cell">
-                    <a
+                    <a 
                       href={getLinkUrl(item)}
                       target={getLinkTarget()}
                       rel="noopener noreferrer"
