@@ -27,7 +27,7 @@ function LiquidityScoreCard({ liquidity, soldCount, activeCount, loading = false
   // Build subtitle with sold:active ratio
   let subtitle = '';
   if (soldCount !== null && activeCount !== null) {
-    const ratioDisplay = ratio !== null ? ratio.toFixed(2) : '--';
+    const ratioDisplay = (typeof ratio === 'number' && isFinite(ratio)) ? ratio.toFixed(2) : '--';
     subtitle = `${soldCount} sold : ${activeCount} active (${ratioDisplay}x)`;
   }
 

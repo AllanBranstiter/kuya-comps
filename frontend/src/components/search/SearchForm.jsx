@@ -80,37 +80,31 @@ function SearchForm({ className = '' }) {
 
       {/* Filter Checkboxes */}
       <div className="search-filters" role="group" aria-label="Search filters">
-        <label className="search-filter-checkbox" title="Exclude listings that contain multiple cards (lots, bundles, 2x, 3x, etc.)">
+        <label className="search-filter-checkbox">
           <input
             type="checkbox"
             checked={filters.excludeLots}
             onChange={() => toggleFilter('excludeLots')}
           />
           <span className="checkbox-label">Exclude Lots</span>
-          <span className="tooltip-icon" aria-hidden="true">ⓘ</span>
-          <span className="tooltip-text">Filter out multi-card listings, bundles, and lots</span>
         </label>
 
-        <label className="search-filter-checkbox" title="Only show raw/ungraded cards (excludes PSA, BGS, SGC, etc.)">
+        <label className="search-filter-checkbox">
           <input
             type="checkbox"
             checked={filters.ungradedOnly}
             onChange={() => toggleFilter('ungradedOnly')}
           />
           <span className="checkbox-label">Raw Only</span>
-          <span className="tooltip-icon" aria-hidden="true">ⓘ</span>
-          <span className="tooltip-text">Exclude all graded cards (PSA, BGS, SGC, etc.)</span>
         </label>
 
-        <label className="search-filter-checkbox" title="Exclude parallels, refractors, variations, and short prints">
+        <label className="search-filter-checkbox">
           <input
             type="checkbox"
             checked={filters.baseOnly}
             onChange={() => toggleFilter('baseOnly')}
           />
           <span className="checkbox-label">Base Only</span>
-          <span className="tooltip-icon" aria-hidden="true">ⓘ</span>
-          <span className="tooltip-text">Exclude parallels, refractors, and variations</span>
         </label>
       </div>
 
