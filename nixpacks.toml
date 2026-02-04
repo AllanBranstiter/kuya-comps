@@ -3,7 +3,8 @@ nixPkgs = ["nodejs-18_x", "python311", "python311Packages.pip"]
 
 [phases.install]
 cmds = [
-    "pip3 install -r requirements.txt",
+    "python -m venv /opt/venv",
+    "/opt/venv/bin/pip install -r requirements.txt",
     "cd frontend && npm ci"
 ]
 
@@ -13,4 +14,4 @@ cmds = [
 ]
 
 [start]
-cmd = "gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 30 --keep-alive 2"
+cmd = "/opt/venv/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 30 --keep-alive 2"
