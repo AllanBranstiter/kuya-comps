@@ -34,6 +34,11 @@ def is_development() -> bool:
     return get_environment() == 'development'
 
 
+def is_staging() -> bool:
+    """Check if running in staging environment."""
+    return get_environment() == 'staging'
+
+
 # ============================================================================
 # API Configuration
 # ============================================================================
@@ -95,6 +100,16 @@ def get_supabase_client():
         raise HTTPException(500, "Supabase not configured")
     
     return create_client(supabase_url, supabase_key)
+
+
+def get_basic_auth_user() -> Optional[str]:
+    """Get Basic Auth username for staging environment."""
+    return os.getenv('BASIC_AUTH_USER')
+
+
+def get_basic_auth_password() -> Optional[str]:
+    """Get Basic Auth password for staging environment."""
+    return os.getenv('BASIC_AUTH_PASSWORD')
 
 
 # ============================================================================

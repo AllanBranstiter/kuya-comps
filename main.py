@@ -60,7 +60,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # Import middleware
-from backend.middleware import RequestIDMiddleware, MetricsMiddleware, SecurityHeadersMiddleware
+from backend.middleware import RequestIDMiddleware, MetricsMiddleware, SecurityHeadersMiddleware, BasicAuthMiddleware
 from backend.middleware.metrics import metrics
 
 # Import routers
@@ -120,7 +120,8 @@ app.add_middleware(
 # Add middlewares (order matters - they execute in reverse order of adding)
 app.add_middleware(SecurityHeadersMiddleware)  # Security headers (executes last)
 app.add_middleware(MetricsMiddleware)  # Metrics
-app.add_middleware(RequestIDMiddleware)  # Request ID (executes first)
+app.add_middleware(RequestIDMiddleware)  # Request ID
+app.add_middleware(BasicAuthMiddleware)  # Basic Auth for staging (executes first)
 
 # Initialize rate limiter (10 requests per minute per IP)
 limiter = Limiter(key_func=get_remote_address, default_limits=["10/minute"])
