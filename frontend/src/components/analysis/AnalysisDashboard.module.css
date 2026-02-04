@@ -1,40 +1,62 @@
-/* AnalysisDashboard CSS Module - Mobile-First Grid Layout */
+/* AnalysisDashboard CSS Module - Mobile-First Grid Layout with 8pt Grid System */
 
 /* ===========================
-   INDICATORS GRID - Mobile First
+   ANALYSIS SECTION - Container with spacing
+   =========================== */
+.analysisSection {
+  margin-bottom: 24px; /* 3 * 8pt */
+}
+
+/* ===========================
+   INDICATORS GRID - Smart Grid with Auto-Fit
    =========================== */
 .indicatorsGrid {
   /* Mobile: stack vertically for readability */
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-xl);
-  align-items: stretch;
+  gap: 24px; /* 3 * 8pt - standardized grid gap */
+  margin-bottom: 24px; /* 3 * 8pt */
+  align-items: stretch; /* Equal heights */
 }
 
-/* Tablet and up: 3 columns for Market Pressure, Confidence, and Liquidity */
+/* Tablet and up: smart grid that naturally switches between 1, 2, or 3 columns */
 @media (min-width: 768px) {
   .indicatorsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px; /* 3 * 8pt */
+  }
+}
+
+/* For 3 cards to always sit in a row on wider screens, force 3 columns at large breakpoint */
+@media (min-width: 1024px) {
+  .indicatorsGrid {
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-md);
   }
 }
 
 /* ===========================
-   DETAILS GRID - Mobile First
+   DETAILS GRID - Smart Grid for Market Assessment and Pricing
    =========================== */
 .detailsGrid {
   /* Mobile: stack cards vertically */
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-md);
-  align-items: stretch;
+  gap: 24px; /* 3 * 8pt */
+  align-items: start; /* Prevent vertical stretching */
 }
 
-/* Tablet and up: side by side for Market Assessment and Pricing Recommendations */
+/* Tablet and up: smart grid layout */
 @media (min-width: 768px) {
   .detailsGrid {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-md);
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 24px; /* 3 * 8pt */
   }
+}
+
+/* ===========================
+   DETAIL CARD - Wrapper for alignment control
+   =========================== */
+.detailCard {
+  align-self: start; /* Prevent stretching if charts are tall */
+  height: fit-content;
 }

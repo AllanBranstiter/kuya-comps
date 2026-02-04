@@ -88,7 +88,7 @@ function AnalysisDashboard() {
   const fmvValue = fmv?.marketValue || fmv?.expectedHigh;
 
   return (
-    <section className="analysis-dashboard">
+    <section className={styles.analysisSection}>
       <div className="analysis-dashboard-header">
         <h2 className="analysis-dashboard-title">
           <span className="analysis-icon">📊</span>
@@ -121,17 +121,21 @@ function AnalysisDashboard() {
 
       {/* Market Assessment and Pricing side by side */}
       <div className={styles.detailsGrid}>
-        <MarketAssessment
-          tier={marketTier}
-          advice={marketAdvice}
-          marketMessage={marketMessage}
-          loading={isLoading}
-        />
-        <PricingRecommendations
-          recommendations={pricingRecommendations}
-          fmv={fmvValue}
-          loading={isLoading}
-        />
+        <div className={styles.detailCard}>
+          <MarketAssessment
+            tier={marketTier}
+            advice={marketAdvice}
+            marketMessage={marketMessage}
+            loading={isLoading}
+          />
+        </div>
+        <div className={styles.detailCard}>
+          <PricingRecommendations
+            recommendations={pricingRecommendations}
+            fmv={fmvValue}
+            loading={isLoading}
+          />
+        </div>
       </div>
     </section>
   );

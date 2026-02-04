@@ -1,20 +1,29 @@
-/* HomePage CSS Module - Mobile-First Responsive Grid Layout */
+/* HomePage CSS Module - Mobile-First Responsive Grid Layout with 8pt Grid System */
 
 /* ===========================
-   STATS SECTION - Mobile First
+   PAGE CONTAINER - Max Width Constraint for Wide Monitors
+   =========================== */
+.pageContainer {
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ===========================
+   STATS SECTION - Smart Grid with Auto-Fit
    =========================== */
 .statsSection {
   /* Mobile: stack vertically */
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-xl);
+  gap: 24px; /* 3 * 8pt */
+  margin-bottom: 24px; /* 3 * 8pt */
 }
 
-/* Tablet and up: 2 columns with equal heights */
+/* Tablet and up: smart grid that adapts to available space */
 @media (min-width: 768px) {
   .statsSection {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
     align-items: stretch;
   }
 }
@@ -26,34 +35,35 @@
   /* Always stack vertically in single column for full width */
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-xl);
+  gap: 24px; /* 3 * 8pt */
+  margin-bottom: 24px; /* 3 * 8pt */
 }
 
 /* ===========================
-   CHART CONTAINER - Responsive Aspect Ratios
+   CHART CONTAINER - Responsive with Forced Aspect Ratios
    =========================== */
 .chartContainer {
   background: var(--card-background);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-sm);
+  padding: 16px; /* 2 * 8pt - inner card padding */
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   
-  /* Mobile: fixed height instead of aspect ratio */
-  height: 300px;
+  /* Mobile: 4:3 aspect ratio */
+  aspect-ratio: 4 / 3;
+  overflow: hidden; /* Prevent canvas leakage */
 }
 
-/* Desktop: increased fixed height */
+/* Desktop: 16:9 aspect ratio */
 @media (min-width: 768px) {
   .chartContainer {
-    height: 350px;
+    aspect-ratio: 16 / 9;
   }
 }
 
 .chartContainer h3 {
-  margin: 0 0 var(--spacing-sm) 0;
+  margin: 0 0 16px 0; /* 2 * 8pt */
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-color);
@@ -63,38 +73,45 @@
 /* Tablet and up: larger heading */
 @media (min-width: 768px) {
   .chartContainer h3 {
-    margin: 0 0 var(--spacing-md) 0;
     font-size: 1.1rem;
   }
 }
 
 /* ===========================
-   CHART WRAPPER - Maintains aspect ratio content
+   CHART WRAPPER - Contains chart with overflow protection
    =========================== */
 .chartWrapper {
   position: relative;
   width: 100%;
   flex: 1;
-  min-height: 0;
+  min-height: 0; /* Important for flexbox children */
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden; /* Prevent canvas leakage */
+}
+
+/* Ensure canvas elements respect the container */
+.chartWrapper canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 /* ===========================
-   RESULTS SECTION - Dual Listings Responsive
+   RESULTS SECTION - Dual Listings Responsive with Smart Grid
    =========================== */
 .resultsSection {
   /* Mobile: stack listings vertically */
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-md);
+  gap: 24px; /* 3 * 8pt */
 }
 
-/* Desktop: side by side layout */
+/* Desktop: smart grid layout */
 @media (min-width: 1024px) {
   .resultsSection {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-md);
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 24px; /* 3 * 8pt */
   }
 }

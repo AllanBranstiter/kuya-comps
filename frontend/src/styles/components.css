@@ -2485,7 +2485,7 @@
 .indicator-card {
   background: var(--background-color);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
+  padding: 16px; /* 2 * 8pt - standardized inner card padding */
   border: 1px solid var(--border-color);
   transition: all var(--transition-normal);
   position: relative;
@@ -2534,7 +2534,7 @@
 
 .indicator-value-row {
   display: flex;
-  align-items: center;
+  align-items: baseline; /* Baseline alignment for matched set appearance */
   gap: var(--spacing-sm);
 }
 
