@@ -14,6 +14,13 @@ import { formatMoney } from '../../utils/searchUtils';
 function FMVDisplay({ className = '' }) {
   const { fmv, loadingComps } = useSearchStore();
 
+  // 🔍 DEBUG: Log what FMV object we're receiving
+  console.log('[FMVDisplay DEBUG] Received fmv:', fmv);
+  console.log('[FMVDisplay DEBUG] Expected properties: quickSale, marketValue, patientSale (camelCase)');
+  if (fmv) {
+    console.log('[FMVDisplay DEBUG] Actual properties:', Object.keys(fmv));
+  }
+
   // Loading state with skeleton placeholders
   if (loadingComps) {
     return (

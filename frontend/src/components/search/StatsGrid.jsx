@@ -14,6 +14,13 @@ import { formatMoney } from '../../utils/searchUtils';
 function StatsGrid({ className = '' }) {
   const { stats, loadingComps } = useSearchStore();
 
+  // 🔍 DEBUG: Log what stats object we're receiving
+  console.log('[StatsGrid DEBUG] Received stats:', stats);
+  console.log('[StatsGrid DEBUG] Expected properties: min, avg, max, count');
+  if (stats) {
+    console.log('[StatsGrid DEBUG] Actual properties:', Object.keys(stats));
+  }
+
   // Loading state with skeleton placeholders
   if (loadingComps) {
     return (

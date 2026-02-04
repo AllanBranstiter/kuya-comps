@@ -77,36 +77,36 @@ def determine_message_type(
     
     # 1. Data Quality Warning
     if market_confidence < 30 and abs_market_pressure > 20:
-        return "data_quality_warning"
+        return "dataQualityWarning"
     
     # 2. Two-Tier Market Detection
     if (absorption_below is not None and absorption_above is not None and
         absorption_below >= 1.5 and absorption_above < 0.3 and
         below_fmv_count > 0 and above_fmv_count > 0):
-        return "two_tier_market"
+        return "twoTierMarket"
     
     # 3. High Risk: High pressure + Low liquidity
     if market_pressure > 30 and liquidity_score < 50:
-        return "high_pressure_low_liquidity"
+        return "highRiskConditions"
     
     # 4. Overpriced but Active: High pressure + Good liquidity
     if market_pressure > 30 and liquidity_score >= 50:
-        return "overpriced_active_market"
+        return "overpricedActiveMarket"
     
     # 5. Fair Price but Low Liquidity
     if market_pressure <= 15 and liquidity_score < 50:
-        return "fair_price_low_liquidity"
+        return "fairPricingLimitedDemand"
     
     # 6. Strong Buy Opportunity: Negative pressure + High liquidity
     if market_pressure < 0 and liquidity_score >= 70:
-        return "strong_buy_opportunity"
+        return "strongBuyOpportunity"
     
     # 7. Healthy Market: Fair pressure + High liquidity
     if 0 <= market_pressure <= 15 and liquidity_score >= 70:
-        return "healthy_market_conditions"
+        return "healthyMarketConditions"
     
     # 8. Default: Normal/Balanced Market
-    return "normal_market"
+    return "balancedMarket"
 
 
 def format_message_placeholders(content: str, placeholders: Dict[str, Any]) -> str:
@@ -192,6 +192,10 @@ def get_market_message(
         below_fmv_count=below_fmv_count,
         above_fmv_count=above_fmv_count
     )
+    
+    # DEBUG: Log what we're looking for and what's available
+    print(f"[DEBUG] Message type determined: '{message_type}'")
+    print(f"[DEBUG] Available message types in JSON: {list(messages.keys())}")
     
     if message_type not in messages:
         raise ValueError(f"Message type '{message_type}' not found in content")

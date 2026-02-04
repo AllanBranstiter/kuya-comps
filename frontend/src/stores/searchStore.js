@@ -203,18 +203,25 @@ const useSearchStore = create((set, get) => ({
       
       const compsData = await compsResponse.json();
       
-      set({ 
+      set({
         soldListings: compsData.items || [],
         stats: {
-          min_price: compsData.min_price,
-          max_price: compsData.max_price,
-          avg_price: compsData.avg_price,
+          min: compsData.min_price,
+          max: compsData.max_price,
+          avg: compsData.avg_price,
           count: compsData.items?.length || 0
         },
         loadingComps: false
       });
       
       console.log('[searchStore] Fetched', compsData.items?.length || 0, 'sold listings');
+      // 🔍 DEBUG: Log the stats object structure
+      console.log('[searchStore DEBUG] Stats stored in state:', {
+        min: compsData.min_price,
+        max: compsData.max_price,
+        avg: compsData.avg_price,
+        count: compsData.items?.length || 0
+      });
       
       // ========================================
       // STEP 2: Calculate FMV
@@ -237,18 +244,27 @@ const useSearchStore = create((set, get) => ({
         set({ fmv: null, loadingFmv: false });
       } else {
         const fmvData = await fmvResponse.json();
-        set({ 
+        set({
           fmv: {
-            market_value: fmvData.market_value || fmvData.expected_high,
-            quick_sale: fmvData.quick_sale || fmvData.expected_low,
-            patient_sale: fmvData.patient_sale || fmvData.expected_high,
-            expected_low: fmvData.expected_low,
-            expected_high: fmvData.expected_high,
+            marketValue: fmvData.market_value || fmvData.expected_high,
+            quickSale: fmvData.quick_sale || fmvData.expected_low,
+            patientSale: fmvData.patient_sale || fmvData.expected_high,
+            expectedLow: fmvData.expected_low,
+            expectedHigh: fmvData.expected_high,
             count: fmvData.count
           },
           loadingFmv: false
         });
         console.log('[searchStore] FMV calculated:', fmvData.market_value || fmvData.expected_high);
+        // 🔍 DEBUG: Log the FMV object structure
+        console.log('[searchStore DEBUG] FMV stored in state:', {
+          marketValue: fmvData.market_value || fmvData.expected_high,
+          quickSale: fmvData.quick_sale || fmvData.expected_low,
+          patientSale: fmvData.patient_sale || fmvData.expected_high,
+          expectedLow: fmvData.expected_low,
+          expectedHigh: fmvData.expected_high,
+          count: fmvData.count
+        });
       }
       
       // ========================================
@@ -321,10 +337,10 @@ const useSearchStore = create((set, get) => ({
     });
     
     // If not showing all AND we have FMV, filter to items at or below FMV
-    if (!showAllActive && fmv?.market_value) {
+    if (!showAllActive && fmv?.marketValue) {
       filtered = filtered.filter(item => {
         const price = getItemPrice(item);
-        return price <= fmv.market_value;
+        return price <= fmv.marketValue;
       });
     }
     
@@ -341,13 +357,13 @@ const useSearchStore = create((set, get) => ({
   getDealsCount: () => {
     const { activeListings, fmv } = get();
     
-    if (!activeListings || !fmv?.market_value) return 0;
+    if (!activeListings || !fmv?.marketValue) return 0;
     
     return activeListings.filter(item => {
       const buyingFormat = (item.buying_format || '').toLowerCase();
       const hasBuyItNow = buyingFormat.includes('buy it now');
       const price = getItemPrice(item);
-      return hasBuyItNow && price > 0 && price <= fmv.market_value;
+      return hasBuyItNow && price > 0 && price <= fmv.marketValue;
     }).length;
   },
   
@@ -366,7 +382,7 @@ const useSearchStore = create((set, get) => ({
    */
   hasFmv: () => {
     const { fmv } = get();
-    return fmv && (fmv.market_value || fmv.expected_high);
+    return fmv && (fmv.marketValue || fmv.expectedHigh);
   },
   
   /**
@@ -397,7 +413,7 @@ const useSearchStore = create((set, get) => ({
     set({ loadingMarketAnalysis: true });
     
     try {
-      const fmvValue = fmv?.market_value || fmv?.expected_high;
+      const fmvValue = fmv?.marketValue || fmv?.expectedHigh;
       
       // Calculate individual metrics
       const pressure = calculateMarketPressure(activeListings, fmvValue);
@@ -467,7 +483,7 @@ const useSearchStore = create((set, get) => ({
           market_confidence: get().marketMetrics.confidence.value,
           
           // Optional field
-          fmv: fmv.market_value || fmv.expected_high
+          fmv: fmv.marketValue || fmv.expectedHigh
         })
       });
       
