@@ -35,8 +35,8 @@ function HomePage() {
         {hasResults && (
           <>
             <section className={styles.statsSection}>
-              <StatsGrid />
               <FMVDisplay />
+              <StatsGrid />
             </section>
             
             <section className={styles.chartsSection}>

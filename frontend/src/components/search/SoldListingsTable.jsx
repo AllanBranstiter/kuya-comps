@@ -32,7 +32,7 @@ function SoldListingsTable({ className = '' }) {
     }
   }, [sortColumn]);
 
-  // Sort listings
+  // Sort and limit listings to 10 visible rows
   const sortedListings = useMemo(() => {
     if (!soldListings || soldListings.length === 0) return [];
     
@@ -56,6 +56,7 @@ function SoldListingsTable({ className = '' }) {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     
+    // Return all sorted items for scrolling (CSS handles max-height)
     return sorted;
   }, [soldListings, sortColumn, sortDirection]);
 
@@ -112,9 +113,8 @@ function SoldListingsTable({ className = '' }) {
 
   return (
     <div className={`listings-table-container ${className}`}>
-      <h3 className="listings-table-title">Recently Sold Listings</h3>
       <p className="listings-table-count">
-        📊 {soldListings.length} results found
+        {soldListings.length} results found
       </p>
       
       <div className="listings-table-wrapper">

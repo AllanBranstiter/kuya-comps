@@ -65,7 +65,7 @@ const VolumeProfileChart = ({ defaultBins = 25 }) => {
     
     const ctx = canvas.getContext('2d');
     const { width, height } = dimensions;
-    const margin = { top: 40, right: 40, bottom: 60, left: 60 };
+    const margin = { top: 40, right: 20, bottom: 60, left: 60 }; // Reduced right margin for wider chart
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
     
@@ -275,7 +275,7 @@ const VolumeProfileChart = ({ defaultBins = 25 }) => {
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
     const marginLeft = parseFloat(canvas.dataset.marginLeft) || 60;
-    const marginRight = parseFloat(canvas.dataset.marginRight) || 40;
+    const marginRight = parseFloat(canvas.dataset.marginRight) || 20; // Match reduced right margin
     
     if (x >= marginLeft && x <= canvas.width - marginRight) {
       setCrosshairX(x);
