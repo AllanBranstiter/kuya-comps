@@ -59,7 +59,7 @@ const useSearchStore = create((set, get) => ({
   stats: null,  // { min_price, max_price, avg_price, count }
   
   // Fair Market Value data
-  fmv: null,    // { market_value, quick_sale, patient_sale, expected_low, expected_high, count }
+  fmv: null,    // { marketValue, quickSale, patientSale, expectedLow, expectedHigh, count }
   
   // Loading states
   loading: false,

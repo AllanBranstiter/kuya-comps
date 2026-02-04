@@ -115,9 +115,9 @@ const BeeswarmChart = () => {
     };
     
     // Draw FMV band if available
-    const expectLow = fmv?.quick_sale || fmv?.expected_low;
-    const expectHigh = fmv?.patient_sale || fmv?.expected_high;
-    const marketValue = fmv?.market_value || expectHigh;
+    const expectLow = fmv?.quickSale || fmv?.expectedLow;
+    const expectHigh = fmv?.patientSale || fmv?.expectedHigh;
+    const marketValue = fmv?.marketValue || expectHigh;
     
     if (expectLow && expectHigh && priceRange > 0) {
       const x1 = xScale(expectLow);

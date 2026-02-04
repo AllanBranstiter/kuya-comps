@@ -84,7 +84,7 @@ function AnalysisDashboard() {
 
   // Determine overall loading state
   const isLoading = loading || loadingFmv || loadingActive || loadingMarketAnalysis;
-  const fmvValue = fmv?.market_value || fmv?.expected_high;
+  const fmvValue = fmv?.marketValue || fmv?.expectedHigh;
 
   return (
     <section className="analysis-dashboard">

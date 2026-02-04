@@ -213,7 +213,7 @@ const VolumeProfileChart = ({ defaultBins = 25 }) => {
     }
     
     // Draw FMV markers if available
-    const marketValue = fmv?.market_value || fmv?.expected_high;
+    const marketValue = fmv?.marketValue || fmv?.expectedHigh;
     if (marketValue && priceRange > 0) {
       const fmvX = margin.left + ((marketValue - minPrice) / priceRange) * innerWidth;
       
