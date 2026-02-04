@@ -51,17 +51,15 @@ function HomePage() {
           {/* Market Analysis Dashboard - Phase 5 */}
           <AnalysisDashboard />
           
-          <section className="results-section">
-            <div className="results-tables">
-              <div className="sold-listings-section">
-                <h3>Sold Listings (Comps)</h3>
-                <SoldListingsTable />
-              </div>
-              
-              <div className="active-listings-section">
-                <h3>Active Listings</h3>
-                <ActiveListingsTable />
-              </div>
+          <section className={styles.resultsSection}>
+            <div className="sold-listings-section">
+              <h3>Sold Listings (Comps)</h3>
+              <SoldListingsTable />
+            </div>
+            
+            <div className="active-listings-section">
+              <h3>Active Listings</h3>
+              <ActiveListingsTable />
             </div>
           </section>
         </>

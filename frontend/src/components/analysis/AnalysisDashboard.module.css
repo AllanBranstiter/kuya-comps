@@ -1,46 +1,40 @@
-/* AnalysisDashboard CSS Module - Grid Layout with Alignment Fixes */
+/* AnalysisDashboard CSS Module - Mobile-First Grid Layout */
 
-/* Indicators Grid - 3 columns for Market Pressure, Confidence, and Liquidity */
+/* ===========================
+   INDICATORS GRID - Mobile First
+   =========================== */
 .indicatorsGrid {
+  /* Mobile: stack vertically for readability */
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-lg);
+  grid-template-columns: 1fr;
+  gap: var(--spacing-md);
   margin-bottom: var(--spacing-xl);
-  align-items: stretch; /* Force equal heights */
+  align-items: stretch;
 }
 
-/* Details Grid - 2 columns for Market Assessment and Pricing Recommendations */
-.detailsGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-xl);
-  align-items: stretch; /* Force equal heights */
-}
-
-/* Responsive Design */
-
-/* Tablet - Keep 3 columns for indicators, stack details */
-@media screen and (max-width: 1024px) {
+/* Tablet and up: 3 columns for Market Pressure, Confidence, and Liquidity */
+@media (min-width: 768px) {
   .indicatorsGrid {
     grid-template-columns: repeat(3, 1fr);
-    gap: var(--spacing-md);
-  }
-  
-  .detailsGrid {
-    grid-template-columns: 1fr;
     gap: var(--spacing-lg);
   }
 }
 
-/* Mobile - Single column for everything */
-@media screen and (max-width: 768px) {
-  .indicatorsGrid {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-md);
-  }
-  
+/* ===========================
+   DETAILS GRID - Mobile First
+   =========================== */
+.detailsGrid {
+  /* Mobile: stack cards vertically */
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-md);
+  align-items: stretch;
+}
+
+/* Tablet and up: side by side for Market Assessment and Pricing Recommendations */
+@media (min-width: 768px) {
   .detailsGrid {
-    grid-template-columns: 1fr;
-    gap: var(--spacing-md);
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-xl);
   }
 }

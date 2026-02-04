@@ -1,43 +1,91 @@
-/* HomePage CSS Module - Grid Layout with Alignment Fixes */
+/* HomePage CSS Module - Mobile-First Responsive Grid Layout */
 
-/* Stats Section - 2 column grid with equal heights */
+/* ===========================
+   STATS SECTION - Mobile First
+   =========================== */
 .statsSection {
+  /* Mobile: stack vertically */
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-xl);
-  align-items: stretch; /* Force equal heights */
 }
 
-/* Charts Section - 2 column grid with equal heights */
+/* Tablet and up: 2 columns with equal heights */
+@media (min-width: 768px) {
+  .statsSection {
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+}
+
+/* ===========================
+   CHARTS SECTION - Mobile First
+   =========================== */
 .chartsSection {
+  /* Mobile: stack vertically */
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-xl);
-  align-items: stretch; /* Force equal heights */
 }
 
-/* Chart Container - Fixed aspect ratio for uniform sizing */
+/* Tablet and up: 2 columns with equal heights */
+@media (min-width: 768px) {
+  .chartsSection {
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+}
+
+/* ===========================
+   CHART CONTAINER - Responsive Aspect Ratios
+   =========================== */
 .chartContainer {
   background: var(--card-background);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md);
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  min-height: 400px; /* Ensures uniform minimum height */
+  
+  /* Mobile: 4:3 aspect ratio for better readability on small screens */
+  aspect-ratio: 4/3;
+}
+
+/* Tablet: increase padding */
+@media (min-width: 768px) {
+  .chartContainer {
+    padding: var(--spacing-lg);
+  }
+}
+
+/* Desktop: 16:9 aspect ratio for wider screens */
+@media (min-width: 1024px) {
+  .chartContainer {
+    aspect-ratio: 16/9;
+  }
 }
 
 .chartContainer h3 {
-  margin: 0 0 var(--spacing-md) 0;
-  font-size: 1.1rem;
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-color);
   flex-shrink: 0;
 }
 
-/* Chart Wrapper - Maintains aspect ratio */
+/* Tablet and up: larger heading */
+@media (min-width: 768px) {
+  .chartContainer h3 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: 1.1rem;
+  }
+}
+
+/* ===========================
+   CHART WRAPPER - Maintains aspect ratio content
+   =========================== */
 .chartWrapper {
   position: relative;
   width: 100%;
@@ -48,35 +96,20 @@
   justify-content: center;
 }
 
-/* Responsive Design */
-
-/* Tablet - Single column layout */
-@media (max-width: 1024px) {
-  .statsSection,
-  .chartsSection {
-    grid-template-columns: 1fr;
-  }
-  
-  .chartContainer {
-    min-height: 350px;
-  }
+/* ===========================
+   RESULTS SECTION - Dual Listings Responsive
+   =========================== */
+.resultsSection {
+  /* Mobile: stack listings vertically */
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-lg);
 }
 
-/* Mobile - Maintain layout */
-@media (max-width: 768px) {
-  .chartContainer {
-    padding: var(--spacing-md);
-    min-height: 300px;
-  }
-  
-  .chartContainer h3 {
-    font-size: 1rem;
-  }
-}
-
-/* Small mobile */
-@media (max-width: 480px) {
-  .chartContainer {
-    min-height: 250px;
+/* Desktop: side by side layout */
+@media (min-width: 1024px) {
+  .resultsSection {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-xl);
   }
 }
