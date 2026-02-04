@@ -461,10 +461,13 @@ const useSearchStore = create((set, get) => ({
           ...authHeaders
         },
         body: JSON.stringify({
-          tier: marketTier.tier,
-          fmv: fmv.market_value || fmv.expected_high,
-          sold_count: soldListings?.length || 0,
-          active_count: activeListings?.length || 0
+          // REQUIRED fields from marketMetrics
+          market_pressure: get().marketMetrics.pressure.value,
+          liquidity_score: get().marketMetrics.liquidity.value,
+          market_confidence: get().marketMetrics.confidence.value,
+          
+          // Optional field
+          fmv: fmv.market_value || fmv.expected_high
         })
       });
       
