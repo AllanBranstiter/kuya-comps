@@ -91,9 +91,8 @@
   flex: 1;
   min-height: 0; /* Important for flexbox children */
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden; /* Prevent canvas leakage */
+  flex-direction: column;
+  overflow: visible; /* Allow controls to be visible */
 }
 
 /* Ensure canvas elements respect the container */

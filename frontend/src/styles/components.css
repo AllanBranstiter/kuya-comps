@@ -2258,10 +2258,16 @@
 /* Volume Profile Chart Specific */
 .volume-profile-chart {
   position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .volume-profile-chart .chart-canvas-wrapper {
-  height: 300px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
 
 /* Chart Controls */
