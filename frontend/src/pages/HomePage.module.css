@@ -44,29 +44,19 @@
 .chartContainer {
   background: var(--card-background);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-md);
+  padding: var(--spacing-sm);
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   
-  /* Mobile: 4:3 aspect ratio for better readability on small screens */
-  aspect-ratio: 4/3;
-  max-height: 350px;  /* Limit mobile height */
+  /* Mobile: fixed height instead of aspect ratio */
+  height: 300px;
 }
 
-/* Tablet: increase padding and height limit */
+/* Desktop: increased fixed height */
 @media (min-width: 768px) {
   .chartContainer {
-    padding: var(--spacing-lg);
-    max-height: 400px;  /* Reasonable tablet height */
-  }
-}
-
-/* Desktop: 16:9 aspect ratio for wider screens */
-@media (min-width: 1024px) {
-  .chartContainer {
-    aspect-ratio: 16/9;
-    max-height: 450px;  /* Reasonable desktop height */
+    height: 350px;
   }
 }
 
@@ -106,13 +96,13 @@
   /* Mobile: stack listings vertically */
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
 }
 
 /* Desktop: side by side layout */
 @media (min-width: 1024px) {
   .resultsSection {
     grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-xl);
+    gap: var(--spacing-md);
   }
 }

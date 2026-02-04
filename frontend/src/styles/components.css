@@ -1771,7 +1771,7 @@
   gap: var(--spacing-md);
   background: var(--card-background);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  padding: var(--spacing-sm);
   border: 1px solid var(--border-color);
   margin-bottom: var(--spacing-xl);
   height: 100%;
@@ -1871,7 +1871,7 @@
 .fmv-display {
   background: var(--card-background);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  padding: var(--spacing-sm);
   border: 1px solid var(--border-color);
   margin-bottom: var(--spacing-xl);
   display: flex;
@@ -2198,7 +2198,7 @@
 .chart-container {
   background: var(--card-background);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-sm);
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
