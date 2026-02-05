@@ -64,6 +64,10 @@ class BasicAuthMiddleware(BaseHTTPMiddleware):
         if self._is_health_check(request):
             return await call_next(request)
         
+        # Allow API endpoints to pass through (they use Supabase JWT auth)
+        if request.url.path.startswith('/api/'):
+            return await call_next(request)
+        
         # Check for Authorization header
         auth_header = request.headers.get('Authorization')
         
