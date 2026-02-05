@@ -1041,7 +1041,10 @@ const CollectionModule = (function() {
     }
     
     /**
-     * Save card to collection database
+     * Save card to collection database via FastAPI backend
+     *
+     * REFACTORED: Now calls FastAPI backend instead of direct Supabase insert
+     * This fixes the Year and purchase_date saving bug.
      */
     async function saveCardToCollection(formData) {
         const supabase = window.AuthModule.getClient();
@@ -1049,23 +1052,31 @@ const CollectionModule = (function() {
             return { error: { message: 'Database not available' } };
         }
         
-        const user = window.AuthModule.getCurrentUser();
-        if (!user) {
+        // Get current session and auth token
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+            console.error('[COLLECTION] Failed to get session:', sessionError);
             return { error: { message: 'User not logged in' } };
         }
         
+        const user = session.user;
+        const authToken = session.access_token;
+        
         try {
-            // Get the selected binder, validate it exists
+            // =====================================================================
+            // STEP 1: Handle binder creation if needed
+            // =====================================================================
             let binderId = formData.binder;
             
-            if (!binderId) {
-                return { error: { message: 'Please select or create a binder before adding a card.' } };
-            }
-            
-            // Create new binder if needed
-            if (formData.binder === '__new__' && formData.newBinderName) {
+            if (!binderId || binderId === '__new__') {
+                if (!formData.newBinderName) {
+                    return { error: { message: 'Please select or create a binder before adding a card.' } };
+                }
+                
                 console.log('[COLLECTION] Creating new binder:', formData.newBinderName);
                 
+                // Option A: Create via Supabase (current behavior, kept for backward compatibility)
                 const { data: binderData, error: binderError } = await supabase
                     .from('binders')
                     .insert([{
@@ -1084,66 +1095,72 @@ const CollectionModule = (function() {
                 console.log('[COLLECTION] Created binder with ID:', binderId);
             }
             
-            // Prepare card data
-            const cardData = {
-                binder_id: binderId,
-                user_id: user.id,  // NEW: Add user_id directly to card
-                year: formData.year,
-                set_name: formData.set,
-                athlete: formData.athlete,
-                card_number: formData.cardNumber,
-                variation: formData.variation,
-                grading_company: formData.gradingCompany,
-                grade: formData.grade,
-                purchase_price: formData.purchasePrice,
-                purchase_date: formData.purchaseDate,
-                current_fmv: formData.currentFmv,
-                search_query_string: formData.searchQuery || '',
-                auto_update: formData.autoUpdate,
-                tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
+            // =====================================================================
+            // STEP 2: Prepare card data (camelCase → snake_case)
+            // =====================================================================
+            const requestBody = {
+                binder_id: parseInt(binderId),
+                year: formData.year || null,  // FIX: Now properly passed to backend
+                set_name: formData.set || null,
+                athlete: formData.athlete,  // Required
+                card_number: formData.cardNumber || null,
+                variation: formData.variation || null,
+                grading_company: formData.gradingCompany || null,
+                grade: formData.grade || null,
+                purchase_price: formData.purchasePrice ? parseFloat(formData.purchasePrice) : null,
+                purchase_date: formData.purchaseDate || null,  // FIX: Now properly passed to backend
+                image_url: null,  // Not collected in form yet
+                search_query_string: formData.searchQuery || '',  // Required for auto-updates
+                auto_update: formData.autoUpdate !== undefined ? formData.autoUpdate : true,
+                tags: formData.tags || null,
+                notes: null  // Not collected in form yet
             };
             
-            console.log('[COLLECTION] Saving card data:', cardData);
+            console.log('[COLLECTION] Sending card data to backend:', requestBody);
             
-            // Insert card
-            const { data, error } = await supabase
-                .from('cards')
-                .insert([cardData])
-                .select();
+            // =====================================================================
+            // STEP 3: Call FastAPI backend to create card
+            // =====================================================================
+            const response = await fetch('/api/v1/cards', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify(requestBody)
+            });
             
-            if (error) {
-                console.error('[COLLECTION] Error inserting card:', error);
-                return { error };
-            }
-            
-            console.log('[COLLECTION] Card inserted successfully:', data);
-            
-            // Create initial price history entry if current_fmv was provided
-            if (cardData.current_fmv && cardData.current_fmv > 0 && data && data[0]) {
-                console.log('[COLLECTION] Creating initial price history entry...');
+            // Handle non-OK responses
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('[COLLECTION] Backend error:', errorData);
                 
-                const { error: historyError } = await supabase
-                    .from('price_history')
-                    .insert([{
-                        card_id: data[0].id,
-                        value: cardData.current_fmv,
-                        num_sales: null,
-                        confidence: 'user_provided'
-                    }]);
-                
-                if (historyError) {
-                    console.error('[COLLECTION] Error creating price history:', historyError);
-                    // Don't fail the entire save - price history is supplementary
-                } else {
-                    console.log('[COLLECTION] Price history entry created successfully');
+                // Provide user-friendly error messages
+                let errorMessage = 'Failed to add card';
+                if (response.status === 401) {
+                    errorMessage = 'Your session has expired. Please log in again.';
+                } else if (response.status === 404) {
+                    errorMessage = 'Binder not found. Please select a valid binder.';
+                } else if (response.status === 422) {
+                    errorMessage = errorData.detail || 'Invalid card data. Please check your inputs.';
+                } else if (errorData.detail) {
+                    errorMessage = errorData.detail;
                 }
+                
+                return { error: { message: errorMessage } };
             }
+            
+            // =====================================================================
+            // STEP 4: Return success response
+            // =====================================================================
+            const data = await response.json();
+            console.log('[COLLECTION] Card created successfully:', data);
             
             return { data };
             
         } catch (error) {
             console.error('[COLLECTION] Exception in saveCardToCollection:', error);
-            return { error: { message: error.message } };
+            return { error: { message: error.message || 'An unexpected error occurred' } };
         }
     }
     

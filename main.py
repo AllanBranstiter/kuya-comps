@@ -64,7 +64,7 @@ from backend.middleware import RequestIDMiddleware, MetricsMiddleware, SecurityH
 from backend.middleware.metrics import metrics
 
 # Import routers
-from backend.routes import health, comps, fmv, market_messages, feedback, admin_feedback, collection_valuation, billing, admin, profile, grading_advisor
+from backend.routes import health, comps, fmv, market_messages, feedback, admin_feedback, collection_valuation, billing, admin, profile, grading_advisor, collection
 
 # Initialize logger for this module
 logger = get_logger(__name__)
@@ -185,6 +185,9 @@ app.include_router(admin_feedback.router, tags=["Admin"])
 
 # Collection valuation endpoints (/api/v1/cards/*/update-value, /admin/api/valuation/*)
 app.include_router(collection_valuation.router, tags=["Collection Valuation"])
+
+# Collection CRUD endpoints (/api/v1/cards, /api/v1/binders)
+app.include_router(collection.router, tags=["Collection"])
 
 # Billing endpoints (/api/billing/*)
 app.include_router(billing.router, tags=["Billing"])
