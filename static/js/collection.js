@@ -1076,23 +1076,41 @@ const CollectionModule = (function() {
                 
                 console.log('[COLLECTION] Creating new binder:', formData.newBinderName);
                 
-                // Option A: Create via Supabase (current behavior, kept for backward compatibility)
-                const { data: binderData, error: binderError } = await supabase
-                    .from('binders')
-                    .insert([{
-                        user_id: user.id,
-                        name: formData.newBinderName
-                    }])
-                    .select()
-                    .single();
-                
-                if (binderError) {
-                    console.error('[COLLECTION] Error creating binder:', binderError);
-                    return { error: binderError };
+                // Create binder via backend API (ensures same database as card creation)
+                try {
+                    const binderResponse = await fetch('/api/v1/binders', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            name: formData.newBinderName
+                        })
+                    });
+
+                    if (!binderResponse.ok) {
+                        const errorData = await binderResponse.json();
+                        console.error('[COLLECTION] Error creating binder:', errorData);
+                        
+                        let errorMessage = 'Failed to create binder';
+                        if (binderResponse.status === 401) {
+                            errorMessage = 'Your session has expired. Please log in again.';
+                        } else if (errorData.detail) {
+                            errorMessage = errorData.detail;
+                        }
+                        
+                        return { error: { message: errorMessage } };
+                    }
+
+                    const binderData = await binderResponse.json();
+                    binderId = binderData.id;
+                    console.log('[COLLECTION] Created binder with ID:', binderId);
+                    
+                } catch (error) {
+                    console.error('[COLLECTION] Exception creating binder:', error);
+                    return { error: { message: 'Failed to create binder: ' + error.message } };
                 }
-                
-                binderId = binderData.id;
-                console.log('[COLLECTION] Created binder with ID:', binderId);
             }
             
             // =====================================================================
