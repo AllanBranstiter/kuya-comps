@@ -40,12 +40,13 @@ def get_engine():
             echo=False  # Set to True for SQL query logging
         )
     else:
-        # PostgreSQL — Supabase requires SSL
+        # PostgreSQL — strip Supabase-specific params psycopg2 doesn't understand
+        clean_url = database_url.replace('?pgbouncer=true', '').replace('&pgbouncer=true', '')
         connect_args = {}
-        if 'supabase.co' in database_url:
+        if 'supabase.co' in clean_url:
             connect_args = {'sslmode': 'require'}
         engine = create_engine(
-            database_url,
+            clean_url,
             connect_args=connect_args,
             pool_pre_ping=True,  # Verify connections before use
             echo=False
