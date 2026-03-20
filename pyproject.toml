@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# These files load .env before importing backend modules — E402 is intentional
+"main.py" = ["E402"]
+"cron_update_valuations.py" = ["E402"]
+"backend/analytics/subscription_queries.py" = ["E402"]

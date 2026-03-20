@@ -20,7 +20,7 @@ router = APIRouter()
 async def get_market_message_endpoint(request: MarketMessageRequest):
     """
     Get tier-specific market message based on conditions.
-    
+
     Request body:
     {
         "fmv": 150.00,
@@ -35,7 +35,7 @@ async def get_market_message_endpoint(request: MarketMessageRequest):
         "sales_below": 6,
         "sales_above": 3
     }
-    
+
     Response:
     {
         "tier": {
@@ -60,9 +60,9 @@ async def get_market_message_endpoint(request: MarketMessageRequest):
             fmv=request.fmv,
             avg_listing_price=request.avg_listing_price
         )
-        
+
         logger.info(f"[MARKET_MESSAGE] Tier determined: {tier.get('tier_id')} for FMV={request.fmv}, avg={request.avg_listing_price}")
-        
+
         # If no tier could be determined, return error
         if tier.get('tier_id') is None:
             return {
@@ -76,7 +76,7 @@ async def get_market_message_endpoint(request: MarketMessageRequest):
                     "color": "#8e8e93"
                 }
             }
-        
+
         # Get tier-specific market message
         message = get_market_message(
             tier_id=tier["tier_id"],
@@ -90,14 +90,14 @@ async def get_market_message_endpoint(request: MarketMessageRequest):
             sales_below=request.sales_below,
             sales_above=request.sales_above
         )
-        
+
         logger.info(f"[MARKET_MESSAGE] Message type: {message.get('message_type')} for tier {tier.get('tier_id')}")
-        
+
         return {
             "tier": tier,
             "message": message
         }
-        
+
     except ValueError as e:
         logger.error(f"[MARKET_MESSAGE] ValueError: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -110,10 +110,10 @@ async def get_market_message_endpoint(request: MarketMessageRequest):
 async def get_liquidity_popup_endpoint(tier_id: str):
     """
     Get tier-specific content for liquidity risk popup.
-    
+
     Args:
         tier_id: Price tier (tier_1, tier_2, tier_3, tier_4, tier_5)
-    
+
     Response:
     {
         "title": "How Easy Is It to Sell This Card?",
@@ -128,11 +128,11 @@ async def get_liquidity_popup_endpoint(tier_id: str):
                 status_code=400,
                 detail=f"Invalid tier_id. Must be one of: {', '.join(valid_tiers)}"
             )
-        
+
         content = get_liquidity_popup_content(tier_id)
-        
+
         return content
-        
+
     except HTTPException:
         raise
     except Exception as e:

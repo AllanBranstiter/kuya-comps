@@ -7,7 +7,6 @@ Create Date: 2026-01-15 04:02:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '001_collections_phase2'
@@ -18,7 +17,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Create binders, cards, and price_history tables for Phase 2."""
-    
+
     # Create binders table
     op.create_table(
         'binders',
@@ -33,7 +32,7 @@ def upgrade() -> None:
     op.create_index('ix_binders_user_id', 'binders', ['user_id'])
     op.create_index('ix_binders_created_at', 'binders', ['created_at'])
     op.create_index('idx_binder_user_created', 'binders', ['user_id', 'created_at'])
-    
+
     # Create cards table
     op.create_table(
         'cards',
@@ -71,7 +70,7 @@ def upgrade() -> None:
     op.create_index('idx_card_binder_athlete', 'cards', ['binder_id', 'athlete'])
     op.create_index('idx_card_auto_update_stale', 'cards', ['auto_update', 'last_updated_at'])
     op.create_index('idx_card_review_required', 'cards', ['review_required'])
-    
+
     # Create price_history table
     op.create_table(
         'price_history',
@@ -87,7 +86,7 @@ def upgrade() -> None:
     op.create_index('ix_price_history_card_id', 'price_history', ['card_id'])
     op.create_index('ix_price_history_date_recorded', 'price_history', ['date_recorded'])
     op.create_index('idx_price_history_card_date', 'price_history', ['card_id', 'date_recorded'])
-    
+
     # Add foreign key constraint for cover_card_id (must be done after cards table exists)
     op.create_foreign_key(
         'fk_binders_cover_card_id',
@@ -101,10 +100,10 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop collections tables."""
-    
+
     # Drop foreign key constraint first
     op.drop_constraint('fk_binders_cover_card_id', 'binders', type_='foreignkey')
-    
+
     # Drop tables in reverse order
     op.drop_table('price_history')
     op.drop_table('cards')

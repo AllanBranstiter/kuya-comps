@@ -23,7 +23,7 @@ from backend.cache import CacheService
 def test_client():
     """
     Fixture that provides a FastAPI test client.
-    
+
     Usage:
         def test_endpoint(test_client):
             response = test_client.get("/health")
@@ -36,7 +36,7 @@ def test_client():
 def mock_cache_service():
     """
     Fixture that provides a mocked CacheService.
-    
+
     Returns cache misses by default - tests can override specific keys.
     """
     mock = AsyncMock(spec=CacheService)
@@ -50,7 +50,7 @@ def mock_cache_service():
 def sample_comp_items() -> List[CompItem]:
     """
     Fixture that provides sample CompItem objects for testing.
-    
+
     Returns a realistic set of card listings with varied prices and attributes.
     """
     return [
@@ -131,7 +131,7 @@ def sample_comp_items() -> List[CompItem]:
 def sample_active_listings() -> List[CompItem]:
     """
     Fixture that provides sample active listing CompItem objects.
-    
+
     Returns active (unsold) listings for testing.
     """
     return [
@@ -169,12 +169,12 @@ def sample_active_listings() -> List[CompItem]:
 def mock_scraper_sold(monkeypatch, sample_comp_items):
     """
     Fixture that mocks the sold comps scraper.
-    
+
     Returns sample sold items without making actual API calls.
     """
     async def mock_scrape(*args, **kwargs):
         return sample_comp_items
-    
+
     import scraper
     monkeypatch.setattr(scraper, "scrape_sold_comps", mock_scrape)
     return mock_scrape
@@ -184,12 +184,12 @@ def mock_scraper_sold(monkeypatch, sample_comp_items):
 def mock_scraper_active(monkeypatch, sample_active_listings):
     """
     Fixture that mocks the active listings scraper.
-    
+
     Returns sample active items without making actual API calls.
     """
     async def mock_scrape(*args, **kwargs):
         return sample_active_listings
-    
+
     import scraper
     monkeypatch.setattr(scraper, "scrape_active_listings_ebay_api", mock_scrape)
     return mock_scrape
@@ -199,7 +199,7 @@ def mock_scraper_active(monkeypatch, sample_active_listings):
 def mock_ebay_client(monkeypatch):
     """
     Fixture that mocks the eBay Browse API client.
-    
+
     Prevents actual API calls during tests.
     """
     mock_client = Mock()
@@ -215,7 +215,7 @@ def mock_ebay_client(monkeypatch):
             }
         ]
     })
-    
+
     import ebay_browse_client
     monkeypatch.setattr(ebay_browse_client, "EbayBrowseClient", lambda *args, **kwargs: mock_client)
     return mock_client
@@ -225,7 +225,7 @@ def mock_ebay_client(monkeypatch):
 def reset_cache_service():
     """
     Fixture that resets the cache service state between tests.
-    
+
     This runs automatically before each test.
     """
     # Reset any global cache state here if needed

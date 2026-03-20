@@ -18,31 +18,31 @@ logger = get_logger(__name__)
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """
     Middleware to add unique request ID to each request.
-    
+
     The request ID is:
     - Generated as a UUID4
     - Added to response headers as X-Request-ID
     - Stored in request.state for use in logging
     - Added to Sentry scope if Sentry is enabled
     """
-    
+
     async def dispatch(self, request: Request, call_next):
         """
         Process request and add request ID.
-        
+
         Args:
             request: Incoming request
             call_next: Next middleware/handler in chain
-            
+
         Returns:
             Response with X-Request-ID header
         """
         # Generate or retrieve request ID
         request_id = request.headers.get('X-Request-ID') or str(uuid.uuid4())
-        
+
         # Store in request state for logging
         request.state.request_id = request_id
-        
+
         # Add to Sentry scope if available
         try:
             import sentry_sdk
@@ -51,7 +51,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         except ImportError:
             # Sentry not installed, skip
             pass
-        
+
         # Log request start
         logger.info(
             f"Request started: {request.method} {request.url.path}",
@@ -62,14 +62,14 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 "client_host": request.client.host if request.client else None,
             }
         )
-        
+
         # Process request
         try:
             response = await call_next(request)
-            
+
             # Add request ID to response headers
             response.headers['X-Request-ID'] = request_id
-            
+
             # Log request completion
             logger.info(
                 f"Request completed: {request.method} {request.url.path} - {response.status_code}",
@@ -80,9 +80,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                     "status_code": response.status_code,
                 }
             )
-            
+
             return response
-            
+
         except Exception as e:
             # Log request error
             logger.error(

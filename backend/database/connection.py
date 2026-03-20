@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 def get_database_url() -> str:
     """
     Get database URL from environment or use default SQLite.
-    
+
     Returns:
         Database URL string
     """
@@ -25,11 +25,11 @@ def get_database_url() -> str:
 def get_engine():
     """
     Create and return database engine.
-    
+
     For SQLite, we use check_same_thread=False and StaticPool for async compatibility.
     """
     database_url = get_database_url()
-    
+
     if database_url.startswith('sqlite'):
         # SQLite-specific configuration for async/multi-threading
         engine = create_engine(
@@ -41,7 +41,7 @@ def get_engine():
     else:
         # PostgreSQL or other databases
         engine = create_engine(database_url, echo=False)
-    
+
     return engine
 
 
@@ -55,7 +55,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db():
     """
     Initialize database tables.
-    
+
     Creates all tables defined in schema.py if they don't exist.
     """
     try:
@@ -69,10 +69,10 @@ def init_db():
 def get_db() -> Session:
     """
     Dependency function to get database session.
-    
+
     Yields:
         Database session
-    
+
     Usage in FastAPI:
         @app.get("/endpoint")
         def endpoint(db: Session = Depends(get_db)):

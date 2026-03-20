@@ -1,14 +1,13 @@
 """add_database_indexes_for_phase4
 
 Revision ID: d52e4a2e9844
-Revises: 
+Revises:
 Create Date: 2025-12-19 18:12:49.112105
 
 """
 from typing import Sequence, Union
 
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
