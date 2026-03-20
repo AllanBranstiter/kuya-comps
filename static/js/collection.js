@@ -812,8 +812,11 @@ const CollectionModule = (function() {
                         </div>
                     </div>
                     
-                    <!-- Hidden field for search query -->
+                    <!-- Hidden fields for search query and quick filters -->
                     <input type="hidden" id="card-search-query" value="${escapeHtmlAttr(searchQuery)}">
+                    <input type="hidden" id="card-exclude-lots" value="${cardData.excludeLots ? 'true' : 'false'}">
+                    <input type="hidden" id="card-raw-only" value="${cardData.rawOnly ? 'true' : 'false'}">
+                    <input type="hidden" id="card-base-only" value="${cardData.baseOnly ? 'true' : 'false'}">
                     
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit-btn" style="width: 100%; padding: 1rem; background: var(--gradient-primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); margin-top: 1rem;">
@@ -964,7 +967,10 @@ const CollectionModule = (function() {
             newBinderName: document.getElementById('new-binder-name')?.value || null,
             tags: document.getElementById('card-tags')?.value || null,
             autoUpdate: document.getElementById('card-auto-update')?.checked || false,
-            searchQuery: document.getElementById('card-search-query')?.value ?? ''
+            searchQuery: document.getElementById('card-search-query')?.value ?? '',
+            excludeLots: document.getElementById('card-exclude-lots')?.value === 'true',
+            rawOnly: document.getElementById('card-raw-only')?.value === 'true',
+            baseOnly: document.getElementById('card-base-only')?.value === 'true',
         };
         
         console.log('[COLLECTION] Form data:', formData);
@@ -1100,6 +1106,9 @@ const CollectionModule = (function() {
                 current_fmv: formData.currentFmv,
                 search_query_string: formData.searchQuery || '',
                 auto_update: formData.autoUpdate,
+                exclude_lots: formData.excludeLots || false,
+                raw_only: formData.rawOnly || false,
+                base_only: formData.baseOnly || false,
                 tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
             };
             
@@ -1699,7 +1708,7 @@ const CollectionModule = (function() {
                 // Status indicators
                 let statusHTML = '';
                 if (card.review_required) {
-                    statusHTML += `<span class="review-flag" title="${escapeHtmlAttr(card.review_reason || 'Review required')}" style="color: #ff3b30; font-size: 1rem; cursor: help;">⚠️</span> `;
+                    statusHTML += `<span class="review-flag" title="${escapeHtmlAttr(card.review_reason || 'Review required')} — Click to update price" style="color: #ff3b30; font-size: 1rem; cursor: pointer;" onclick="CollectionModule.refreshCardPrice('${card.id}', '${card.binder_id}', this)">⚠️</span> `;
                 }
                 if (isStale && card.auto_update) {
                     statusHTML += `<span class="stale-warning" title="Click to update price" style="color: #ff9500; font-size: 0.85rem; cursor: pointer;" onclick="CollectionModule.refreshCardPrice('${card.id}', '${card.binder_id}', this)">⏰</span>`;
