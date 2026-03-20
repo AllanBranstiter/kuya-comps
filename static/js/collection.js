@@ -2104,28 +2104,28 @@ const CollectionModule = (function() {
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                                 <div class="auth-form-group" style="margin-bottom: 0;">
                                     <label>Year</label>
-                                    <input type="text" id="edit-card-year" value="${card.year || ''}" maxlength="4">
+                                    <input type="text" id="edit-card-year" value="${escapeHtmlAttr(card.year || '')}" maxlength="4">
                                 </div>
                                 
                                 <div class="auth-form-group" style="margin-bottom: 0;">
                                     <label>Card Number</label>
-                                    <input type="text" id="edit-card-number" value="${card.card_number || ''}">
+                                    <input type="text" id="edit-card-number" value="${escapeHtmlAttr(card.card_number || '')}">
                                 </div>
                             </div>
                             
                             <div class="auth-form-group">
                                 <label>Set</label>
-                                <input type="text" id="edit-card-set" value="${card.set_name || ''}">
+                                <input type="text" id="edit-card-set" value="${escapeHtmlAttr(card.set_name || '')}">
                             </div>
                             
                             <div class="auth-form-group">
                                 <label>Athlete Name</label>
-                                <input type="text" id="edit-card-athlete" value="${card.athlete || ''}">
+                                <input type="text" id="edit-card-athlete" value="${escapeHtmlAttr(card.athlete || '')}">
                             </div>
                             
                             <div class="auth-form-group">
                                 <label>Variation / Parallel</label>
-                                <input type="text" id="edit-card-variation" value="${card.variation || ''}">
+                                <input type="text" id="edit-card-variation" value="${escapeHtmlAttr(card.variation || '')}">
                             </div>
                         </div>
                         
@@ -2151,7 +2151,7 @@ const CollectionModule = (function() {
                                 
                                 <div class="auth-form-group" style="margin-bottom: 0;">
                                     <label>Grade</label>
-                                    <input type="text" id="edit-card-grade" value="${card.grade || ''}" maxlength="4">
+                                    <input type="text" id="edit-card-grade" value="${escapeHtmlAttr(card.grade || '')}" maxlength="4">
                                 </div>
                             </div>
                         </div>
