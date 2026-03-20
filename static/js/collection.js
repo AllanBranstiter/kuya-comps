@@ -2370,7 +2370,7 @@ const CollectionModule = (function() {
                         const date = new Date(h.date_recorded).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                         const value = parseFloat(h.value).toFixed(2);
                         const source = h.confidence || '';
-                        return `<tr style="border-bottom: 1px solid var(--border-color);" id="history-row-${h.id}">
+                        return `<tr style="border-bottom: 1px solid var(--border-color);" id="history-row-${h.id}" data-value="${h.value}">
                             <td style="padding: 0.4rem 0.75rem; font-size: 0.85rem; color: var(--subtle-text-color);">${date}</td>
                             <td style="padding: 0.4rem 0.75rem; font-size: 0.85rem; font-weight: 600; color: var(--text-color); text-align: right;">$${value}</td>
                             <td style="padding: 0.4rem 0.75rem; font-size: 0.75rem; color: var(--subtle-text-color); text-align: right;">
@@ -3007,6 +3007,13 @@ const CollectionModule = (function() {
 
             const row = document.getElementById(`history-row-${entryId}`);
             if (row) row.remove();
+
+            // Update Current FMV field to the newest remaining history entry
+            const firstRemaining = document.querySelector('#price-history-content tbody tr');
+            const fmvInput = document.getElementById('edit-card-current-fmv');
+            if (fmvInput && firstRemaining) {
+                fmvInput.value = parseFloat(firstRemaining.dataset.value).toFixed(2);
+            }
         } catch (e) {
             console.error('[COLLECTION] Error deleting history entry:', e);
             alert('Failed to delete entry: ' + (e.message || 'Unknown error'));
