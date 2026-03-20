@@ -687,28 +687,28 @@ const CollectionModule = (function() {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                             <div class="auth-form-group" style="margin-bottom: 0;">
                                 <label>Year</label>
-                                <input type="text" id="card-year" placeholder="e.g., 2024" value="${yearValue}" maxlength="4" style="${yearStyle}">
+                                <input type="text" id="card-year" placeholder="e.g., 2024" value="${escapeHtmlAttr(yearValue)}" maxlength="4" style="${yearStyle}">
                             </div>
                             
                             <div class="auth-form-group" style="margin-bottom: 0;">
                                 <label>Card Number</label>
-                                <input type="text" id="card-number" placeholder="e.g., 1, RC-1" value="${cardNumberValue}" style="${cardNumberStyle}">
+                                <input type="text" id="card-number" placeholder="e.g., 1, RC-1" value="${escapeHtmlAttr(cardNumberValue)}" style="${cardNumberStyle}">
                             </div>
                         </div>
                         
                         <div class="auth-form-group">
                             <label>Set</label>
-                            <input type="text" id="card-set" placeholder="e.g., Topps Chrome" value="${setValue}" style="${setStyle}">
+                            <input type="text" id="card-set" placeholder="e.g., Topps Chrome" value="${escapeHtmlAttr(setValue)}" style="${setStyle}">
                         </div>
                         
                         <div class="auth-form-group">
                             <label>Athlete Name</label>
-                            <input type="text" id="card-athlete" placeholder="e.g., Shohei Ohtani" value="${athleteValue}" style="${athleteStyle}">
+                            <input type="text" id="card-athlete" placeholder="e.g., Shohei Ohtani" value="${escapeHtmlAttr(athleteValue)}" style="${athleteStyle}">
                         </div>
                         
                         <div class="auth-form-group">
                             <label>Variation / Parallel</label>
-                            <input type="text" id="card-variation" placeholder="e.g., Silver Refractor, Base" value="${variationValue}" style="${variationStyle}">
+                            <input type="text" id="card-variation" placeholder="e.g., Silver Refractor, Base" value="${escapeHtmlAttr(variationValue)}" style="${variationStyle}">
                         </div>
                     </div>
                     
@@ -1907,7 +1907,7 @@ const CollectionModule = (function() {
                     
                     <div class="auth-form-group">
                         <label>Binder Name</label>
-                        <input type="text" id="edit-binder-name" value="${binderName}" required>
+                        <input type="text" id="edit-binder-name" value="${escapeHtmlAttr(binderName)}" required>
                     </div>
                     
                     <button type="submit" class="auth-submit-btn" style="width: 100%; padding: 1rem; background: var(--gradient-primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3); margin-top: 1rem;">
@@ -2188,7 +2188,7 @@ const CollectionModule = (function() {
                             
                             <div class="auth-form-group">
                                 <label>Tags (comma-separated)</label>
-                                <input type="text" id="edit-card-tags" value="${tagsValue}">
+                                <input type="text" id="edit-card-tags" value="${escapeHtmlAttr(tagsValue)}">
                             </div>
                         </div>
                         
