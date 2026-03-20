@@ -2038,7 +2038,11 @@ const CollectionModule = (function() {
             }
             
             // Format tags for display
-            const tagsValue = Array.isArray(card.tags) ? card.tags.join(', ') : (card.tags || '');
+            let parsedTags = card.tags;
+            if (typeof card.tags === 'string') {
+                try { parsedTags = JSON.parse(card.tags); } catch (e) { /* plain string, use as-is */ }
+            }
+            const tagsValue = Array.isArray(parsedTags) ? parsedTags.join(', ') : (parsedTags || '');
             
             // Create modal overlay
             const overlay = document.createElement('div');
@@ -2166,7 +2170,7 @@ const CollectionModule = (function() {
                                 
                                 <div class="auth-form-group" style="margin-bottom: 0;">
                                     <label>Date Purchased</label>
-                                    <input type="date" id="edit-card-purchase-date" value="${card.purchase_date || ''}" style="width: 100%; padding: 0.875rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: var(--font-family); background: var(--card-background); color: var(--text-color);">
+                                    <input type="date" id="edit-card-purchase-date" value="${card.purchase_date ? card.purchase_date.split('T')[0] : ''}" style="width: 100%; padding: 0.875rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: var(--font-family); background: var(--card-background); color: var(--text-color);">
                                 </div>
                             </div>
                             
