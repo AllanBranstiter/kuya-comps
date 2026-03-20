@@ -27,6 +27,7 @@ def get_engine():
     Create and return database engine.
 
     For SQLite, we use check_same_thread=False and StaticPool for async compatibility.
+    For PostgreSQL (Supabase), we add SSL and connection pool settings.
     """
     database_url = get_database_url()
 
@@ -39,8 +40,16 @@ def get_engine():
             echo=False  # Set to True for SQL query logging
         )
     else:
-        # PostgreSQL or other databases
-        engine = create_engine(database_url, echo=False)
+        # PostgreSQL — Supabase requires SSL
+        connect_args = {}
+        if 'supabase.co' in database_url:
+            connect_args = {'sslmode': 'require'}
+        engine = create_engine(
+            database_url,
+            connect_args=connect_args,
+            pool_pre_ping=True,  # Verify connections before use
+            echo=False
+        )
 
     return engine
 
@@ -56,10 +65,25 @@ def init_db():
     """
     Initialize database tables.
 
-    Creates all tables defined in schema.py if they don't exist.
+    When using SQLite: creates all tables (full local setup).
+    When using PostgreSQL: only creates feedback tables (binders/cards/price_history
+    already exist in Supabase and should not be recreated or altered).
     """
+    from backend.database.schema import FeedbackSubmission, FeedbackScreenshot
+    database_url = get_database_url()
+
     try:
-        Base.metadata.create_all(bind=engine)
+        if database_url.startswith('sqlite'):
+            # SQLite: create all tables including collection tables
+            Base.metadata.create_all(bind=engine)
+        else:
+            # PostgreSQL (Supabase): only create feedback tables
+            # Collection tables (binders, cards, price_history) already exist in Supabase
+            feedback_tables = [
+                FeedbackSubmission.__table__,
+                FeedbackScreenshot.__table__,
+            ]
+            Base.metadata.create_all(bind=engine, tables=feedback_tables)
         logger.info("Database tables initialized successfully")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
