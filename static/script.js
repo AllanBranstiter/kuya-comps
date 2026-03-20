@@ -4944,9 +4944,14 @@ async function saveCurrentSearchToPortfolio() {
     const currentFMV = window.marketValueGlobal ? Math.round(window.marketValueGlobal * 100) / 100 : null;
     console.log('[SAVE] Passing FMV to modal:', currentFMV);
     
-    // Open the Add to Collection modal with the search query and rounded FMV
+    // Open the Add to Collection modal with the search query, rounded FMV, and active filters
     if (window.CollectionModule && window.CollectionModule.showAddToCollectionModal) {
-        window.CollectionModule.showAddToCollectionModal(searchQuery, currentFMV);
+        const filters = {
+            excludeLots: document.getElementById('exclude_lots')?.checked || false,
+            rawOnly: document.getElementById('ungraded_only')?.checked || false,
+            baseOnly: document.getElementById('base_only')?.checked || false,
+        };
+        window.CollectionModule.showAddToCollectionModal(searchQuery, currentFMV, filters);
     } else {
         console.error('[SAVE] CollectionModule not available');
         alert('Collection feature is not available. Please refresh the page.');
