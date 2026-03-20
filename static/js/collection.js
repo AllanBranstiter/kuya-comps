@@ -2686,10 +2686,15 @@ const CollectionModule = (function() {
                 }
             });
 
-            const result = await response.json();
+            let result = {};
+            try {
+                result = await response.json();
+            } catch (e) {
+                // Server returned non-JSON (e.g. proxy-level 500)
+            }
 
             if (!response.ok) {
-                throw new Error(result.detail || 'Update failed');
+                throw new Error(result.detail || `Server error ${response.status}`);
             }
 
             if (result.error) {

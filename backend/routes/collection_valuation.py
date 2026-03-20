@@ -110,10 +110,10 @@ async def update_card_value(
     - `num_filtered`: Number of listings filtered by keyword firewall
     - `num_outliers`: Number of outliers removed
     """
-    logger.info(f"[API] Manual valuation update requested for card {card_id} by user {current_user['id']}")
+    logger.info(f"[API] Manual valuation update requested for card {card_id} by user {current_user['sub']}")
 
     # Verify card exists and user owns it
-    card = get_card_by_id(db, card_id, current_user['id'])
+    card = get_card_by_id(db, card_id, current_user['sub'])
     if not card:
         raise HTTPException(status_code=404, detail="Card not found or access denied")
 
@@ -127,7 +127,7 @@ async def update_card_value(
     result = await manually_update_card(
         db=db,
         card_id=card_id,
-        user_id=current_user['id'],
+        user_id=current_user['sub'],
         scraper_func=scrape_sold_comps,
         api_key=api_key
     )
