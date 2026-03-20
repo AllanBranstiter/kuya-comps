@@ -16,6 +16,7 @@ sentry-sdk[fastapi]
 sqlalchemy
 alembic
 aiosqlite
+psycopg2-binary
 pytest
 pytest-asyncio
 pytest-cov
