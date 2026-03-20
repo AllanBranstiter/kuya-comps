@@ -1,9 +1,10 @@
-# eBay Baseball Card Comps Tool v0.6.0 (Production Beta)
+# eBay Baseball Card Comps Tool v0.7.0
 
-A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
+A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations, intelligent deal-finding, and a personal card collection tracker with automatic price history.
 
 ## Features
 
+### Comps & Analysis
 *   **Dual Search Display**: Automatically shows both sold listings and active listings below FMV
 *   **Advanced Filtering**: Raw Only, Base Only, Exclude Autographs, and Buy It Now Only filters
 *   **Smart Deal Finding**: Active listings filtered to show only items priced at or below Fair Market Value
@@ -11,8 +12,22 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
-*   **Intelligent Grading Advisor**: A comprehensive tool that helps collectors decide whether grading a raw card is financially worthwhile
-    - Enter PSA market prices and population data for grades 1-10
+
+### Collection Tracker
+*   **Binders & Cards**: Organize cards into named binders with full CRUD support
+*   **Save from Search**: Save a card directly from the Comps tab — search query and active filters (Raw Only, Base Only, Exclude Lots) are automatically stored with the card
+*   **Price History Tracking**: Every card maintains a full price history
+    - First entry uses purchase price + purchase date if both are provided; otherwise uses current FMV
+    - Subsequent entries are created automatically each time the FMV is updated
+*   **Automatic Price Refresh**: Click ⏰ (stale) or ⚠️ (flagged) in the Status column to re-scrape eBay and update the card's FMV using the same volume-weighted algorithm as the Comps tab
+*   **Status Indicators**: ✓ (up to date, shows days until next refresh), ⏰ (stale, click to refresh), ⚠️ (flagged, click to retry)
+*   **Price History Modal**: View full price history chart and table inside the Edit Card dialog; delete individual entries with instant Supabase sync
+*   **ROI Tracking**: Each card shows cost basis, current FMV, and % gain/loss
+*   **Edit Card**: Update any card field; FMV changes automatically create a new price history entry
+
+### Grading Advisor
+*   **Intelligent Grading Advisor**: Comprehensive tool to decide whether grading a raw card is financially worthwhile
+    - Enter PSA market prices and population data for grades 1–10
     - Input raw card purchase price and grading fees
     - Get a color-coded verdict (Green Light, Yellow Caution, Red Stop)
     - View scenario analysis (Optimistic, Realistic, Pessimistic outcomes)
@@ -20,13 +35,12 @@ A web application for scraping and analyzing eBay baseball card sold/active list
     - Get personalized "Kuya's Advice" with recommendations
     - Compare strategies for flippers vs. long-term collectors
     - Population distribution visualization
-    - Copy results to share with others
+
+### General
 *   **First-Time User Onboarding**: Interactive 9-step guided tour using Driver.js
-*   **Password Protection**: Secure access with session management
+*   **Subscription Tiers**: Free, Member, and Founder tiers with rate-limited feature access
 *   **Clean UI**: Modern interface with responsive design
-*   **Accessibility**: WCAG 2.1 Level A & AA compliant (skip-to-content, color contrast)
-*   **Reusable Components**: Modal system with focus trapping and ARIA support
-*   **Production Ready**: Environment-based configuration and deployment support
+*   **Accessibility**: WCAG 2.1 Level A & AA compliant
 
 ## Tech Stack
 
@@ -34,25 +48,23 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Framework**: Python with [FastAPI](https://fastapi.tiangolo.com/)
 *   **Server**: uvicorn (development) / gunicorn (production)
 *   **Data Source**: [SearchAPI.io](https://www.searchapi.io/) for eBay listings scraping
+*   **Database**: Supabase (PostgreSQL) via Supabase Python client + SQLAlchemy (feedback tables only)
+*   **Auth**: Supabase JWT — all user-facing endpoints verify `Authorization: Bearer <token>`
 *   **Caching**: Redis with aioredis for aggressive API cost optimization
 *   **Rate Limiting**: slowapi (10 requests/minute per IP)
 *   **Monitoring**: Sentry (production), custom `/metrics` endpoint
-*   **ML/Analytics**: scikit-learn, numpy, pandas for price analysis and FMV calculations
+*   **ML/Analytics**: scikit-learn, numpy, pandas, scipy for volume-weighted FMV calculations
 
 ### Frontend
 *   **UI**: Vanilla HTML, CSS, and JavaScript (static files)
 *   **Styling**: External CSS with WCAG 2.1 AA compliant colors
 *   **Visualization**: Interactive beeswarm charts for price distribution
-*   **Security**: Password-protected with session management
-*   **Accessibility**: Skip-to-content link, proper color contrast ratios
+*   **Collection Module**: [`static/js/collection.js`](static/js/collection.js) — binders, cards, price history, edit/delete, price refresh
 *   **Components**: Reusable Modal class with focus trapping, escape key handling, ARIA attributes
 
 ### Architecture
 *   **Modular Backend**: Organized in [`/backend/`](backend/) directory with routes, services, models, middleware, config, and cache modules
-*   **API Endpoints**:
-    - `/comps` - Sold listings for market analysis
-    - `/active` - Current active listings
-    - `/fmv` - Fair market value calculations with quick/patient sale ranges
+*   **API Endpoints**: See [API](#api) section below
 *   **Middleware Chain**: RequestID → Metrics → SecurityHeaders (execution in reverse order of definition)
 *   **Static File Serving**: Frontend served from root path (must be mounted last in FastAPI)
 *   **Caching Strategy**: Redis layer minimizes SearchAPI.io costs and improves response times
@@ -61,37 +73,51 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 
 ```
 kuya-comps/
-├── backend/           # All server-side logic
-│   ├── routes/        # API endpoint handlers
-│   │   └── grading_advisor.py           # API endpoints for grading analysis
-│   ├── services/      # Business logic and external API integration
-│   │   └── grading_advisor_service.py   # Business logic for grading recommendations
-│   ├── models/        # Data models and schemas
-│   │   └── grading_advisor_schemas.py   # Pydantic models for Grading Advisor
-│   ├── middleware/    # Request processing chain
-│   ├── config/        # Configuration management
-│   └── cache/         # Redis caching layer
-├── static/            # Frontend UI files (served at root)
-│   ├── index.html     # Main application (~545 lines)
-│   ├── style.css      # Main stylesheet (extracted from index.html)
-│   ├── css/           # Component stylesheets
-│   │   ├── onboarding.css  # Onboarding tour styles (Driver.js theme)
-│   │   ├── shared-styles.css  # Shared styles (WCAG AA colors)
-│   │   └── grading-advisor.css  # Styles for Grading Advisor
-│   └── js/            # JavaScript modules
-│       ├── modal.js   # Reusable modal component
-│       ├── onboarding.js  # First-time user tour (Driver.js)
-│       ├── auth.js    # Authentication (uses Modal)
-│       ├── grading-advisor.js   # Frontend for Grading Advisor tab
-│       └── ...        # Other modules
-├── docs/              # Documentation
-│   ├── SECURITY.md
-│   └── MODAL_COMPONENT_API.md  # Modal component documentation
-├── tests/             # Test suite
-├── main.py            # FastAPI application entry point
-├── requirements.txt   # Python dependencies
-├── Procfile           # Production deployment configuration
-└── .gitleaks.toml     # Secret scanning configuration
+├── backend/
+│   ├── routes/
+│   │   ├── collection_valuation.py   # /api/v1/cards/{id}/update-value, admin batch endpoints
+│   │   ├── billing.py                # /usage, subscription info
+│   │   ├── profile.py                # /api/profile
+│   │   ├── grading_advisor.py        # /api/grading-advisor
+│   │   └── ...                       # comps, fmv, health, feedback, admin
+│   ├── services/
+│   │   ├── valuation_service.py      # Automated FMV updates using volume-weighted algorithm
+│   │   ├── fmv_service.py            # Core volume-weighted FMV calculation (shared)
+│   │   ├── collection_service.py     # Binder/card CRUD, price history writes
+│   │   ├── subscription_service.py   # Tier limits and usage tracking
+│   │   └── ...
+│   ├── database/
+│   │   ├── connection.py             # SQLAlchemy engine (Supabase pooler, SSL, feedback-only init)
+│   │   └── schema.py                 # ORM models: Binder, Card, PriceHistory, FeedbackSubmission
+│   ├── models/
+│   │   ├── schemas.py                # CompItem and related Pydantic models
+│   │   └── collection_schemas.py     # Collection-specific Pydantic models
+│   ├── middleware/
+│   ├── config/
+│   └── cache/
+├── static/
+│   ├── index.html                    # Main application
+│   ├── style.css
+│   ├── script.js                     # Comps & Analysis tab logic
+│   ├── css/
+│   │   ├── onboarding.css
+│   │   ├── shared-styles.css
+│   │   └── grading-advisor.css
+│   └── js/
+│       ├── collection.js             # Collection tracker module
+│       ├── modal.js
+│       ├── auth.js
+│       ├── subscription.js
+│       ├── onboarding.js
+│       ├── grading-advisor.js
+│       └── ...
+├── docs/
+├── tests/
+├── main.py
+├── scraper.py
+├── requirements.txt
+├── Procfile
+└── .gitleaks.toml
 ```
 
 ## Setup and Running
@@ -106,7 +132,7 @@ kuya-comps/
 2.  **Set up Environment Variables:**
     ```bash
     cp .env.example .env
-    # Edit .env and add your SearchAPI.io API key
+    # Edit .env and add your SearchAPI.io API key and Supabase credentials
     ```
 
 3.  **Run the application:**
@@ -115,318 +141,168 @@ kuya-comps/
     ```
 
 4.  **Open your browser:**
-    Navigate to [http://127.0.0.1:8000](http://127.0.0.1:8000) to use the application.
+    Navigate to [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
 ### Production Deployment (Railway)
 
-1.  **Push to GitHub:**
-    - Ensure `.env` is in `.gitignore` (already configured)
-    - Push your code to a GitHub repository
+1.  **Push to GitHub** — ensure `.env` is in `.gitignore`
 
-2.  **Deploy on Railway:**
-    - Connect your GitHub repository to Railway
-    - Set environment variable: `SEARCH_API_KEY=your_searchapi_io_key`
-    - Railway will automatically detect the Python app and deploy using the Procfile
+2.  **Deploy on Railway** — connect your GitHub repo; Railway auto-detects Python via `Procfile`
 
 3.  **Environment Variables Required:**
-    - `SEARCH_API_KEY`: Your SearchAPI.io API key (required)
-    - `EBAY_APP_ID`, `EBAY_DEV_ID`, `EBAY_CERT_ID`: eBay API credentials (recommended)
-    - `ENVIRONMENT`: Set to `production`
-    - `SENTRY_DSN`: Error monitoring (optional but recommended)
-    - `REDIS_URL`: Automatically provided by Railway/Render for caching
-    - `PORT`: Automatically set by hosting provider
-    
-    See `.env.example` for a complete list of configuration options.
+    - `SEARCH_API_KEY` — SearchAPI.io API key (required)
+    - `FEEDBACK_DATABASE_URL` — Supabase connection pooler URL (required for collection features)
+      - Use the **Transaction pooler** URL from Supabase → Settings → Database → Connection Pooling (port 6543)
+      - Example: `postgresql://postgres.xxxx:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres`
+    - `SUPABASE_URL` — your Supabase project URL
+    - `SUPABASE_KEY` — your Supabase service role key
+    - `EBAY_APP_ID`, `EBAY_DEV_ID`, `EBAY_CERT_ID` — eBay API credentials (recommended)
+    - `ENVIRONMENT` — set to `production`
+    - `SENTRY_DSN` — error monitoring (optional)
+    - `REDIS_URL` — automatically provided by Railway for caching
+    - `ADMIN_USER_IDS`, `ADMIN_EMAILS` — comma-separated admin identifiers
+
+### Supabase Setup
+
+The collection features require several tables in your Supabase project. Run the following in Supabase SQL Editor if any columns are missing:
+
+```sql
+-- Ensure all card columns exist
+ALTER TABLE cards
+    ADD COLUMN IF NOT EXISTS search_query_string TEXT,
+    ADD COLUMN IF NOT EXISTS auto_update BOOLEAN DEFAULT TRUE,
+    ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMP WITH TIME ZONE,
+    ADD COLUMN IF NOT EXISTS review_required BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS review_reason TEXT,
+    ADD COLUMN IF NOT EXISTS no_recent_sales BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS exclude_lots BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS raw_only BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS base_only BOOLEAN DEFAULT FALSE;
+
+-- Allow users to delete their own price history entries
+CREATE POLICY "Users can delete their own price history"
+ON price_history FOR DELETE
+USING (
+    EXISTS (
+        SELECT 1 FROM cards
+        WHERE cards.id = price_history.card_id
+        AND cards.user_id = auth.uid()::text
+    )
+);
+```
 
 ## API
 
-The application exposes the following main API endpoints:
-
-*   **`GET /comps`** - Search sold listings for market analysis
-    - Returns historical sold data with price statistics
-    - Supports filtering: raw only, base only, exclude autographs
-    - Cached via Redis to minimize API costs
-
-*   **`GET /active`** - Search active listings (current market)
-    - Returns listings currently available on eBay
-    - Filtered to show only items at or below Fair Market Value
-    - Supports Buy It Now only filter
-    - Includes discount percentage calculations
-
-*   **`GET /fmv`** - Fair Market Value calculations
-    - Advanced price analysis using ML models
-    - Quick Sale vs Patient Sale ranges
-    - Volume-weighted price calculations
-    - PSA grade-specific analysis
-
-*   **`POST /api/grading-advisor`** - Intelligent Grading Advisor analysis
-    - Accepts PSA market prices, population data, raw card cost, and grading fees
-    - Returns expected value calculations, break-even grade, and scenario analysis
-    - Provides color-coded verdict (Green Light, Yellow Caution, Red Stop)
-    - Generates personalized "Kuya's Advice" recommendations
-    - Includes flipper vs. collector strategy comparisons
-
-*   **`GET /metrics`** - Monitoring endpoint
-    - Custom metrics for observability
-    - Request counts and performance data
-
-*   **`POST /api/grading-advisor/analyze`** - Analyze a card for grading value
-    - Returns grade value analysis with premium calculations
-    - Market comparisons across grading companies
-    - Intelligent grading recommendations
-
-*   **`GET /api/grading-advisor/population/{card_id}`** - Get population report data
-    - Population data for specific cards
-    - Market supply analysis
-
-All endpoints support comprehensive filtering and include rate limiting (10 requests/minute per IP).
+*   **`GET /comps`** — Sold listings for market analysis
+*   **`GET /active`** — Active listings at or below FMV
+*   **`POST /fmv`** — Volume-weighted Fair Market Value calculation
+*   **`POST /api/v1/cards/{card_id}/update-value`** — Trigger FMV refresh for a single card (auth required)
+    - Scrapes eBay using the card's stored search query and saved filters
+    - Uses the same volume-weighted FMV algorithm as the Comps tab
+    - Updates `current_fmv`, `last_updated_at`, and writes a new `price_history` entry
+    - Flags with ⚠️ if zero sales found; always updates if ≥ 1 sale
+*   **`POST /admin/api/valuation/batch-update`** — Batch FMV update for all stale cards (admin only)
+*   **`GET /admin/api/valuation/stats`** — Valuation statistics dashboard (admin only)
+*   **`GET /usage`** — Current user's tier and usage stats
+*   **`POST /api/grading-advisor`** — Grading analysis with expected value calculations
+*   **`GET /metrics`** — Application performance metrics
 
 ## Security
 
-🔒 **Important**: This project includes multiple layers of protection to prevent secrets from being committed to Git.
+- **Automated Secret Scanning**: Pre-commit hook using [gitleaks](https://github.com/gitleaks/gitleaks)
+- **Comprehensive `.gitignore`**: Excludes `.env`, credentials, private keys
+- **Environment Variables**: API keys handled server-side only
+- **JWT Authentication**: All collection endpoints verify Supabase Bearer tokens
+- **Row Level Security**: Supabase RLS policies control per-user data access
+- **Secure API Routing**: Keys never exposed to the frontend
 
-- **Automated Secret Scanning**: Pre-commit hook using [gitleaks](https://github.com/gitleaks/gitleaks) scans for API keys before every commit
-- **Comprehensive `.gitignore`**: Excludes `.env` files, credentials, private keys, and other sensitive data
-- **Custom Detection Rules**: Project-specific patterns in `.gitleaks.toml` detect eBay API, SearchAPI, and other keys
-- **Environment Variables**: API keys are handled securely on the backend via environment variables
-- **Password Protection**: Prevents unauthorized access to the application
-- **Secure API Routing**: All API calls are routed through the backend, never exposing keys to the frontend
-
-**📚 For detailed security guidelines**, see [`docs/SECURITY.md`](docs/SECURITY.md) for:
-- Setting up your environment securely
-- What to do if you accidentally commit a secret
-- Testing the security setup
-- Best practices for production deployments
+See [`docs/SECURITY.md`](docs/SECURITY.md) for full security guidelines.
 
 ## Performance & Cost Optimization
 
-The application implements several strategies to manage API costs and maintain performance:
-
-*   **Aggressive Caching**: Redis caching layer reduces SearchAPI.io requests (pay-per-request model)
-*   **Rate Limiting**: 10 requests/minute per IP prevents abuse and manages API costs
-*   **Smart FMV Calculations**: ML-powered analytics reduce need for redundant searches
-*   **Auction Detection**: Intelligent parsing using "bid", "bids", or "auction" in buying format field
-*   **Middleware Optimization**: Execution order matters—reverse of [`add_middleware()`](main.py) calls
-
-## Important Technical Notes
-
-*   **API Keys**: Always server-side only; frontend never touches credentials
-*   **Scraping Method**: SearchAPI.io is the canonical source; eBay API only for FMV cross-validation
-*   **Middleware Order**: Execution is reverse of definition order in code
-*   **Redis Requirement**: Required for production efficiency and cost management
-*   **Security Scanning**: gitleaks pre-commit hook scans for leaked secrets; `.env` never committed
+*   **Aggressive Caching**: Redis reduces SearchAPI.io requests
+*   **Rate Limiting**: 10 requests/minute per IP
+*   **Connection Pooling**: Supabase transaction pooler for Railway compatibility
+*   **Middleware Optimization**: Reverse execution order of `add_middleware()` calls
 
 ## Version History
 
-<<<<<<< HEAD
-### Version 0.5.2 (First-Time User Onboarding) - Current
+### Version 0.7.0 (Collection Price History & FMV Fix)
 
-Version 0.5.2 introduces an interactive onboarding tour to help first-time users understand the application's features. The tour uses Driver.js v1.3.1 to guide users through 9 key UI elements with highlighting and informative popovers.
+**Price History Tracking:**
+- When a card is added, the first price history entry uses the purchase price + purchase date (if both are provided); otherwise falls back to current FMV at today's date
+- Each FMV update (manual or automated) automatically appends a new price history entry
+- Full price history is displayed as a line chart + table inside the Edit Card modal
+- Individual history entries can be deleted from the UI; deletions sync immediately to Supabase
 
-**Onboarding Tour:**
-- **Interactive 9-Step Tour**: Guides new users through main features
-  - Welcome & Introduction
-  - Main Search Input
-  - Search Filters (Raw Only, Base Only, etc.)
-  - Sold Listings Results
-  - Price Statistics Panel
-  - Beeswarm Chart Visualization
-  - Active Deals Section
-  - Grading Intelligence Tab
-  - User Account/Authentication
+**FMV Calculation Fix:**
+- The automated price refresh (⏰/⚠️) now uses the same **volume-weighted FMV algorithm** as the Comps & Analysis tab (`calculate_fmv()` from `fmv_service.py`) — volume-weighted mean, IQR outlier removal, skewness correction, and price concentration detection
+- Previously used a simple median, which produced incorrect results
+- Card-specific filters (`raw_only`, `base_only`) are now applied during automated updates, matching the behavior when the card was originally searched
+
+**Status Column Improvements:**
+- ⏰ tooltip: "Click to update price"; clicking triggers immediate FMV refresh
+- ⚠️ tooltip: shows flagged reason + "Click to update price"; clicking retries the update
+- ✓ tooltip: shows days remaining before next refresh is available
+
+**Filter Persistence:**
+- When saving a card from the Comps tab, the active filter checkboxes (Exclude Lots, Raw Only/Ungraded Only, Base Only) are now saved to the card record
+- These saved filters are applied automatically during all future automated price updates
+
+**Other Changes:**
+- Removed 50% price-change volatility guardrail — FMV always updates regardless of how large the change is
+- Minimum sales for FMV update reduced from 3 to 1; zero sales triggers ⚠️ flag
+- Sparkline chart removed from binder card table (displayed only in Edit modal)
+- Backend: Supabase Postgres connection uses Transaction pooler (port 6543) with SSL and `pgbouncer=true` parameter stripped for psycopg2 compatibility
+- Backend: `init_db()` only creates feedback tables when connected to Postgres — existing Supabase collection tables are never altered on startup
+
+### Version 0.6.0 (Grading Advisor)
+
+Version 0.6.0 introduces a full backend-powered "Grading Advisor" system with comprehensive API support, Pydantic models, a dedicated service layer, and new endpoints for intelligent grading analysis.
+
+- [`backend/models/grading_advisor_schemas.py`](backend/models/grading_advisor_schemas.py) — Pydantic models
+- [`backend/routes/grading_advisor.py`](backend/routes/grading_advisor.py) — API endpoints
+- [`backend/services/grading_advisor_service.py`](backend/services/grading_advisor_service.py) — Business logic
+- [`static/js/grading-advisor.js`](static/js/grading-advisor.js) — Frontend module
+- [`static/css/grading-advisor.css`](static/css/grading-advisor.css) — Styles
+
+### Version 0.5.2 (First-Time User Onboarding)
+
+- **Interactive 9-Step Tour**: Guides new users through main features using Driver.js v1.3.1
 - **Smart Auto-Start**: Tour auto-starts for first-time visitors only (localStorage persistence)
-- **Manual Restart**: "Take a Tour" link in footer for returning users
-- **Custom Styling**: Popovers themed to match Kuya Comps branding
-- **Element Highlighting**: Native Driver.js overlay with spotlight effect
-- **Keyboard Navigation**: Arrow keys and Escape key support
-- **Files Added**:
-  - [`static/js/onboarding.js`](static/js/onboarding.js) - Tour manager module (~490 lines)
-  - [`static/css/onboarding.css`](static/css/onboarding.css) - Custom theme overrides (~400 lines)
-=======
-### Version 0.6.0 (Grading Advisor) - Current
-
-Version 0.6.0 introduces a major refactoring of the grading system, transitioning from the frontend-only "Grading Intelligence" to a full backend-powered "Grading Advisor" system. This release adds comprehensive API support with Pydantic models, dedicated service layer, and new endpoints for intelligent grading analysis.
-
-**Backend Architecture:**
-- **Deprecated**: Old frontend-only Grading Intelligence tab
-- **New Grading Advisor System**: Complete backend implementation
-  - [`backend/models/grading_advisor_schemas.py`](backend/models/grading_advisor_schemas.py) - Pydantic models for request/response validation
-  - [`backend/routes/grading_advisor.py`](backend/routes/grading_advisor.py) - API endpoints for grading analysis
-  - [`backend/services/grading_advisor_service.py`](backend/services/grading_advisor_service.py) - Business logic for grading recommendations
-
-**New Features:**
-- **Grade Value Analysis**: Intelligent analysis of card grading potential
-- **Premium Calculations**: Calculate value premiums for different grades
-- **Market Comparisons**: Compare prices across PSA, BGS, SGC, and other grading companies
-- **Population Data Integration**: Access population report data for informed decisions
-
-**Frontend Updates:**
-- [`static/js/grading-advisor.js`](static/js/grading-advisor.js) - New frontend module for Grading Advisor tab
-- [`static/css/grading-advisor.css`](static/css/grading-advisor.css) - Dedicated styles for Grading Advisor
-
-**Bug Fixes:**
-- Fixed binder collection bug
->>>>>>> main
+- **Manual Restart**: "Take a Tour" link in footer
+- Files: [`static/js/onboarding.js`](static/js/onboarding.js), [`static/css/onboarding.css`](static/css/onboarding.css)
 
 ### Version 0.5.1 (UX Improvements)
 
-Version 0.5.1 focuses on accessibility compliance and frontend architecture improvements. This release brings WCAG 2.1 Level A & AA compliance through skip-to-content navigation and color contrast fixes, extracts CSS from inline styles to external stylesheets, and introduces a reusable Modal component for consistent modal behavior across the application.
-
-**Accessibility & UX Improvements:**
-- **WCAG 2.1 Level A Compliance**: Skip-to-content link as first focusable element (Success Criterion 2.4.1)
 - **WCAG 2.1 Level AA Compliance**: All color contrast ratios meet 4.5:1 minimum
-  - Primary blue: `#007aff` → `#0066cc` (4.02:1 → 5.58:1)
-  - Accent green: `#34c759` → `#1d8348` (2.22:1 → 5.26:1)
-  - Accent orange: `#ff9500` → `#b35900` (2.21:1 → 4.76:1)
-  - Accent red: `#ff3b30` → `#c9302c` (3.55:1 → 5.01:1)
-- **CSS Extraction**: ~1,856 lines of inline CSS extracted from `index.html` to `style.css`
-  - Reduced index.html from ~2,400 lines to 545 lines
-  - Improved maintainability and caching
-- **Reusable Modal Component**: New [`static/js/modal.js`](static/js/modal.js) with Modal class
-  - Focus trapping for keyboard navigation
-  - Escape key to close
-  - Click outside to close
-  - ARIA attributes for screen readers
-  - CSS animations support
-  - Refactored auth.js and subscription.js to use Modal
-  - API documentation: [`docs/MODAL_COMPONENT_API.md`](docs/MODAL_COMPONENT_API.md)
+- **CSS Extraction**: ~1,856 lines of inline CSS extracted to `style.css`
+- **Reusable Modal Component**: [`static/js/modal.js`](static/js/modal.js) with focus trapping, ARIA, escape key
 
 ### Version 0.5.0 (Production Beta)
 
-Version 0.5.0 marks the transition to production beta with significant improvements to code organization and maintainability. This release focuses on cleaning up the project structure by removing extraneous standalone scripts and consolidating all testing into a formal test suite. The streamlined codebase now contains only essential runtime files in the root directory, making the project easier to navigate, maintain, and deploy.
-
-**Project Structure & Code Quality:**
-- **Test Suite Consolidation**: All tests moved to formal test suite under [`tests/`](tests/) directory
-  - Removed 5 standalone test scripts from root (test_feedback_endpoint.py, test_phase2_screenshot_optimization.py, test_phase3_admin_dashboard.py, test_phase4_simple.py, test_phase4_valuation_engine.py)
-  - Professional test organization with clear separation from runtime code
-- **Migration Cleanup**: Removed completed migration scripts from root directory
-  - migrate_existing_card_values.py and migrate_supabase_price_history.py no longer needed
-  - Cleaner root directory with only essential runtime files
-- **Improved Maintainability**: Streamlined project structure makes onboarding and navigation easier
-  - Clear separation between application code, tests, and documentation
-  - Enhanced developer experience with organized file hierarchy
+- Test suite consolidated under [`tests/`](tests/)
+- Migration scripts removed from root
+- Streamlined project structure
 
 ### Version 0.4.0
 
-Version 0.4.0 represents a major evolution of the application with professional infrastructure and enhanced user experience. Behind the scenes, the backend has been completely restructured into organized modules, making it easier to maintain and add new features. We've added intelligent caching to dramatically speed up searches and reduce costs, implemented smart rate limiting to prevent abuse, and integrated machine learning tools for more accurate price predictions. The app now includes professional monitoring and error tracking for reliability. On the user-facing side, the interface has been redesigned with mobile devices in mind, featuring a powerful new "Analytics Dashboard" that provides market pressure analysis, liquidity profiles, absorption ratios, and personalized pricing recommendations tailored to your selling strategy. There's also the "Grading Intelligence" tool that lets you compare different grading companies and grades side-by-side, better organized tabs for different analysis types, and improved search tips to help you find exactly what you're looking for. The entire frontend code has been reorganized into specialized modules for better performance and future enhancements. Whether you're accessing the site from your phone, tablet, or computer, you'll notice faster load times, smoother interactions, and a more polished experience overall.
-
-**Backend Infrastructure:**
-- **Architecture Overhaul**: Complete modular restructure with organized [`/backend/`](backend/) directory
-  - Separated concerns: routes, services, models, middleware, config, cache modules
-  - Enhanced maintainability and scalability with clear separation of responsibilities
-- **Redis Caching Layer**: Aggressive caching implementation to minimize SearchAPI.io costs
-  - aioredis integration for async operations
-  - Significantly improved response times and reduced API expenses
-  - Required for production efficiency
-- **Advanced Rate Limiting**: slowapi implementation (10 requests/minute per IP)
-  - Prevents abuse and manages API costs
-  - Per-IP tracking for fair usage across all endpoints
-- **ML/Analytics Integration**: Professional-grade price analysis
-  - scikit-learn, numpy, pandas integration for statistical modeling
-  - Sophisticated FMV calculations with Quick Sale/Patient Sale ranges
-  - Volume-weighted price analysis for accurate market valuation
-- **Production Monitoring**: Sentry error tracking and custom metrics
-  - [`/metrics`](main.py) endpoint for observability
-  - Request counts and performance monitoring
-  - Production-ready error reporting and alerting
-- **Middleware Chain**: Professional request processing pipeline
-  - RequestID → Metrics → SecurityHeaders (reverse execution order)
-  - Comprehensive request tracking and security headers
-  - Proper middleware ordering for optimal performance
-- **FMV Endpoint**: Dedicated Fair Market Value calculations
-  - PSA grade-specific analysis and comparison
-  - Advanced statistical modeling for price predictions
-  - Quick Sale vs Patient Sale market segmentation
-
-**Frontend Enhancements:**
-- **Modular JavaScript Architecture**: Organized code into specialized modules
-  - [`config.js`](static/js/config.js) - Centralized configuration constants
-  - [`errorHandler.js`](static/js/errorHandler.js) - Error handling and user feedback
-  - [`validation.js`](static/js/validation.js) - Input validation logic
-  - [`loadingStates.js`](static/js/loadingStates.js) - Loading state management
-  - [`rendering.js`](static/js/rendering.js) - UI rendering functions
-  - [`charts.js`](static/js/charts.js) - Beeswarm chart visualization
-  - [`analysis.js`](static/js/analysis.js) - Market analysis features
-- **Grading Intelligence Tab**: Dedicated interface for comparing graded cards
-  - Compare up to 3 cards simultaneously with different graders (PSA, BGS, SGC) and grades
-  - Card-specific search with grading parameter inputs
-  - Side-by-side price comparison across different grades
-- **Advanced Analytics Dashboard**: Comprehensive market analysis system
-  - **Market Pressure Analysis**: Calculates median asking price vs FMV with confidence scoring
-  - **Liquidity Profile**: Three-tier price band analysis (below/at/above FMV) with absorption ratios
-  - **Absorption Ratios**: Shows how fast cards sell at different price points (sales vs listings)
-  - **Pricing Recommendations**: AI-generated strategies for quick sale, fair market, and premium pricing
-  - **Market Assessment**: Intelligent scenario detection with persona-based advice
-  - **Persona-Based Guidance**: Tailored recommendations for sellers, flippers, and collectors
-  - **Data Quality Scoring**: 0-100 confidence score with sample size warnings
-  - **Velocity Statements**: Estimated sell times based on current market absorption
-- **Sub-Tab Navigation**: Improved organization of analysis features
-  - Comps sub-tab for sold listings and statistics
-  - Analysis sub-tab for advanced market intelligence and analytics dashboard
-- **Enhanced Search Tips**: Expandable collapsible search guidance
-  - Beginner-friendly examples with visual formatting
-  - Advanced eBay search operators (quotes, exclusions, card numbers)
-  - Context-specific tips for both Comps and Grading Intelligence tabs
-- **Mobile-First Responsive Design**: Comprehensive responsive layouts
-  - Optimized for phones (< 768px), tablets (769-1024px), and desktops (> 1024px)
-  - Touch-friendly button sizes (48px minimum) and spacing
-  - Landscape phone optimization
-  - Customized grid layouts for different screen sizes
-- **SEO Enhancements**: Professional search engine optimization
-  - Structured data markup (Schema.org WebApplication)
-  - Open Graph and Twitter Card meta tags
-  - Semantic HTML with proper headings and alt text
-  - FAQ section with rich content for search indexing
-- **UI/UX Polish**: Modern interface refinements
-  - Gradient backgrounds and smooth animations
-  - Hover effects and transitions throughout
-  - Consistent color system with CSS custom properties
-  - Accessibility improvements (reduced motion support)
-  - High DPI display optimizations
+- Complete modular backend restructure
+- Redis caching, advanced rate limiting, ML/analytics integration
+- Sentry monitoring, custom `/metrics` endpoint
+- Analytics Dashboard with market pressure analysis, liquidity profiles, and persona-based recommendations
+- Grading Intelligence tab, mobile-first responsive design, SEO enhancements
 
 ### Version 0.3.0
-- **Major UI Redesign**: Replaced single "Find Deals" button with automatic dual-search display
-- **New Active Listings Table**:
-  - Automatically searches and displays active listings below Fair Market Value
-  - Shows discount percentage in red (e.g., -25%, -50%)
-  - Displays listing type (Auction or Buy It Now)
-  - Sorted by price (lowest to highest)
-  - Sticky table headers for easy navigation
-- **Buy It Now Only Filter**: Checkbox to filter out auctions from active listings
-- **Improved Auction Detection**: Enhanced logic to detect auctions using "bid", "bids", or "auction" in buying format
-- **Expanded Year Support**: Validation now accepts years from 1800-2099 (vintage to modern cards)
-- **Better Search Validation**: Improved handling of quoted search terms
-- **Cleaner Labels**: Simplified table headers for better user experience
-- **Backend Enhancement**: New [`/active`](backend/routes/) endpoint for active listing searches
-- **Code Cleanup**: Removed ~320 lines of deprecated Find Deals code
+- Dual-search display with automatic sold + active listings
+- Active listings filtered to show only items at or below FMV
+- Buy It Now Only filter, improved auction detection
 
-### Version 0.2.1
-- **Bug Fix**: Ensured "Find Deals" functionality correctly applies exclusion filters (Raw Only, Base Only, Exclude Autographs) to search queries.
-
-### Version 0.2.0 (Previous)
-- **Find Deals Functionality**: Added ability to search for current active listings below market value
-- **New /deals API Endpoint**: Backend support for active listing searches vs. sold listings
-- **Advanced Filtering System**:
-  - "Base Only" filter excludes parallels, refractors, and special variants
-  - "Exclude Autographs" filter removes auto/signed cards
-  - Combined filtering support when multiple filters selected
-- **Combined Search Workflow**: New "Find Deals" button that runs both comps + deals searches automatically
-- **UI/UX Improvements**:
-  - Larger, more prominent filter checkboxes
-  - Separate deals results section preserving sold listings visibility
-  - Deals sorted by largest discount percentage first
-  - Removed technical "Volume-Weighted" references for better user understanding
-- **Code Cleanup**:
-  - Removed Test Mode functionality (always production)
-  - Removed CSV export feature
-  - Simplified Smart Market Insights in Grading Intelligence tab
-  - Clean API parameter handling without test mode complexity
+### Version 0.2.x
+- Find Deals functionality with `/deals` endpoint
+- Base Only, Exclude Autographs, combined filter support
 
 ### Version 0.1.0 (Initial Release)
-- Basic eBay sold listings scraping functionality
-- Simple web UI for search queries
-- Basic price statistics (min, max, average)
-- CSV export capability
-- Basic API endpoint for comps retrieval
-- Support for SearchAPI.io integration
-
+- Basic eBay sold listings scraping
+- Simple price statistics (min, max, average)
+- SearchAPI.io integration
