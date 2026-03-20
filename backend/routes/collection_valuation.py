@@ -112,8 +112,13 @@ async def update_card_value(
     """
     logger.info(f"[API] Manual valuation update requested for card {card_id} by user {current_user['sub']}")
 
-    # Verify card exists and user owns it
-    card = get_card_by_id(db, card_id, current_user['sub'])
+    try:
+        # Verify card exists and user owns it
+        card = get_card_by_id(db, card_id, current_user['sub'])
+    except Exception as e:
+        logger.error(f"[API] DB error looking up card {card_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
     if not card:
         raise HTTPException(status_code=404, detail="Card not found or access denied")
 
