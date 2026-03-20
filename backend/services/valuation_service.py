@@ -317,27 +317,7 @@ async def update_card_valuation(
         result['new_fmv'] = float(new_fmv)
         logger.info(f"[Valuation] Calculated FMV: ${new_fmv}")
 
-        # Step 6: Volatility Guardrail
-        should_flag, percent_change, volatility_reason = check_volatility(
-            new_fmv,
-            card.current_fmv
-        )
-
-        if should_flag:
-            # Flag for review but don't update FMV
-            card.review_required = True
-            card.review_reason = volatility_reason
-            card.last_updated_at = datetime.utcnow()
-
-            db.commit()
-
-            result['success'] = True
-            result['flagged_for_review'] = True
-            result['reason'] = 'volatility'
-            result['percent_change'] = percent_change
-            return result
-
-        # Step 7: Update card FMV
+        # Step 6: Update card FMV
         card.current_fmv = new_fmv
         card.last_updated_at = datetime.utcnow()
         card.review_required = False
