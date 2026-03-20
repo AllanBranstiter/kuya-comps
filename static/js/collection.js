@@ -2356,7 +2356,7 @@ const CollectionModule = (function() {
                 try {
                     const { data: history } = await supabase
                         .from('price_history')
-                        .select('value, date_recorded, confidence')
+                        .select('id, value, date_recorded, confidence')
                         .eq('card_id', cardId)
                         .order('date_recorded', { ascending: true });
 
@@ -2370,10 +2370,15 @@ const CollectionModule = (function() {
                         const date = new Date(h.date_recorded).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                         const value = parseFloat(h.value).toFixed(2);
                         const source = h.confidence || '';
-                        return `<tr style="border-bottom: 1px solid var(--border-color);">
+                        return `<tr style="border-bottom: 1px solid var(--border-color);" id="history-row-${h.id}">
                             <td style="padding: 0.4rem 0.75rem; font-size: 0.85rem; color: var(--subtle-text-color);">${date}</td>
                             <td style="padding: 0.4rem 0.75rem; font-size: 0.85rem; font-weight: 600; color: var(--text-color); text-align: right;">$${value}</td>
-                            <td style="padding: 0.4rem 0.75rem; font-size: 0.75rem; color: var(--subtle-text-color); text-align: right;">${source}</td>
+                            <td style="padding: 0.4rem 0.75rem; font-size: 0.75rem; color: var(--subtle-text-color); text-align: right;">
+                                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem;">
+                                    <span>${source}</span>
+                                    <button onclick="CollectionModule.deleteHistoryEntry(${h.id}, this)" title="Delete entry" style="background: none; border: none; color: #ff3b30; cursor: pointer; font-size: 0.85rem; padding: 0.1rem 0.3rem; border-radius: 4px; line-height: 1; opacity: 0.6;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</button>
+                                </div>
+                            </td>
                         </tr>`;
                     }).join('');
 
@@ -2977,6 +2982,35 @@ const CollectionModule = (function() {
     }
     
     // Public API
+    /**
+     * Delete a single price history entry from Supabase and remove its row from the DOM.
+     */
+    async function deleteHistoryEntry(entryId, btnEl) {
+        if (!confirm('Delete this price history entry?')) return;
+        const supabase = window.AuthModule.getClient();
+        if (!supabase) return;
+
+        btnEl.disabled = true;
+        btnEl.textContent = '…';
+
+        try {
+            const { error } = await supabase
+                .from('price_history')
+                .delete()
+                .eq('id', entryId);
+
+            if (error) throw error;
+
+            const row = document.getElementById(`history-row-${entryId}`);
+            if (row) row.remove();
+        } catch (e) {
+            console.error('[COLLECTION] Error deleting history entry:', e);
+            alert('Failed to delete entry: ' + (e.message || 'Unknown error'));
+            btnEl.disabled = false;
+            btnEl.textContent = '✕';
+        }
+    }
+
     return {
         showAddToCollectionModal,
         hideAddToCollectionModal,
@@ -2993,6 +3027,7 @@ const CollectionModule = (function() {
         showCardContextMenu,
         closeContextMenu,
         refreshCardPrice,
+        deleteHistoryEntry,
         showMoveCardModal,
         hideMoveCardModal,
         showCreateBinderForMove,
