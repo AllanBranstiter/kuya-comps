@@ -1782,7 +1782,6 @@ const CollectionModule = (function() {
                         <td style="padding: 0.75rem; text-align: right;">
                             <div style="font-weight: 600; color: var(--text-color);">$${fmv.toFixed(2)}</div>
                             ${fmv > 0 ? `<div style="font-size: 0.75rem; color: ${cardROI >= 0 ? '#34c759' : '#ff3b30'};">${cardROI >= 0 ? '+' : ''}${cardROI.toFixed(1)}%</div>` : ''}
-                            ${buildSparklineSVG(historyMap[card.id])}
                         </td>
                         <td style="padding: 0.75rem; text-align: center;">${statusHTML}</td>
                     </tr>
