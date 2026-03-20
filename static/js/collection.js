@@ -1655,6 +1655,9 @@ const CollectionModule = (function() {
                 // Check if data is stale
                 const lastUpdated = card.last_updated_at ? new Date(card.last_updated_at) : null;
                 const isStale = !lastUpdated || lastUpdated < thirtyDaysAgo;
+                const daysLeft = (lastUpdated && !isStale)
+                    ? Math.max(0, 30 - Math.floor((now - lastUpdated) / (1000 * 60 * 60 * 24)))
+                    : 0;
                 
                 // Build card description
                 let cardDesc = '';
@@ -1681,10 +1684,11 @@ const CollectionModule = (function() {
                     statusHTML += `<span class="review-flag" title="${escapeHtmlAttr(card.review_reason || 'Review required')}" style="color: #ff3b30; font-size: 1rem; cursor: help;">⚠️</span> `;
                 }
                 if (isStale && card.auto_update) {
-                    statusHTML += `<span class="stale-warning" title="Data older than 30 days" style="color: #ff9500; font-size: 0.85rem;">⏰</span>`;
+                    statusHTML += `<span class="stale-warning" title="Click to update price" style="color: #ff9500; font-size: 0.85rem; cursor: pointer;" onclick="CollectionModule.refreshCardPrice('${card.id}', '${card.binder_id}', this)">⏰</span>`;
                 }
                 if (!statusHTML) {
-                    statusHTML = '<span style="color: #34c759;">✓</span>';
+                    const dayWord = daysLeft === 1 ? 'day' : 'days';
+                    statusHTML = `<span title="${daysLeft} ${dayWord} left before you can refresh the price" style="color: #34c759; cursor: help;">✓</span>`;
                 }
                 
                 html += `
@@ -2522,7 +2526,59 @@ const CollectionModule = (function() {
             document.addEventListener('click', closeContextMenu);
         }, 0);
     }
-    
+
+    /**
+     * Refresh price for a single card via the valuation endpoint
+     */
+    async function refreshCardPrice(cardId, binderId, iconEl) {
+        const supabase = window.AuthModule.getClient();
+        if (!supabase) {
+            alert('Not connected to database.');
+            return;
+        }
+
+        // Show loading state on the icon
+        const originalContent = iconEl.textContent;
+        iconEl.textContent = '⏳';
+        iconEl.style.pointerEvents = 'none';
+        iconEl.title = 'Updating...';
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                throw new Error('Not authenticated');
+            }
+
+            const response = await fetch(`/api/v1/cards/${cardId}/update-value`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                }
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.detail || 'Update failed');
+            }
+
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            // Refresh the binder view to show updated price and new icon state
+            showBinderDetails(binderId);
+
+        } catch (error) {
+            console.error('[COLLECTION] Error refreshing card price:', error);
+            iconEl.textContent = originalContent;
+            iconEl.style.pointerEvents = '';
+            iconEl.title = 'Click to update price';
+            alert('Failed to update price: ' + (error.message || 'Unknown error'));
+        }
+    }
+
     /**
      * Close context menu
      */
@@ -2793,6 +2849,7 @@ const CollectionModule = (function() {
         showBinderContextMenu,
         showCardContextMenu,
         closeContextMenu,
+        refreshCardPrice,
         showMoveCardModal,
         hideMoveCardModal,
         showCreateBinderForMove,
