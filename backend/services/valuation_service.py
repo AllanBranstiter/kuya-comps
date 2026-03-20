@@ -23,6 +23,8 @@ from backend.services.collection_service import (
     add_price_history
 )
 from backend.models.collection_schemas import PriceHistoryCreate
+from backend.models.schemas import CompItem
+from backend.services.fmv_service import calculate_fmv
 from backend.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -253,9 +255,12 @@ async def update_card_valuation(
         # Step 1: Scrape eBay for sold listings
         search_query = card.search_query_string or f"{card.year} {card.set_name} {card.athlete}"
 
+        # Apply raw_only query modification (same as comps.py)
+        if card.raw_only:
+            search_query = f"{search_query} -PSA -BGS -SGC -CSG -HGA -graded"
+
         logger.info(f"[Valuation] Scraping eBay with query: '{search_query}'")
 
-        # Scrape sold comps (max 2 pages = ~240 results)
         raw_items = await scraper_func(
             query=search_query,
             api_key=api_key,
@@ -265,29 +270,65 @@ async def update_card_valuation(
 
         logger.info(f"[Valuation] Scraped {len(raw_items)} raw items")
 
-        # Step 2: Apply keyword firewall
-        filtered_items = []
+        # Step 2: Apply keyword firewall + card-specific filters, build CompItem list
+        comp_items = []
         for item in raw_items:
             title = item.get('title', '')
-            price = item.get('extracted_price') or item.get('total_price')
+            title_lower = title.lower()
 
+            # Keyword firewall — always exclude reprints, digital, etc.
+            if not passes_keyword_firewall(title):
+                result['num_filtered'] += 1
+                continue
+
+            # Raw only post-filter (same logic as comps.py)
+            if card.raw_only:
+                condition = item.get('condition', '').lower()
+                if condition == 'graded' or item.get('is_in_psa_vault'):
+                    result['num_filtered'] += 1
+                    continue
+                if any(term in title_lower for term in ['psa', 'bgs', 'sgc', 'csg', 'hga', 'graded']):
+                    result['num_filtered'] += 1
+                    continue
+
+            # Base only post-filter (same logic as comps.py)
+            if card.base_only:
+                parallel_terms = [
+                    'refractor', 'prizm', 'prism', 'parallel', 'wave', 'gold', 'purple',
+                    'blue', 'red', 'green', 'yellow', 'orange', 'pink', 'black', 'atomic',
+                    'xfractor', 'superfractor', 'numbered', 'stars', 'star'
+                ]
+                if any(term in title_lower for term in parallel_terms):
+                    result['num_filtered'] += 1
+                    continue
+
+            # Must have a usable price
+            price = item.get('extracted_price') or item.get('total_price')
             if not price or price <= 0:
                 continue
 
-            if passes_keyword_firewall(title):
-                filtered_items.append(price)
-            else:
-                result['num_filtered'] += 1
+            # Ensure total_price is set (calculate_fmv uses this field)
+            if not item.get('total_price'):
+                item['total_price'] = price
 
-        logger.info(f"[Valuation] After keyword firewall: {len(filtered_items)} items ({result['num_filtered']} filtered)")
+            comp_items.append(CompItem(
+                title=title,
+                total_price=item.get('total_price'),
+                extracted_price=item.get('extracted_price'),
+                is_auction=item.get('is_auction', False),
+                is_buy_it_now=item.get('is_buy_it_now', False),
+                is_best_offer=item.get('is_best_offer', False),
+                bids=item.get('bids', 0),
+            ))
+
+        logger.info(f"[Valuation] After filtering: {len(comp_items)} items ({result['num_filtered']} filtered)")
 
         # Step 3: Ghost Town Check — flag if zero sales found, but don't update FMV
-        if len(filtered_items) == 0:
+        if len(comp_items) == 0:
             logger.warning(f"[Valuation] Ghost town detected: No sales found after keyword filtering")
 
-            # Flag card but don't update FMV to $0
             card.review_required = True
-            card.review_reason = f"Insufficient sales data: Only {len(filtered_items)} sales found in last 30 days"
+            card.review_reason = "No sales found — check search query or try again later"
             card.no_recent_sales = True
             card.last_updated_at = datetime.utcnow()
 
@@ -296,26 +337,22 @@ async def update_card_valuation(
             result['success'] = True
             result['flagged_for_review'] = True
             result['reason'] = 'ghost_town'
-            result['num_sales'] = len(filtered_items)
+            result['num_sales'] = 0
             return result
 
-        # Step 4: Remove outliers using IQR
-        clean_prices, num_outliers = remove_outliers_iqr(filtered_items)
-        result['num_outliers'] = num_outliers
-        result['num_sales'] = len(clean_prices)
+        # Step 4: Calculate FMV using the same algorithm as the Comps tab
+        fmv_result = calculate_fmv(comp_items)
+        result['num_sales'] = fmv_result.count
 
-        logger.info(f"[Valuation] After outlier removal: {len(clean_prices)} items")
-
-        # Step 5: Calculate median FMV
-        new_fmv = calculate_median_fmv(clean_prices)
-
-        if new_fmv is None:
-            logger.warning(f"[Valuation] Could not calculate FMV from {len(clean_prices)} prices")
+        new_fmv = fmv_result.market_value
+        if not new_fmv or new_fmv <= 0:
+            logger.warning(f"[Valuation] Could not calculate FMV from {len(comp_items)} items")
             result['reason'] = 'calculation_failed'
             return result
 
+        new_fmv = Decimal(str(round(new_fmv, 2)))
         result['new_fmv'] = float(new_fmv)
-        logger.info(f"[Valuation] Calculated FMV: ${new_fmv}")
+        logger.info(f"[Valuation] Calculated FMV: ${new_fmv} (volume-weighted, {fmv_result.count} sales used)")
 
         # Step 6: Update card FMV
         card.current_fmv = new_fmv
@@ -327,19 +364,19 @@ async def update_card_valuation(
         db.commit()
         db.refresh(card)
 
-        # Step 8: Create price history entry
-        confidence = 'high' if len(clean_prices) >= 10 else 'medium' if len(clean_prices) >= 5 else 'low'
+        # Step 7: Create price history entry
+        confidence = 'high' if fmv_result.count >= 10 else 'medium' if fmv_result.count >= 5 else 'low'
 
         price_history = PriceHistoryCreate(
             card_id=card.id,
             value=new_fmv,
-            num_sales=len(clean_prices),
+            num_sales=fmv_result.count,
             confidence=confidence
         )
 
         add_price_history(db, price_history)
 
-        logger.info(f"[Valuation] ✓ Updated card {card.id}: ${card.current_fmv} ({len(clean_prices)} sales, {confidence} confidence)")
+        logger.info(f"[Valuation] ✓ Updated card {card.id}: ${card.current_fmv} ({fmv_result.count} sales, {confidence} confidence)")
 
         result['success'] = True
         result['updated'] = True
