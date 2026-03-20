@@ -56,16 +56,16 @@ PRICE_TIERS = [
 def get_price_tier(fmv: Optional[float] = None, avg_listing_price: Optional[float] = None) -> Dict:
     """
     Determine price tier based on FMV with fallback to average listing price.
-    
+
     Priority:
     1. Use FMV if available and > 0
     2. Fall back to avg_listing_price if FMV unavailable
     3. Return None tier if neither available
-    
+
     Args:
         fmv: Fair Market Value calculated from sold listings
         avg_listing_price: Average price from active listings
-    
+
     Returns:
         dict: Tier information containing:
             - tier_id: Tier identifier (e.g., "tier_1")
@@ -75,20 +75,20 @@ def get_price_tier(fmv: Optional[float] = None, avg_listing_price: Optional[floa
             - tier_color: Color code for UI
             - price_used: The price used for tier calculation
             - price_source: Which price was used ("fmv" or "avg_listing")
-    
+
     Examples:
         >>> get_price_tier(fmv=50.00)
         {'tier_id': 'tier_1', 'tier_emoji': '🟢', ...}
-        
+
         >>> get_price_tier(fmv=None, avg_listing_price=250.00)
         {'tier_id': 'tier_2', 'tier_emoji': '🔵', ...}
-        
+
         >>> get_price_tier(fmv=1500.00, avg_listing_price=250.00)
         {'tier_id': 'tier_3', 'tier_emoji': '🟣', ...}  # FMV takes priority
     """
     # Determine which price to use (FMV has priority)
     price = fmv if fmv and fmv > 0 else avg_listing_price
-    
+
     # If no valid price available, return null tier
     if not price or price <= 0:
         return {
@@ -100,7 +100,7 @@ def get_price_tier(fmv: Optional[float] = None, avg_listing_price: Optional[floa
             "price_used": None,
             "price_source": None
         }
-    
+
     # Find the appropriate tier
     for tier in PRICE_TIERS:
         if price < tier["max_price"]:
@@ -113,7 +113,7 @@ def get_price_tier(fmv: Optional[float] = None, avg_listing_price: Optional[floa
                 "price_used": price,
                 "price_source": "fmv" if fmv and fmv > 0 else "avg_listing"
             }
-    
+
     # Fallback (should never reach here due to inf in tier_5)
     return {
         "tier_id": None,
@@ -129,7 +129,7 @@ def get_price_tier(fmv: Optional[float] = None, avg_listing_price: Optional[floa
 def get_tier_boundaries() -> Dict[str, Dict]:
     """
     Get all tier boundaries for reference.
-    
+
     Returns:
         dict: Mapping of tier_id to tier configuration
     """

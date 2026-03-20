@@ -20,10 +20,10 @@ logger = get_logger(__name__)
 async def health_check():
     """
     Basic health check endpoint.
-    
+
     Returns a simple status response to verify the application is running.
     Used by load balancers and monitoring systems for basic availability checks.
-    
+
     Returns:
         dict: {"status": "ok"}
     """
@@ -34,10 +34,10 @@ async def health_check():
 async def liveness_check():
     """
     Kubernetes-style liveness probe.
-    
+
     Indicates whether the application is running and responsive.
     If this fails, the container should be restarted.
-    
+
     Returns:
         dict: {"status": "alive"}
     """
@@ -48,11 +48,11 @@ async def liveness_check():
 async def readiness_check(request: Request):
     """
     Kubernetes-style readiness probe.
-    
+
     Indicates whether the application is ready to serve traffic.
     Checks connectivity to critical dependencies (cache, etc.).
     If this fails, the container should not receive traffic but shouldn't be restarted.
-    
+
     Returns:
         JSONResponse: {"status": "ready", "checks": {...}} with HTTP 200 if ready
                      {"status": "not_ready", "checks": {...}} with HTTP 503 if not ready
@@ -61,7 +61,7 @@ async def readiness_check(request: Request):
         "application": "ok",
         "cache": "unknown",
     }
-    
+
     # Check cache service availability
     try:
         if hasattr(request.app.state, 'cache_service'):
@@ -74,11 +74,11 @@ async def readiness_check(request: Request):
     except Exception as e:
         logger.warning(f"Cache health check failed: {e}")
         checks["cache"] = "error"
-    
+
     # Determine overall readiness
     # App is ready if it's running, even if cache is unavailable (degraded mode)
     is_ready = checks["application"] == "ok"
-    
+
     if is_ready:
         return JSONResponse(
             status_code=status.HTTP_200_OK,

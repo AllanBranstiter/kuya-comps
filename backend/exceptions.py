@@ -10,14 +10,14 @@ from typing import Optional, Dict, Any
 class KuyaCompsException(Exception):
     """
     Base exception class for all Kuya Comps errors.
-    
+
     Attributes:
         message: User-friendly error message
         error_code: Unique error code for tracking
         status_code: HTTP status code to return
         details: Optional additional error details
     """
-    
+
     def __init__(
         self,
         message: str,
@@ -30,7 +30,7 @@ class KuyaCompsException(Exception):
         self.status_code = status_code
         self.details = details or {}
         super().__init__(self.message)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert exception to dictionary for JSON response."""
         return {
@@ -46,7 +46,7 @@ class APIKeyMissingError(KuyaCompsException):
     """
     Raised when required API key is missing or invalid.
     """
-    
+
     def __init__(
         self,
         service: str = "API",
@@ -65,7 +65,7 @@ class ScraperError(KuyaCompsException):
     """
     Raised when web scraping or API calls fail.
     """
-    
+
     def __init__(
         self,
         message: str = "Failed to fetch data from external service",
@@ -75,7 +75,7 @@ class ScraperError(KuyaCompsException):
         error_details = details or {}
         if service:
             error_details["service"] = service
-        
+
         super().__init__(
             message=message,
             error_code="SCRAPER_ERROR",
@@ -89,7 +89,7 @@ class DataValidationError(KuyaCompsException):
     Raised when input data fails validation (different from Pydantic validation).
     Use this for business logic validation errors.
     """
-    
+
     def __init__(
         self,
         message: str = "Invalid input data",
@@ -99,7 +99,7 @@ class DataValidationError(KuyaCompsException):
         error_details = details or {}
         if field:
             error_details["field"] = field
-        
+
         super().__init__(
             message=message,
             error_code="DATA_VALIDATION_ERROR",
@@ -112,7 +112,7 @@ class RateLimitError(KuyaCompsException):
     """
     Raised when rate limit is exceeded (custom handler, slowapi has its own).
     """
-    
+
     def __init__(
         self,
         message: str = "Rate limit exceeded. Please try again later.",
@@ -122,7 +122,7 @@ class RateLimitError(KuyaCompsException):
         error_details = details or {}
         if retry_after:
             error_details["retry_after_seconds"] = retry_after
-        
+
         super().__init__(
             message=message,
             error_code="RATE_LIMIT_EXCEEDED",
@@ -135,7 +135,7 @@ class ExternalServiceError(KuyaCompsException):
     """
     Raised when external service (eBay, SearchAPI) returns an error.
     """
-    
+
     def __init__(
         self,
         message: str = "External service error",
@@ -147,7 +147,7 @@ class ExternalServiceError(KuyaCompsException):
         error_details["service"] = service
         if service_error:
             error_details["service_error"] = service_error
-        
+
         super().__init__(
             message=message,
             error_code="EXTERNAL_SERVICE_ERROR",
@@ -160,7 +160,7 @@ class DataNotFoundError(KuyaCompsException):
     """
     Raised when requested data is not found.
     """
-    
+
     def __init__(
         self,
         message: str = "No data found for the given query",
@@ -170,7 +170,7 @@ class DataNotFoundError(KuyaCompsException):
         error_details = details or {}
         if query:
             error_details["query"] = query
-        
+
         super().__init__(
             message=message,
             error_code="DATA_NOT_FOUND",
@@ -183,7 +183,7 @@ class ConfigurationError(KuyaCompsException):
     """
     Raised when application configuration is invalid.
     """
-    
+
     def __init__(
         self,
         message: str = "Application configuration error",
@@ -193,7 +193,7 @@ class ConfigurationError(KuyaCompsException):
         error_details = details or {}
         if config_key:
             error_details["config_key"] = config_key
-        
+
         super().__init__(
             message=message,
             error_code="CONFIGURATION_ERROR",

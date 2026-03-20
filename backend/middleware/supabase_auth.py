@@ -8,7 +8,7 @@ Extracts user information and makes it available to endpoints.
 import os
 import jwt
 from typing import Optional
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import PyJWKClient
 from backend.logging_config import get_logger
@@ -22,21 +22,21 @@ security = HTTPBearer(auto_error=False)
 class SupabaseAuth:
     """
     Supabase JWT authentication handler.
-    
+
     Validates JWT tokens issued by Supabase and extracts user information.
     """
-    
+
     def __init__(self):
         """Initialize Supabase auth with project configuration."""
         self.supabase_url = os.getenv('SUPABASE_URL')
         self.supabase_jwt_secret = os.getenv('SUPABASE_JWT_SECRET')
-        
+
         if not self.supabase_url:
             logger.warning("[SUPABASE AUTH] SUPABASE_URL not configured - auth will be disabled")
-        
+
         if not self.supabase_jwt_secret:
             logger.warning("[SUPABASE AUTH] SUPABASE_JWT_SECRET not configured - auth will be disabled")
-        
+
         # Initialize JWK client for fetching public keys (if using RS256)
         self.jwk_client = None
         if self.supabase_url:
@@ -46,34 +46,34 @@ class SupabaseAuth:
                 logger.info(f"[SUPABASE AUTH] JWK client initialized with URL: {jwks_url}")
             except Exception as e:
                 logger.error(f"[SUPABASE AUTH] Failed to initialize JWK client: {e}")
-    
+
     def is_configured(self) -> bool:
         """Check if Supabase auth is properly configured."""
         return bool(self.supabase_url and self.supabase_jwt_secret)
-    
+
     async def verify_token(self, token: str) -> dict:
         """
         Verify and decode a Supabase JWT token.
-        
+
         Args:
             token: JWT token string
-            
+
         Returns:
             Decoded token payload containing user information
-            
+
         Raises:
             HTTPException: If token is invalid or expired
         """
         if not self.is_configured():
             logger.warning("[SUPABASE AUTH] Auth not configured - skipping token verification")
             return {"sub": "anonymous", "email": "anonymous@example.com"}
-        
+
         # Diagnostic logging: show token structure (first 20 chars only)
         token_preview = token[:20] if len(token) > 20 else token
         logger.debug(f"[SUPABASE AUTH] Verifying token (preview): {token_preview}...")
         logger.debug(f"[SUPABASE AUTH] Token length: {len(token)} characters")
         logger.debug(f"[SUPABASE AUTH] JWT secret configured: {bool(self.supabase_jwt_secret)}")
-        
+
         # Decode token WITHOUT verification first to inspect claims for diagnostic purposes
         try:
             unverified_payload = jwt.decode(
@@ -85,7 +85,7 @@ class SupabaseAuth:
                         f"email={unverified_payload.get('email')}")
         except Exception as e:
             logger.warning(f"[SUPABASE AUTH] Failed to decode token structure: {e}")
-        
+
         try:
             # Get signing key from JWK endpoint for ES256 tokens
             # Supabase issues tokens with ES256 (Elliptic Curve) algorithm
@@ -96,10 +96,10 @@ class SupabaseAuth:
                     detail="Authentication configuration error",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            
+
             try:
                 signing_key = self.jwk_client.get_signing_key_from_jwt(token)
-                logger.debug(f"[SUPABASE AUTH] Retrieved signing key from JWK endpoint")
+                logger.debug("[SUPABASE AUTH] Retrieved signing key from JWK endpoint")
             except Exception as jwk_error:
                 logger.error(f"[SUPABASE AUTH] ✗ Failed to fetch signing key from JWK: {type(jwk_error).__name__}: {jwk_error}")
                 raise HTTPException(
@@ -107,7 +107,7 @@ class SupabaseAuth:
                     detail="Failed to verify token signature",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            
+
             decoded = jwt.decode(
                 token,
                 signing_key.key,  # Use public key from JWK instead of JWT secret
@@ -119,10 +119,10 @@ class SupabaseAuth:
                     "verify_aud": True
                 }
             )
-            
+
             logger.info(f"[SUPABASE AUTH] ✓ Token verified successfully for user: {decoded.get('email', 'unknown')}")
             return decoded
-            
+
         except jwt.ExpiredSignatureError as e:
             logger.warning(f"[SUPABASE AUTH] ✗ Token has expired: {e}")
             raise HTTPException(
@@ -169,20 +169,20 @@ class SupabaseAuth:
                 detail="Authentication failed",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-    
+
     async def get_current_user(
         self,
         credentials: Optional[HTTPAuthorizationCredentials] = None
     ) -> Optional[dict]:
         """
         Extract and verify user from Authorization header.
-        
+
         Args:
             credentials: HTTP Bearer credentials from request
-            
+
         Returns:
             User information dict or None if not authenticated
-            
+
         Raises:
             HTTPException: If token is present but invalid
         """
@@ -190,15 +190,15 @@ class SupabaseAuth:
         if not credentials:
             logger.debug("[SUPABASE AUTH] No credentials provided in request")
             return None
-        
+
         token = credentials.credentials
-        
+
         # Diagnostic logging: show token info
         token_preview = token[:20] if len(token) > 20 else token
         logger.debug(f"[SUPABASE AUTH] Extracting user from token (preview): {token_preview}...")
         logger.debug(f"[SUPABASE AUTH] Token length: {len(token)} characters")
         logger.debug(f"[SUPABASE AUTH] JWT secret configured: {bool(self.supabase_jwt_secret)}")
-        
+
         user = await self.verify_token(token)
         return user
 
@@ -213,7 +213,7 @@ async def get_current_user_optional(
     """
     Dependency for optional authentication.
     Returns user info if authenticated, None otherwise.
-    
+
     Usage:
         @app.get("/endpoint")
         async def endpoint(user: Optional[dict] = Depends(get_current_user_optional)):
@@ -225,7 +225,7 @@ async def get_current_user_optional(
     """
     if not credentials:
         return None
-    
+
     return await supabase_auth.get_current_user(credentials)
 
 
@@ -235,7 +235,7 @@ async def get_current_user_required(
     """
     Dependency for required authentication.
     Raises 401 if not authenticated.
-    
+
     Usage:
         @app.get("/endpoint")
         async def endpoint(user: dict = Depends(get_current_user_required)):
@@ -248,5 +248,5 @@ async def get_current_user_required(
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     return await supabase_auth.get_current_user(credentials)

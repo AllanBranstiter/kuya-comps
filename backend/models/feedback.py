@@ -30,7 +30,7 @@ class FeedbackSubmitRequest(BaseModel):
     annotation: Optional[AnnotationCoords] = Field(None, description="Annotation coordinates")
     clientSessionId: str = Field(..., description="Client session identifier")
     lastApiResponse: Optional[Dict[str, Any]] = Field(None, description="Last API response (for bug reports)")
-    
+
     @validator('screenshot')
     def validate_screenshot_size(cls, v):
         """
@@ -41,43 +41,43 @@ class FeedbackSubmitRequest(BaseModel):
             # Verify it's a valid base64 data URL
             if not v.startswith('data:image/'):
                 raise ValueError("Screenshot must be a valid data URL (data:image/...)")
-            
+
             # Extract the format
             format_match = re.match(r'data:image/(.*?);base64,', v)
             if not format_match:
                 raise ValueError("Screenshot must be base64 encoded")
-            
+
             image_format = format_match.group(1).lower()
             allowed_formats = ['png', 'jpeg', 'jpg', 'webp']
             if image_format not in allowed_formats:
                 raise ValueError(f"Invalid image format: {image_format}. Allowed: {', '.join(allowed_formats)}")
-            
+
             # Calculate actual base64 data size (excluding data URL prefix)
             base64_data = v.split(',', 1)[1] if ',' in v else v
-            
+
             # Validate it's proper base64
             try:
                 base64.b64decode(base64_data, validate=True)
             except Exception:
                 raise ValueError("Screenshot contains invalid base64 data")
-            
+
             # Calculate approximate size in KB
             # Note: Base64 encoding increases size by ~33%, so this is the encoded size
             size_kb = len(v) / 1024
-            
+
             # Phase 2: Strict 2MB limit
             if size_kb > 2048:  # 2MB limit
                 raise ValueError(
                     f"Screenshot too large: {size_kb:.2f} KB (max 2048 KB). "
                     f"Please ensure client-side compression is working properly."
                 )
-            
+
             # Phase 2: Warning for large screenshots
             if size_kb > 1024:  # 1MB warning threshold
                 print(f"[WARNING] Large screenshot: {size_kb:.2f} KB (consider increasing compression)")
-        
+
         return v
-    
+
     @validator('category')
     def validate_category(cls, v):
         """Validate category is one of the allowed values."""
@@ -117,6 +117,6 @@ class FeedbackItem(BaseModel):
     annotation_coords: Optional[str]
     api_state: Optional[str]
     created_at: str
-    
+
     class Config:
         from_attributes = True  # Allows creation from ORM models

@@ -4,7 +4,6 @@ Simple admin authentication middleware for feedback dashboard.
 Uses session-based authentication with password protection.
 """
 from fastapi import Request, HTTPException, status
-from fastapi.responses import JSONResponse
 from typing import Optional
 import secrets
 import os
@@ -34,15 +33,15 @@ def validate_admin_session(session_id: str) -> bool:
     """Validate an admin session ID."""
     if session_id not in admin_sessions:
         return False
-    
+
     session = admin_sessions[session_id]
-    
+
     # Check if session has expired
     if datetime.utcnow() - session["last_activity"] > SESSION_TIMEOUT:
         # Session expired, remove it
         del admin_sessions[session_id]
         return False
-    
+
     # Update last activity
     session["last_activity"] = datetime.utcnow()
     return True
@@ -74,12 +73,12 @@ def require_admin_auth(request: Request):
     Raises HTTPException if not authenticated.
     """
     session_id = get_admin_session_from_request(request)
-    
+
     if not session_id or not validate_admin_session(session_id):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Admin authentication required",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    
+
     return session_id

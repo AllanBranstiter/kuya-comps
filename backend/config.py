@@ -17,7 +17,7 @@ from typing import Optional, List
 def get_environment() -> str:
     """
     Get current environment: development, staging, or production.
-    
+
     Returns:
         Environment name (development, staging, or production)
     """
@@ -76,24 +76,24 @@ def get_sentry_traces_sample_rate() -> float:
 def get_supabase_client():
     """
     Get Supabase client instance for authentication and user operations.
-    
+
     Uses the service role key for administrative operations on the Supabase database.
-    
+
     Returns:
         Supabase Client instance
-        
+
     Raises:
         HTTPException: If Supabase credentials are not configured
     """
-    from supabase import create_client, Client
+    from supabase import create_client
     from fastapi import HTTPException
-    
+
     supabase_url = os.getenv('SUPABASE_URL')
     supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-    
+
     if not supabase_url or not supabase_key:
         raise HTTPException(500, "Supabase not configured")
-    
+
     return create_client(supabase_url, supabase_key)
 
 
@@ -104,7 +104,7 @@ def get_supabase_client():
 def get_log_level() -> str:
     """
     Get log level from environment.
-    
+
     Returns:
         Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
@@ -114,7 +114,7 @@ def get_log_level() -> str:
 def get_log_format() -> str:
     """
     Get log format from environment.
-    
+
     Returns:
         Log format (json or text)
     """
@@ -128,7 +128,7 @@ def get_log_format() -> str:
 def get_cors_origins() -> List[str]:
     """
     Get allowed CORS origins from environment.
-    
+
     Returns:
         List of allowed origin URLs
     """
@@ -168,48 +168,48 @@ def get_port() -> int:
 def validate_config() -> None:
     """
     Validate required environment variables on startup.
-    
+
     Raises:
         SystemExit: If required configuration is missing
     """
     errors = []
-    
+
     # Check required API keys
     if not get_search_api_key():
         errors.append("SEARCH_API_KEY is required")
-    
+
     # Check eBay credentials (optional but recommended)
     ebay_app_id = os.getenv('EBAY_APP_ID')
     ebay_dev_id = os.getenv('EBAY_DEV_ID')
     ebay_cert_id = os.getenv('EBAY_CERT_ID')
-    
+
     if not all([ebay_app_id, ebay_dev_id, ebay_cert_id]):
         # Just warn, don't fail - app can run with SearchAPI only
         print("[WARNING] eBay API credentials not fully configured. Active listings may not work.")
-    
+
     # Validate environment name
     env = get_environment()
     if env not in ['development', 'staging', 'production']:
         errors.append(f"Invalid ENVIRONMENT value: {env}. Must be development, staging, or production.")
-    
+
     # Validate log level
     log_level = get_log_level()
     if log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
         errors.append(f"Invalid LOG_LEVEL value: {log_level}")
-    
+
     # Validate log format
     log_format = get_log_format()
     if log_format not in ['json', 'text']:
         errors.append(f"Invalid LOG_FORMAT value: {log_format}. Must be json or text.")
-    
+
     # Production-specific validations
     if is_production():
         if not get_sentry_dsn():
             print("[WARNING] SENTRY_DSN not configured. Error monitoring disabled in production.")
-        
+
         if get_log_format() != 'json':
             print("[WARNING] LOG_FORMAT should be 'json' in production for better log aggregation.")
-    
+
     # Report errors
     if errors:
         print("\n[ERROR] Configuration validation failed:")
@@ -218,7 +218,7 @@ def validate_config() -> None:
         print("\nPlease check your .env file and ensure all required variables are set.")
         print("See .env.example for reference.\n")
         sys.exit(1)
-    
+
     # Print configuration summary
     print(f"\n[CONFIG] Environment: {get_environment()}")
     print(f"[CONFIG] Log Level: {get_log_level()}")
@@ -226,7 +226,7 @@ def validate_config() -> None:
     print(f"[CONFIG] Redis URL: {get_redis_url()}")
     print(f"[CONFIG] CORS Origins: {', '.join(get_cors_origins())}")
     if is_production() and get_sentry_dsn():
-        print(f"[CONFIG] Sentry: Enabled")
+        print("[CONFIG] Sentry: Enabled")
     print()
 
 

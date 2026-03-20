@@ -62,45 +62,45 @@ async def main():
         action='store_true',
         help='Show what would be updated without actually updating'
     )
-    
+
     args = parser.parse_args()
-    
+
     logger.info("=" * 80)
     logger.info(f"[Cron Job] Starting automated valuation update at {datetime.utcnow().isoformat()}")
     logger.info(f"[Cron Job] Parameters: days_threshold={args.days_threshold}, max_cards={args.max_cards}, delay={args.delay}")
     logger.info("=" * 80)
-    
+
     # Get API key from config
     api_key = get_search_api_key()
-    
+
     if not api_key:
         logger.error("[Cron Job] SEARCHAPI_API_KEY not configured. Exiting.")
         sys.exit(1)
-    
+
     # Create database session
     db = SessionLocal()
-    
+
     try:
         if args.dry_run:
             # Dry run - just show what would be updated
             from backend.services.collection_service import get_cards_for_auto_update
-            
+
             stale_cards = get_cards_for_auto_update(db, args.days_threshold)
-            
+
             if args.max_cards:
                 stale_cards = stale_cards[:args.max_cards]
-            
+
             logger.info(f"[Cron Job] DRY RUN: Would update {len(stale_cards)} cards")
-            
+
             for i, card in enumerate(stale_cards[:10], 1):
                 logger.info(f"[Cron Job]   {i}. Card {card.id}: {card.athlete} - {card.set_name} (last updated: {card.last_updated_at})")
-            
+
             if len(stale_cards) > 10:
                 logger.info(f"[Cron Job]   ... and {len(stale_cards) - 10} more")
-            
+
             logger.info("[Cron Job] DRY RUN complete. No changes made.")
             return
-        
+
         # Perform batch update
         summary = await update_stale_cards(
             db=db,
@@ -110,7 +110,7 @@ async def main():
             max_cards=args.max_cards,
             delay_between_cards=args.delay
         )
-        
+
         # Log summary
         logger.info("=" * 80)
         logger.info("[Cron Job] Batch update complete!")
@@ -119,7 +119,7 @@ async def main():
         logger.info(f"[Cron Job] Flagged for review: {summary['flagged']}")
         logger.info(f"[Cron Job] Errors: {summary['errors']}")
         logger.info("=" * 80)
-        
+
         # Log details of flagged cards
         flagged_results = [r for r in summary['results'] if r.get('flagged_for_review')]
         if flagged_results:
@@ -128,7 +128,7 @@ async def main():
                 logger.info(f"[Cron Job]   Card {result['card_id']}: {result.get('reason', 'unknown reason')}")
             if len(flagged_results) > 5:
                 logger.info(f"[Cron Job]   ... and {len(flagged_results) - 5} more")
-        
+
         # Log details of errors
         error_results = [r for r in summary['results'] if not r.get('success')]
         if error_results:
@@ -137,7 +137,7 @@ async def main():
                 logger.warning(f"[Cron Job]   Card {result['card_id']}: {result.get('reason', 'unknown error')}")
             if len(error_results) > 5:
                 logger.warning(f"[Cron Job]   ... and {len(error_results) - 5} more")
-        
+
         # Exit with appropriate code
         if summary['errors'] > 0:
             logger.warning("[Cron Job] Completed with errors")
@@ -145,13 +145,13 @@ async def main():
         else:
             logger.info("[Cron Job] Completed successfully")
             sys.exit(0)
-        
+
     except Exception as e:
         logger.error(f"[Cron Job] Fatal error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
-    
+
     finally:
         db.close()
 

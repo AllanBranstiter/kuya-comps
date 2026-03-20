@@ -33,11 +33,11 @@ limiter = Limiter(key_func=get_remote_address)
 async def analyze_grading(request: Request, body: GradingAdvisorRequest):
     """
     Analyze whether a card is worth submitting to PSA for grading.
-    
+
     Takes price data, population data, and cost information to determine
     if grading is financially viable. Returns a comprehensive analysis
     including:
-    
+
     - **Verdict**: Clear recommendation (Green Light, Proceed with Caution, Gem or Bust, Buy the Slab)
     - **Success Rate**: Percentage of grades that would be profitable
     - **Break-even Grade**: Minimum grade needed to not lose money
@@ -45,18 +45,18 @@ async def analyze_grading(request: Request, body: GradingAdvisorRequest):
     - **Scenario Analysis**: Optimistic, realistic, and pessimistic outcomes
     - **Collector Profiles**: Tailored advice for flippers vs long-term holders
     - **Population Insights**: Rarity tier and distribution analysis
-    
+
     Args:
         request: FastAPI Request object (for rate limiting)
         body: GradingAdvisorRequest containing price_data, population_data,
               raw_purchase_price, grading_fee, and optional expected_grade
-    
+
     Returns:
         GradingAdvisorResponse with complete analysis results
-    
+
     Raises:
         HTTPException: 500 error if analysis fails
-    
+
     Example Request:
         ```json
         {
@@ -67,7 +67,7 @@ async def analyze_grading(request: Request, body: GradingAdvisorRequest):
             "expected_grade": 8
         }
         ```
-    
+
     Example Response:
         ```json
         {
@@ -90,10 +90,10 @@ async def analyze_grading(request: Request, body: GradingAdvisorRequest):
         expected_grade=body.expected_grade,
         user_ip=request.client.host if request.client else 'unknown'
     )
-    
+
     try:
         result = analyze_grading_decision(body)
-        
+
         log_with_context(
             logger,
             'info',
@@ -103,7 +103,7 @@ async def analyze_grading(request: Request, body: GradingAdvisorRequest):
             status=result.status,
             success_rate=result.success_rate
         )
-        
+
         return result
     except ValueError as e:
         # Handle validation errors from the service
@@ -130,14 +130,14 @@ async def analyze_grading(request: Request, body: GradingAdvisorRequest):
 async def health_check():
     """
     Health check endpoint for the Grading Advisor service.
-    
+
     Returns a simple status indicating the service is operational.
     Useful for monitoring, load balancer health checks, and verifying
     the grading advisor feature is available.
-    
+
     Returns:
         dict: Health status with service name
-    
+
     Example Response:
         ```json
         {

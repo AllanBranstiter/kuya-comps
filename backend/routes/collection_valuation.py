@@ -84,21 +84,21 @@ async def update_card_value(
 ):
     """
     Manually trigger a valuation update for a specific card.
-    
+
     This endpoint allows users to force an immediate FMV update for one of their cards,
     regardless of when it was last updated.
-    
+
     **Authentication Required:** Yes (user must own the card)
-    
+
     **Rate Limiting:** Consider implementing rate limiting to prevent abuse
-    
+
     **Process:**
     1. Verifies user owns the card
     2. Scrapes eBay for current sold listings
     3. Applies safety checks (keyword firewall, outlier removal, volatility)
     4. Updates FMV or flags for review
     5. Creates price history entry
-    
+
     **Returns:**
     - `success`: Whether the operation completed without errors
     - `updated`: Whether the FMV was actually updated
@@ -111,18 +111,18 @@ async def update_card_value(
     - `num_outliers`: Number of outliers removed
     """
     logger.info(f"[API] Manual valuation update requested for card {card_id} by user {current_user['id']}")
-    
+
     # Verify card exists and user owns it
     card = get_card_by_id(db, card_id, current_user['id'])
     if not card:
         raise HTTPException(status_code=404, detail="Card not found or access denied")
-    
+
     # Get API key from config
     api_key = get_search_api_key()
-    
+
     if not api_key:
         raise HTTPException(status_code=500, detail="SearchAPI key not configured")
-    
+
     # Perform valuation update
     result = await manually_update_card(
         db=db,
@@ -131,7 +131,7 @@ async def update_card_value(
         scraper_func=scrape_sold_comps,
         api_key=api_key
     )
-    
+
     if 'error' in result:
         return ManualUpdateResponse(
             success=False,
@@ -142,7 +142,7 @@ async def update_card_value(
             num_outliers=0,
             error=result['error']
         )
-    
+
     return ManualUpdateResponse(
         success=result['success'],
         updated=result.get('updated', False),
@@ -169,18 +169,18 @@ async def batch_update_valuations(
 ):
     """
     Update all cards that need automated valuation updates.
-    
+
     This endpoint is designed to be called by a cron job or admin user to update
     all cards with `auto_update=TRUE` that haven't been updated in the specified
     number of days.
-    
+
     **Authentication Required:** Admin only
-    
+
     **Parameters:**
     - `days_threshold`: Number of days since last update to consider a card stale (default: 30)
     - `max_cards`: Maximum number of cards to update in this batch (default: None = all)
     - `delay_between_cards`: Delay in seconds between card updates to avoid rate limiting (default: 2.0)
-    
+
     **Process:**
     1. Finds all cards with `auto_update=TRUE` and `last_updated_at > days_threshold`
     2. For each card:
@@ -192,13 +192,13 @@ async def batch_update_valuations(
        - Updates FMV or flags for review
        - Creates price history entry
     3. Returns summary statistics
-    
+
     **Safety Checks:**
     - **Keyword Firewall:** Excludes "reprint", "digital", "RP", "box", "pack", etc.
     - **Outlier Removal:** IQR filtering removes extreme prices
     - **Ghost Town Check:** Doesn't update to $0 if no sales found
     - **Volatility Guardrail:** Flags for review if price changes >50%
-    
+
     **Returns:**
     - `total_cards`: Number of cards processed
     - `updated`: Number of cards successfully updated
@@ -208,13 +208,13 @@ async def batch_update_valuations(
     """
     logger.info(f"[API] Batch valuation update requested by admin {admin_user['id']}")
     logger.info(f"[API] Parameters: days_threshold={request.days_threshold}, max_cards={request.max_cards}")
-    
+
     # Get API key from config
     api_key = get_search_api_key()
-    
+
     if not api_key:
         raise HTTPException(status_code=500, detail="SearchAPI key not configured")
-    
+
     # Perform batch update
     summary = await update_stale_cards(
         db=db,
@@ -224,13 +224,13 @@ async def batch_update_valuations(
         max_cards=request.max_cards,
         delay_between_cards=request.delay_between_cards
     )
-    
+
     message = (
         f"Batch update complete: {summary['updated']} cards updated, "
         f"{summary['flagged']} flagged for review, "
         f"{summary['errors']} errors"
     )
-    
+
     return BatchUpdateResponse(
         total_cards=summary['total_cards'],
         updated=summary['updated'],
@@ -247,9 +247,9 @@ async def get_valuation_stats(
 ):
     """
     Get statistics about cards needing valuation updates.
-    
+
     **Authentication Required:** Admin only
-    
+
     **Returns:**
     - `total_cards_with_auto_update`: Total cards with auto-update enabled
     - `cards_needing_update_30d`: Cards not updated in 30+ days
@@ -260,21 +260,21 @@ async def get_valuation_stats(
     """
     from backend.services.collection_service import get_cards_for_auto_update
     from backend.database.schema import Card
-    
+
     # Get counts for different thresholds
     cards_30d = get_cards_for_auto_update(db, days_threshold=30)
     cards_60d = get_cards_for_auto_update(db, days_threshold=60)
     cards_90d = get_cards_for_auto_update(db, days_threshold=90)
-    
+
     # Get total cards with auto-update enabled
-    total_auto_update = db.query(Card).filter(Card.auto_update == True).count()
-    
+    total_auto_update = db.query(Card).filter(Card.auto_update == True).count()  # noqa: E712
+
     # Get flagged cards
-    flagged_cards = db.query(Card).filter(Card.review_required == True).count()
-    
+    flagged_cards = db.query(Card).filter(Card.review_required == True).count()  # noqa: E712
+
     # Get cards with no recent sales
-    no_sales_cards = db.query(Card).filter(Card.no_recent_sales == True).count()
-    
+    no_sales_cards = db.query(Card).filter(Card.no_recent_sales == True).count()  # noqa: E712
+
     return {
         'total_cards_with_auto_update': total_auto_update,
         'cards_needing_update_30d': len(cards_30d),

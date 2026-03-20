@@ -6,7 +6,7 @@ Documentation: https://developer.ebay.com/api-docs/buy/browse/overview.html
 import os
 import httpx
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 from dotenv import load_dotenv
 from backend.http_client import AsyncHTTPClient
 import logging
@@ -18,27 +18,27 @@ logger = logging.getLogger(__name__)
 class eBayBrowseClient:
     """
     eBay Browse API client with OAuth 2.0 Application token authentication.
-    
+
     This client handles:
     - OAuth 2.0 authentication with automatic token refresh
     - Item search using the Browse API
     - Individual item details retrieval
     - Proper error handling and logging
     """
-    
+
     def __init__(self):
         self.app_id = os.getenv('EBAY_APP_ID')
         self.dev_id = os.getenv('EBAY_DEV_ID')
         self.cert_id = os.getenv('EBAY_CERT_ID')
         self.environment = os.getenv('EBAY_ENVIRONMENT', 'production')
-        
+
         # eBay Partner Network (ePN) affiliate configuration
         self.campaign_id = os.getenv('EBAY_CAMPAIGN_ID')
         self.enable_affiliate = os.getenv('EBAY_ENABLE_AFFILIATE', 'false').lower() == 'true'
-        
+
         if not all([self.app_id, self.cert_id]):
             raise ValueError("eBay credentials not found. Please set EBAY_APP_ID and EBAY_CERT_ID in .env")
-        
+
         # API endpoints based on environment
         if self.environment == 'production':
             self.auth_url = "https://api.ebay.com/identity/v1/oauth2/token"
@@ -46,27 +46,27 @@ class eBayBrowseClient:
         else:
             self.auth_url = "https://api.sandbox.ebay.com/identity/v1/oauth2/token"
             self.base_url = "https://api.sandbox.ebay.com/buy/browse/v1"
-        
+
         # Token management
         self.token = None
         self.token_expires = None
-        
+
         print(f"[eBay API] Initialized in {self.environment} mode")
-    
+
     async def get_access_token(self) -> str:
         """
         Get OAuth 2.0 Application Access Token using Client Credentials flow.
         Tokens are cached and automatically refreshed when expired.
-        
+
         Returns:
             str: Valid access token
         """
         # Check if cached token is still valid
         if self.token and self.token_expires and datetime.now() < self.token_expires:
             return self.token
-        
+
         logger.info("[eBay API] Requesting new access token...")
-        
+
         # Request new token using Client Credentials grant
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded'
@@ -75,7 +75,7 @@ class eBayBrowseClient:
             'grant_type': 'client_credentials',
             'scope': 'https://api.ebay.com/oauth/api_scope'
         }
-        
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -86,17 +86,17 @@ class eBayBrowseClient:
                     timeout=10
                 )
                 response.raise_for_status()
-                
+
                 token_data = response.json()
                 self.token = token_data['access_token']
-                
+
                 # Refresh token 5 minutes before actual expiry for safety
                 expires_in = token_data.get('expires_in', 7200) - 300
                 self.token_expires = datetime.now() + timedelta(seconds=expires_in)
-                
+
                 logger.info(f"[eBay API] Token acquired successfully, expires in {expires_in}s")
                 return self.token
-            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"[eBay API] Authentication failed: {e}")
             if e.response is not None:
@@ -105,7 +105,7 @@ class eBayBrowseClient:
         except httpx.RequestError as e:
             logger.error(f"[eBay API] Authentication request failed: {e}")
             raise
-    
+
     async def search_items(
         self,
         query: str,
@@ -118,10 +118,10 @@ class eBayBrowseClient:
     ) -> Dict:
         """
         Search for items using the Browse API.
-        
+
         API Endpoint: GET /item_summary/search
         Docs: https://developer.ebay.com/api-docs/buy/browse/resources/item_summary/methods/search
-        
+
         Args:
             query: Search keywords (e.g., "2024 topps chrome paul skenes")
             limit: Results per page (1-200, default 50)
@@ -130,7 +130,7 @@ class eBayBrowseClient:
             filter_params: Filters dict - buyingOptions, conditions, price, itemLocationCountry
             fieldgroups: "EXTENDED" for more details, "MATCHING_ITEMS" (default)
             marketplace_id: "EBAY_US", "EBAY_GB", "EBAY_DE", etc.
-        
+
         Returns:
             Dict containing:
                 - itemSummaries: List of item objects
@@ -139,7 +139,7 @@ class eBayBrowseClient:
                 - offset: Current offset
                 - next: URL for next page (if available)
                 - prev: URL for previous page (if available)
-        
+
         Example filters:
             {
                 'buyingOptions': 'FIXED_PRICE|AUCTION',
@@ -149,13 +149,13 @@ class eBayBrowseClient:
             }
         """
         token = await self.get_access_token()
-        
+
         headers = {
             'Authorization': f'Bearer {token}',
             'X-EBAY-C-MARKETPLACE-ID': marketplace_id,
             'Accept': 'application/json'
         }
-        
+
         # Add eBay Partner Network (ePN) affiliate tracking header
         # This enables the API to return itemAffiliateWebUrl for commission tracking
         # Only add if both enabled AND campaign_id is valid (not a placeholder)
@@ -165,19 +165,19 @@ class eBayBrowseClient:
         else:
             if self.enable_affiliate:
                 logger.warning(f"[eBay API] Affiliate disabled - invalid or missing campaign ID: {self.campaign_id}")
-        
+
         params = {
             'q': query,
             'limit': min(limit, 200),  # eBay API max is 200
             'offset': offset,
         }
-        
+
         if sort:
             params['sort'] = sort
-        
+
         if fieldgroups:
             params['fieldgroups'] = fieldgroups
-        
+
         # Build filter string from dict
         # Format: "key1:value1,key2:value2"
         if filter_params:
@@ -185,22 +185,22 @@ class eBayBrowseClient:
             for key, value in filter_params.items():
                 filter_list.append(f"{key}:{value}")
             params['filter'] = ','.join(filter_list)
-        
+
         url = f"{self.base_url}/item_summary/search"
-        
+
         try:
             logger.info(f"[eBay API] Searching: '{query}' (limit={limit}, offset={offset})")
-            
+
             async with AsyncHTTPClient(timeout=15) as client:
                 response = await client.get(url, headers=headers, params=params)
-            
+
             data = response.json()
             total = data.get('total', 0)
             items_count = len(data.get('itemSummaries', []))
             logger.info(f"[eBay API] Found {items_count} items on this page (total matches: {total})")
-            
+
             return data
-            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"[eBay API] Search failed: {e}")
             if e.response is not None:
@@ -209,7 +209,7 @@ class eBayBrowseClient:
         except httpx.RequestError as e:
             logger.error(f"[eBay API] Search request failed: {e}")
             raise
-    
+
     async def get_item(
         self,
         item_id: str,
@@ -218,45 +218,45 @@ class eBayBrowseClient:
     ) -> Dict:
         """
         Get detailed information for a specific item.
-        
+
         API Endpoint: GET /item/{item_id}
         Docs: https://developer.ebay.com/api-docs/buy/browse/resources/item/methods/getItem
-        
+
         Args:
             item_id: eBay item ID (RESTful format: v1|######|#)
             fieldgroups: Optional - "PRODUCT", "ADDITIONAL_SELLER_DETAILS", "CHARITY_DETAILS"
             marketplace_id: "EBAY_US", "EBAY_GB", "EBAY_DE", etc.
-        
+
         Returns:
             Dict: Detailed item information including description, specs, seller info, etc.
         """
         token = await self.get_access_token()
-        
+
         headers = {
             'Authorization': f'Bearer {token}',
             'X-EBAY-C-MARKETPLACE-ID': marketplace_id,
             'Accept': 'application/json'
         }
-        
+
         # Add eBay Partner Network (ePN) affiliate tracking header
         # Only add if both enabled AND campaign_id is valid (not a placeholder)
         if self.enable_affiliate and self.campaign_id and self.campaign_id.isdigit():
             headers['X-EBAY-C-ENDUSERCTX'] = f'affiliateCampaignId={self.campaign_id}'
-        
+
         params = {}
         if fieldgroups:
             params['fieldgroups'] = fieldgroups
-        
+
         url = f"{self.base_url}/item/{item_id}"
-        
+
         try:
             logger.info(f"[eBay API] Getting item details: {item_id}")
-            
+
             async with AsyncHTTPClient(timeout=10) as client:
                 response = await client.get(url, headers=headers, params=params)
-            
+
             return response.json()
-            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"[eBay API] Get item failed: {e}")
             if e.response is not None:
@@ -270,32 +270,32 @@ class eBayBrowseClient:
 def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     """
     Convert eBay Browse API item format to Kuya Comps internal format.
-    
+
     Maps eBay API fields to the format expected by main.py and the frontend.
     This ensures compatibility with existing code while using official eBay data.
-    
+
     Args:
         ebay_item: Item object from eBay Browse API response
-    
+
     Returns:
         Dict: Normalized item in Kuya Comps format
     """
     # Extract item ID for logging
     item_id = ebay_item.get('itemId', 'unknown')
-    
+
     # Extract nested values safely
     price_obj = ebay_item.get('price', {})
-    
+
     seller_obj = ebay_item.get('seller', {})
     image_obj = ebay_item.get('image', {})
     location_obj = ebay_item.get('itemLocation', {})
-    
+
     # Extract shipping info (first shipping option if available)
     shipping_options = ebay_item.get('shippingOptions', [])
     shipping_cost = 0.0
     shipping_free = False
     shipping_cost_missing = False
-    
+
     if shipping_options and len(shipping_options) > 0:
         shipping_obj = shipping_options[0].get('shippingCost', {})
         try:
@@ -312,7 +312,7 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         shipping_cost_missing = True
         print(f"[Browse API] WARNING: Item {item_id} MISSING shippingOptions in API response - defaulting to $0.00")
         print(f"  Title: {ebay_item.get('title', 'N/A')[:60]}")
-    
+
     # Extract price - Browse API returns price.value as a string
     # According to eBay docs: price is an object with 'value' (string) and 'currency' (string)
     extracted_price = 0.0
@@ -328,13 +328,13 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     else:
         print(f"[Browse API] WARNING: Item {item_id} missing price object")
         extracted_price = 0.0
-    
+
     # Determine buying format - Browse API uses buyingOptions array
     buying_options = ebay_item.get('buyingOptions', [])
     is_auction = 'AUCTION' in buying_options
     is_buy_it_now = 'FIXED_PRICE' in buying_options or 'BUY_IT_NOW' in buying_options
     is_best_offer = 'BEST_OFFER' in buying_options
-    
+
     # Create buying format string for display
     buying_format_parts = []
     if is_auction:
@@ -344,20 +344,20 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
     if is_best_offer:
         buying_format_parts.append('Best Offer')
     buying_format = ', '.join(buying_format_parts) if buying_format_parts else 'Buy It Now'
-    
+
     # Debug logging for items with no price
     if extracted_price <= 0:
         print(f"[Browse API] Warning: Item {ebay_item.get('itemId')} has zero/invalid price. Price object: {price_obj}")
-    
+
     # Use affiliate link if available (for ePN commissions), otherwise use regular link
     # itemAffiliateWebUrl is returned when X-EBAY-C-ENDUSERCTX header includes affiliateCampaignId
     item_link = ebay_item.get('itemAffiliateWebUrl') or ebay_item.get('itemWebUrl')
-    
+
     # Get itemId and log if missing
     item_id_value = ebay_item.get('itemId')
     if not item_id_value:
         print(f"[Browse API] ERROR: Item missing itemId! Title: {ebay_item.get('title', 'N/A')[:50]}")
-    
+
     result = {
         # Core identification - Browse API uses 'itemId' not 'item_id'
         'item_id': item_id_value,
@@ -371,7 +371,7 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         # Browse API returns additionalImages as array of objects with 'imageUrl' property
         # Extract just the URLs for compatibility
         'images': [img.get('imageUrl') for img in ebay_item.get('additionalImages', []) if isinstance(img, dict) and img.get('imageUrl')],
-        
+
         # Pricing
         'price': f"${extracted_price:.2f}",
         'extracted_price': extracted_price,
@@ -379,33 +379,33 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         'shipping': 'Free' if shipping_free or shipping_cost == 0 else f"${shipping_cost:.2f}",
         'extracted_shipping': shipping_cost,
         'shipping_free': shipping_free,
-        
+
         # Buying format
         'buying_format': buying_format,
         'is_auction': is_auction,
         'is_buy_it_now': is_buy_it_now,
         'is_best_offer': is_best_offer,
-        
+
         # Condition
         'condition': ebay_item.get('condition'),
         'condition_id': ebay_item.get('conditionId'),
-        
+
         # Location
         'item_location': location_obj.get('city'),
-        
+
         # Seller info
         'seller': {
             'name': seller_obj.get('username'),
             'feedback_percent': seller_obj.get('feedbackPercentage'),
             'feedback_score': seller_obj.get('feedbackScore'),
         },
-        
+
         # Special features
         'authenticity_guarantee': ebay_item.get('authenticityGuarantee') is not None,
         'authenticity': 'Authenticity Guarantee' if ebay_item.get('authenticityGuarantee') else None,
         'top_rated': ebay_item.get('topRatedBuyingExperience', False),
         'is_in_psa_vault': False,  # Not available in Browse API item summary
-        
+
         # Additional metadata
         'bid_count': ebay_item.get('bidCount', 0),
         'bids': ebay_item.get('bidCount', 0),
@@ -415,34 +415,34 @@ def normalize_ebay_browse_item(ebay_item: Dict) -> Dict:
         'itemCreationDate': ebay_item.get('itemCreationDate'),
         'itemEndDate': ebay_item.get('itemEndDate'),
         'time_left': ebay_item.get('itemEndDate'),  # Map end date to time_left for compatibility
-        
+
         # Categories
         'categories': ebay_item.get('categories', []),
         'leafCategoryIds': ebay_item.get('leafCategoryIds', []),
-        
+
         # Short description if available (EXTENDED fieldgroup)
         'shortDescription': ebay_item.get('shortDescription'),
     }
-    
+
     # Calculate total price for compatibility
     total_price_calculated = result.get('extracted_price', 0.0) + result.get('extracted_shipping', 0.0)
     result['total_price'] = total_price_calculated
-    
+
     # Mark if shipping data was missing (vs. being free)
     result['shipping_data_missing'] = shipping_cost_missing
-    
+
     # Log shipping data for debugging
     if shipping_cost_missing:
         print(f"[Browse API] SHIPPING MISSING: Item {result.get('item_id')} - total_price=${total_price_calculated:.2f} (no shipping data from eBay API)")
     elif shipping_cost > 0:
         print(f"[Browse API] Shipping Found: Item {result.get('item_id')} - price=${extracted_price:.2f} + shipping=${shipping_cost:.2f} = total=${total_price_calculated:.2f}")
-    
+
     # Validation: Log items that will be filtered out
     if not result.get('item_id'):
         print(f"[Browse API] ERROR: Item has no itemId - will be filtered. Title: {result.get('title', 'N/A')[:50]}")
     elif not result.get('extracted_price') or result.get('extracted_price') <= 0:
         print(f"[Browse API] ERROR: Item {result.get('item_id')} has zero/invalid price - will be filtered. Price obj: {price_obj}")
-    
+
     return result
 
 
@@ -456,9 +456,9 @@ async def test_ebay_client():
         print("="*60)
         print("Testing eBay Browse API Client (Async)")
         print("="*60)
-        
+
         client = eBayBrowseClient()
-        
+
         # Test search
         print("\n[TEST] Searching for: '2024 topps chrome paul skenes'")
         results = await client.search_items(
@@ -470,15 +470,15 @@ async def test_ebay_client():
                 'itemLocationCountry': 'US'
             }
         )
-        
+
         items = results.get('itemSummaries', [])
         total = results.get('total', 0)
-        
+
         print(f"\n[TEST] API returned {len(items)} items (total matches: {total})")
         print("\n" + "="*60)
         print("Sample Items:")
         print("="*60)
-        
+
         for i, item in enumerate(items[:3], 1):
             normalized = normalize_ebay_browse_item(item)
             print(f"\n{i}. {normalized['title'][:70]}...")
@@ -487,15 +487,15 @@ async def test_ebay_client():
             print(f"   Condition: {normalized['condition']}")
             print(f"   Seller: {normalized['seller']['name']} ({normalized['seller']['feedback_score']} feedback)")
             if normalized['authenticity_guarantee']:
-                print(f"   ✓ Authenticity Guarantee")
+                print("   ✓ Authenticity Guarantee")
             if normalized['top_rated']:
-                print(f"   ✓ Top Rated Plus")
-        
+                print("   ✓ Top Rated Plus")
+
         print("\n" + "="*60)
         print("✓ Test completed successfully!")
         print("="*60)
         return True
-        
+
     except Exception as e:
         print("\n" + "="*60)
         print(f"✗ Test failed: {e}")

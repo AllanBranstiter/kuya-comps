@@ -8,7 +8,7 @@ from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.database.schema import Base, Binder, Card, PriceHistory
+from backend.database.schema import Base, Card, PriceHistory
 from backend.models.collection_schemas import (
     BinderCreate, BinderUpdate,
     CardCreate, CardUpdate,
@@ -74,7 +74,7 @@ def test_create_binder(db_session, test_user_id):
     """Test creating a binder."""
     binder_data = BinderCreate(name="Test Binder")
     binder = create_binder(db_session, test_user_id, binder_data)
-    
+
     assert binder.id is not None
     assert binder.user_id == test_user_id
     assert binder.name == "Test Binder"
@@ -87,9 +87,9 @@ def test_get_user_binders(db_session, test_user_id):
     create_binder(db_session, test_user_id, BinderCreate(name="Binder 1"))
     create_binder(db_session, test_user_id, BinderCreate(name="Binder 2"))
     create_binder(db_session, "other-user", BinderCreate(name="Other User Binder"))
-    
+
     binders = get_user_binders(db_session, test_user_id)
-    
+
     assert len(binders) == 2
     assert all(b.user_id == test_user_id for b in binders)
 
@@ -97,7 +97,7 @@ def test_get_user_binders(db_session, test_user_id):
 def test_get_binder_by_id(db_session, test_user_id, test_binder):
     """Test getting a specific binder."""
     binder = get_binder_by_id(db_session, test_binder.id, test_user_id)
-    
+
     assert binder is not None
     assert binder.id == test_binder.id
     assert binder.name == test_binder.name
@@ -106,7 +106,7 @@ def test_get_binder_by_id(db_session, test_user_id, test_binder):
 def test_get_binder_by_id_wrong_user(db_session, test_binder):
     """Test that users can't access other users' binders."""
     binder = get_binder_by_id(db_session, test_binder.id, "wrong-user")
-    
+
     assert binder is None
 
 
@@ -114,7 +114,7 @@ def test_update_binder(db_session, test_user_id, test_binder):
     """Test updating a binder."""
     update_data = BinderUpdate(name="Updated Binder Name")
     updated = update_binder(db_session, test_binder.id, test_user_id, update_data)
-    
+
     assert updated is not None
     assert updated.name == "Updated Binder Name"
 
@@ -122,7 +122,7 @@ def test_update_binder(db_session, test_user_id, test_binder):
 def test_delete_binder(db_session, test_user_id, test_binder):
     """Test deleting a binder."""
     result = delete_binder(db_session, test_binder.id, test_user_id)
-    
+
     assert result is True
     assert get_binder_by_id(db_session, test_binder.id, test_user_id) is None
 
@@ -132,9 +132,9 @@ def test_get_binder_stats(db_session, test_user_id, test_binder, test_card):
     # Add FMV to card
     test_card.current_fmv = Decimal("200.00")
     db_session.commit()
-    
+
     stats = get_binder_stats(db_session, test_binder.id, test_user_id)
-    
+
     assert stats is not None
     assert stats.total_cards == 1
     assert stats.total_value == Decimal("200.00")
@@ -155,7 +155,7 @@ def test_create_card(db_session, test_user_id, test_binder):
         purchase_price=Decimal("500.00")
     )
     card = create_card(db_session, test_user_id, card_data)
-    
+
     assert card is not None
     assert card.athlete == "LeBron James"
     assert card.binder_id == test_binder.id
@@ -169,14 +169,14 @@ def test_create_card_wrong_binder(db_session, test_user_id):
         search_query_string="test query"
     )
     card = create_card(db_session, test_user_id, card_data)
-    
+
     assert card is None
 
 
 def test_get_cards_by_binder(db_session, test_user_id, test_binder, test_card):
     """Test getting all cards in a binder."""
     cards = get_cards_by_binder(db_session, test_binder.id, test_user_id)
-    
+
     assert len(cards) == 1
     assert cards[0].id == test_card.id
 
@@ -184,7 +184,7 @@ def test_get_cards_by_binder(db_session, test_user_id, test_binder, test_card):
 def test_get_card_by_id(db_session, test_user_id, test_card):
     """Test getting a specific card."""
     card = get_card_by_id(db_session, test_card.id, test_user_id)
-    
+
     assert card is not None
     assert card.id == test_card.id
 
@@ -196,7 +196,7 @@ def test_update_card(db_session, test_user_id, test_card):
         current_fmv=Decimal("250.00")
     )
     updated = update_card(db_session, test_card.id, test_user_id, update_data)
-    
+
     assert updated is not None
     assert updated.athlete == "Victor Wembanyama Jr."
 
@@ -204,7 +204,7 @@ def test_update_card(db_session, test_user_id, test_card):
 def test_delete_card(db_session, test_user_id, test_card):
     """Test deleting a card."""
     result = delete_card(db_session, test_card.id, test_user_id)
-    
+
     assert result is True
     assert get_card_by_id(db_session, test_card.id, test_user_id) is None
 
@@ -221,7 +221,7 @@ def test_get_cards_for_auto_update(db_session, test_user_id, test_binder):
     old_card = create_card(db_session, test_user_id, old_card_data)
     old_card.last_updated_at = datetime.utcnow() - timedelta(days=35)
     db_session.commit()
-    
+
     # Create card with recent update
     new_card_data = CardCreate(
         binder_id=test_binder.id,
@@ -232,7 +232,7 @@ def test_get_cards_for_auto_update(db_session, test_user_id, test_binder):
     new_card = create_card(db_session, test_user_id, new_card_data)
     new_card.last_updated_at = datetime.utcnow()
     db_session.commit()
-    
+
     # Create card with auto_update disabled
     disabled_card_data = CardCreate(
         binder_id=test_binder.id,
@@ -241,9 +241,9 @@ def test_get_cards_for_auto_update(db_session, test_user_id, test_binder):
         auto_update=False
     )
     create_card(db_session, test_user_id, disabled_card_data)
-    
+
     stale_cards = get_cards_for_auto_update(db_session, days_threshold=30)
-    
+
     assert len(stale_cards) == 1
     assert stale_cards[0].id == old_card.id
 
@@ -261,7 +261,7 @@ def test_add_price_history(db_session, test_card):
         confidence="high"
     )
     history = add_price_history(db_session, history_data)
-    
+
     assert history is not None
     assert history.card_id == test_card.id
     assert history.value == Decimal("175.00")
@@ -277,9 +277,9 @@ def test_get_card_price_history(db_session, test_card):
             confidence="medium"
         )
         add_price_history(db_session, history_data)
-    
+
     history = get_card_price_history(db_session, test_card.id, limit=3)
-    
+
     assert len(history) == 3
     # Should be in descending order by date
     assert history[0].value > history[-1].value
@@ -295,9 +295,9 @@ def test_get_collection_overview(db_session, test_user_id, test_binder, test_car
     test_card.current_fmv = Decimal("200.00")
     test_card.last_updated_at = datetime.utcnow()
     db_session.commit()
-    
+
     overview = get_collection_overview(db_session, test_user_id)
-    
+
     assert overview.total_binders == 1
     assert overview.total_cards == 1
     assert overview.total_value == Decimal("200.00")
@@ -308,7 +308,7 @@ def test_get_collection_overview(db_session, test_user_id, test_binder, test_car
 def test_collection_overview_empty(db_session, test_user_id):
     """Test collection overview with no binders."""
     overview = get_collection_overview(db_session, test_user_id)
-    
+
     assert overview.total_binders == 0
     assert overview.total_cards == 0
     assert overview.total_value == Decimal("0")
@@ -321,9 +321,9 @@ def test_collection_overview_empty(db_session, test_user_id):
 def test_binder_cascade_delete(db_session, test_user_id, test_binder, test_card):
     """Test that deleting a binder cascades to cards."""
     card_id = test_card.id
-    
+
     delete_binder(db_session, test_binder.id, test_user_id)
-    
+
     # Card should be deleted
     card = db_session.query(Card).filter(Card.id == card_id).first()
     assert card is None
@@ -338,9 +338,9 @@ def test_card_cascade_delete_price_history(db_session, test_user_id, test_card):
     )
     history = add_price_history(db_session, history_data)
     history_id = history.id
-    
+
     delete_card(db_session, test_card.id, test_user_id)
-    
+
     # Price history should be deleted
     history = db_session.query(PriceHistory).filter(PriceHistory.id == history_id).first()
     assert history is None
@@ -357,8 +357,8 @@ def test_roi_calculation_no_purchase_price(db_session, test_user_id, test_binder
     card = create_card(db_session, test_user_id, card_data)
     card.current_fmv = Decimal("100.00")
     db_session.commit()
-    
+
     stats = get_binder_stats(db_session, test_binder.id, test_user_id)
-    
+
     # Should handle missing purchase price gracefully
     assert stats.roi_percentage == 0.0

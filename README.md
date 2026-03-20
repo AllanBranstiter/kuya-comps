@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-# eBay Baseball Card Comps Tool v0.5.2 (Production Beta)
-=======
 # eBay Baseball Card Comps Tool v0.6.0 (Production Beta)
->>>>>>> main
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations and intelligent deal-finding.
 
@@ -14,7 +10,6 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
 *   **Interactive Visualization**: Beeswarm chart showing price distribution
-<<<<<<< HEAD
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
 *   **Intelligent Grading Advisor**: A comprehensive tool that helps collectors decide whether grading a raw card is financially worthwhile
     - Enter PSA market prices and population data for grades 1-10
@@ -27,9 +22,6 @@ A web application for scraping and analyzing eBay baseball card sold/active list
     - Population distribution visualization
     - Copy results to share with others
 *   **First-Time User Onboarding**: Interactive 9-step guided tour using Driver.js
-=======
-*   **Grading Advisor**: Backend-powered intelligent grading recommendations with grade value analysis, premium calculations, and market comparisons
->>>>>>> main
 *   **Password Protection**: Secure access with session management
 *   **Clean UI**: Modern interface with responsive design
 *   **Accessibility**: WCAG 2.1 Level A & AA compliant (skip-to-content, color contrast)
@@ -83,13 +75,9 @@ kuya-comps/
 │   ├── index.html     # Main application (~545 lines)
 │   ├── style.css      # Main stylesheet (extracted from index.html)
 │   ├── css/           # Component stylesheets
-<<<<<<< HEAD
 │   │   ├── onboarding.css  # Onboarding tour styles (Driver.js theme)
-│   │   └── shared-styles.css  # Shared styles (WCAG AA colors)
-=======
 │   │   ├── shared-styles.css  # Shared styles (WCAG AA colors)
 │   │   └── grading-advisor.css  # Styles for Grading Advisor
->>>>>>> main
 │   └── js/            # JavaScript modules
 │       ├── modal.js   # Reusable modal component
 │       ├── onboarding.js  # First-time user tour (Driver.js)

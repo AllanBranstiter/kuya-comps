@@ -72,14 +72,14 @@ def _calculate_high_grade_rate(
     """Calculate PSA 7+ rate for vintage cards."""
     if era != 'vintage':
         return (None, None, None)
-    
+
     total_population = sum(population_data.get(str(i), 0) for i in range(1, 11))
     if total_population == 0:
         return (0.0, 'Unknown', 'unknown')
-    
+
     high_grade_pop = sum(population_data.get(str(i), 0) for i in range(7, 11))
     high_grade_rate = (high_grade_pop / total_population) * 100
-    
+
     if high_grade_rate > 40.0:
         return (round(high_grade_rate, 1), "Elite", "elite")
     elif high_grade_rate >= 25.0:
@@ -97,18 +97,18 @@ def _calculate_high_grade_rate(
 def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorResponse:
     """
     Analyze whether a card is worth submitting to PSA for grading.
-    
+
     This is the main entry point for the Grading Advisor feature. It takes
     price and population data and returns a comprehensive analysis including
     verdict, grade-by-grade breakdown, scenario analysis, and personalized advice.
-    
+
     Args:
         request: GradingAdvisorRequest containing price_data, population_data,
                  raw_purchase_price, grading_fee, and optional expected_grade
-    
+
     Returns:
         GradingAdvisorResponse with complete analysis results
-    
+
     Example:
         >>> request = GradingAdvisorRequest(
         ...     price_data={"1": 5.0, "2": 8.0, ..., "10": 500.0},
@@ -122,7 +122,7 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         "✅ GREEN LIGHT: SUBMIT"
     """
     total_cost = request.raw_purchase_price + request.grading_fee
-    
+
     # Determine analysis mode based on available data
     price_count = len(request.price_data)
     if price_count == 0:
@@ -131,17 +131,17 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         analysis_mode = "partial"
     else:
         analysis_mode = "full"
-    
+
     # Build grade-by-grade analysis matrix
     matrix: Dict[str, GradeAnalysis] = {}
     profitable_grades: List[str] = []
-    
+
     for grade_num in range(1, 11):
         grade = str(grade_num)
         price = request.price_data.get(grade, 0.0)
         has_price_data = grade in request.price_data and price > 0
         population = request.population_data.get(grade, 0)
-        
+
         if has_price_data:
             analysis = _calculate_grade_analysis(
                 grade=grade,
@@ -162,27 +162,27 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
                 is_profitable=False,
                 has_price_data=False
             )
-        
+
         matrix[grade] = analysis
-        
+
         if has_price_data and analysis.is_profitable:
             profitable_grades.append(grade)
-    
+
     # Calculate population distribution
     distribution = _calculate_population_distribution(request.population_data, request.card_year)
-    
+
     # Calculate success rate
     success_rate = (len(profitable_grades) / 10) * 100
-    
+
     # Calculate expected value
     expected_value = _calculate_expected_value(matrix, distribution)
-    
+
     # Find break-even grade
     break_even_grade = _find_break_even_grade(matrix)
-    
+
     # Find target grade (highest profitable grade)
     target_grade = _find_target_grade(matrix, profitable_grades)
-    
+
     # Calculate era-adjusted confidence score
     high_grade_pop_percent = distribution.grade_percentages.get("9", 0) + distribution.grade_percentages.get("10", 0)
     confidence_score, confidence_label, confidence_class, confidence_dots = _calculate_era_adjusted_confidence(
@@ -191,7 +191,7 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         gem_rate=distribution.gem_rate,
         era_class=distribution.era_class
     )
-    
+
     # Determine verdict based on scenarios
     verdict, status = _determine_verdict(
         success_rate=success_rate,
@@ -200,10 +200,10 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         total_cost=total_cost,
         price_data=request.price_data
     )
-    
+
     # Generate scenario analysis
     scenario_analysis = _generate_scenario_analysis(matrix, distribution)
-    
+
     # Generate collector profiles
     collector_profiles = _generate_collector_profiles(
         matrix=matrix,
@@ -212,7 +212,7 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         status=status,
         profitable_grades=profitable_grades
     )
-    
+
     # Generate warnings
     warnings = _generate_warnings(
         matrix=matrix,
@@ -227,7 +227,7 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         expected_grade=request.expected_grade,
         status=status
     )
-    
+
     # Generate advice text
     advice_text = _generate_advice_text(
         verdict=verdict,
@@ -239,7 +239,7 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         total_cost=total_cost,
         profitable_grades=profitable_grades
     )
-    
+
     # Build response object (copy_text needs access to response fields)
     response = GradingAdvisorResponse(
         verdict=verdict,
@@ -262,11 +262,11 @@ def analyze_grading_decision(request: GradingAdvisorRequest) -> GradingAdvisorRe
         advice_text=advice_text,
         copy_text=""  # Placeholder, will be set after
     )
-    
+
     # Generate copy text (needs response data)
     copy_text = _generate_copy_text(request, response)
     response.copy_text = copy_text
-    
+
     return response
 
 
@@ -284,7 +284,7 @@ def _calculate_grade_analysis(
 ) -> GradeAnalysis:
     """
     Calculate profit/loss analysis for a single grade level.
-    
+
     Args:
         grade: PSA grade string ("1" through "10")
         market_value: Current market value for this grade
@@ -292,21 +292,21 @@ def _calculate_grade_analysis(
         raw_purchase_price: What user paid for raw card
         grading_fee: Cost to grade the card
         has_price_data: Whether price data is available for this grade
-    
+
     Returns:
         GradeAnalysis with profit_loss, roi, and is_profitable calculated
     """
     total_cost = raw_purchase_price + grading_fee
     profit_loss = market_value - total_cost
-    
+
     # Calculate ROI, handling edge case of zero cost
     if total_cost > 0:
         roi = (profit_loss / total_cost) * 100
     else:
         roi = 0.0 if profit_loss == 0 else float('inf') if profit_loss > 0 else float('-inf')
-    
+
     is_profitable = profit_loss > 0
-    
+
     return GradeAnalysis(
         grade=grade,
         market_value=market_value,
@@ -324,16 +324,16 @@ def _calculate_population_distribution(
 ) -> PopulationDistribution:
     """
     Calculate population distribution statistics.
-    
+
     Args:
         population_data: Dict mapping grade strings to population counts
         card_year: Optional year for era classification
-    
+
     Returns:
         PopulationDistribution with total, percentages, rarity tier, and gem rate
     """
     total_population = sum(population_data.get(str(i), 0) for i in range(1, 11))
-    
+
     # Calculate percentages for each grade
     grade_percentages: Dict[str, float] = {}
     for grade_num in range(1, 11):
@@ -344,22 +344,22 @@ def _calculate_population_distribution(
         else:
             percentage = 0.0
         grade_percentages[grade] = round(percentage, 2)
-    
+
     # Determine rarity tier
     rarity_tier = _calculate_rarity_tier(total_population)
-    
+
     # Calculate gem rate (PSA 10 percentage)
     gem_rate = grade_percentages.get("10", 0.0)
     gem_rate_tier, gem_rate_class = _calculate_gem_rate_tier(gem_rate)
-    
+
     # Classify card era
     era, era_class = _classify_card_era(card_year)
-    
+
     # Calculate high-grade rate for vintage cards
     high_grade_rate, high_grade_tier, high_grade_class = _calculate_high_grade_rate(
         population_data, era_class
     )
-    
+
     return PopulationDistribution(
         total_population=total_population,
         grade_percentages=grade_percentages,
@@ -378,10 +378,10 @@ def _calculate_population_distribution(
 def _calculate_rarity_tier(total_pop: int) -> str:
     """
     Determine rarity tier based on total population.
-    
+
     Args:
         total_pop: Total PSA population across all grades
-    
+
     Returns:
         Rarity classification string
     """
@@ -398,14 +398,14 @@ def _calculate_rarity_tier(total_pop: int) -> str:
 def _calculate_gem_rate_tier(gem_rate: float) -> Tuple[str, str]:
     """
     Classify card based on PSA 10 concentration (gem rate).
-    
+
     Gem rate is the percentage of the total population that is PSA 10.
     Low gem rates mean PSA 9s retain good value since 10s are rare.
     High gem rates mean PSA 9s lose value since 10s are common.
-    
+
     Args:
         gem_rate: Percentage of population at PSA 10 (0-100)
-    
+
     Returns:
         Tuple of (tier_label, tier_class) for UI display and styling
     """
@@ -427,22 +427,22 @@ def _calculate_era_adjusted_confidence(
 ) -> Tuple[int, str, str, str]:
     """
     Calculate confidence score with era-specific thresholds.
-    
+
     Different eras have different grading standards:
     - Vintage: PSA 8 is excellent (PSA 10s are <1%)
     - Junk Wax: PSA 9 is good (moderate gem rates)
     - Modern: PSA 9 needed (increasing gem rates)
     - Ultra-Modern: PSA 10 often required (high gem rates 60-80%)
-    
+
     Args:
         break_even_grade: Minimum grade needed to profit
         high_grade_pop_percent: PSA 9 + PSA 10 percentage
         gem_rate: PSA 10 percentage
         era_class: Era classification ('vintage', 'junk-wax', 'modern', 'ultra-modern')
-    
+
     Returns:
         Tuple of (confidence_score, label, css_class, dots_display)
-    
+
     Confidence Levels:
         5 = EXCELLENT (●●●●●)
         4 = HIGH (●●●●○)
@@ -453,9 +453,9 @@ def _calculate_era_adjusted_confidence(
     if not break_even_grade:
         # No profitable grades at all
         return (1, 'RISKY', 'risky', '●○○○○')
-    
+
     be_grade = int(break_even_grade)
-    
+
     # =========================================================================
     # VINTAGE ERA (Pre-1983) - PSA 8 is "high grade"
     # =========================================================================
@@ -481,7 +481,7 @@ def _calculate_era_adjusted_confidence(
         else:  # PSA 10 required
             # Risky: PSA 10 vintage is extremely rare (<1%)
             return (1, 'RISKY', 'risky', '●○○○○')
-    
+
     # =========================================================================
     # JUNK WAX ERA (1984-1994) - High pops, PSA 9-10 achievable
     # =========================================================================
@@ -507,7 +507,7 @@ def _calculate_era_adjusted_confidence(
                 return (2, 'MARGINAL', 'marginal', '●●○○○')
             else:
                 return (1, 'RISKY', 'risky', '●○○○○')
-    
+
     # =========================================================================
     # MODERN ERA (1995-2019) - Transition period
     # =========================================================================
@@ -533,7 +533,7 @@ def _calculate_era_adjusted_confidence(
                 return (2, 'MARGINAL', 'marginal', '●●○○○')
             else:
                 return (1, 'RISKY', 'risky', '●○○○○')
-    
+
     # =========================================================================
     # ULTRA-MODERN (2020+) - Current system logic (gem or bust)
     # =========================================================================
@@ -561,41 +561,41 @@ def _calculate_expected_value(
 ) -> float:
     """
     Calculate weighted expected value across all grade scenarios.
-    
+
     Uses population distribution as probability weights:
     EV = sum(grade_profit_loss * (grade_population / total_population))
     Only includes grades with price data available.
-    
+
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
         distribution: PopulationDistribution with total and percentages
-    
+
     Returns:
         Expected profit/loss value weighted by population distribution
     """
     if distribution.total_population == 0:
         return 0.0
-    
+
     expected_value = 0.0
     for grade, analysis in matrix.items():
         # Skip grades without price data
         if not getattr(analysis, 'has_price_data', True) or analysis.profit_loss is None:
             continue
-        
+
         # Weight by population percentage (convert from percentage to fraction)
         weight = distribution.grade_percentages.get(grade, 0.0) / 100
         expected_value += analysis.profit_loss * weight
-    
+
     return round(expected_value, 2)
 
 
 def _find_break_even_grade(matrix: Dict[str, GradeAnalysis]) -> Optional[str]:
     """
     Find the minimum grade needed to break even (profit_loss >= 0).
-    
+
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
-    
+
     Returns:
         Grade string of lowest break-even grade, or None if no grade breaks even
     """
@@ -612,17 +612,17 @@ def _find_target_grade(
 ) -> Optional[str]:
     """
     Find the target grade (highest profitable grade for optimal returns).
-    
+
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
         profitable_grades: List of grade strings that are profitable
-    
+
     Returns:
         Highest profitable grade string, or None if none are profitable
     """
     if not profitable_grades:
         return None
-    
+
     # Sort by grade number descending and return highest
     sorted_grades = sorted(profitable_grades, key=lambda x: int(x), reverse=True)
     return sorted_grades[0]
@@ -641,21 +641,21 @@ def _determine_verdict(
 ) -> Tuple[str, str]:
     """
     Determine the verdict and status based on analysis scenarios.
-    
+
     Scenario Priority (checked in order):
     1. Scenario E - User Prediction: User predicted grade would lose money
     2. Scenario A - Buy the Slab: Benchmark grade (PSA 8) costs less than grading
     3. Scenario B - Green Light: >50% of grades are profitable
     4. Scenario C - Yellow Light: 15-50% of grades are profitable
     5. Scenario D - Gem or Bust: <15% of grades are profitable
-    
+
     Args:
         success_rate: Percentage of profitable grades (0-100)
         expected_grade: User's predicted grade (1-10), or None
         matrix: Dict of GradeAnalysis objects for each grade
         total_cost: raw_purchase_price + grading_fee
         price_data: Original price data dict
-    
+
     Returns:
         Tuple of (verdict_text, status_color)
     """
@@ -665,13 +665,13 @@ def _determine_verdict(
         if expected_grade_str in matrix:
             if not matrix[expected_grade_str].is_profitable:
                 return ("🛑 ABORT MISSION", "red")
-    
+
     # Scenario A: Buy the Slab
     # Check if benchmark grade (PSA 8) is cheaper to buy already graded
     benchmark_price = price_data.get(BENCHMARK_GRADE, 0.0)
     if benchmark_price > 0 and benchmark_price < total_cost:
         return ("🛑 BUY THE SLAB", "red")
-    
+
     # Alternative: If PSA 8 has no data, check highest grade with meaningful population
     if benchmark_price == 0:
         # Find highest grade with price data as alternative benchmark
@@ -682,15 +682,15 @@ def _determine_verdict(
                 return ("🛑 BUY THE SLAB", "red")
             elif alt_price > 0:
                 break  # Found a grade with data that doesn't trigger the scenario
-    
+
     # Scenario B: Green Light
     if success_rate > GREEN_LIGHT_THRESHOLD:
         return ("✅ GREEN LIGHT: SUBMIT", "green")
-    
+
     # Scenario C: Yellow Light
     if success_rate >= YELLOW_LIGHT_MIN:
         return ("⚠️ PROCEED WITH CAUTION", "yellow")
-    
+
     # Scenario D: Gem or Bust
     return ("💀 GEM OR BUST", "red")
 
@@ -705,15 +705,15 @@ def _generate_scenario_analysis(
 ) -> ScenarioAnalysis:
     """
     Generate three-scenario analysis (optimistic, realistic, pessimistic).
-    
+
     - Optimistic: Highest profitable grade (PSA 10 if profitable, else next highest)
     - Realistic: Weighted average outcome based on population distribution
     - Pessimistic: Lowest grade (PSA 1) outcome
-    
+
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
         distribution: PopulationDistribution data
-    
+
     Returns:
         ScenarioAnalysis with three scenario outcomes
     """
@@ -722,75 +722,75 @@ def _generate_scenario_analysis(
     optimistic_profit = matrix.get("10", GradeAnalysis(
         grade="10", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
     )).profit_loss
-    
+
     for grade_num in range(10, 0, -1):
         grade = str(grade_num)
         if grade in matrix and matrix[grade].is_profitable:
             optimistic_grade = grade
             optimistic_profit = matrix[grade].profit_loss
             break
-    
+
     # If no profitable grade, use PSA 10 anyway as "best case"
     # Check for None before comparison
     if optimistic_profit is not None and optimistic_profit <= 0 and "10" in matrix:
         optimistic_grade = "10"
         optimistic_profit = matrix["10"].profit_loss
-    
+
     # If profit_loss is None (no price data), default to 0 for display
     if optimistic_profit is None:
         optimistic_profit = 0.0
-    
+
     # Calculate optimistic probability based on population
     optimistic_prob = distribution.grade_percentages.get(optimistic_grade, 0.0) / 100
-    
+
     optimistic = ScenarioResult(
         grade=optimistic_grade,
         profit_loss=optimistic_profit,
         probability=round(optimistic_prob, 4)
     )
-    
+
     # Realistic: Weighted average (mode or most common grade)
     # Find grade with highest population percentage
     max_pop_grade = "8"  # Default to PSA 8
     max_pop_pct = 0.0
-    
+
     for grade, pct in distribution.grade_percentages.items():
         if pct > max_pop_pct:
             max_pop_pct = pct
             max_pop_grade = grade
-    
+
     realistic_profit = matrix.get(max_pop_grade, GradeAnalysis(
         grade=max_pop_grade, market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
     )).profit_loss
     realistic_prob = max_pop_pct / 100
-    
+
     # If profit_loss is None (no price data), default to 0 for display
     if realistic_profit is None:
         realistic_profit = 0.0
-    
+
     realistic = ScenarioResult(
         grade=max_pop_grade,
         profit_loss=realistic_profit,
         probability=round(realistic_prob, 4)
     )
-    
+
     # Pessimistic: PSA 1 (lowest grade)
     pessimistic_grade = "1"
     pessimistic_profit = matrix.get("1", GradeAnalysis(
         grade="1", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
     )).profit_loss
     pessimistic_prob = distribution.grade_percentages.get("1", 0.0) / 100
-    
+
     # If profit_loss is None (no price data), default to 0 for display
     if pessimistic_profit is None:
         pessimistic_profit = 0.0
-    
+
     pessimistic = ScenarioResult(
         grade=pessimistic_grade,
         profit_loss=pessimistic_profit,
         probability=round(pessimistic_prob, 4)
     )
-    
+
     return ScenarioAnalysis(
         optimistic=optimistic,
         realistic=realistic,
@@ -811,28 +811,28 @@ def _generate_collector_profiles(
 ) -> CollectorProfiles:
     """
     Generate personalized advice for different collector strategies.
-    
+
     - Flipper: Focus on quick ROI, recommend if break-even at common grades
     - Long-term Collector: Focus on population scarcity and future value
     - Recommended Strategy: "flip", "hold", or "avoid"
-    
+
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
         distribution: PopulationDistribution data
         verdict: The determined verdict string
         status: The status color ("green", "yellow", "red")
         profitable_grades: List of profitable grade strings
-    
+
     Returns:
         CollectorProfiles with advice for each strategy
     """
     rarity = distribution.rarity_tier
-    
+
     # Determine if common grades (7, 8) are profitable for flippers
     common_grades_profitable = any(
         grade in profitable_grades for grade in ["7", "8"]
     )
-    
+
     # Flipper advice
     if status == "red":
         if "BUY THE SLAB" in verdict:
@@ -860,7 +860,7 @@ def _generate_collector_profiles(
             "Moderate flip opportunity. You'll need a higher grade (PSA 9+) to profit. "
             "Only proceed if the card's condition strongly supports a high grade."
         )
-    
+
     # Long-term collector advice
     if rarity == "Very Rare":
         long_term_advice = (
@@ -882,7 +882,7 @@ def _generate_collector_profiles(
             "Consider the sentimental value if keeping long-term. "
             "From a pure investment standpoint, the numbers are challenging."
         )
-    
+
     # Recommended strategy
     if status == "red":
         recommended_strategy = "avoid"
@@ -892,7 +892,7 @@ def _generate_collector_profiles(
         recommended_strategy = "hold"
     else:
         recommended_strategy = "flip"
-    
+
     return CollectorProfiles(
         flipper_advice=flipper_advice,
         long_term_advice=long_term_advice,
@@ -919,7 +919,7 @@ def _generate_warnings(
 ) -> List[str]:
     """
     Generate comprehensive warning messages for notable conditions.
-    
+
     Warnings generated (prioritized list):
     - Buy the Slab warning (when status is red)
     - Gem rate analysis - impacts PSA 9 value
@@ -934,7 +934,7 @@ def _generate_warnings(
     - Modern vs vintage indicators
     - Low population warnings
     - Negative expected value
-    
+
     Args:
         matrix: Dict of GradeAnalysis objects for each grade
         distribution: PopulationDistribution data
@@ -947,12 +947,12 @@ def _generate_warnings(
         success_rate: Percentage of profitable grades
         expected_grade: User's predicted grade
         status: The status color ("green", "yellow", "red")
-    
+
     Returns:
         List of warning message strings
     """
     warnings: List[str] = []
-    
+
     # =========================================================================
     # "Buy the Slab" Warning (highest priority for red status)
     # =========================================================================
@@ -961,7 +961,7 @@ def _generate_warnings(
             "💡 Instead of purchasing this card raw and grading it, you should consider buying one that's already been graded. "
             "You can likely find a PSA 9 or PSA 10 on eBay for less than your total grading investment."
         )
-    
+
     # Era-specific warnings with enhanced contextual guidance
     era_class = distribution.era_class
     high_grade_rate = distribution.high_grade_rate
@@ -978,27 +978,27 @@ def _generate_warnings(
                 f"Only {high_grade_rate:.1f}% achieve PSA 7+. "
                 "Centering issues and paper aging are common."
             )
-        
+
         # NEW: 7-to-8 jump warning (contextual)
         if break_even_grade and int(break_even_grade) in [7, 8]:
             warnings.append(
                 "💰 The PSA 7-to-8 jump can mean thousands of dollars for vintage cards. "
                 "Inspect corners with a loupe for micro-fraying before submitting."
             )
-        
+
         # NEW: Centering guidance (always for vintage)
         warnings.append(
             "📐 Centering is critical for vintage cards. 50/50 centering can be worth "
             "significantly more than 70/30, even with identical corners."
         )
-        
+
         # NEW: Crease warning (if break-even is low)
         if break_even_grade and int(break_even_grade) <= 6:
             warnings.append(
                 "⚠️ Check for creases, even 'spider creases' only visible under light. "
                 "Any crease will instantly drop a vintage card to PSA 4 or lower."
             )
-    
+
     # =========================================================================
     # Junk Wax Era Warnings (1984-1994) - Enhanced
     # =========================================================================
@@ -1011,7 +1011,7 @@ def _generate_warnings(
                 "Low QC during production means centering/print defects are common. "
                 "High populations limit value appreciation—grading fees must be justified by the grade spread."
             )
-        
+
         # NEW: Stronger population warning (contextual)
         psa_10_pop = population_data.get("10", 0)
         if psa_10_pop > 5000:
@@ -1019,13 +1019,13 @@ def _generate_warnings(
                 f"📊 With {psa_10_pop:,} PSA 10s already graded, a PSA 9 may be worth less "
                 "than your grading costs. Check the population report carefully."
             )
-        
+
         # NEW: Commons warning (always for junk wax)
         warnings.append(
             "💸 Avoid grading common players from this era. Even in PSA 10, "
             "most cards struggle to cover the $20+ grading fee."
         )
-    
+
     # =========================================================================
     # Modern Era Warnings (1995-2019) - NEW
     # =========================================================================
@@ -1035,7 +1035,7 @@ def _generate_warnings(
                 "🏆 For modern cards, PSA commands highest ROI for Gem Mint 10s. "
                 "Consider BGS for thick cards (memorabilia/patches) or if chasing the rare BGS Black Label 10."
             )
-    
+
     # =========================================================================
     # Ultra-Modern Era Warnings (2020+) - NEW
     # =========================================================================
@@ -1045,12 +1045,12 @@ def _generate_warnings(
                 "🔍 Ultra-modern chrome/refractor cards require technical perfection. "
                 "Check for print lines, dimples, or surface scratches invisible to the naked eye that will prevent a PSA 10."
             )
-    
+
     # Get gem rate and grade percentages
     gem_rate = distribution.gem_rate
     psa_9_pct = distribution.grade_percentages.get("9", 0.0)
     psa_8_pct = distribution.grade_percentages.get("8", 0.0)
-    
+
     # Gem rate warnings with nuanced context
     if gem_rate > 60.0:
         # Very high gem rate - PSA 9s nearly worthless
@@ -1069,7 +1069,7 @@ def _generate_warnings(
         psa_9_profitable = matrix.get("9", GradeAnalysis(
             grade="9", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
         )).is_profitable
-        
+
         if psa_9_profitable:
             warnings.append(
                 f"Gem rate is {gem_rate:.1f}%. PSA 9s are profitable but declining in value. "
@@ -1096,7 +1096,7 @@ def _generate_warnings(
             warnings.append(
                 f"PSA 9s only {psa_9_pct:.1f}% of population. High-grade examples are exceptionally scarce."
             )
-    
+
     # Modern vs Vintage context based on gem rate
     if gem_rate > 50.0 and distribution.total_population > 1000:
         warnings.append(
@@ -1108,7 +1108,7 @@ def _generate_warnings(
             "Low gem rate suggests vintage or difficult-to-grade card. "
             "Vintage cards (pre-1980) typically have lower gem rates."
         )
-    
+
     # =========================================================================
     # Recommendation #1: Price Gap Analysis (Lottery Ticket Warning)
     # =========================================================================
@@ -1118,7 +1118,7 @@ def _generate_warnings(
     psa_10_value = matrix.get("10", GradeAnalysis(
         grade="10", market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
     )).market_value
-    
+
     if psa_9_value > 0:
         price_multiplier = psa_10_value / psa_9_value
         if price_multiplier > 5.0:
@@ -1127,7 +1127,7 @@ def _generate_warnings(
                 f"(${psa_10_value:.0f} vs ${psa_9_value:.0f}). "
                 "Half-grade difference creates massive value swing."
             )
-    
+
     # =========================================================================
     # Recommendation #2: Grading Cost Efficiency Warning
     # =========================================================================
@@ -1135,17 +1135,17 @@ def _generate_warnings(
         target_value = matrix.get(target_grade, GradeAnalysis(
             grade=target_grade, market_value=0, population=0, profit_loss=0, roi=0, is_profitable=False
         )).market_value
-        
+
         if target_value > 0:
             grading_fee_pct = (grading_fee / target_value) * 100
-            
+
             if grading_fee_pct > 25.0:
                 warnings.append(
                     f"Grading fee (${grading_fee:.0f}) is {grading_fee_pct:.0f}% "
                     f"of target grade value (${target_value:.0f}). "
                     "Consider lower-cost grading options or selling raw."
                 )
-    
+
     # =========================================================================
     # Recommendation #4: Break-Even Confidence Score
     # =========================================================================
@@ -1154,13 +1154,13 @@ def _generate_warnings(
             distribution.grade_percentages.get(str(g), 0)
             for g in range(int(break_even_grade), 11)
         )
-        
+
         if prob_above_breakeven < 30.0:
             warnings.append(
                 f"Only {prob_above_breakeven:.0f}% of graded copies achieve "
                 f"PSA {break_even_grade}+. Low probability of profitability."
             )
-    
+
     # =========================================================================
     # Recommendation #5: Physical Condition Reminders
     # =========================================================================
@@ -1170,7 +1170,7 @@ def _generate_warnings(
             "60/40 or better centering, sharp corners, clean edges, "
             "and no surface scratches. Inspect carefully under light."
         )
-    
+
     # =========================================================================
     # Recommendation #6: Raw Card Market Alternative
     # =========================================================================
@@ -1180,7 +1180,7 @@ def _generate_warnings(
             "With low success rate, consider selling raw to another collector "
             "rather than risking grading fees."
         )
-    
+
     # =========================================================================
     # Recommendation #7: Market Liquidity Warning (Enhanced)
     # =========================================================================
@@ -1195,7 +1195,7 @@ def _generate_warnings(
             f"Low population card ({distribution.total_population} total) - limited market data "
             "may affect price accuracy."
         )
-    
+
     # =========================================================================
     # Recommendation #11: Population Pump Warning
     # =========================================================================
@@ -1205,13 +1205,13 @@ def _generate_warnings(
             "suggests heavy submission volume. More grading could further dilute "
             "PSA 9 values over time."
         )
-    
+
     # =========================================================================
     # Recommendation #12: Risk/Reward Proximity Warning
     # =========================================================================
     if expected_grade and break_even_grade:
         grade_gap = int(expected_grade) - int(break_even_grade)
-        
+
         if grade_gap == 0:
             warnings.append(
                 "Your expected grade exactly matches break-even. "
@@ -1222,17 +1222,17 @@ def _generate_warnings(
                 "Your expected grade is only 1 point above break-even. "
                 "One grade lower and you lose money. Proceed with caution."
             )
-    
+
     # =========================================================================
     # Existing Warnings
     # =========================================================================
-    
+
     # Check negative expected value - use risk-focused language
     if expected_value < 0:
         warnings.append(
             "Based on population data, grading this card carries elevated risk. Consider selling raw or buying already graded."
         )
-    
+
     # Check for high concentration in single grade (excluding gem rate which we already covered)
     for grade, percentage in distribution.grade_percentages.items():
         if percentage > HIGH_CONCENTRATION_THRESHOLD and grade != "10":
@@ -1240,7 +1240,7 @@ def _generate_warnings(
                 f"{percentage:.1f}% of population in grade {grade} - unusual distribution pattern."
             )
             break  # Only report highest concentration
-    
+
     return warnings
 
 
@@ -1260,7 +1260,7 @@ def _generate_advice_text(
 ) -> str:
     """
     Generate natural language "Kuya's Advice" explaining the analysis.
-    
+
     Args:
         verdict: The determined verdict string
         status: The status color
@@ -1270,12 +1270,12 @@ def _generate_advice_text(
         target_grade: Recommended target grade
         total_cost: Total investment (raw price + grading fee)
         profitable_grades: List of profitable grade strings
-    
+
     Returns:
         Natural language advice text
     """
     lines: List[str] = []
-    
+
     # Opening based on verdict
     if status == "green":
         lines.append("📊 **Kuya's Take:** This looks like a solid grading opportunity!")
@@ -1283,13 +1283,13 @@ def _generate_advice_text(
         lines.append("📊 **Kuya's Take:** This one requires careful consideration.")
     else:
         lines.append("📊 **Kuya's Take:** The numbers aren't in your favor here.")
-    
+
     lines.append("")
-    
+
     # Key metrics summary
     lines.append(f"With a total investment of **${total_cost:.2f}** (card + grading), here's what the data shows:")
     lines.append("")
-    
+
     # Success rate context
     num_profitable = len(profitable_grades)
     if num_profitable > 0:
@@ -1302,11 +1302,11 @@ def _generate_advice_text(
             lines.append(f"• Target **PSA {target_grade}** for optimal returns")
     else:
         lines.append("• **No grades are currently profitable** at this price point")
-    
+
     # Removed expected value display - now using Confidence Score on frontend instead
-    
+
     lines.append("")
-    
+
     # Verdict-specific recommendation
     if "GREEN LIGHT" in verdict:
         lines.append(
@@ -1333,7 +1333,7 @@ def _generate_advice_text(
             "**Recommendation:** Based on your grade expectation, this won't be profitable. "
             "Either reconsider your grade estimate or explore other options."
         )
-    
+
     return "\n".join(lines)
 
 
@@ -1343,11 +1343,11 @@ def _generate_copy_text(
 ) -> str:
     """
     Generate shareable text format for copying/sharing results.
-    
+
     Args:
         request: Original request data
         response: Complete response data
-    
+
     Returns:
         Pre-formatted text suitable for copying/sharing
     """
@@ -1356,7 +1356,7 @@ def _generate_copy_text(
         response.distribution.grade_percentages.get("10", 0) +
         response.distribution.grade_percentages.get("9", 0)
     )
-    
+
     # Determine confidence level
     if response.break_even_grade:
         be_grade = int(response.break_even_grade)
@@ -1372,7 +1372,7 @@ def _generate_copy_text(
             confidence_label = "RISKY"
     else:
         confidence_label = "RISKY"
-    
+
     lines: List[str] = [
         "🎴 Grading Analysis",
         f"Card Cost: ${request.raw_purchase_price:.2f} | Grading Fee: ${request.grading_fee:.2f}",
@@ -1380,18 +1380,18 @@ def _generate_copy_text(
         "",
         f"Verdict: {response.verdict}",
     ]
-    
+
     if response.break_even_grade:
         lines.append(f"Break-even: PSA {response.break_even_grade}+")
     else:
         lines.append("Break-even: None (no profitable grades)")
-    
+
     lines.append(f"Grading Confidence: {confidence_label}")
     lines.append(f"Population Above Break-Even: {response.success_rate:.0f}%")
-    
+
     if response.profitable_grades:
         lines.append(f"Profitable Grades: {', '.join(f'PSA {g}' for g in sorted(response.profitable_grades, key=int))}")
-    
+
     lines.extend([
         "",
         f"Population: {response.distribution.total_population:,} ({response.distribution.rarity_tier})",
@@ -1399,5 +1399,5 @@ def _generate_copy_text(
         "",
         "Powered by Kuya Comps 🏆"
     ])
-    
+
     return "\n".join(lines)

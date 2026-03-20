@@ -20,7 +20,7 @@ if sentry_dsn:
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.starlette import StarletteIntegration
-    
+
     sentry_sdk.init(
         dsn=sentry_dsn,
         environment=get_sentry_environment(),
@@ -38,20 +38,16 @@ if sentry_dsn:
 else:
     print("[SENTRY] Error monitoring disabled (no DSN configured)")
 
-from typing import List, Optional, Dict
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from backend.exceptions import KuyaCompsException
-from backend.models.schemas import CompItem, CompsResponse, FmvResponse, Seller, ExtractedPriceRange
-from backend.utils import generate_ebay_deep_link, load_test_data
 from backend.logging_config import get_logger
 from backend.cache import CacheService
 from backend.config import (
     get_redis_url,
-    EBAY_ROTATION_IDS,
     get_cors_origins,
     get_cors_allow_credentials
 )
@@ -206,7 +202,7 @@ app.include_router(grading_advisor.router, tags=["Grading Advisor"])
 async def get_metrics():
     """
     Get application performance metrics.
-    
+
     Returns metrics including:
     - Request count by endpoint and status code
     - Average and P95 response times

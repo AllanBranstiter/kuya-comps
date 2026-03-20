@@ -50,7 +50,6 @@ import asyncio
 from typing import List, Dict, Optional
 import logging
 
-import re
 import requests
 import httpx
 
@@ -86,7 +85,7 @@ async def scrape_sold_comps(
 ) -> List[Dict]:
     """
     Use SearchAPI.io's eBay Search engine to fetch SOLD/COMPLETED listings (Async with Concurrency).
-    
+
     NOTE: Uses SearchAPI.io because the official eBay Browse API does NOT support
     searching sold/completed listings - it only returns active listings.
 
@@ -121,17 +120,17 @@ async def scrape_sold_comps(
 
             if category_id:
                 params["category_id"] = category_id
-                
+
             # Add optional filters based on API spec
             if buying_format:
                 params["buying_format"] = buying_format
-                
+
             if condition:
                 params["condition"] = condition
-                
+
             if price_min is not None:
                 params["price_min"] = price_min
-                
+
             if price_max is not None:
                 params["price_max"] = price_max
 
@@ -148,7 +147,7 @@ async def scrape_sold_comps(
                 data = resp.json()
                 results = data.get("organic_results", []) or []
                 logger.info(f"[scraper] Page {page}: Got {len(results)} results in {fetch_time:.2f}s")
-                
+
                 # Debug: Check pagination info
                 pagination = data.get("pagination", {})
                 if pagination:
@@ -158,11 +157,11 @@ async def scrape_sold_comps(
                         logger.info(f"[scraper] Page {page}: Next page available")
                     else:
                         logger.info(f"[scraper] Page {page}: No next page available - this may be the last page")
-    
+
                 if not results:
                     logger.info(f"[scraper] No results on page {page}")
                     return {"page": page, "success": True, "items": [], "fetch_time": fetch_time}
-    
+
                 # Process items for this page
                 page_items = []
                 for r in results:
@@ -171,12 +170,12 @@ async def scrape_sold_comps(
                     if not r.get('price') and r.get('deal'):
                         deal_value = r.get('deal')
                         extracted_price = None
-                        
+
                         # Handle different deal formats:
                         # 1. Single price: "$120.00"
                         # 2. Price range: "$0.99 to $1.49" - Parse lower price (often the sold price)
                         # 3. Concatenated: "$2.27$3.49" (sale price + original price)
-                        
+
                         if isinstance(deal_value, str):
                             # Check for price range (e.g., "$0.99 to $1.49")
                             # For sold listings, use the lower price (typically the sold price)
@@ -196,7 +195,7 @@ async def scrape_sold_comps(
                                 except (ValueError, IndexError) as e:
                                     logger.warning(f"[scraper] Page {page}: Failed to parse price range: {deal_value} - {e}")
                                     continue  # Skip only if parsing fails
-                            
+
                             # Check for concatenated prices (e.g., "$2.27$3.49")
                             elif deal_value.count('$') > 1:
                                 # Split and take first price (sale price)
@@ -209,7 +208,7 @@ async def scrape_sold_comps(
                                         logger.info(f"[scraper] Page {page}: Parsed concatenated price: {deal_value} → ${extracted_price}")
                                     except ValueError:
                                         logger.warning(f"[scraper] Page {page}: WARNING: Could not parse concatenated price: {deal_value}")
-                            
+
                             # Single price (e.g., "$120.00")
                             else:
                                 price_clean = deal_value.replace('$', '').replace(',', '')
@@ -219,11 +218,11 @@ async def scrape_sold_comps(
                                     logger.info(f"[scraper] Page {page}: Parsed single price: {deal_value} → ${extracted_price}")
                                 except ValueError:
                                     logger.warning(f"[scraper] Page {page}: WARNING: Could not parse single price: {deal_value}")
-                            
+
                             # Set the extracted_price field
                             if extracted_price is not None:
                                 r['extracted_price'] = extracted_price
-                    
+
                     # Clean up concatenated price data from eBay sale/discount listings
                     elif 'price' in r and r['price'] and isinstance(r['price'], str):
                         price_str = r['price']
@@ -248,14 +247,14 @@ async def scrape_sold_comps(
                                 logger.info(f"[scraper] Page {page}: Extracted price from single price string: {price_str} → {r['extracted_price']}")
                             except ValueError:
                                 logger.warning(f"[scraper] Page {page}: Could not parse price string: {price_str}")
-                    
+
                     # The entire result 'r' is now passed, as the Pydantic model
                     # will handle the parsing and validation.
                     page_items.append(r)
-                
+
                 logger.info(f"[scraper] Page {page}: Processed {len(page_items)} items")
                 return {"page": page, "success": True, "items": page_items, "fetch_time": fetch_time}
-                
+
             except Exception as e:
                 fetch_time = time.time() - page_start_time if 'page_start_time' in locals() else 0
                 logger.error(f"[scraper] Error fetching page {page}: {e}")
@@ -264,42 +263,42 @@ async def scrape_sold_comps(
     # Main concurrent fetching logic
     start_time = time.time()
     semaphore = asyncio.Semaphore(3)  # Max 3 concurrent requests
-    
+
     async with httpx.AsyncClient(timeout=30) as client:
         # Create tasks for all pages
         tasks = [fetch_page(client, page, semaphore) for page in range(1, max_pages + 1)]
-        
+
         logger.info(f"[scraper] Starting concurrent fetch of {max_pages} pages (max 3 concurrent)")
-        
+
         # Fetch all pages concurrently (return_exceptions=True to handle individual failures)
         results = await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     total_time = time.time() - start_time
-    
+
     # Calculate sequential time estimate (assuming average fetch time)
     successful_results = [r for r in results if isinstance(r, dict) and r.get('success')]
     failed_results = [r for r in results if isinstance(r, Exception) or (isinstance(r, dict) and not r.get('success'))]
-    
+
     avg_fetch_time = sum(r.get('fetch_time', 0) for r in successful_results) / len(successful_results) if successful_results else 0
     sequential_time_estimate = avg_fetch_time * max_pages
     time_saved = sequential_time_estimate - total_time
     percent_faster = (time_saved / sequential_time_estimate * 100) if sequential_time_estimate > 0 else 0
-    
+
     logger.info(f"[scraper] Concurrent fetch completed: {len(successful_results)} successful, {len(failed_results)} failed")
     logger.info(f"[scraper] Time: {total_time:.2f}s concurrent vs {sequential_time_estimate:.2f}s sequential (est), {percent_faster:.0f}% faster")
-    
+
     # Log failed pages
     for result in results:
         if isinstance(result, Exception):
             logger.error(f"[scraper] Page fetch failed with exception: {result}")
         elif isinstance(result, dict) and not result.get('success'):
             logger.error(f"[scraper] Page {result.get('page')} failed: {result.get('error')}")
-    
+
     # Aggregate items from successful pages
     all_items = []
     for result in successful_results:
         all_items.extend(result.get('items', []))
-    
+
     logger.info(f"[scraper] Completed scraping. Final total: {len(all_items)} items across {len(successful_results)} successful pages")
     return all_items
 
@@ -318,10 +317,10 @@ def scrape_active_listings(
 ) -> List[Dict]:
     """
     [DEPRECATED] Use SearchAPI.io's eBay Search engine to fetch ACTIVE listings.
-    
+
     This function is deprecated. Use scrape_active_listings_ebay_api() instead,
     which uses the official eBay Browse API.
-    
+
     - query: search query
     - api_key: SearchAPI.io API key
     - max_pages: how many pages of results to fetch
@@ -351,17 +350,17 @@ def scrape_active_listings(
 
         if category_id:
             params["category_id"] = category_id
-            
+
         # Add optional filters based on API spec
         if buying_format:
             params["buying_format"] = buying_format
-            
+
         if condition:
             params["condition"] = condition
-            
+
         if price_min is not None:
             params["price_min"] = price_min
-            
+
         if price_max is not None:
             params["price_max"] = price_max
 
@@ -386,7 +385,7 @@ def scrape_active_listings(
             # Debug: Log the raw buying format
             buying_format = r.get('buying_format', '')
             print(f"[DEBUG] Raw buying_format from SearchAPI: {buying_format}")
-            
+
             # Map the buying format to our display values
             if 'auction' in buying_format.lower():
                 r['listing_type'] = 'Auction'
@@ -394,7 +393,7 @@ def scrape_active_listings(
                 r['listing_type'] = 'Buy It Now'
             else:
                 r['listing_type'] = 'Buy It Now'  # Default case
-            
+
             # Clean up concatenated price data from eBay sale/discount listings
             if 'price' in r and r['price'] and isinstance(r['price'], str):
                 price_str = r['price']
@@ -419,19 +418,19 @@ def scrape_active_listings(
                         print(f"[scraper] Extracted price from single price string: {price_str} → {r['extracted_price']}")
                     except ValueError:
                         print(f"[scraper] WARNING: Could not parse price string: {price_str}")
-            
+
             # Check for auction indicators
             buying_format = r.get('buying_format', '').lower()
             bids = r.get('bids', 0)
             time_left = str(r.get('time_left', '')).lower()
-            
+
             # Set auction flag based on multiple indicators
             r['is_auction'] = (
                 'auction' in buying_format or
                 bids > 0 or
                 any(x in time_left for x in ['left', 'ends in', 'ending'])
             )
-            
+
             # If it's an auction, override other buying format flags
             if r['is_auction']:
                 r['is_buy_it_now'] = False
@@ -439,9 +438,9 @@ def scrape_active_listings(
             else:
                 r['is_buy_it_now'] = 'buy it now' in buying_format
                 r['is_best_offer'] = r.get('best_offer_enabled', False) or r.get('has_best_offer', False)
-            
+
             all_items.append(r)
-        
+
         items_added = len(all_items) - items_before
         print(f"[scraper] Added {items_added} active listings from page {page}. Total so far: {len(all_items)}")
 
@@ -465,10 +464,10 @@ async def scrape_active_listings_ebay_api(
 ) -> List[Dict]:
     """
     Fetch ACTIVE listings using official eBay Browse API (Async with Concurrency).
-    
+
     This function uses the official eBay Browse API instead of SearchAPI.io.
     Note: The Browse API only returns active listings, not sold/completed items.
-    
+
     Args:
         query: Search query string
         max_pages: Number of pages to fetch (200 items per page max, fetched concurrently)
@@ -479,19 +478,19 @@ async def scrape_active_listings_ebay_api(
         price_min: Minimum price filter
         price_max: Maximum price filter
         enrich_shipping: If True, fetch detailed item data to get complete shipping info
-    
+
     Returns:
         List of normalized item dictionaries
     """
     logger.info(f"[scrape_active_listings_ebay_api] Called with query='{query}', max_pages={max_pages}")
     logger.info(f"[scrape_active_listings_ebay_api] EBAY_API_AVAILABLE={EBAY_API_AVAILABLE}")
-    
+
     if not EBAY_API_AVAILABLE:
         raise RuntimeError(
             "eBay Browse API client not available. "
             "Make sure ebay_browse_client.py is in the same directory and credentials are set."
         )
-    
+
     logger.info("[scrape_active_listings_ebay_api] Creating eBayBrowseClient...")
     try:
         client = eBayBrowseClient()
@@ -501,18 +500,18 @@ async def scrape_active_listings_ebay_api(
         import traceback
         traceback.print_exc()
         raise
-    
+
     limit = 200  # Max per page per eBay API spec
-    
+
     # Helper function to fetch a single page
     async def fetch_page_with_offset(page_num: int, semaphore: asyncio.Semaphore) -> Dict:
         """Fetch a single page with semaphore-controlled concurrency."""
         async with semaphore:
             offset = page_num * limit
-            
+
             # Build filters dictionary
             filters = {}
-            
+
             # Buying format mapping (SearchAPI format -> eBay API format)
             # When buying_format is specified, filter to that specific type
             # When None, don't set filter - eBay API returns all types (AUCTION, FIXED_PRICE, etc.)
@@ -524,7 +523,7 @@ async def scrape_active_listings_ebay_api(
                 }
                 ebay_format = format_map.get(buying_format.lower(), 'FIXED_PRICE')
                 filters['buyingOptions'] = ebay_format
-            
+
             # Price range filter
             if price_min is not None and price_max is not None:
                 filters['price'] = f'[{price_min}..{price_max}]'
@@ -532,19 +531,19 @@ async def scrape_active_listings_ebay_api(
                 filters['price'] = f'[{price_min}..]'
             elif price_max is not None:
                 filters['price'] = f'[..{price_max}]'
-            
+
             # Condition filter
             # eBay API uses condition values like "NEW", "USED", etc.
             if condition:
                 filters['conditions'] = condition.upper()
-            
+
             # Always filter to US items
             filters['itemLocationCountry'] = 'US'
-            
+
             try:
                 logger.info(f"[eBay API] Fetching page {page_num+1} (offset={offset})")
                 page_start_time = time.time()
-                
+
                 response = await client.search_items(
                     query=query,
                     limit=limit,
@@ -553,21 +552,21 @@ async def scrape_active_listings_ebay_api(
                     filter_params=filters,
                     fieldgroups='EXTENDED'  # Get additional details
                 )
-                
+
                 fetch_time = time.time() - page_start_time
-                
+
                 items = response.get('itemSummaries', [])
                 if not items:
                     logger.info(f"[eBay API] No items on page {page_num+1}")
                     return {"page": page_num+1, "success": True, "items": [], "has_next": False, "fetch_time": fetch_time}
-                
+
                 logger.info(f"[eBay API] Page {page_num+1}: Got {len(items)} items in {fetch_time:.2f}s")
-                
+
                 # Normalize to Kuya Comps format
                 normalized_items = []
                 for item in items:
                     normalized = normalize_ebay_browse_item(item)
-                    
+
                     # If shipping enrichment is enabled and shipping data was MISSING (not free), fetch detailed item
                     # Only enrich if shipping_data_missing flag is True
                     if enrich_shipping and normalized.get('shipping_data_missing', False):
@@ -576,30 +575,30 @@ async def scrape_active_listings_ebay_api(
                             try:
                                 logger.info(f"[eBay API] Enriching shipping data for item {item_id}")
                                 detailed_item = await client.get_item(item_id, fieldgroups="SHIPPING_INFO")
-                                
+
                                 # Extract shipping from detailed response
                                 detailed_shipping_options = detailed_item.get('shippingOptions', [])
                                 if detailed_shipping_options and len(detailed_shipping_options) > 0:
                                     shipping_obj = detailed_shipping_options[0].get('shippingCost', {})
                                     shipping_value = float(shipping_obj.get('value', 0))
-                                    
+
                                     # Update normalized item with correct shipping
                                     normalized['extracted_shipping'] = shipping_value
                                     normalized['shipping'] = 'Free' if shipping_value == 0 else f"${shipping_value:.2f}"
                                     normalized['total_price'] = normalized['extracted_price'] + shipping_value
                                     normalized['shipping_data_missing'] = False  # Mark as enriched
-                                    
+
                                     logger.info(f"[eBay API] Enriched! New total_price for {item_id}: ${normalized['total_price']:.2f}")
-                                
+
                                 await asyncio.sleep(0.1)  # Small delay to avoid rate limits
                             except Exception as e:
                                 logger.error(f"[eBay API] Failed to enrich item {item_id}: {e}")
-                    
+
                     normalized_items.append(normalized)
-                
+
                 has_next = bool(response.get('next'))
                 logger.info(f"[eBay API] Page {page_num+1}: Processed {len(normalized_items)} items, has_next={has_next}")
-                
+
                 return {
                     "page": page_num+1,
                     "success": True,
@@ -607,7 +606,7 @@ async def scrape_active_listings_ebay_api(
                     "has_next": has_next,
                     "fetch_time": fetch_time
                 }
-                
+
             except Exception as e:
                 fetch_time = time.time() - page_start_time if 'page_start_time' in locals() else 0
                 logger.error(f"[eBay API] Error on page {page_num+1}: {e}")
@@ -619,45 +618,45 @@ async def scrape_active_listings_ebay_api(
                     "has_next": False,
                     "fetch_time": fetch_time
                 }
-    
+
     # Main concurrent fetching logic
     start_time = time.time()
     semaphore = asyncio.Semaphore(3)  # Max 3 concurrent requests to respect eBay rate limits
-    
+
     # Create tasks for all pages
     tasks = [fetch_page_with_offset(page, semaphore) for page in range(max_pages)]
-    
+
     logger.info(f"[eBay API] Starting concurrent fetch of {max_pages} pages (max 3 concurrent)")
-    
+
     # Fetch all pages concurrently (return_exceptions=True to handle individual failures)
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     total_time = time.time() - start_time
-    
+
     # Calculate sequential time estimate (assuming average fetch time)
     successful_results = [r for r in results if isinstance(r, dict) and r.get('success')]
     failed_results = [r for r in results if isinstance(r, Exception) or (isinstance(r, dict) and not r.get('success'))]
-    
+
     avg_fetch_time = sum(r.get('fetch_time', 0) for r in successful_results) / len(successful_results) if successful_results else 0
     sequential_time_estimate = avg_fetch_time * max_pages
     time_saved = sequential_time_estimate - total_time
     percent_faster = (time_saved / sequential_time_estimate * 100) if sequential_time_estimate > 0 else 0
-    
+
     logger.info(f"[eBay API] Concurrent fetch completed: {len(successful_results)} successful, {len(failed_results)} failed")
     logger.info(f"[eBay API] Time: {total_time:.2f}s concurrent vs {sequential_time_estimate:.2f}s sequential (est), {percent_faster:.0f}% faster")
-    
+
     # Log failed pages
     for result in results:
         if isinstance(result, Exception):
             logger.error(f"[eBay API] Page fetch failed with exception: {result}")
         elif isinstance(result, dict) and not result.get('success'):
             logger.error(f"[eBay API] Page {result.get('page')} failed: {result.get('error')}")
-    
+
     # Aggregate items from successful pages, maintaining page order
     all_items = []
     for result in successful_results:
         all_items.extend(result.get('items', []))
-    
+
     logger.info(f"[eBay API] Completed: {len(all_items)} items across {len(successful_results)} successful pages")
     return all_items
 

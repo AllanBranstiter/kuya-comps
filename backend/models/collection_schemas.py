@@ -35,13 +35,13 @@ class BinderResponse(BinderBase):
     cover_card_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
-    
+
     # Computed fields (not in DB)
     total_cards: Optional[int] = Field(None, description="Total number of cards in binder")
     total_value: Optional[Decimal] = Field(None, description="Sum of current FMV for all cards")
     total_cost: Optional[Decimal] = Field(None, description="Sum of purchase prices")
     roi_percentage: Optional[float] = Field(None, description="Return on investment percentage")
-    
+
     class Config:
         from_attributes = True
 
@@ -58,22 +58,22 @@ class CardBase(BaseModel):
     athlete: str = Field(..., min_length=1, max_length=200, description="Athlete name")
     card_number: Optional[str] = Field(None, max_length=50, description="Card number")
     variation: Optional[str] = Field(None, max_length=200, description="Variation/parallel (e.g., 'Silver Prizm')")
-    
+
     # Condition fields
     grading_company: Optional[str] = Field(None, max_length=50, description="Grading company (PSA, BGS, Raw, etc.)")
     grade: Optional[str] = Field(None, max_length=20, description="Grade (e.g., '10', '9.5')")
-    
+
     # Visual
     image_url: Optional[str] = None
-    
+
     # Search logic
     search_query_string: str = Field(..., min_length=1, description="Exact search string for automated updates")
     auto_update: bool = Field(True, description="Enable automatic FMV updates")
-    
+
     # Financial fields
     purchase_price: Optional[Decimal] = Field(None, ge=0, description="Purchase price in USD")
     purchase_date: Optional[datetime] = None
-    
+
     # Metadata
     tags: Optional[str] = Field(None, description="JSON array of tags")
     notes: Optional[str] = None
@@ -115,11 +115,11 @@ class CardResponse(CardBase):
     no_recent_sales: bool = False
     created_at: datetime
     updated_at: datetime
-    
+
     # Computed fields
     roi_percentage: Optional[float] = Field(None, description="ROI for this specific card")
     days_since_update: Optional[int] = Field(None, description="Days since last FMV update")
-    
+
     class Config:
         from_attributes = True
 
@@ -138,7 +138,7 @@ class PriceHistoryBase(BaseModel):
     value: Decimal = Field(..., ge=0, description="FMV value at this point in time")
     num_sales: Optional[int] = Field(None, ge=0, description="Number of sales used in calculation")
     confidence: Optional[str] = Field(None, description="Confidence level: high, medium, low")
-    
+
     @validator('confidence')
     def validate_confidence(cls, v):
         """Validate confidence level."""
@@ -157,7 +157,7 @@ class PriceHistoryResponse(PriceHistoryBase):
     id: int
     card_id: int
     date_recorded: datetime
-    
+
     class Config:
         from_attributes = True
 
