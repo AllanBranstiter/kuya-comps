@@ -2170,7 +2170,7 @@ const CollectionModule = (function() {
                                 
                                 <div class="auth-form-group" style="margin-bottom: 0;">
                                     <label>Date Purchased</label>
-                                    <input type="date" id="edit-card-purchase-date" value="${card.purchase_date ? card.purchase_date.split('T')[0] : ''}" style="width: 100%; padding: 0.875rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: var(--font-family); background: var(--card-background); color: var(--text-color);">
+                                    <input type="date" id="edit-card-purchase-date" value="${card.purchase_date ? card.purchase_date.substring(0, 10) : ''}" style="width: 100%; padding: 0.875rem; border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-family: var(--font-family); background: var(--card-background); color: var(--text-color);">
                                 </div>
                             </div>
                             
