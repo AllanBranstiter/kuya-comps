@@ -1127,6 +1127,7 @@ const CollectionModule = (function() {
                     .insert([{
                         card_id: data[0].id,
                         value: cardData.current_fmv,
+                        date_recorded: cardData.purchase_date || new Date().toISOString(),
                         num_sales: null,
                         confidence: 'user_provided'
                     }]);
@@ -1501,12 +1502,29 @@ const CollectionModule = (function() {
                 .select('*')
                 .eq('binder_id', binderId)
                 .order('created_at', { ascending: false });
-            
+
             if (cardsError) {
                 throw cardsError;
             }
-            
+
             console.log('[COLLECTION] Loaded', cards?.length || 0, 'cards for binder');
+
+            // Fetch price history for all cards in one query
+            const historyMap = {};
+            if (cards && cards.length > 0) {
+                const cardIds = cards.map(c => c.id);
+                const { data: historyData } = await supabase
+                    .from('price_history')
+                    .select('card_id, value, date_recorded')
+                    .in('card_id', cardIds)
+                    .order('date_recorded', { ascending: true });
+                if (historyData) {
+                    historyData.forEach(entry => {
+                        if (!historyMap[entry.card_id]) historyMap[entry.card_id] = [];
+                        historyMap[entry.card_id].push(entry);
+                    });
+                }
+            }
             
             // Apply sorting based on selection
             cards.sort((a, b) => {
@@ -1528,7 +1546,7 @@ const CollectionModule = (function() {
             });
             
             // Render binder detail view
-            renderBinderDetailView(binder, cards, sortOption);
+            renderBinderDetailView(binder, cards, sortOption, historyMap);
             
         } catch (error) {
             console.error('[COLLECTION] Error loading binder details:', error);
@@ -1547,7 +1565,7 @@ const CollectionModule = (function() {
     /**
      * Render detailed view of a binder with card list
      */
-    function renderBinderDetailView(binder, cards, sortOption = 'newest') {
+    function renderBinderDetailView(binder, cards, sortOption = 'newest', historyMap = {}) {
         const container = document.getElementById('portfolio-container');
         if (!container) return;
         
@@ -1738,6 +1756,7 @@ const CollectionModule = (function() {
                         <td style="padding: 0.75rem; text-align: right;">
                             <div style="font-weight: 600; color: var(--text-color);">$${fmv.toFixed(2)}</div>
                             ${fmv > 0 ? `<div style="font-size: 0.75rem; color: ${cardROI >= 0 ? '#34c759' : '#ff3b30'};">${cardROI >= 0 ? '+' : ''}${cardROI.toFixed(1)}%</div>` : ''}
+                            ${buildSparklineSVG(historyMap[card.id])}
                         </td>
                         <td style="padding: 0.75rem; text-align: center;">${statusHTML}</td>
                     </tr>
@@ -1778,7 +1797,68 @@ const CollectionModule = (function() {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
     }
-    
+
+    /**
+     * Build a small inline SVG sparkline from price history entries.
+     * Returns an empty string if fewer than 2 data points.
+     */
+    function buildSparklineSVG(history) {
+        if (!history || history.length < 2) return '';
+
+        const prices = history.map(h => parseFloat(h.value));
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const range = max - min || 1;
+
+        const W = 60, H = 24, PAD = 2;
+        const innerW = W - PAD * 2;
+        const innerH = H - PAD * 2;
+
+        const points = prices.map((p, i) => {
+            const x = PAD + (i / (prices.length - 1)) * innerW;
+            const y = PAD + (1 - (p - min) / range) * innerH;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+
+        const color = prices[prices.length - 1] >= prices[0] ? '#34c759' : '#ff3b30';
+
+        return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+    }
+
+    /**
+     * Build a full-width SVG line chart from price history entries for the edit modal.
+     */
+    function buildHistoryChartSVG(history) {
+        if (!history || history.length < 2) return '';
+
+        const prices = history.map(h => parseFloat(h.value));
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        const range = max - min || 1;
+
+        const W = 400, H = 80, PX = 8, PY = 8;
+        const innerW = W - PX * 2;
+        const innerH = H - PY * 2;
+
+        const points = prices.map((p, i) => {
+            const x = PX + (i / (prices.length - 1)) * innerW;
+            const y = PY + (1 - (p - min) / range) * innerH;
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+
+        const color = prices[prices.length - 1] >= prices[0] ? '#34c759' : '#ff3b30';
+        const ptArray = points.split(' ');
+        const firstPt = ptArray[0].split(',');
+        const lastPt = ptArray[ptArray.length - 1].split(',');
+
+        return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:80px;display:block;margin-bottom:0.5rem;">
+            <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="${firstPt[0]}" cy="${firstPt[1]}" r="3" fill="${color}"/>
+            <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="3" fill="${color}"/>
+            <text x="${(parseFloat(lastPt[0]) + 5).toFixed(1)}" y="${(parseFloat(lastPt[1]) + 4).toFixed(1)}" font-size="10" fill="${color}" font-family="system-ui,sans-serif" font-weight="600">$${prices[prices.length - 1].toFixed(0)}</text>
+        </svg>`;
+    }
+
     /**
      * Delete a binder and all its cards
      */
@@ -2249,13 +2329,62 @@ const CollectionModule = (function() {
                             💾 Save Changes
                         </button>
                     </form>
+
+                    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
+                        <h3 style="margin: 0 0 1rem 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color);">📈 Price History</h3>
+                        <div id="price-history-content" style="text-align: center; color: var(--subtle-text-color); font-size: 0.9rem; padding: 1rem 0;">Loading...</div>
+                    </div>
                 </div>
             `;
             
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
-            
-            // Set up form submission
+
+            // Fetch and render price history
+            (async () => {
+                const historyEl = document.getElementById('price-history-content');
+                if (!historyEl) return;
+                try {
+                    const { data: history } = await supabase
+                        .from('price_history')
+                        .select('value, date_recorded, confidence')
+                        .eq('card_id', cardId)
+                        .order('date_recorded', { ascending: true });
+
+                    if (!history || history.length === 0) {
+                        historyEl.innerHTML = '<p style="margin:0;">No price history recorded yet.</p>';
+                        return;
+                    }
+
+                    const chartSVG = buildHistoryChartSVG(history);
+                    const rows = [...history].reverse().map(h => {
+                        const date = new Date(h.date_recorded).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        const value = parseFloat(h.value).toFixed(2);
+                        const source = h.confidence || '';
+                        return `<tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.4rem 0.75rem; font-size: 0.85rem; color: var(--subtle-text-color);">${date}</td>
+                            <td style="padding: 0.4rem 0.75rem; font-size: 0.85rem; font-weight: 600; color: var(--text-color); text-align: right;">$${value}</td>
+                            <td style="padding: 0.4rem 0.75rem; font-size: 0.75rem; color: var(--subtle-text-color); text-align: right;">${source}</td>
+                        </tr>`;
+                    }).join('');
+
+                    historyEl.innerHTML = `
+                        ${chartSVG}
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <th style="padding: 0.4rem 0.75rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: var(--subtle-text-color); text-transform: uppercase; letter-spacing: 0.05em;">Date</th>
+                                    <th style="padding: 0.4rem 0.75rem; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--subtle-text-color); text-transform: uppercase; letter-spacing: 0.05em;">Value</th>
+                                    <th style="padding: 0.4rem 0.75rem; text-align: right; font-size: 0.75rem; font-weight: 600; color: var(--subtle-text-color); text-transform: uppercase; letter-spacing: 0.05em;">Source</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    `;
+                } catch (e) {
+                    historyEl.innerHTML = '<p style="margin:0;">Could not load price history.</p>';
+                }
+            })();
             const form = document.getElementById('edit-card-form');
             form.addEventListener('submit', handleEditCard);
             
