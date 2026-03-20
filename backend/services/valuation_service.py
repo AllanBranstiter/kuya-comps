@@ -53,7 +53,7 @@ EXCLUDED_KEYWORDS = [
 VOLATILITY_THRESHOLD = 0.50
 
 # Minimum number of sales required for FMV calculation
-MIN_SALES_FOR_UPDATE = 3
+MIN_SALES_FOR_UPDATE = 1
 
 # IQR multiplier for outlier detection (1.5 is standard)
 IQR_MULTIPLIER = 1.5
@@ -281,9 +281,9 @@ async def update_card_valuation(
 
         logger.info(f"[Valuation] After keyword firewall: {len(filtered_items)} items ({result['num_filtered']} filtered)")
 
-        # Step 3: Ghost Town Check
-        if len(filtered_items) < MIN_SALES_FOR_UPDATE:
-            logger.warning(f"[Valuation] Ghost town detected: Only {len(filtered_items)} sales found (need {MIN_SALES_FOR_UPDATE})")
+        # Step 3: Ghost Town Check — flag if zero sales found, but don't update FMV
+        if len(filtered_items) == 0:
+            logger.warning(f"[Valuation] Ghost town detected: No sales found after keyword filtering")
 
             # Flag card but don't update FMV to $0
             card.review_required = True
