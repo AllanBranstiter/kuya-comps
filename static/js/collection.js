@@ -2994,12 +2994,16 @@ const CollectionModule = (function() {
         btnEl.textContent = '…';
 
         try {
-            const { error } = await supabase
+            const { data: deleted, error } = await supabase
                 .from('price_history')
                 .delete()
-                .eq('id', entryId);
+                .eq('id', entryId)
+                .select();
 
             if (error) throw error;
+            if (!deleted || deleted.length === 0) {
+                throw new Error('Delete was blocked — check Supabase RLS policies for price_history.');
+            }
 
             const row = document.getElementById(`history-row-${entryId}`);
             if (row) row.remove();
