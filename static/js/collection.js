@@ -1127,25 +1127,42 @@ const CollectionModule = (function() {
             
             console.log('[COLLECTION] Card inserted successfully:', data);
             
-            // Create initial price history entry if current_fmv was provided
-            if (cardData.current_fmv && cardData.current_fmv > 0 && data && data[0]) {
-                console.log('[COLLECTION] Creating initial price history entry...');
-                
-                const { error: historyError } = await supabase
-                    .from('price_history')
-                    .insert([{
-                        card_id: data[0].id,
-                        value: cardData.current_fmv,
-                        date_recorded: cardData.purchase_date || new Date().toISOString(),
+            // Create initial price history entries
+            if (data && data[0]) {
+                const cardId = data[0].id;
+                const entries = [];
+
+                // If both purchase price and date are provided, use that as the first entry
+                if (cardData.purchase_price && cardData.purchase_price > 0 && cardData.purchase_date) {
+                    entries.push({
+                        card_id: cardId,
+                        value: cardData.purchase_price,
+                        date_recorded: cardData.purchase_date,
                         num_sales: null,
                         confidence: 'user_provided'
-                    }]);
-                
-                if (historyError) {
-                    console.error('[COLLECTION] Error creating price history:', historyError);
-                    // Don't fail the entire save - price history is supplementary
-                } else {
-                    console.log('[COLLECTION] Price history entry created successfully');
+                    });
+                }
+
+                // If current FMV differs from purchase price (or no purchase price), add it as a second entry
+                if (cardData.current_fmv && cardData.current_fmv > 0 &&
+                    cardData.current_fmv !== cardData.purchase_price) {
+                    entries.push({
+                        card_id: cardId,
+                        value: cardData.current_fmv,
+                        date_recorded: new Date().toISOString(),
+                        num_sales: null,
+                        confidence: 'user_provided'
+                    });
+                }
+
+                if (entries.length > 0) {
+                    const { error: historyError } = await supabase
+                        .from('price_history')
+                        .insert(entries);
+
+                    if (historyError) {
+                        console.error('[COLLECTION] Error creating price history:', historyError);
+                    }
                 }
             }
             
