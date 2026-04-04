@@ -678,6 +678,7 @@ function calculateLiquidityRisk(soldData, activeData) {
 
 // Store current beeswarm data for redrawing on resize
 let currentBeeswarmPrices = [];
+let currentBeeswarmActivePrices = [];
 
 // API key is now handled securely on the backend
 const DEFAULT_API_KEY = 'backend-handled';
@@ -725,7 +726,7 @@ function switchTab(tabName, clickedElement = null) {
     if (tabName === 'comps' && currentBeeswarmPrices.length > 0) {
         setTimeout(() => {
             resizeCanvas();
-            drawBeeswarm(currentBeeswarmPrices);
+            drawBeeswarm(currentBeeswarmPrices, currentBeeswarmActivePrices);
         }, 100);
     }
 }
@@ -763,7 +764,7 @@ function switchSubTab(subTabName) {
     if (subTabName === 'comps' && currentBeeswarmPrices.length > 0) {
         setTimeout(() => {
             resizeCanvas();
-            drawBeeswarm(currentBeeswarmPrices);
+            drawBeeswarm(currentBeeswarmPrices, currentBeeswarmActivePrices);
         }, 100);
     }
     
@@ -813,7 +814,7 @@ function setupResponsiveCanvas() {
         resizeTimeout = setTimeout(() => {
             if (currentBeeswarmPrices.length > 0) {
                 resizeCanvas();
-                drawBeeswarm(currentBeeswarmPrices);
+                drawBeeswarm(currentBeeswarmPrices, currentBeeswarmActivePrices);
             }
         }, 150); // Wait 150ms after last resize
     });
@@ -1098,17 +1099,13 @@ async function renderData(data, secondData = null, marketValue = null) {
 
     // Clear old stats and chart with smooth transition
     clearBeeswarm();
-    
-    // Add loading state
-    document.getElementById("stats-container").innerHTML = '<div class="loading">Calculating statistics...</div>';
-    
+
     // Smooth delay for better UX
     await new Promise(resolve => setTimeout(resolve, 300));
-    
-    renderStats(data);
-    
+
+
     // Update FMV first, then draw beeswarm chart
-    const fmvData = await updateFmv(data);
+    const fmvData = await updateFmv(data, secondData);
     
     // Render Analysis Dashboard with sold data, FMV, and active listings
     // Wrap in try-catch to ensure Analysis errors don't block Comps display
@@ -1128,8 +1125,12 @@ async function renderData(data, secondData = null, marketValue = null) {
         }
     }
     const prices = data.items.map(item => item.total_price);
-    currentBeeswarmPrices = prices; // Store for resize
-    drawBeeswarm(prices);
+    const activePrices = (secondData?.items || [])
+        .map(item => item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0)))
+        .filter(p => p > 0);
+    currentBeeswarmPrices = prices;
+    currentBeeswarmActivePrices = activePrices;
+    drawBeeswarm(prices, activePrices);
     
     // Trigger chart animation
     const chartContainer = document.getElementById("chart-container");
@@ -2702,7 +2703,64 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     const quickSale = fmvData?.quick_sale || fmvData?.expected_low || marketValue * 0.85;
     const patientSale = fmvData?.patient_sale || fmvData?.expected_high || marketValue * 1.15;
     const fmvVsAvg = ((marketValue - data.avg_price) / data.avg_price * 100);
-    
+
+    // --- Ask-side statistics from active listings ---
+    const askPricesRaw = (activeData?.items || [])
+        .map(item => item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0)))
+        .filter(p => p > 0)
+        .sort((a, b) => a - b);
+    const askCount = askPricesRaw.length;
+    const askP10     = askCount >= 2 ? askPricesRaw[Math.max(0, Math.floor(askCount * 0.1))]           : (askCount === 1 ? askPricesRaw[0] : null);
+    const askMedian  = askCount >= 1 ? askPricesRaw[Math.floor(askCount / 2)]                           : null;
+    const askP90     = askCount >= 2 ? askPricesRaw[Math.min(askCount - 1, Math.floor(askCount * 0.9))] : (askCount === 1 ? askPricesRaw[0] : null);
+
+    // Bid/Ask spread (ask median vs FMV market value)
+    const spreadAmount = (askMedian != null && marketValue) ? askMedian - marketValue : null;
+    const spreadPct    = (spreadAmount != null && marketValue) ? (spreadAmount / marketValue) * 100 : null;
+    let spreadSignal, spreadColor;
+    if (spreadPct === null) {
+        spreadSignal = 'Insufficient data'; spreadColor = '#8e8e93';
+    } else if (spreadPct < 0) {
+        spreadSignal = 'Sellers pricing below recent comps'; spreadColor = '#34c759';
+    } else if (spreadPct <= 10) {
+        spreadSignal = 'Tight spread — strong market consensus'; spreadColor = '#34c759';
+    } else if (spreadPct <= 25) {
+        spreadSignal = 'Normal pricing friction'; spreadColor = '#ff9500';
+    } else if (spreadPct <= 50) {
+        spreadSignal = 'Seller optimism — buyers may need to wait'; spreadColor = '#ff6d00';
+    } else {
+        spreadSignal = 'Wide spread — significant seller overpricing'; spreadColor = '#ff3b30';
+    }
+
+    // --- Collectibility Score (1-10) ---
+    const soldCount   = data.items.length;
+    const activeCount = activeData?.items?.length || 0;
+    const collectibilityScore = (() => {
+        const priceScore  = marketValue <= 5 ? 1 : marketValue <= 100 ? 2 : marketValue <= 1000 ? 3 : 4;
+        const volumeScore = soldCount >= 50 ? 3 : soldCount >= 20 ? 2 : soldCount >= 5 ? 1 : 0;
+        const ratio       = soldCount > 0 ? activeCount / soldCount : 10;
+        const scarcityScore = ratio <= 0.25 ? 3 : ratio <= 0.75 ? 2 : ratio <= 1.5 ? 1 : 0;
+        return Math.max(1, Math.min(10, priceScore + volumeScore + scarcityScore));
+    })();
+    const collectibilityTier =
+        collectibilityScore <= 2 ? { label: 'Bulk',               color: '#8e8e93', bg: 'linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%)', border: '#c7c7cc' }
+      : collectibilityScore <= 4 ? { label: 'Common',             color: '#636366', bg: 'linear-gradient(135deg, #f5f5f7 0%, #eaeaea 100%)', border: '#c7c7cc' }
+      : collectibilityScore <= 6 ? { label: 'Sought After',       color: '#c85c00', bg: 'linear-gradient(135deg, #fff8e6 0%, #fff0cc 100%)', border: '#ffd059' }
+      : collectibilityScore <= 8 ? { label: 'Highly Collectible', color: '#1a7a35', bg: 'linear-gradient(135deg, #e6f9ed 0%, #ccf2d8 100%)', border: '#5dd879' }
+      :                            { label: 'Blue Chip',           color: '#0051cc', bg: 'linear-gradient(135deg, #e6f0ff 0%, #cce0ff 100%)', border: '#4da3ff' };
+    const collectibilityScenario = (() => {
+        const highFMV    = marketValue > 100;
+        const highVolume = soldCount >= 20;
+        const highSupply = activeCount >= 15;
+        if (!highFMV && !highVolume && !highSupply) return 'Minimal collector interest';
+        if (!highFMV && !highVolume &&  highSupply) return 'Common card — low hobby interest';
+        if (!highFMV &&  highVolume &&  highSupply) return 'Common card — high turnover';
+        if ( highFMV && !highVolume && !highSupply) return 'Rare and scarce — strong desirability';
+        if ( highFMV &&  highVolume && !highSupply) return 'Blue chip — exceptional collector demand';
+        if ( highFMV && !highVolume &&  highSupply) return 'Possible declining demand';
+        return 'Active market — sustained collector interest';
+    })();
+
     // Calculate Market Pressure % using active listings
     let marketPressure = null;
     let medianAskingPrice = null;
@@ -2891,6 +2949,64 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
         absorptionAbove = aboveFMV > 0 ? (salesAbove / aboveFMV).toFixed(2) : 'N/A';
     }
     
+    // --- Dev logging: post full analytics snapshot to backend ---
+    try {
+        const activeItemCount = activeData?.items?.length || 0;
+        const buyItNowActiveCount = activeData?.items?.filter(item =>
+            (item.buying_format || '').toLowerCase().includes('buy it now')
+        ).length || 0;
+        const medianAskingRaw = activeData?.items
+            ?.map(item => item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0)))
+            ?.filter(p => p > 0)
+            ?.sort((a, b) => a - b);
+        const medianAsking = medianAskingRaw?.length
+            ? medianAskingRaw[Math.floor(medianAskingRaw.length / 2)]
+            : null;
+
+        fetch('/api/dev/analytics-snapshot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                query: data.query,
+                market_pressure: marketPressure,
+                market_pressure_status: marketPressureStatus || null,
+                market_pressure_label: marketPressureLabel || null,
+                market_confidence: marketConfidence,
+                liquidity_score: liquidityRisk?.score ?? null,
+                liquidity_label: liquidityRisk?.label ?? null,
+                liquidity_absorption_ratio: liquidityRisk?.absorptionRatio ?? null,
+                liquidity_confidence: liquidityRisk?.confidence ?? null,
+                market_value: marketValue,
+                quick_sale: quickSale,
+                patient_sale: patientSale,
+                fmv_low: fmvData?.fmv_low ?? null,
+                fmv_high: fmvData?.fmv_high ?? null,
+                median_asking_price: medianAsking,
+                below_fmv_active_count: belowFMV,
+                at_fmv_active_count: atFMV,
+                above_fmv_active_count: aboveFMV,
+                sales_below_fmv: salesBelow,
+                sales_at_fmv: salesAt,
+                sales_above_fmv: salesAbove,
+                absorption_below: absorptionBelow,
+                absorption_at: absorptionAt,
+                absorption_above: absorptionAbove,
+                sold_item_count: data.items.length,
+                active_item_count: activeItemCount,
+                ask_p10: askP10,
+                ask_median: askMedian,
+                ask_p90: askP90,
+                bid_ask_spread_amount: spreadAmount,
+                bid_ask_spread_pct: spreadPct,
+                collectibility_score: collectibilityScore,
+                collectibility_label: collectibilityTier.label,
+                collectibility_scenario: collectibilityScenario,
+            })
+        }).catch(err => console.warn('[DEV LOG] analytics-snapshot failed (non-blocking):', err));
+    } catch (logErr) {
+        console.warn('[DEV LOG] analytics-snapshot error (non-blocking):', logErr);
+    }
+
     const dashboardHtml = `
         <div id="analysis-dashboard">
             <h3 style="margin-bottom: 1.5rem; color: var(--text-color); text-align: center;">📊 Market Analysis Dashboard</h3>
@@ -2902,29 +3018,7 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             
             <!-- Sample Size Warning (Phase 1.1) -->
             ${getSampleSizeWarning(data.items.length, activeData?.items?.length || 0, sampleSize)}
-            
-            <!-- Market Risk Assessment (moved to top) -->
-            ${await (async () => {
-                if (marketPressure !== null && liquidityRisk && liquidityRisk.score !== null) {
-                    const assessmentHTML = await renderMarketAssessment(
-                        marketPressure,
-                        liquidityRisk,
-                        { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
-                        marketConfidence,
-                        data,
-                        activeData,
-                        marketValue,
-                        quickSale,
-                        patientSale
-                    );
-                    console.log('[DASHBOARD] Market Assessment HTML length:', assessmentHTML?.length || 0, 'chars');
-                    return assessmentHTML || '';
-                } else {
-                    console.log('[DASHBOARD] Skipping Market Assessment - missing required data');
-                    return '';
-                }
-            })()}
-            
+
             <!-- Key Indicators Grid -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
                 
@@ -3014,8 +3108,82 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                     </div>
                 </div>
                 `}
+
+                <!-- Collectibility Score -->
+                <div class="indicator-card" style="background: ${collectibilityTier.bg}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${collectibilityTier.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Collectibility measures a card's sustained desirability based on price, market depth, and supply/demand balance">
+                    <div style="margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Collectibility</span>
+                    </div>
+                    <div style="font-size: 2rem; font-weight: 700; color: ${collectibilityTier.color}; margin-bottom: 0.5rem; line-height: 1;">
+                        ${collectibilityScore}/10
+                    </div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: ${collectibilityTier.color}; line-height: 1.4; margin-bottom: 0.5rem;">
+                        ${collectibilityTier.label}
+                    </div>
+                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                        ${collectibilityScenario}<br>
+                        <strong>Sold:</strong> ${soldCount} comps | <strong>Active:</strong> ${activeCount} listings
+                    </div>
+                </div>
             </div>
-            
+
+            <!-- Bid / Ask Market Structure -->
+            <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
+                <h4 style="margin: 0 0 1.25rem 0; color: var(--text-color);">Bid / Ask Market Structure</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 1.25rem;">
+                    <!-- Bid side -->
+                    <div style="background: rgba(0, 122, 255, 0.05); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(0, 122, 255, 0.2);">
+                        <div style="font-size: 0.75rem; font-weight: 600; color: #007aff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">BID — What buyers have paid</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">
+                            <span>Discount</span><span style="font-weight: 500; color: var(--text-color);">${formatMoney(quickSale)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 1rem; color: #007aff; font-weight: 700; margin-bottom: 0.4rem;">
+                            <span>Market Value</span><span>${formatMoney(marketValue)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666;">
+                            <span>Premium</span><span style="font-weight: 500; color: var(--text-color);">${formatMoney(patientSale)}</span>
+                        </div>
+                        <div style="font-size: 0.7rem; color: #999; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.08);">
+                            Based on ${soldCount} sold comp${soldCount !== 1 ? 's' : ''}
+                        </div>
+                    </div>
+                    <!-- Ask side -->
+                    <div style="background: rgba(255, 59, 48, 0.05); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(255, 59, 48, 0.2);">
+                        <div style="font-size: 0.75rem; font-weight: 600; color: #ff3b30; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">ASK — What sellers are asking</div>
+                        ${activeCount > 0 ? `
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">
+                            <span>Floor (p10)</span><span style="font-weight: 500; color: var(--text-color);">${askP10 != null ? formatMoney(askP10) : '—'}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 1rem; color: #ff3b30; font-weight: 700; margin-bottom: 0.4rem;">
+                            <span>Median Ask</span><span>${askMedian != null ? formatMoney(askMedian) : '—'}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666;">
+                            <span>Ceiling (p90)</span><span style="font-weight: 500; color: var(--text-color);">${askP90 != null ? formatMoney(askP90) : '—'}</span>
+                        </div>
+                        <div style="font-size: 0.7rem; color: #999; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.08);">
+                            Based on ${activeCount} active listing${activeCount !== 1 ? 's' : ''}
+                        </div>
+                        ` : `
+                        <div style="font-size: 0.9rem; color: #999; padding-top: 0.5rem;">No active listings data</div>
+                        `}
+                    </div>
+                </div>
+                <!-- Spread indicator -->
+                ${spreadPct !== null ? `
+                <div style="display: flex; align-items: center; gap: 1rem; padding: 0.85rem 1.25rem; background: rgba(0,0,0,0.03); border-radius: 8px; border: 1px solid rgba(0,0,0,0.07);">
+                    <div style="font-size: 0.85rem; color: #666; font-weight: 500; white-space: nowrap;">Spread</div>
+                    <div style="font-size: 1rem; font-weight: 700; color: ${spreadColor}; white-space: nowrap;">
+                        ${spreadAmount >= 0 ? '+' : ''}${formatMoney(spreadAmount)} (${spreadPct >= 0 ? '+' : ''}${spreadPct.toFixed(1)}%)
+                    </div>
+                    <div style="font-size: 0.8rem; color: ${spreadColor}; flex: 1;">${spreadSignal}</div>
+                </div>
+                ` : `
+                <div style="font-size: 0.85rem; color: #999; padding: 0.85rem 1.25rem; background: rgba(0,0,0,0.03); border-radius: 8px;">
+                    Spread unavailable — run an active listings search to compare
+                </div>
+                `}
+            </div>
+
             <!-- Price Distribution Analysis -->
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -3048,27 +3216,14 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                 </div>
             </div>
             
-            
-            <!-- Price Band Liquidity Analysis & Pricing Recommendations -->
+            <!-- Pricing Recommendations -->
             ${activeData && activeData.items && activeData.items.length > 0 && liquidityRisk && liquidityRisk.score !== null ? (() => {
-                // Render liquidity profile
-                const liquidityHTML = renderLiquidityProfile(
-                    { belowFMV, atFMV, aboveFMV, absorptionBelow, absorptionAt, absorptionAbove, salesBelow, salesAt, salesAbove },
-                    marketConfidence,
-                    marketValue,
-                    quickSale,
-                    patientSale
-                );
-                
-                // Render pricing recommendations
                 const bands = {
                     belowFMV: { count: belowFMV, absorption: absorptionBelow, sales: salesBelow },
                     atFMV: { count: atFMV, absorption: absorptionAt, sales: salesAt },
                     aboveFMV: { count: aboveFMV, absorption: absorptionAbove, sales: salesAbove }
                 };
-                const pricingHTML = getPricingRecommendations(bands, marketValue, marketPressure, liquidityRisk?.score || 0);
-                
-                return liquidityHTML + pricingHTML;
+                return getPricingRecommendations(bands, marketValue, marketPressure, liquidityRisk?.score || 0);
             })() : ''}
         </div>
     `;
@@ -3230,12 +3385,12 @@ function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
     const atAbsorption = atFMV.absorption !== 'N/A' ? parseFloat(atFMV.absorption) : 0;
     const aboveAbsorption = aboveFMV.absorption !== 'N/A' ? parseFloat(aboveFMV.absorption) : 0;
     
-    // Recommendation 1: Quick Sale Strategy
+    // Recommendation 1: Discount Strategy
     if (belowAbsorption >= 1.0 && belowFMV.count > 0) {
         const quickPrice = fmv * 0.85;
         recommendations.push({
             icon: '⚡',
-            title: 'Quick Sale Strategy',
+            title: 'Discount Strategy',
             price: quickPrice,
             range: `${formatMoney(fmv * 0.80)} - ${formatMoney(fmv * 0.90)}`,
             reason: `High demand below FMV (${belowAbsorption}:1 absorption ratio). Cards priced 10-20% below FMV are selling faster than they're listed.`,
@@ -3264,7 +3419,7 @@ function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
         const patientPrice = fmv * 1.10;
         recommendations.push({
             icon: '🕰️',
-            title: 'Patient Sale Strategy',
+            title: 'Premium Strategy',
             price: patientPrice,
             range: `${formatMoney(fmv * 1.05)} - ${formatMoney(fmv * 1.15)}`,
             reason: `Low market pressure and good liquidity suggest room for premium pricing if you're patient.`,
@@ -3540,10 +3695,10 @@ function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, li
 }
 
 
-async function updateFmv(data) {
+async function updateFmv(data, activeData = null) {
   const statsContainer = document.getElementById("stats-container");
   const fmvContainer = document.getElementById("fmv-container");
-  
+
   if (!data || !data.items || data.items.length === 0) {
     if (statsContainer) statsContainer.innerHTML = "";
     if (fmvContainer) fmvContainer.innerHTML = "";
@@ -3551,12 +3706,13 @@ async function updateFmv(data) {
   }
 
   try {
-    const resp = await fetch('/fmv', {
+    const activeItems = activeData?.items || [];
+    const resp = await fetch('/fmv/v2', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ items: data.items }),
+      body: JSON.stringify({ sold_items: data.items, active_items: activeItems }),
     });
     const fmvData = await resp.json();
 
@@ -3602,7 +3758,7 @@ async function updateFmv(data) {
         </p>
         <div class="stat-grid">
           <div class="stat-item">
-            <div class="stat-label">🏃‍♂️ Quick Sale</div>
+            <div class="stat-label">💰 Discount</div>
             <div class="stat-value">${formatMoney(quickSale)}</div>
           </div>
           <div class="stat-item">
@@ -3610,24 +3766,13 @@ async function updateFmv(data) {
             <div class="stat-value">${formatMoney(marketValue)}</div>
           </div>
           <div class="stat-item">
-            <div class="stat-label">🕰️ Patient Sale</div>
+            <div class="stat-label">⭐ Premium</div>
             <div class="stat-value">${formatMoney(patientSale)}</div>
           </div>
         </div>
         <p style="font-size: 0.8rem; text-align: center; color: var(--subtle-text-color); margin-top: 1.5rem;">
           Based on ${fmvData.count} recent sales
         </p>
-        ${marketConfidence && marketConfidence < 70 ? `
-          <div style="background: #fff5e6; padding: 0.75rem 1rem; border-radius: 6px; margin-top: 1rem; border-left: 3px solid #ff9500;">
-            <p style="margin: 0; font-size: 0.75rem; color: #666; line-height: 1.5;">
-              ⚠️ <strong>Price Uncertainty:</strong> Market Confidence is ${marketConfidence.toFixed(0)}/100 (${
-                marketConfidence >= 55 ? 'Moderate variation' :
-                marketConfidence >= 40 ? 'High variation' :
-                'Very high variation'
-              }). These FMV estimates have higher uncertainty due to price scatter.
-            </p>
-          </div>
-        ` : ''}
         ${isUserAuthenticated ? `
           <div style="text-align: center; margin-top: 1.5rem;">
             <button onclick="saveCurrentSearchToPortfolio()" style="
@@ -3669,37 +3814,42 @@ const outlierCache = new Map();
 
 function filterOutliers(prices) {
   if (!prices || prices.length === 0) return [];
-  
+
   if (prices.length < 4) {
     // Need at least 4 data points for meaningful outlier detection
     return prices;
   }
-  
+
   // Create cache key from price array (using length and samples to avoid expensive serialization)
   const key = `${prices.length}-${prices[0]}-${prices[prices.length-1]}-${prices[Math.floor(prices.length/2)]}`;
-  
+
   if (outlierCache.has(key)) {
     if (window.DEBUG_MODE.OUTLIER_FILTER) {
       console.log('[OUTLIER FILTER] Using cached result');
     }
     return outlierCache.get(key);
   }
-  
+
   // Sort prices to find quartiles
   const sorted = [...prices].sort((a, b) => a - b);
   const n = sorted.length;
-  
-  // Calculate Q1, Q3, and IQR
-  const q1Index = Math.floor(n * 0.25);
-  const q3Index = Math.floor(n * 0.75);
-  const q1 = sorted[q1Index];
-  const q3 = sorted[q3Index];
+
+  // Interpolated percentile — avoids landing on an outlier value as Q3
+  const interpolate = (arr, pct) => {
+    const pos = pct * (arr.length - 1);
+    const lo  = Math.floor(pos);
+    const hi  = Math.min(lo + 1, arr.length - 1);
+    return arr[lo] + (pos - lo) * (arr[hi] - arr[lo]);
+  };
+
+  const q1 = interpolate(sorted, 0.25);
+  const q3 = interpolate(sorted, 0.75);
   const iqr = q3 - q1;
-  
+
   // Define outlier bounds (1.5 * IQR is the standard threshold)
   const lowerBound = q1 - 1.5 * iqr;
   const upperBound = q3 + 1.5 * iqr;
-  
+
   // Filter out outliers
   const filtered = prices.filter(price => price >= lowerBound && price <= upperBound);
   
@@ -3757,7 +3907,7 @@ function calculateWeightedMedian(prices) {
 /**
  * Internal drawing function - does the actual rendering without guards
  */
-function drawBeeswarmInternal(prices) {
+function drawBeeswarmInternal(prices, activePrices = []) {
   const canvas = document.getElementById("beeswarmCanvas");
   if (!canvas || !prices || prices.length === 0) return;
 
@@ -3793,9 +3943,8 @@ function drawBeeswarmInternal(prices) {
 
   // Filter outliers using IQR method
   const filteredPrices = filterOutliers(validPrices);
-  
+
   if (filteredPrices.length === 0) {
-    // Draw "No data after filtering" message
     ctx.fillStyle = "#6e6e73";
     ctx.font = "16px " + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = "center";
@@ -3803,18 +3952,36 @@ function drawBeeswarmInternal(prices) {
     return;
   }
 
+  // Pre-filter active prices so they can inform the axis range
+  const validActivePrices = (activePrices || []).filter(p => p != null && !isNaN(p) && p > 0).map(p => parseFloat(p));
+  const filteredActivePrices = filterOutliers(validActivePrices);
+
   const minPrice = Math.min(...filteredPrices);
   const maxPrice = Math.max(...filteredPrices);
   const outliersRemoved = validPrices.length - filteredPrices.length;
-  
+
+  // Expand axis to include FMV markers — active prices do NOT expand the axis
+  // (active outliers/dreamers would distort the scale; they're clipped instead)
+  const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+  const dataMin = Math.min(minPrice, ...fmvValues);
+  const dataMax = Math.max(maxPrice, ...fmvValues);
+
+  // Center the axis on the midpoint of the displayed data range so the
+  // dot cluster appears visually centered rather than left-heavy
+  const dataMid = (dataMin + dataMax) / 2;
+  const halfSpan = (dataMax - dataMin) / 2;
+  const dataPad = halfSpan * 0.15 || dataMin * 0.10 || 0.10;
+  const axisMin = dataMid - halfSpan - dataPad;
+  const axisMax = dataMid + halfSpan + dataPad;
+
   // Handle case where all prices are the same
-  const priceRange = maxPrice - minPrice;
-  
+  const priceRange = axisMax - axisMin;
+
   const xScale = (price) => {
     if (priceRange === 0) {
       return width / 2; // Center all points if all prices are the same
     }
-    return margin.left + ((price - minPrice) / priceRange) * innerWidth;
+    return margin.left + ((price - axisMin) / priceRange) * innerWidth;
   };
 
   // --- Draw Premium FMV Band ---
@@ -3950,6 +4117,50 @@ function drawBeeswarmInternal(prices) {
     ctx.stroke();
   }
 
+  // --- Draw Active Listing dots (red) — clipped to axis range ---
+  if (filteredActivePrices && filteredActivePrices.length > 0) {
+    const clippedActive = filteredActivePrices.filter(p => p >= axisMin && p <= axisMax);
+    const activePoints = clippedActive.map(price => ({
+      x: xScale(price),
+      y: height / 2,
+      r: 4,
+    }));
+
+    // Collision detection — spread active dots vertically same as sold
+    const placedActive = [];
+    for (const point of activePoints) {
+      let placed = false;
+      for (let offset = 0; offset <= maxYOffset; offset += 2) {
+        for (const dir of [1, -1]) {
+          const testY = centerY + dir * offset;
+          const collision = placedActive.some(p =>
+            Math.abs(p.x - point.x) < point.r * 2 + 1 &&
+            Math.abs(p.y - testY) < point.r * 2 + 1
+          ) || placedPoints.some(p =>
+            Math.abs(p.x - point.x) < point.r * 2 + 1 &&
+            Math.abs(p.y - testY) < point.r * 2 + 1
+          );
+          if (!collision) {
+            point.y = testY;
+            placedActive.push({ ...point });
+            placed = true;
+            break;
+          }
+        }
+        if (placed) break;
+      }
+      if (!placed) placedActive.push(point);
+
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, point.r, 0, 2 * Math.PI);
+      ctx.fillStyle = "rgba(255, 59, 48, 0.6)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 59, 48, 0.85)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
   // --- Draw Axis ---
   ctx.beginPath();
   ctx.moveTo(margin.left, height - margin.bottom);
@@ -3964,22 +4175,8 @@ function drawBeeswarmInternal(prices) {
   ctx.textAlign = "center";
 
   if (priceRange > 0) {
-    // Min price label
-    ctx.fillText("Min", margin.left, height - margin.bottom + 15);
-    ctx.fillStyle = "#1d1d1f";
-    ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
-    ctx.fillText(formatMoney(minPrice), margin.left, height - margin.bottom + 30);
-    
-    // Max price label
-    ctx.fillStyle = "#6e6e73";
-    ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
-    ctx.fillText("Max", width - margin.right, height - margin.bottom + 15);
-    ctx.fillStyle = "#1d1d1f";
-    ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
-    ctx.fillText(formatMoney(maxPrice), width - margin.right, height - margin.bottom + 30);
-    
     // FMV marker with label
-    if (marketValueGlobal !== null && marketValueGlobal >= minPrice && marketValueGlobal <= maxPrice) {
+    if (marketValueGlobal !== null && priceRange > 0) {
       const fmvX = xScale(marketValueGlobal);
       
       // Draw vertical line for FMV
@@ -4005,36 +4202,49 @@ function drawBeeswarmInternal(prices) {
     ctx.fillText("(All prices identical)", width / 2, height - margin.bottom + 35);
   }
   
-  // Draw legend at bottom (centered)
+  // Draw legend at bottom (centered) — Sold | Active | FMV Range
   const legendY = height - 15;
-  const legendText = "FMV Range";
-  
-  // Measure text to calculate total width
   ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
-  const textWidth = ctx.measureText(legendText).width;
-  const rectWidth = 30;
-  const spacing = 5;
-  const totalLegendWidth = rectWidth + spacing + textWidth;
-  
-  // Center the legend
-  const legendX = (width - totalLegendWidth) / 2;
-  
-  // Draw green rectangle
-  const gradient = ctx.createLinearGradient(legendX, legendY - 8, legendX + rectWidth, legendY - 8);
-  gradient.addColorStop(0, 'rgba(52, 199, 89, 0.3)');
-  gradient.addColorStop(1, 'rgba(52, 199, 89, 0.5)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(legendX, legendY - 12, rectWidth, 12);
-  
-  // Draw border around rectangle
-  ctx.strokeStyle = 'rgba(52, 199, 89, 0.8)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(legendX, legendY - 12, rectWidth, 12);
-  
-  // Draw legend text
-  ctx.fillStyle = "#1d1d1f";
-  ctx.textAlign = "left";
-  ctx.fillText(legendText, legendX + rectWidth + spacing, legendY - 3);
+  const dotR = 6;
+  const spacing = 6;
+  const itemGap = 24;
+
+  const items = [
+    { label: "Sold Listings",   color: "rgba(0, 122, 255, 0.7)",  stroke: "rgba(0, 122, 255, 0.9)",  type: "dot" },
+    { label: "Active Listings", color: "rgba(255, 59, 48, 0.6)",  stroke: "rgba(255, 59, 48, 0.85)", type: "dot" },
+    { label: "FMV Range",       color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)",  type: "rect" },
+  ];
+
+  // Measure total width
+  const itemWidths = items.map(item => {
+    const iconW = item.type === "dot" ? dotR * 2 : 20;
+    return iconW + spacing + ctx.measureText(item.label).width;
+  });
+  const totalW = itemWidths.reduce((a, b) => a + b, 0) + itemGap * (items.length - 1);
+  let lx = (width - totalW) / 2;
+
+  items.forEach((item, i) => {
+    const iconW = item.type === "dot" ? dotR * 2 : 20;
+    if (item.type === "dot") {
+      ctx.beginPath();
+      ctx.arc(lx + dotR, legendY - 4, dotR, 0, 2 * Math.PI);
+      ctx.fillStyle = item.color;
+      ctx.fill();
+      ctx.strokeStyle = item.stroke;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = item.color;
+      ctx.fillRect(lx, legendY - 12, iconW, 12);
+      ctx.strokeStyle = item.stroke;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lx, legendY - 12, iconW, 12);
+    }
+    ctx.fillStyle = "#1d1d1f";
+    ctx.textAlign = "left";
+    ctx.fillText(item.label, lx + iconW + spacing, legendY - 3);
+    lx += itemWidths[i] + itemGap;
+  });
   
   // Store chart metadata for interactive crosshair
   canvas.dataset.minPrice = minPrice;
@@ -4070,14 +4280,14 @@ function drawBeeswarmInternal(prices) {
  * Public wrapper function for drawing beeswarm chart
  * Guards against recursive redraws during crosshair interactions
  */
-function drawBeeswarm(prices) {
+function drawBeeswarm(prices, activePrices = []) {
   // PERFORMANCE FIX: Add diagnostic logging to track call source
   if (window.DEBUG_MODE.BEESWARM) {
     const stack = new Error().stack;
     const callerLine = stack.split('\n')[2]?.trim() || 'unknown';
     console.log('[BEESWARM] drawBeeswarm called from:', callerLine);
   }
-  
+
   // PERFORMANCE FIX: Don't redraw if we're in the middle of a crosshair update
   if (isRedrawingBeeswarm) {
     if (window.DEBUG_MODE.BEESWARM) {
@@ -4085,9 +4295,9 @@ function drawBeeswarm(prices) {
     }
     return;
   }
-  
+
   // Call internal drawing function
-  drawBeeswarmInternal(prices);
+  drawBeeswarmInternal(prices, activePrices);
 }
 
 // Draw Price Distribution Bar Chart

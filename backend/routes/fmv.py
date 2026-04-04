@@ -7,7 +7,8 @@ from comp data and testing external API connectivity.
 """
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends
-from backend.services.fmv_service import calculate_fmv, get_active_market_floor
+from pydantic import BaseModel
+from backend.services.fmv_service import calculate_fmv, calculate_fmv_blended, get_active_market_floor
 from backend.models.schemas import CompItem, FmvResponse
 from backend.middleware.subscription_gate import check_search_limit
 
@@ -67,6 +68,38 @@ def get_fmv(
                 print(f"[FMV] Adjusted quick_sale to ${active_floor:.2f} based on active market floor")
                 print(f"[FMV] Adjusted market_value to ${result.market_value:.2f} (115% of active floor)")
 
+        return FmvResponse(**result.to_dict())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class FmvV2Request(BaseModel):
+    sold_items: List[CompItem]
+    active_items: Optional[List[CompItem]] = None
+
+
+@router.post("/fmv/v2", response_model=FmvResponse)
+def get_fmv_v2(
+    request: FmvV2Request,
+    search_limit: dict = Depends(check_search_limit)
+):
+    """
+    Blended FMV calculation using both sold comps (bid side) and active
+    listings (ask side).
+
+    Returns only three price values — quick_sale, market_value, patient_sale —
+    with fmv_low and fmv_high retired (returned as null).
+
+    The blend weight between bid and ask is determined by:
+      - Number of sold comps (depth of comp history)
+      - Number of active listings (depth of current market)
+      - Bid/ask spread (how far sellers are from recent comps)
+    """
+    try:
+        result = calculate_fmv_blended(
+            sold_items=request.sold_items,
+            active_items=request.active_items,
+        )
         return FmvResponse(**result.to_dict())
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

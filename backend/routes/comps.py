@@ -26,6 +26,7 @@ from backend.models.schemas import CompItem, CompsResponse
 from backend.utils import generate_ebay_deep_link, load_test_data
 from backend.middleware.supabase_auth import get_current_user_optional
 from backend.middleware.subscription_gate import check_search_limit
+from backend.services.search_log_service import save_search
 from scraper import scrape_sold_comps, scrape_active_listings_ebay_api
 
 
@@ -392,6 +393,7 @@ async def get_comps(
     # Build response
     response_data = CompsResponse(
         query=params.query,
+        search_query_sent=modified_query,
         pages_scraped=params.pages,
         items=comp_items,
         min_price=min_price,
@@ -415,6 +417,12 @@ async def get_comps(
             print(f"[CACHE SET] Stored sold listings in cache: {params.query} (TTL: 30 min)")
         else:
             print("[CACHE SET] Failed to store sold listings in cache (continuing without cache)")
+
+    # Save search log to disk (JSON + CSV)
+    try:
+        save_search("sold", response_data)
+    except Exception as log_err:
+        print(f"[SEARCH LOG] Warning: failed to save log: {log_err}")
 
     return response_data
 
@@ -649,6 +657,7 @@ async def get_active_listings(
     # Build response
     response_data = CompsResponse(
         query=params.query,
+        search_query_sent=params.query,
         pages_scraped=params.pages,
         items=comp_items,
         min_price=min_price,
@@ -670,5 +679,11 @@ async def get_active_listings(
         print(f"[CACHE SET] Stored active listings in cache: {params.query} (TTL: 5 min)")
     else:
         print("[CACHE SET] Failed to store active listings in cache (continuing without cache)")
+
+    # Save search log to disk (JSON + CSV)
+    try:
+        save_search("active", response_data)
+    except Exception as log_err:
+        print(f"[SEARCH LOG] Warning: failed to save log: {log_err}")
 
     return response_data
