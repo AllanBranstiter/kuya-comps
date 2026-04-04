@@ -87,6 +87,9 @@ trivy-results.json
 snyk-results.json
 secretlint-report.json
 
+# Search logs (local development only)
+search_logs/
+
 # Temporary files
 *.tmp
 temp/

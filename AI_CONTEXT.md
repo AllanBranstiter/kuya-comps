@@ -2,8 +2,8 @@
 
 > **Purpose:** This document provides context for AI assistants working on this project. It should be shared at the start of each new task to minimize token usage and accelerate onboarding.
 
-**Last Updated:** January 27, 2026
-**Version:** 0.6.0
+**Last Updated:** April 4, 2026
+**Version:** 0.8.0
 **Maintained By:** Allan Branstiter
 
 ---
@@ -16,8 +16,10 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 ### Key Features
 - **Dual Search Display:** Automatically shows both sold listings and active listings below FMV
 - **Smart Deal Finding:** Active listings filtered to show only items priced at or below Fair Market Value with discount indicators
-- **Market Analysis:** Fair Market Value calculations with Quick Sale/Patient Sale ranges using ML
-- **Interactive Visualization:** Beeswarm chart showing price distribution
+- **Market Analysis:** Blended FMV using both sold comps (bid) and active listings (ask), with Discount/Market Value/Premium ranges
+- **Bid/Ask Market Structure:** Stock-market-style display showing bid (sold tiers) vs. ask (active p10/median/p90) with spread signal
+- **Collectibility Score:** 1–10 score based on price tier, market depth, and supply/demand ratio
+- **Interactive Visualization:** Beeswarm chart showing sold (blue) and active (red) price distributions with outlier clipping
 - **Grading Advisor:** Backend-powered intelligent grading recommendations with grade value analysis, premium calculations, and market comparisons across grading companies (PSA, BGS, SGC, CGC)
 - **Advanced Analytics Dashboard:** Market pressure analysis, liquidity profiles, absorption ratios
 - **Collection Management (NEW):** Track card collections with binders and smart organization
@@ -171,7 +173,11 @@ kuya-comps/
 | [`main.py`](main.py:1) | Application entry point, middleware setup | Middleware executes in reverse order of definition |
 | [`backend/config.py`](backend/config.py:1) | Centralized configuration constants | All magic numbers and settings live here |
 | [`backend/routes/comps.py`](backend/routes/comps.py:1) | /comps and /active endpoints | Main search functionality |
-| [`backend/routes/fmv.py`](backend/routes/fmv.py:1) | Fair market value calculations | Uses ML for price analysis |
+| [`backend/routes/fmv.py`](backend/routes/fmv.py:1) | POST /fmv (legacy) and POST /fmv/v2 (blended) | v2 is the active endpoint |
+| [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | calculate_fmv() + calculate_fmv_blended() | v2 blend uses price tier × supply ratio table |
+| [`backend/services/collectibility_service.py`](backend/services/collectibility_service.py:1) | Collectibility score (1–10) | price_tier + volume + scarcity components |
+| [`backend/services/search_log_service.py`](backend/services/search_log_service.py:1) | Saves every search to search_logs/ as JSON + CSV | Dev only — gitignored |
+| [`backend/routes/dev_log.py`](backend/routes/dev_log.py:1) | POST /api/dev/analytics-snapshot | Frontend posts analytics after dashboard renders |
 | [`backend/routes/collection_valuation.py`](backend/routes/collection_valuation.py:1) | Card valuation API (Phase 4) | Manual & batch FMV updates |
 | [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | FMV business logic | Volume-weighted calculations |
 | [`backend/services/collection_service.py`](backend/services/collection_service.py:1) | Collection & binder CRUD | Manages user collections |
@@ -269,13 +275,32 @@ kuya-comps/
 7. Render results + beeswarm chart
 ```
 
-**Example: FMV Calculation Flow**
+**Example: Blended FMV Calculation Flow (v0.8.0)**
 ```
-1. GET /fmv with query → (routes/fmv.py)
-2. Fetch sold listings → (SearchAPI.io)
-3. Apply IQR outlier detection → (fmv_service.py)
-4. Calculate volume-weighted prices
-5. Return quick_sale, market_value, patient_sale ranges
+1. Sold search completes → data available
+2. Active search completes → secondData available
+3. renderData(data, secondData, marketValue) called
+4. updateFmv(data, secondData) → POST /fmv/v2
+5. Backend: calculate_fmv_blended(sold_items, active_items)
+   - Bid center: volume-weighted percentiles of sold comps
+   - Ask center: median of active prices
+   - Price tier: Bulk/Low/Mid/Grail from bid center
+   - Supply ratio: active_count / sold_count
+   - Blend weight: from 4×3 table (tier × supply)
+   - Override: bid_weight = max(w, 0.85) if ask > 2× bid
+   - Discount = p25_sold * w + p10_active * (1-w)
+   - Premium = p75_sold * w' + p90_active * (1-w'), w' = min(w+0.10, 0.95)
+   - Clamp: Discount ≤ Market Value ≤ Premium
+6. Return Discount / Market Value / Premium
+7. renderAnalysisDashboard renders with blended FMV
+```
+
+**Example: FMV Calculation Flow (legacy /fmv)**
+```
+1. GET /fmv with sold items → (routes/fmv.py)
+2. Apply IQR outlier detection → (fmv_service.py)
+3. Calculate volume-weighted prices
+4. Return quick_sale, market_value, patient_sale ranges
 ```
 
 **Example: Add Card to Collection Flow (NEW)**
@@ -862,9 +887,20 @@ alembic upgrade head
 
 ## 📝 Version History & Roadmap
 
-### Current Version: 0.6.0
+### Current Version: 0.8.0
 
-**Recent Changes (v0.6.0 - Grading Advisor):**
+**Recent Changes (v0.8.0 - Blended FMV, Collectibility Score, Bid/Ask Dashboard):**
+- **New:** `POST /fmv/v2` — blended FMV using sold comps (bid) + active listings (ask)
+- **New:** `backend/services/collectibility_service.py` — 1–10 collectibility score
+- **New:** `backend/services/search_log_service.py` + `backend/routes/dev_log.py` — search logging
+- **Dashboard:** Bid/Ask Market Structure section, Collectibility indicator card
+- **Dashboard:** Removed Market Assessment, Sales Speed by Price, Price Statistics block
+- **Renamed:** Quick Sale → Discount, Patient Sale → Premium throughout UI
+- **Beeswarm:** Active listings plotted as red dots, three-item legend, centered axis, active outliers clipped
+- **FMV:** Outlier detection upgraded to interpolated Q1/Q3; `fmv_low`/`fmv_high` retired
+- **API:** `CompsResponse` has `search_query_sent` field (exact string sent to SearchAPI)
+
+**Previous Changes (v0.7.0 - Collection Price History & FMV Fix):**
 - **Deprecated:** Old frontend-only Grading Intelligence tab (~970 lines removed from script.js, validation.js, style.css)
 - **Implemented:** New backend-powered Grading Advisor system
 - **Backend Added:**
@@ -1043,7 +1079,7 @@ When starting a new task, review these first:
 
 ### Project Maturity
 
-**Current State:** Production (Beta v0.6.0)
+**Project Maturity:** Production (Beta v0.8.0)
 **Test Coverage:** Partial (core services covered)
 **Documentation:** Complete
 **Active Development:** Yes

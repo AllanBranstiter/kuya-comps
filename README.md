@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v0.7.0
+# eBay Baseball Card Comps Tool v0.8.0
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations, intelligent deal-finding, and a personal card collection tracker with automatic price history.
 
@@ -9,8 +9,10 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Advanced Filtering**: Raw Only, Base Only, Exclude Autographs, and Buy It Now Only filters
 *   **Smart Deal Finding**: Active listings filtered to show only items priced at or below Fair Market Value
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
-*   **Market Analysis**: Fair Market Value calculations with Quick Sale/Patient Sale ranges
-*   **Interactive Visualization**: Beeswarm chart showing price distribution
+*   **Market Analysis**: Fair Market Value calculations with Discount/Market Value/Premium ranges
+*   **Bid/Ask Market Structure**: Stock-market-style display showing what buyers paid (bid) vs. what sellers are asking (ask), with spread signal
+*   **Collectibility Score**: 1–10 score based on price tier, market depth, and supply/demand ratio
+*   **Interactive Visualization**: Beeswarm chart showing sold (blue) and active (red) price distributions
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
 
 ### Collection Tracker
@@ -195,7 +197,8 @@ USING (
 
 *   **`GET /comps`** — Sold listings for market analysis
 *   **`GET /active`** — Active listings at or below FMV
-*   **`POST /fmv`** — Volume-weighted Fair Market Value calculation
+*   **`POST /fmv`** — Volume-weighted Fair Market Value calculation (legacy, sold comps only)
+*   **`POST /fmv/v2`** — Blended FMV calculation using both sold comps (bid) and active listings (ask)
 *   **`POST /api/v1/cards/{card_id}/update-value`** — Trigger FMV refresh for a single card (auth required)
     - Scrapes eBay using the card's stored search query and saved filters
     - Uses the same volume-weighted FMV algorithm as the Comps tab
@@ -226,6 +229,42 @@ See [`docs/SECURITY.md`](docs/SECURITY.md) for full security guidelines.
 *   **Middleware Optimization**: Reverse execution order of `add_middleware()` calls
 
 ## Version History
+
+### Version 0.8.0 (Blended FMV, Collectibility Score, Bid/Ask Dashboard)
+
+**Blended FMV Engine (`/fmv/v2`):**
+- New `POST /fmv/v2` endpoint accepts both sold comps (bid side) and active listings (ask side)
+- FMV is now a weighted blend of bid center and ask median, with weights determined by price tier (Bulk/Low/Mid/Grail) and supply/demand ratio (active ÷ sold count)
+- Oversupplied cheap cards lean toward the ask; scarce expensive cards trust the comps
+- "Sellers dreaming" override clamps ask influence when ask > 2× bid
+- Discount (p25) and Premium (p75) are also blended: Discount uses p10 of active listings; Premium uses p90 of active listings, with a more conservative bid weight so dreaming sellers don't inflate the ceiling
+- Always enforces: Discount ≤ Market Value ≤ Premium
+- `fmv_low` / `fmv_high` retired — output simplified to three values
+
+**Collectibility Score:**
+- New `backend/services/collectibility_service.py` — scores cards 1–10 based on price tier (1–4 pts), sold volume (0–3 pts), and supply scarcity (active/sold ratio, 0–3 pts)
+- Labels: Bulk (1–2), Common (3–4), Sought After (5–6), Highly Collectible (7–8), Blue Chip (9–10)
+- Six-scenario market signal derived from price tier × volume × supply matrix
+
+**Analysis Dashboard:**
+- New **Bid/Ask Market Structure** section: two-column display (Bid = sold tiers, Ask = active p10/median/p90) with spread bar and signal label
+- New **Collectibility** indicator card (4th in the Key Indicators Grid)
+- Removed Market Assessment section (redundant with indicator cards)
+- Removed Sales Speed by Price table (redundant with Pricing Recommendations)
+- Removed Price Statistics block (Min/Max/Avg); FMV card is now the primary price summary
+- Renamed Quick Sale → Discount, Patient Sale → Premium throughout
+
+**Beeswarm Chart:**
+- Active listings now plotted as red dots alongside sold listings (blue)
+- Three-item legend: Sold Listings / Active Listings / FMV Range
+- Axis range driven by sold prices + FMV markers only; active outliers/dreamers clipped rather than expanding the scale
+- Axis centered on the midpoint of displayed data for visual balance
+- Outlier detection upgraded to interpolated Q1/Q3 percentiles (fixes edge case where Q3 landed on an outlier with small samples)
+
+**Search Logging:**
+- `search_logs/` directory captures every search as JSON + CSV for analysis
+- Analytics snapshot (posted by frontend after search) now includes: ask p10/median/p90, bid/ask spread, collectibility score/label/scenario
+- `backend/routes/dev_log.py` — new fields added to `AnalyticsSnapshot` model
 
 ### Version 0.7.0 (Collection Price History & FMV Fix)
 

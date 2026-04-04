@@ -570,3 +570,146 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         count=len(inliers),
         price_tier=tier_data
     )
+
+
+def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[object]] = None) -> "FMVResult":
+    """
+    Blended FMV: combines bid-side (sold comps) and ask-side (active listings).
+
+    Blend weights are determined by two axes:
+
+      Price tier (bid_center):
+        Bulk  ≤ $5       | Low  $5-$100    | Mid  $100-$1000  | Grail  > $1000
+
+      Supply/demand ratio (active_count / sold_count):
+        Oversupplied  > 2x  |  Balanced  0.5-2x  |  Scarce  < 0.5x
+
+      Bid weight table:
+                      Oversupplied (>2x)  Balanced (0.5-2x)  Scarce (<0.5x)
+        Bulk   ≤$5         0.25               0.50               0.70
+        Low    $5-$100     0.40               0.65               0.80
+        Mid    $100-$1k    0.55               0.75               0.90
+        Grail  >$1000      0.70               0.85               0.95
+
+      Override — sellers dreaming (ask > 2x bid):
+        bid_weight = max(current_weight, 0.85)  — ignore implausible asks
+
+    Always enforces: quick_sale ≤ market_value ≤ patient_sale.
+    Returns only three price values (fmv_low / fmv_high are retired to None).
+
+    Args:
+        sold_items:   List of CompItem objects from sold listings
+        active_items: List of CompItem objects from active listings (may be empty)
+
+    Returns:
+        FMVResult with blended market_value and clamped quick_sale / patient_sale
+    """
+    # --- Bid side (sold comps) ---
+    bid_result = calculate_fmv(sold_items)
+    if bid_result.market_value is None:
+        bid_result.fmv_low = None
+        bid_result.fmv_high = None
+        return bid_result
+
+    bid_center   = bid_result.market_value
+    quick_sale   = bid_result.quick_sale
+    patient_sale = bid_result.patient_sale
+    sold_count   = sum(1 for i in sold_items if getattr(i, 'total_price', None) and i.total_price > 0)
+
+    # --- Ask side (active listings) ---
+    ask_center   = None
+    active_count = 0
+    if active_items:
+        ask_prices = sorted(
+            i.total_price for i in active_items
+            if getattr(i, 'total_price', None) and i.total_price > 0
+        )
+        active_count = len(ask_prices)
+        if active_count > 0:
+            ask_center = ask_prices[active_count // 2]   # median
+
+    # --- Blend ---
+    if ask_center is None or active_count == 0:
+        market_value = bid_center
+    else:
+        # Price tier
+        if bid_center <= 5:
+            tier = "bulk"
+        elif bid_center <= 100:
+            tier = "low"
+        elif bid_center <= 1000:
+            tier = "mid"
+        else:
+            tier = "grail"
+
+        # Supply/demand ratio
+        ratio = active_count / sold_count if sold_count > 0 else 10.0
+        if ratio > 2.0:
+            supply = "oversupplied"
+        elif ratio < 0.5:
+            supply = "scarce"
+        else:
+            supply = "balanced"
+
+        # Blend weight table
+        weight_table = {
+            "bulk":  {"oversupplied": 0.25, "balanced": 0.50, "scarce": 0.70},
+            "low":   {"oversupplied": 0.40, "balanced": 0.65, "scarce": 0.80},
+            "mid":   {"oversupplied": 0.55, "balanced": 0.75, "scarce": 0.90},
+            "grail": {"oversupplied": 0.70, "balanced": 0.85, "scarce": 0.95},
+        }
+        bid_weight = weight_table[tier][supply]
+
+        # Override: sellers dreaming (ask > 2x bid) — don't let implausible asks drag FMV up
+        if ask_center > bid_center * 2.0:
+            bid_weight = max(bid_weight, 0.85)
+            supply = "sellers_dreaming"
+
+        ask_weight   = 1.0 - bid_weight
+        market_value = bid_center * bid_weight + ask_center * ask_weight
+
+        # --- Blended Discount (p25 sold + p10 active) ---
+        ask_p10 = ask_prices[max(0, int(len(ask_prices) * 0.10))]
+        discount_bid_w = bid_weight
+        quick_sale = (
+            (quick_sale or 0) * discount_bid_w +
+            ask_p10 * (1.0 - discount_bid_w)
+        )
+
+        # --- Blended Premium (p75 sold + p90 active) ---
+        # Use a more conservative (higher bid) weight for the ceiling so
+        # dreaming sellers don't inflate the top end
+        ask_p90 = ask_prices[min(len(ask_prices) - 1, int(len(ask_prices) * 0.90))]
+        premium_bid_w = min(bid_weight + 0.10, 0.95)
+        patient_sale = (
+            (patient_sale or 0) * premium_bid_w +
+            ask_p90 * (1.0 - premium_bid_w)
+        )
+
+        print(
+            f"[FMV v2] tier={tier} supply={supply} ratio={ratio:.1f}x "
+            f"bid=${bid_center:.2f} ({bid_weight:.0%}) + "
+            f"ask=${ask_center:.2f} ({ask_weight:.0%}) = MV=${market_value:.2f} "
+            f"discount=${quick_sale:.2f} premium=${patient_sale:.2f}"
+        )
+
+    # --- Clamp: quick_sale ≤ market_value ≤ patient_sale ---
+    if quick_sale is not None and patient_sale is not None:
+        if quick_sale > patient_sale:
+            quick_sale, patient_sale = patient_sale, quick_sale
+        market_value = max(quick_sale, min(market_value, patient_sale))
+
+    tier_data = get_price_tier(fmv=market_value, avg_listing_price=None)
+
+    return FMVResult(
+        fmv_low=None,
+        fmv_high=None,
+        expected_low=quick_sale,
+        expected_high=patient_sale,
+        market_value=market_value,
+        quick_sale=quick_sale,
+        patient_sale=patient_sale,
+        volume_confidence=bid_result.volume_confidence,
+        count=bid_result.count,
+        price_tier=tier_data,
+    )

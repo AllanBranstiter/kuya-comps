@@ -91,6 +91,7 @@ class CompItem(BaseModel):
 
 class CompsResponse(BaseModel):
     query: str
+    search_query_sent: Optional[str] = None  # Exact query string sent to search service (may differ from query)
     pages_scraped: int
     items: List[CompItem]
     min_price: Optional[float] = None
