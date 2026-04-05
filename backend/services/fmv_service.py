@@ -9,8 +9,13 @@ from typing import List, Optional, Dict
 import numpy as np
 from scipy.stats import skew
 from backend.services.price_tier_service import get_price_tier
+from backend.services.analytics_score_service import (
+    calculate_market_confidence,
+    calculate_liquidity,
+    calculate_collectibility,
+    calculate_market_pressure,
+)
 from backend.config import (
-    IQR_OUTLIER_MULTIPLIER,
     MIN_ITEMS_FOR_OUTLIER_DETECTION,
     MIN_ITEMS_FOR_FMV,
     AUCTION_BASE_WEIGHT,
@@ -43,7 +48,8 @@ class FMVResult:
         patient_sale: Optional[float] = None,
         volume_confidence: Optional[str] = None,
         count: int = 0,
-        price_tier: Optional[Dict] = None
+        price_tier: Optional[Dict] = None,
+        analytics_scores: Optional[Dict] = None,
     ):
         self.fmv_low = fmv_low
         self.fmv_high = fmv_high
@@ -55,6 +61,10 @@ class FMVResult:
         self.volume_confidence = volume_confidence
         self.count = count
         self.price_tier = price_tier
+        self.analytics_scores = analytics_scores
+        # Internal: filtered data used in calculation (not serialized)
+        self._filtered_prices = None
+        self._filtered_weights = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary format for API response."""
@@ -69,6 +79,7 @@ class FMVResult:
             'volume_confidence': self.volume_confidence,
             'count': self.count,
             'price_tier': self.price_tier,
+            'analytics_scores': self.analytics_scores,
         }
 
 
@@ -123,6 +134,11 @@ def calculate_volume_weight(item: object) -> float:
             weight_multiplier = BEST_OFFER_WEIGHT
 
     final_weight = base_weight * weight_multiplier
+
+    # Apply AI relevance score if present (0.0-1.0 multiplier)
+    ai_score = getattr(item, 'ai_relevance_score', None)
+    if ai_score is not None:
+        final_weight = final_weight * ai_score
 
     # Cap weights to reasonable range
     return min(max(final_weight, MIN_VOLUME_WEIGHT), MAX_VOLUME_WEIGHT)
@@ -180,24 +196,28 @@ def detect_price_concentration(prices: np.ndarray) -> Optional[float]:
     """
     Find if prices cluster around a specific value using histogram analysis.
 
-    Returns cluster center if 25%+ of sales fall within a tight range ($0.50 bins).
-    This helps identify markets where most sales happen at a consistent price point.
+    Returns cluster center if 25%+ of sales fall within a tight range.
+    Bin size scales with price tier so detection works across all price levels.
 
     Args:
         prices: Array of prices to analyze
 
     Returns:
         float: Cluster center price if concentration detected, None otherwise
-
-    Example:
-        If 8 out of 30 sales are between $8.00-$8.50, that's 26.7% concentration
-        at the $8.25 center point.
     """
     if len(prices) < 4:
         return None
 
-    # Define bin size for price clustering ($0.50 bins)
-    bin_size = 0.50
+    # Scale bin size by price tier
+    median_price = np.median(prices)
+    if median_price <= 10:
+        bin_size = 0.50       # $0.50 bins for bulk cards
+    elif median_price <= 100:
+        bin_size = 2.00       # $2.00 bins for low-tier
+    elif median_price <= 1000:
+        bin_size = median_price * 0.05  # 5% of median for mid-tier
+    else:
+        bin_size = median_price * 0.03  # 3% of median for grails
 
     # Create histogram with $0.50 bins
     min_price = np.min(prices)
@@ -401,7 +421,7 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         - quick_sale: 25th weighted percentile (sell fast, lower price)
         - market_value: Volume-weighted mean (true market price)
         - patient_sale: 75th weighted percentile (wait for top dollar)
-        - fmv_low/high: Market value ± 1 weighted std dev
+        - fmv_low/high: 20th/80th weighted percentiles (core price range)
     """
     # Prepare data for volume weighting
     price_weight_item_tuples = []
@@ -422,16 +442,26 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     all_weights = np.array([t[1] for t in price_weight_item_tuples])
     all_items = [t[2] for t in price_weight_item_tuples]
 
-    # Filter outliers using IQR method with smart classification (need at least 4 data points)
+    # Filter outliers using adaptive IQR method with smart classification
     if len(all_prices) >= MIN_ITEMS_FOR_OUTLIER_DETECTION:
         # Calculate quartiles
         q1 = np.percentile(all_prices, 25)
         q3 = np.percentile(all_prices, 75)
         iqr = q3 - q1
 
-        # Define outlier bounds (aggressive filtering focuses on core cluster)
-        lower_bound = q1 - IQR_OUTLIER_MULTIPLIER * iqr
-        upper_bound = q3 + IQR_OUTLIER_MULTIPLIER * iqr
+        # Adaptive IQR multiplier based on sample size and skewness
+        from scipy.stats import skew as _skew
+        raw_skewness = _skew(all_prices, axis=0)
+        if len(all_prices) < 10:
+            iqr_mult = 1.5    # Standard — avoid over-filtering small samples
+        elif abs(raw_skewness) > 1.5:
+            iqr_mult = 1.0    # Moderate trim for heavily skewed distributions
+        else:
+            iqr_mult = 1.5    # Standard
+
+        # Define outlier bounds
+        lower_bound = q1 - iqr_mult * iqr
+        upper_bound = q3 + iqr_mult * iqr
 
         # Smart filtering: keep items within bounds OR representative outliers
         mask = []
@@ -461,7 +491,7 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         weights = all_weights[mask]
 
         outliers_removed = len(all_prices) - len(prices)
-        print(f"[FMV] IQR bounds: ${lower_bound:.2f} - ${upper_bound:.2f} (Q1: ${q1:.2f}, Q3: ${q3:.2f})")
+        print(f"[FMV] IQR bounds: ${lower_bound:.2f} - ${upper_bound:.2f} (Q1: ${q1:.2f}, Q3: ${q3:.2f}, mult: {iqr_mult}x)")
         print(f"[FMV] Removed {outliers_removed} non-representative outliers using smart classification")
 
         # Log details of excluded items (limit to first 3 for brevity)
@@ -489,12 +519,13 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     total_weight = cumulative_weights[-1]
 
     # Find weighted percentiles
+    percentile_20 = find_weighted_percentile(sorted_prices, cumulative_weights, total_weight, 0.20)
     percentile_25 = find_weighted_percentile(sorted_prices, cumulative_weights, total_weight, 0.25)
     percentile_75 = find_weighted_percentile(sorted_prices, cumulative_weights, total_weight, 0.75)
+    percentile_80 = find_weighted_percentile(sorted_prices, cumulative_weights, total_weight, 0.80)
 
-    # Calculate robust standard deviation using MAD (more resistant to outliers)
+    # Weighted median for skewness-based market value selection
     weighted_median = find_weighted_percentile(sorted_prices, cumulative_weights, total_weight, 0.5)
-    weighted_std = calculate_robust_std(prices, weights, weighted_median)
 
     # Calculate skewness to detect asymmetric distributions
     distribution_skewness = skew(prices, axis=0)
@@ -513,9 +544,9 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     else:
         market_value = weighted_mean
 
-    # Define FMV ranges using volume-weighted statistics
-    fmv_low = max(0, weighted_mean - weighted_std)
-    fmv_high = weighted_mean + weighted_std
+    # Define FMV range using percentile-based bounds (reflects actual distribution shape)
+    fmv_low = max(0, percentile_20)
+    fmv_high = percentile_80
 
     # Volume-weighted market tiers
     quick_sale = max(0, percentile_25)      # 25th percentile - quick sale price
@@ -552,13 +583,13 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     # Count items within FMV range
     inliers = [price for price in prices if fmv_low <= price <= fmv_high]
 
-    print(f"[FMV] Volume-weighted mean: ${weighted_mean:.2f}, std: ${weighted_std:.2f}")
+    print(f"[FMV] Volume-weighted mean: ${weighted_mean:.2f}, FMV range: ${fmv_low:.2f}-${fmv_high:.2f} (P20-P80)")
     print(f"[FMV] High-weight sales: {high_weight_count}/{len(weights)} ({volume_confidence} confidence)")
 
     # Calculate price tier based on market_value
     tier_data = get_price_tier(fmv=market_value, avg_listing_price=None)
 
-    return FMVResult(
+    result = FMVResult(
         fmv_low=fmv_low,
         fmv_high=fmv_high,
         expected_low=quick_sale,    # Keep for backward compatibility
@@ -570,6 +601,9 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         count=len(inliers),
         price_tier=tier_data
     )
+    result._filtered_prices = prices
+    result._filtered_weights = weights
+    return result
 
 
 def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[object]] = None) -> "FMVResult":
@@ -616,6 +650,27 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
     patient_sale = bid_result.patient_sale
     sold_count   = sum(1 for i in sold_items if getattr(i, 'total_price', None) and i.total_price > 0)
 
+    # Compute sold price bounds for guardrails (from IQR-filtered prices)
+    if bid_result._filtered_prices is not None and len(bid_result._filtered_prices) > 0:
+        sold_price_min = float(np.min(bid_result._filtered_prices))
+        sold_price_max = float(np.max(bid_result._filtered_prices))
+    else:
+        sold_prices_all = [i.total_price for i in sold_items if getattr(i, 'total_price', None) and i.total_price > 0]
+        sold_price_min = min(sold_prices_all) if sold_prices_all else 0
+        sold_price_max = max(sold_prices_all) if sold_prices_all else 0
+
+    # --- Compute analytics scores ---
+    confidence = calculate_market_confidence(
+        bid_result._filtered_prices, bid_result._filtered_weights
+    ) if bid_result._filtered_prices is not None else {"score": None}
+
+    liquidity = calculate_liquidity(sold_items, active_items)
+    collectibility_result = calculate_collectibility(
+        bid_center, sold_count,
+        len(active_items) if active_items else 0,
+    )
+    # Market pressure computed after blending (needs final market_value)
+
     # --- Ask side (active listings) ---
     ask_center   = None
     active_count = 0
@@ -661,9 +716,18 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         bid_weight = weight_table[tier][supply]
 
         # Override: sellers dreaming (ask > 2x bid) — don't let implausible asks drag FMV up
+        # Use more aggressive bid weight for lower-value cards where dreaming is most common
         if ask_center > bid_center * 2.0:
-            bid_weight = max(bid_weight, 0.85)
+            if tier in ("bulk", "low"):
+                bid_weight = max(bid_weight, 0.92)
+            else:
+                bid_weight = max(bid_weight, 0.85)
             supply = "sellers_dreaming"
+
+        # Liquidity adjustment: high liquidity trusts sold prices more
+        liq_score = liquidity.get("score") or 50
+        liquidity_adj = (liq_score - 50) / 500  # range: -0.10 to +0.10
+        bid_weight = max(0.20, min(0.95, bid_weight + liquidity_adj))
 
         ask_weight   = 1.0 - bid_weight
         market_value = bid_center * bid_weight + ask_center * ask_weight
@@ -699,6 +763,42 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
             quick_sale, patient_sale = patient_sale, quick_sale
         market_value = max(quick_sale, min(market_value, patient_sale))
 
+    # --- Compute market pressure (needs final market_value) ---
+    pressure = calculate_market_pressure(active_items, market_value)
+
+    # --- Analytics adjustments to FMV range ---
+    if quick_sale is not None and patient_sale is not None and market_value is not None:
+        # 2A: Confidence widens/narrows range
+        conf_score = confidence.get("score") or 70
+        range_multiplier = 1.0 + 0.3 * (1 - conf_score / 100)
+        midpoint = market_value
+        half_range = (patient_sale - quick_sale) / 2
+        quick_sale = midpoint - half_range * range_multiplier
+        patient_sale = midpoint + half_range * range_multiplier
+
+        # 2B: Pressure — informational only, no longer shifts ceiling
+        # (removed: pressure ceiling bump was compounding with blend and overshooting)
+
+        # --- Sold-price guardrails ---
+        # FMV values must stay anchored to actual transactions
+        # Market value: never above max sold price
+        market_value = min(market_value, sold_price_max)
+        # Patient sale: never above max sold + 10% margin
+        patient_sale = min(patient_sale, sold_price_max * 1.10)
+        # Quick sale: never below min sold price, never $0
+        quick_sale = max(quick_sale, sold_price_min)
+
+        # Re-clamp after adjustments
+        if quick_sale > patient_sale:
+            quick_sale, patient_sale = patient_sale, quick_sale
+        market_value = max(quick_sale, min(market_value, patient_sale))
+
+        pressure_pct = pressure.get("pressure_pct") or 0
+        print(
+            f"[FMV v2 adj] confidence={conf_score} range_mult={range_multiplier:.2f} "
+            f"pressure={pressure_pct:+.1f}% → QS=${quick_sale:.2f} MV=${market_value:.2f} PS=${patient_sale:.2f}"
+        )
+
     tier_data = get_price_tier(fmv=market_value, avg_listing_price=None)
 
     return FMVResult(
@@ -712,4 +812,10 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         volume_confidence=bid_result.volume_confidence,
         count=bid_result.count,
         price_tier=tier_data,
+        analytics_scores={
+            "confidence": confidence,
+            "pressure": pressure,
+            "liquidity": liquidity,
+            "collectibility": collectibility_result,
+        },
     )

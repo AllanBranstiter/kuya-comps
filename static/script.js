@@ -680,6 +680,12 @@ function calculateLiquidityRisk(soldData, activeData) {
 let currentBeeswarmPrices = [];
 let currentBeeswarmActivePrices = [];
 
+// Shared axis range for mirrored strip + KDE charts (computed once per search)
+let sharedChartAxisMin = null;
+let sharedChartAxisMax = null;
+let currentSoldData = null;
+let currentActiveData = null;
+
 // API key is now handled securely on the backend
 const DEFAULT_API_KEY = 'backend-handled';
 
@@ -727,6 +733,7 @@ function switchTab(tabName, clickedElement = null) {
         setTimeout(() => {
             resizeCanvas();
             drawBeeswarm(currentBeeswarmPrices, currentBeeswarmActivePrices);
+            drawMirroredStrip(currentBeeswarmPrices, currentBeeswarmActivePrices);
         }, 100);
     }
 }
@@ -765,9 +772,10 @@ function switchSubTab(subTabName) {
         setTimeout(() => {
             resizeCanvas();
             drawBeeswarm(currentBeeswarmPrices, currentBeeswarmActivePrices);
+            drawMirroredStrip(currentBeeswarmPrices, currentBeeswarmActivePrices);
         }, 100);
     }
-    
+
     // Redraw price distribution chart if switching to analysis sub-tab
     if (subTabName === 'analysis') {
         setTimeout(() => {
@@ -815,9 +823,11 @@ function setupResponsiveCanvas() {
             if (currentBeeswarmPrices.length > 0) {
                 resizeCanvas();
                 drawBeeswarm(currentBeeswarmPrices, currentBeeswarmActivePrices);
+                drawMirroredStrip(currentBeeswarmPrices, currentBeeswarmActivePrices);
             }
         }, 150); // Wait 150ms after last resize
     });
+
 }
 
 function resizeCanvas() {
@@ -829,11 +839,11 @@ function resizeCanvas() {
     
     // Set canvas actual size (in pixels)
     canvas.width = containerWidth;
-    canvas.height = 250;
-    
+    canvas.height = 400;
+
     // Update CSS size to match
     canvas.style.width = containerWidth + 'px';
-    canvas.style.height = '250px';
+    canvas.style.height = '400px';
 }
 
 async function renderData(data, secondData = null, marketValue = null) {
@@ -854,8 +864,9 @@ async function renderData(data, secondData = null, marketValue = null) {
         'Are they the same': lastActiveData === window.lastActiveData
     });
     
-    // Create first table
+    // Create first table (hidden until relevance filtering completes)
     let html = `
+      <div id="listings-tables-container" style="display: none;">
       <h3 style="margin-bottom: 1rem; color: var(--text-color);">Recently Sold Listings</h3>
       <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 1.5rem;">
         <table>
@@ -866,11 +877,11 @@ async function renderData(data, secondData = null, marketValue = null) {
               <th>Item ID</th>
             </tr>
           </thead>
-          <tbody>
-          ${data.items && data.items.length > 0 ? data.items.map(item => {
+          <tbody class="sold-listings-tbody">
+          ${data.items && data.items.length > 0 ? data.items.map((item, idx) => {
             // Use deep link on mobile devices, standard link otherwise
             const linkUrl = (isMobileDevice && item.deep_link) ? item.deep_link : item.link;
-            
+
             // Debug logging for sold listings
             if (isMobileDevice) {
               console.log('[SOLD LISTING LINK DEBUG]', {
@@ -881,15 +892,15 @@ async function renderData(data, secondData = null, marketValue = null) {
                 using: linkUrl
               });
             }
-            
+
             // For iOS, remove target="_blank" to avoid tab confusion after app switch
             const targetAttr = isIOS ? '' : ' target="_blank"';
-            
+
             // Add touch-action CSS for better iOS touch handling
             const touchStyle = isIOS ? ' style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1);"' : '';
-            
+
             return `
-            <tr>
+            <tr data-sold-index="${idx}">
               <td>${escapeHtml(item.title)}</td>
               <td>${formatMoney(item.total_price)}</td>
               <td><a href="${escapeHtml(linkUrl)}"${targetAttr}${touchStyle} onclick="console.log('[LINK CLICK] Sold listing:', '${escapeHtml(item.item_id)}', new Date().toISOString())">${escapeHtml(item.item_id)}</a></td>
@@ -965,7 +976,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                 return passes;
             });
         }
-        
+
         console.log('[DEBUG renderData] After filtering:', {
             original: secondData.items.length,
             filtered: filteredItems.length,
@@ -1014,7 +1025,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                   <th>Item ID</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody class="active-listings-tbody">
               ${filteredItems.length > 0 ? filteredItems.map(item => {
                 // All items are "Buy It Now" since we filtered out auctions
                 const displayType = 'Buy It Now';
@@ -1066,7 +1077,7 @@ async function renderData(data, secondData = null, marketValue = null) {
                 const touchStyle = isIOS ? ' style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1);"' : '';
                 
                 return `
-                  <tr>
+                  <tr data-item-id="${escapeHtml(item.item_id)}">
                     <td>${escapeHtml(item.title)}</td>
                     <td>${formatMoney(itemPrice)}</td>
                     ${hasMarketValue ? `<td style="color: ${discountColor}; font-weight: 600;">${discountDisplay}</td>` : ''}
@@ -1086,6 +1097,7 @@ async function renderData(data, secondData = null, marketValue = null) {
               </tbody>
             </table>
           </div>
+          <div class="active-relevance-note"></div>
           <p style="font-size: 0.75rem; color: #666; margin-top: 0.75rem; margin-bottom: 0.5rem; line-height: 1.5;">
             ⚠️ These listings are shown for research purposes only. This is not a recommendation to buy. Always do your own due diligence before purchasing.
           </p>
@@ -1094,7 +1106,8 @@ async function renderData(data, secondData = null, marketValue = null) {
           </p>
         `;
     }
-    
+
+    html += `</div>`; // close listings-tables-container
     resultsDiv.innerHTML = html;
 
     // Clear old stats and chart with smooth transition
@@ -1106,6 +1119,9 @@ async function renderData(data, secondData = null, marketValue = null) {
 
     // Update FMV first, then draw beeswarm chart
     const fmvData = await updateFmv(data, secondData);
+
+    // AI scoring done, now building dashboard
+    updateSearchStage('stage-dashboard');
     
     // Render Analysis Dashboard with sold data, FMV, and active listings
     // Wrap in try-catch to ensure Analysis errors don't block Comps display
@@ -1124,19 +1140,91 @@ async function renderData(data, secondData = null, marketValue = null) {
             // Don't throw - let the Comps data display normally
         }
     }
-    const prices = data.items.map(item => item.total_price);
-    const activePrices = (secondData?.items || [])
+    const RELEVANCE_THRESHOLD = 0.5;
+    const relevantSoldItems = data.items.filter(item => (item.ai_relevance_score ?? 1.0) >= RELEVANCE_THRESHOLD);
+    const relevantActiveItems = (secondData?.items || []).filter(item => (item.ai_relevance_score ?? 1.0) >= RELEVANCE_THRESHOLD);
+    const soldFiltered = data.items.length - relevantSoldItems.length;
+    const activeFiltered = (secondData?.items || []).length - relevantActiveItems.length;
+    if (soldFiltered > 0 || activeFiltered > 0) {
+      console.log(`[RELEVANCE] Filtered out ${soldFiltered} sold + ${activeFiltered} active low-relevance listings`);
+    }
+
+    // Hide low-relevance rows from the already-rendered sold listings table
+    if (soldFiltered > 0) {
+      const soldTbody = document.querySelector('.sold-listings-tbody');
+      if (soldTbody) {
+        data.items.forEach((item, idx) => {
+          if ((item.ai_relevance_score ?? 1.0) < RELEVANCE_THRESHOLD) {
+            const row = soldTbody.querySelector(`tr[data-sold-index="${idx}"]`);
+            if (row) row.style.display = 'none';
+          }
+        });
+        // Add hidden count note
+        const noteRow = document.createElement('tr');
+        noteRow.innerHTML = `<td colspan="3" style="text-align: center; padding: 0.75rem; color: var(--subtle-text-color); font-size: 0.85rem; font-style: italic;">${soldFiltered} irrelevant listing${soldFiltered !== 1 ? 's' : ''} hidden by AI filter</td>`;
+        soldTbody.appendChild(noteRow);
+      }
+    }
+
+    // Hide low-relevance rows from the already-rendered active listings table
+    if (activeFiltered > 0) {
+      const activeTbody = document.querySelector('.active-listings-tbody');
+      if (activeTbody) {
+        activeTbody.querySelectorAll('tr[data-item-id]').forEach(row => {
+          const itemId = row.getAttribute('data-item-id');
+          const item = (secondData?.items || []).find(i => i.item_id === itemId);
+          if (item && (item.ai_relevance_score ?? 1.0) < RELEVANCE_THRESHOLD) {
+            row.style.display = 'none';
+          }
+        });
+      }
+      // Add hidden count note
+      const noteEl = document.querySelector('.active-relevance-note');
+      if (noteEl) {
+        noteEl.innerHTML = `<p style="font-size: 0.8rem; color: var(--subtle-text-color); margin-top: 0.5rem; font-style: italic;">${activeFiltered} irrelevant listing${activeFiltered !== 1 ? 's' : ''} hidden by AI filter</p>`;
+      }
+    }
+
+    // Show the tables now that filtering is complete
+    const tablesContainer = document.getElementById('listings-tables-container');
+    if (tablesContainer) tablesContainer.style.display = '';
+
+    const prices = relevantSoldItems.map(item => item.total_price);
+    const activePrices = relevantActiveItems
         .map(item => item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0)))
         .filter(p => p > 0);
     currentBeeswarmPrices = prices;
     currentBeeswarmActivePrices = activePrices;
+
+    // Compute shared axis range for both charts
+    const filteredForAxis = filterOutliers(prices.filter(p => p != null && !isNaN(p) && p > 0).map(Number));
+    const fmvVals = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    if (filteredForAxis.length > 0) {
+      const dMin = Math.min(Math.min(...filteredForAxis), ...fmvVals);
+      const dMax = Math.max(Math.max(...filteredForAxis), ...fmvVals);
+      const dMid = (dMin + dMax) / 2;
+      const hSpan = (dMax - dMin) / 2;
+      const dPad = hSpan * 0.15 || dMin * 0.10 || 0.10;
+      sharedChartAxisMin = dMid - hSpan - dPad;
+      sharedChartAxisMax = dMid + hSpan + dPad;
+    }
+
     drawBeeswarm(prices, activePrices);
-    
+    const mirroredContainer = document.getElementById("mirrored-chart-container");
+    if (mirroredContainer) mirroredContainer.style.display = '';
+    drawMirroredStrip(prices, activePrices);
+    currentSoldData = data;
+    currentActiveData = secondData;
+
     // Trigger chart animation
     const chartContainer = document.getElementById("chart-container");
     chartContainer.style.opacity = '0';
     await new Promise(resolve => setTimeout(resolve, 100));
     chartContainer.style.opacity = '1';
+
+    // Clear loading UI from stats-container
+    const loadingUi = document.getElementById('search-loading-ui');
+    if (loadingUi) loadingUi.remove();
 }
 
 function toggleActiveListingsView() {
@@ -1306,7 +1394,11 @@ function clearSearch() {
     
     // Clear beeswarm chart
     clearBeeswarm();
-    
+
+    // Clear mirrored strip chart
+    const mirroredContainer = document.getElementById("mirrored-chart-container");
+    if (mirroredContainer) mirroredContainer.style.display = 'none';
+
     // Reset stored data
     lastData = null;
     lastActiveData = null;
@@ -1314,6 +1406,7 @@ function clearSearch() {
     expectLowGlobal = null;
     expectHighGlobal = null;
     marketValueGlobal = null;
+    window.backendAnalyticsScores = null;
     currentBeeswarmPrices = [];
     
     // Clear crosshair positions
@@ -1577,6 +1670,20 @@ function getSearchQueryWithExclusions(baseQuery) {
     return finalQuery;
 }
 
+const SEARCH_STAGES = ['stage-search', 'stage-active', 'stage-ai', 'stage-dashboard'];
+
+function updateSearchStage(stageId) {
+  const idx = SEARCH_STAGES.indexOf(stageId);
+  if (idx === -1) return;
+  SEARCH_STAGES.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('active', 'completed');
+    if (i < idx) el.classList.add('completed');
+    else if (i === idx) el.classList.add('active');
+  });
+}
+
 async function runSearchInternal() {
   try {
     const startTime = Date.now();
@@ -1611,17 +1718,33 @@ async function runSearchInternal() {
           display: flex;
           align-items: center;
           gap: 1rem;
-          padding: 1rem;
-          margin-bottom: 1rem;
+          padding: 0.75rem 1rem;
+          margin-bottom: 0.5rem;
           border-radius: 6px;
           background: var(--card-background);
-          opacity: 0.5;
+          opacity: 0.4;
           transition: all 0.3s ease;
         }
         .loading-stage.active {
           opacity: 1;
           transform: scale(1.02);
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .loading-stage.completed {
+          opacity: 0.7;
+        }
+        .loading-stage.completed .loading-spinner {
+          border: none;
+          animation: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .loading-stage.completed .loading-spinner::after {
+          content: '✓';
+          color: #22c55e;
+          font-size: 16px;
+          font-weight: bold;
         }
         .loading-spinner {
           width: 24px;
@@ -1630,6 +1753,7 @@ async function runSearchInternal() {
           border-top-color: var(--primary-blue);
           border-radius: 50%;
           animation: spin 1s linear infinite;
+          flex-shrink: 0;
         }
         .loading-text {
           flex: 1;
@@ -1637,11 +1761,33 @@ async function runSearchInternal() {
         .loading-text h4 {
           margin: 0;
           color: var(--text-color);
+          font-size: 0.95rem;
         }
         .loading-text p {
           margin: 0.25rem 0 0;
           color: var(--subtle-text-color);
-          font-size: 0.9rem;
+          font-size: 0.85rem;
+        }
+        .search-progress-bar-container {
+          width: 100%;
+          height: 4px;
+          background: var(--border-color);
+          border-radius: 2px;
+          margin-top: 1rem;
+          overflow: hidden;
+        }
+        .search-progress-bar {
+          height: 100%;
+          width: 0%;
+          background: linear-gradient(90deg, var(--primary-blue), #60a5fa);
+          border-radius: 2px;
+          transition: width 1s linear;
+        }
+        .progress-time {
+          text-align: center;
+          color: var(--subtle-text-color);
+          font-size: 0.8rem;
+          margin: 0.5rem 0 0;
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
@@ -1673,36 +1819,57 @@ async function runSearchInternal() {
         `;
     }
     
-    resultsDiv.innerHTML = `
-      <div class="loading-container">
-        <div class="loading-stage active" id="search-stage">
+    resultsDiv.innerHTML = '';
+
+    statsContainer.innerHTML = `
+      <div class="loading-container" id="search-loading-ui">
+        <div class="loading-stage active" id="stage-search">
           <div class="loading-spinner"></div>
           <div class="loading-text">
             <h4>Searching eBay listings...</h4>
             <p>Fetching recent sales data</p>
           </div>
         </div>
-        <div class="loading-stage" id="analysis-stage">
+        <div class="loading-stage" id="stage-active">
           <div class="loading-spinner"></div>
           <div class="loading-text">
-            <h4>Analyzing Results...</h4>
-            <p>Calculating market values and statistics</p>
+            <h4>Fetching Active Listings...</h4>
+            <p>Finding current market prices</p>
           </div>
         </div>
-        <div class="loading-stage" id="render-stage">
+        <div class="loading-stage" id="stage-ai">
           <div class="loading-spinner"></div>
           <div class="loading-text">
-            <h4>Preparing Display...</h4>
-            <p>Generating visualizations and insights</p>
+            <h4>AI Relevance Scoring...</h4>
+            <p>Filtering irrelevant listings</p>
           </div>
         </div>
-        <div class="progress-info" style="text-align: center; margin-top: 1rem; color: var(--subtle-text-color);">
-          <p>Estimated time remaining: ~15 seconds</p>
+        <div class="loading-stage" id="stage-dashboard">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">
+            <h4>Building Dashboard...</h4>
+            <p>Generating visualizations</p>
+          </div>
         </div>
+        <div class="search-progress-bar-container">
+          <div class="search-progress-bar" id="search-progress-bar"></div>
+        </div>
+        <p class="progress-time" id="progress-time">Elapsed: 0s</p>
       </div>
     `;
 
-    statsContainer.innerHTML = '<div class="loading">Preparing analytics...</div>';
+    // Start progress timer
+    const progressInterval = setInterval(() => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      const timeEl = document.getElementById('progress-time');
+      if (timeEl) timeEl.textContent = `Elapsed: ${elapsed}s`;
+      const barEl = document.getElementById('search-progress-bar');
+      if (barEl) {
+        // Asymptotic approach to 90% over ~35s
+        const pct = Math.min(90, (elapsed / 35) * 90);
+        barEl.style.width = pct + '%';
+      }
+    }, 1000);
     clearBeeswarm();
 
     const params = new URLSearchParams({
@@ -1720,60 +1887,6 @@ async function runSearchInternal() {
     searchButton.innerHTML = '⏳ Searching...';
     searchButton.style.background = 'linear-gradient(135deg, #6c757d, #858a91)';
     searchButton.disabled = true;
-
-    // Add CSS for loading stages if not already present
-    if (!document.getElementById('loading-styles')) {
-      const style = document.createElement('style');
-      style.id = 'loading-styles';
-      style.textContent = `
-        .loading-container {
-          padding: 2rem;
-          background: var(--background-color);
-          border-radius: 8px;
-          border: 1px solid var(--border-color);
-        }
-        .loading-stage {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 1rem;
-          margin-bottom: 1rem;
-          border-radius: 6px;
-          background: var(--card-background);
-          opacity: 0.5;
-          transition: all 0.3s ease;
-        }
-        .loading-stage.active {
-          opacity: 1;
-          transform: scale(1.02);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        .loading-spinner {
-          width: 24px;
-          height: 24px;
-          border: 3px solid var(--border-color);
-          border-top-color: var(--primary-blue);
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-        .loading-text {
-          flex: 1;
-        }
-        .loading-text h4 {
-          margin: 0;
-          color: var(--text-color);
-        }
-        .loading-text p {
-          margin: 0.25rem 0 0;
-          color: var(--subtle-text-color);
-          font-size: 0.9rem;
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `;
-      document.head.appendChild(style);
-    }
 
   // reset globals
   expectLowGlobal = null;
@@ -1888,20 +2001,12 @@ async function runSearchInternal() {
         throw new Error(`Request failed (${resp.status}): ${errorText}`);
       }
 
-      // Update loading stage
-      document.getElementById('search-stage').classList.remove('active');
-      document.getElementById('analysis-stage').classList.add('active');
+      // Update loading stage - comps fetched, now fetching active
+      updateSearchStage('stage-active');
 
       const data = await resp.json();
       if (data.detail) {
         throw new Error(data.detail);
-      }
-
-      // Update progress info
-      const elapsedTime = Math.round((Date.now() - startTime) / 1000);
-      const progressInfo = document.querySelector('.progress-info p');
-      if (progressInfo) {
-        progressInfo.textContent = `Processing time: ${elapsedTime} seconds`;
       }
     
     // Add query to data object before saving
@@ -2080,6 +2185,7 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
             } : null
         });
 
+        updateSearchStage('stage-ai');
         await renderData(data, secondData, marketValue);
     } catch (error) {
         console.error('[DEBUG] Active listings fetch failed:', error);
@@ -2123,6 +2229,11 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
       window.lastData = null; // Clear window reference on error
       console.error('[ERROR] Search failed:', err);
     } finally {
+      // Clear progress timer
+      clearInterval(progressInterval);
+      // Complete progress bar
+      const barEl = document.getElementById('search-progress-bar');
+      if (barEl) barEl.style.width = '100%';
       // Restore button state
       searchButton.textContent = originalText;
       searchButton.style.background = 'var(--gradient-primary)';
@@ -2691,12 +2802,18 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     const priceRange = data.max_price - data.min_price;
     const priceSpread = priceRange / data.avg_price * 100; // Volatility percentage
     
-    // Market confidence (based on consistency of prices)
-    const stdDev = calculateStdDev(prices);
-    const coefficientOfVariation = (stdDev / data.avg_price) * 100;
-    // Use a scaled formula that handles high variability better
-    // CoV=0% → confidence=100, CoV=100% → confidence=50, CoV=200% → confidence=33
-    const marketConfidence = Math.round(100 / (1 + coefficientOfVariation / 100));
+    // Market confidence — prefer backend, fallback to client-side
+    const backendScores = window.backendAnalyticsScores;
+    let stdDev, coefficientOfVariation, marketConfidence;
+    if (backendScores && backendScores.confidence && backendScores.confidence.score != null) {
+        marketConfidence = backendScores.confidence.score;
+        coefficientOfVariation = backendScores.confidence.cov || 0;
+        stdDev = 0; // not needed when using backend
+    } else {
+        stdDev = calculateStdDev(prices);
+        coefficientOfVariation = (stdDev / data.avg_price) * 100;
+        marketConfidence = Math.round(100 / (1 + coefficientOfVariation / 100));
+    }
     
     // FMV vs Average comparison
     const marketValue = fmvData?.market_value || data.avg_price;
@@ -2732,16 +2849,21 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
         spreadSignal = 'Wide spread — significant seller overpricing'; spreadColor = '#ff3b30';
     }
 
-    // --- Collectibility Score (1-10) ---
+    // --- Collectibility Score (1-10) — prefer backend, fallback to client-side ---
     const soldCount   = data.items.length;
     const activeCount = activeData?.items?.length || 0;
-    const collectibilityScore = (() => {
-        const priceScore  = marketValue <= 5 ? 1 : marketValue <= 100 ? 2 : marketValue <= 1000 ? 3 : 4;
-        const volumeScore = soldCount >= 50 ? 3 : soldCount >= 20 ? 2 : soldCount >= 5 ? 1 : 0;
-        const ratio       = soldCount > 0 ? activeCount / soldCount : 10;
-        const scarcityScore = ratio <= 0.25 ? 3 : ratio <= 0.75 ? 2 : ratio <= 1.5 ? 1 : 0;
-        return Math.max(1, Math.min(10, priceScore + volumeScore + scarcityScore));
-    })();
+    let collectibilityScore;
+    if (backendScores && backendScores.collectibility && backendScores.collectibility.score != null) {
+        collectibilityScore = backendScores.collectibility.score;
+    } else {
+        collectibilityScore = (() => {
+            const priceScore  = marketValue <= 5 ? 1 : marketValue <= 100 ? 2 : marketValue <= 1000 ? 3 : 4;
+            const volumeScore = soldCount >= 50 ? 3 : soldCount >= 20 ? 2 : soldCount >= 5 ? 1 : 0;
+            const ratio       = soldCount > 0 ? activeCount / soldCount : 10;
+            const scarcityScore = ratio <= 0.25 ? 3 : ratio <= 0.75 ? 2 : ratio <= 1.5 ? 1 : 0;
+            return Math.max(1, Math.min(10, priceScore + volumeScore + scarcityScore));
+        })();
+    }
     const collectibilityTier =
         collectibilityScore <= 2 ? { label: 'Bulk',               color: '#8e8e93', bg: 'linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%)', border: '#c7c7cc' }
       : collectibilityScore <= 4 ? { label: 'Common',             color: '#636366', bg: 'linear-gradient(135deg, #f5f5f7 0%, #eaeaea 100%)', border: '#c7c7cc' }
@@ -2761,7 +2883,7 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
         return 'Active market — sustained collector interest';
     })();
 
-    // Calculate Market Pressure % using active listings
+    // Calculate Market Pressure % — prefer backend, fallback to client-side
     let marketPressure = null;
     let medianAskingPrice = null;
     let marketPressureStatus = null;
@@ -2769,120 +2891,73 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     let marketPressureColor = null;
     let marketPressureGradient = null;
     let marketPressureBorder = null;
-    
-    console.log('[MARKET PRESSURE DEBUG] Checking activeData:', {
-        hasActiveData: !!activeData,
-        hasItems: activeData?.items ? true : false,
-        itemsLength: activeData?.items?.length || 0,
-        activeDataKeys: activeData ? Object.keys(activeData) : [],
-        sampleItem: activeData?.items?.[0] ? {
-            item_id: activeData.items[0].item_id,
-            title: activeData.items[0].title?.substring(0, 50),
-            total_price: activeData.items[0].total_price,
-            extracted_price: activeData.items[0].extracted_price,
-            extracted_shipping: activeData.items[0].extracted_shipping
-        } : null
-    });
-    
-    // Track variables for sample size and confidence
     let sampleSize = 0;
     let dataConfidence = 'N/A';
-    
-    if (activeData && activeData.items && activeData.items.length > 0) {
-        // Step 1: Deduplicate by seller - group listings by seller, get median of each seller's prices
+
+    if (backendScores && backendScores.pressure && backendScores.pressure.pressure_pct != null) {
+        // Use backend-computed pressure
+        marketPressure = backendScores.pressure.pressure_pct;
+        medianAskingPrice = backendScores.pressure.median_ask;
+        sampleSize = backendScores.pressure.sample_size || 0;
+        dataConfidence = sampleSize >= 10 ? 'High' : sampleSize >= 5 ? 'Medium' : sampleSize > 0 ? 'Low' : 'N/A';
+    } else if (activeData && activeData.items && activeData.items.length > 0) {
+        // Client-side fallback
         const sellerPrices = {};
         activeData.items.forEach(item => {
             const price = item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
             const sellerName = item.seller?.name || `unknown_${item.item_id}`;
-            
             if (price > 0) {
                 if (!sellerPrices[sellerName]) sellerPrices[sellerName] = [];
                 sellerPrices[sellerName].push(price);
             }
         });
-        
-        // Get one price per seller (their median if they have multiple listings)
         let askingPrices = Object.values(sellerPrices).map(prices => {
             const sorted = prices.sort((a, b) => a - b);
             return sorted[Math.floor(sorted.length / 2)];
         });
-        
-        console.log('[MARKET PRESSURE DEBUG] After seller deduplication:', {
-            totalItems: activeData.items.length,
-            uniqueSellers: Object.keys(sellerPrices).length,
-            deduplicatedPrices: askingPrices.length,
-            priceRange: askingPrices.length > 0 ? `${formatMoney(Math.min(...askingPrices))} - ${formatMoney(Math.max(...askingPrices))}` : 'N/A'
-        });
-        
-        // Step 2: Apply IQR outlier filtering to deduplicated asking prices
         if (askingPrices.length >= 4) {
-            const originalCount = askingPrices.length;
             askingPrices = filterOutliers(askingPrices);
-            console.log('[MARKET PRESSURE DEBUG] IQR filtering removed', (originalCount - askingPrices.length), 'outlier asking prices');
         }
-        
         sampleSize = askingPrices.length;
-        
-        // Determine confidence level based on sample size
-        if (sampleSize >= 10) {
-            dataConfidence = 'High';
-        } else if (sampleSize >= 5) {
-            dataConfidence = 'Medium';
-        } else if (sampleSize > 0) {
-            dataConfidence = 'Low';
-        }
-        
-        console.log('[MARKET PRESSURE DEBUG] After filtering:', {
-            filteredPrices: askingPrices.length,
-            sampleSize: sampleSize,
-            confidence: dataConfidence
-        });
-        
+        dataConfidence = sampleSize >= 10 ? 'High' : sampleSize >= 5 ? 'Medium' : sampleSize > 0 ? 'Low' : 'N/A';
         if (askingPrices.length > 0) {
-            // Step 3: Calculate weighted median asking price (based on price clustering)
             medianAskingPrice = calculateWeightedMedian(askingPrices);
-            
-            console.log('[MARKET PRESSURE DEBUG] Weighted median calculation:', {
-                weightedMedian: formatMoney(medianAskingPrice),
-                simpleMedian: formatMoney(askingPrices[Math.floor(askingPrices.length / 2)])
-            });
-            
-            // Calculate Market Pressure %: (Weighted Median Asking Price - FMV) / FMV
             marketPressure = ((medianAskingPrice - marketValue) / marketValue) * 100;
-            
-            // Determine status based on interpretation bands
-            if (marketPressure >= 0 && marketPressure <= 15) {
-                marketPressureStatus = 'HEALTHY';
-                marketPressureLabel = 'Healthy pricing friction';
-                marketPressureColor = '#34c759';
-                marketPressureGradient = 'linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%)';
-                marketPressureBorder = '#99ff99';
-            } else if (marketPressure > 15 && marketPressure <= 30) {
-                marketPressureStatus = 'OPTIMISTIC';
-                marketPressureLabel = 'Seller optimism';
-                marketPressureColor = '#007aff';
-                marketPressureGradient = 'linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%)';
-                marketPressureBorder = '#99daff';
-            } else if (marketPressure > 30 && marketPressure <= 50) {
-                marketPressureStatus = 'RESISTANCE';
-                marketPressureLabel = 'Market resistance';
-                marketPressureColor = '#ff9500';
-                marketPressureGradient = 'linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%)';
-                marketPressureBorder = '#ffd699';
-            } else if (marketPressure > 50) {
-                marketPressureStatus = 'UNREALISTIC';
-                marketPressureLabel = 'Unrealistic asking prices';
-                marketPressureColor = '#ff3b30';
-                marketPressureGradient = 'linear-gradient(135deg, #ffebee 0%, #ffcccc 100%)';
-                marketPressureBorder = '#ff9999';
-            } else {
-                // Negative pressure (asking prices below FMV)
-                marketPressureStatus = 'BELOW FMV';
-                marketPressureLabel = 'Asking below FMV';
-                marketPressureColor = '#5856d6';
-                marketPressureGradient = 'linear-gradient(135deg, #f0e6ff 0%, #e6ccff 100%)';
-                marketPressureBorder = '#d6b3ff';
-            }
+        }
+    }
+
+    // Assign status bands based on pressure value
+    if (marketPressure != null) {
+        if (marketPressure >= 0 && marketPressure <= 15) {
+            marketPressureStatus = 'HEALTHY';
+            marketPressureLabel = 'Healthy pricing friction';
+            marketPressureColor = '#34c759';
+            marketPressureGradient = 'linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%)';
+            marketPressureBorder = '#99ff99';
+        } else if (marketPressure > 15 && marketPressure <= 30) {
+            marketPressureStatus = 'OPTIMISTIC';
+            marketPressureLabel = 'Seller optimism';
+            marketPressureColor = '#007aff';
+            marketPressureGradient = 'linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%)';
+            marketPressureBorder = '#99daff';
+        } else if (marketPressure > 30 && marketPressure <= 50) {
+            marketPressureStatus = 'RESISTANCE';
+            marketPressureLabel = 'Market resistance';
+            marketPressureColor = '#ff9500';
+            marketPressureGradient = 'linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%)';
+            marketPressureBorder = '#ffd699';
+        } else if (marketPressure > 50) {
+            marketPressureStatus = 'UNREALISTIC';
+            marketPressureLabel = 'Unrealistic asking prices';
+            marketPressureColor = '#ff3b30';
+            marketPressureGradient = 'linear-gradient(135deg, #ffebee 0%, #ffcccc 100%)';
+            marketPressureBorder = '#ff9999';
+        } else {
+            marketPressureStatus = 'BELOW FMV';
+            marketPressureLabel = 'Asking below FMV';
+            marketPressureColor = '#5856d6';
+            marketPressureGradient = 'linear-gradient(135deg, #f0e6ff 0%, #e6ccff 100%)';
+            marketPressureBorder = '#d6b3ff';
         }
     }
     
@@ -2892,26 +2967,45 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     const median = sortedPrices[Math.floor(sortedPrices.length * 0.5)];
     const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
     
-    // Calculate Liquidity Risk Score using new absorption ratio method
-    // Error handling to prevent calculation failures from blocking Analysis display
+    // Calculate Liquidity Risk Score — prefer backend, fallback to client-side
     let liquidityRisk = null;
-    try {
-        liquidityRisk = calculateLiquidityRisk(data, activeData);
-        console.log('[LIQUIDITY RISK] Calculation result:', liquidityRisk);
-    } catch (error) {
-        console.error('[LIQUIDITY RISK] Error calculating (non-blocking):', error);
+    if (backendScores && backendScores.liquidity && backendScores.liquidity.score != null) {
+        const liq = backendScores.liquidity;
+        const liqScore = liq.score;
+        let statusColor, gradient, border, message, label;
+        label = liq.label;
+        if (liqScore >= 80) {
+            statusColor = '#34c759'; gradient = 'linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%)'; border = '#99ff99';
+            message = 'Demand exceeds supply - cards likely sell quickly';
+        } else if (liqScore >= 50) {
+            statusColor = '#007aff'; gradient = 'linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%)'; border = '#99daff';
+            message = 'Balanced market - expect reasonable sell time';
+        } else if (liqScore >= 25) {
+            statusColor = '#ff9500'; gradient = 'linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%)'; border = '#ffd699';
+            message = 'Slow absorption - may need patience or competitive pricing';
+        } else {
+            statusColor = '#ff3b30'; gradient = 'linear-gradient(135deg, #ffebee 0%, #ffcccc 100%)'; border = '#ff9999';
+            message = 'High exit risk - consider pricing at or below FMV';
+        }
+        const salesCount = liq.weighted_sold != null ? Math.round(liq.weighted_sold) : (data?.items?.length || 0);
+        const listingsCount = liq.bin_active || 0;
+        const confidence = salesCount >= 10 && listingsCount >= 10 ? 'High' : salesCount >= 5 && listingsCount >= 5 ? 'Medium' : 'Low';
         liquidityRisk = {
-            score: null,
-            label: 'Calculation Error',
-            absorptionRatio: null,
-            salesCount: data?.items?.length || 0,
-            listingsCount: 0,
-            confidence: 'N/A',
-            statusColor: '#6e6e73',
-            gradient: 'linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%)',
-            border: '#d1d1d6',
-            message: 'Unable to calculate liquidity risk'
+            score: liqScore, label, absorptionRatio: liq.absorption_ratio,
+            salesCount, listingsCount, confidence, statusColor, gradient, border, message
         };
+    } else {
+        try {
+            liquidityRisk = calculateLiquidityRisk(data, activeData);
+        } catch (error) {
+            console.error('[LIQUIDITY RISK] Error calculating (non-blocking):', error);
+            liquidityRisk = {
+                score: null, label: 'Calculation Error', absorptionRatio: null,
+                salesCount: data?.items?.length || 0, listingsCount: 0, confidence: 'N/A',
+                statusColor: '#6e6e73', gradient: 'linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%)',
+                border: '#d1d1d6', message: 'Unable to calculate liquidity risk'
+            };
+        }
     }
     
     // Calculate price band data early for use in market assessment messages
@@ -3712,7 +3806,7 @@ async function updateFmv(data, activeData = null) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ sold_items: data.items, active_items: activeItems }),
+      body: JSON.stringify({ sold_items: data.items, active_items: activeItems, query: data.query || null }),
     });
     const fmvData = await resp.json();
 
@@ -3727,7 +3821,22 @@ async function updateFmv(data, activeData = null) {
     expectLowGlobal = fmvData.expected_low;
     expectHighGlobal = fmvData.expected_high;
     marketValueGlobal = fmvData.market_value || fmvData.expected_high;
-    
+
+    // Store backend analytics scores for analysis dashboard
+    window.backendAnalyticsScores = fmvData.analytics_scores || null;
+
+    // Merge AI relevance scores back into items for filtering
+    if (fmvData.sold_relevance_scores && data.items) {
+      fmvData.sold_relevance_scores.forEach((score, i) => {
+        if (i < data.items.length) data.items[i].ai_relevance_score = score;
+      });
+    }
+    if (fmvData.active_relevance_scores && activeData?.items) {
+      fmvData.active_relevance_scores.forEach((score, i) => {
+        if (i < activeData.items.length) activeData.items[i].ai_relevance_score = score;
+      });
+    }
+
     // Expose to window object for export functionality
     window.expectLowGlobal = fmvData.expected_low;
     window.expectHighGlobal = fmvData.expected_high;
@@ -3740,12 +3849,20 @@ async function updateFmv(data, activeData = null) {
     const quickSale = fmvData.quick_sale || fmvData.expected_low;
     const patientSale = fmvData.patient_sale || fmvData.expected_high;
 
-    // Calculate market confidence for FMV caveat (Phase 2)
-    const prices = data.items.map(item => item.total_price).filter(p => p > 0);
-    const stdDev = calculateStdDev(prices);
-    const avgPrice = data.avg_price;
-    const coefficientOfVariation = (stdDev / avgPrice) * 100;
-    const marketConfidence = Math.round(100 / (1 + coefficientOfVariation / 100));
+    // Use backend market confidence if available, otherwise calculate client-side
+    let marketConfidence;
+    let coefficientOfVariation;
+    const backendScores = window.backendAnalyticsScores;
+    if (backendScores && backendScores.confidence && backendScores.confidence.score != null) {
+      marketConfidence = backendScores.confidence.score;
+      coefficientOfVariation = backendScores.confidence.cov || 0;
+    } else {
+      const prices = data.items.map(item => item.total_price).filter(p => p > 0);
+      const stdDev = calculateStdDev(prices);
+      const avgPrice = data.avg_price;
+      coefficientOfVariation = (stdDev / avgPrice) * 100;
+      marketConfidence = Math.round(100 / (1 + coefficientOfVariation / 100));
+    }
 
     // Check if user is authenticated for Save button
     const isUserAuthenticated = window.AuthModule && window.AuthModule.isAuthenticated();
@@ -4049,116 +4166,71 @@ function drawBeeswarmInternal(prices, activePrices = []) {
     ctx.fillText(formatMoney(expectHighGlobal), x2, margin.top - 8);
   }
 
-  // --- Draw Points with improved collision detection ---
-  const points = filteredPrices.map(price => ({
-    x: xScale(price),
-    y: height / 2,
-    r: 4,
-    originalY: height / 2
-  }));
-  
-  const placedPoints = [];
+  // --- Build all dots (sold + active) and place with unified collision detection ---
   const centerY = height / 2;
-  const maxYOffset = Math.min(innerHeight / 2 - 10, 60); // Limit vertical spread
+  const maxYOffset = innerHeight / 2 - 10; // use full available vertical space
+  const dotRadius = 4;
+  const minDist = dotRadius * 2 + 1; // minimum center-to-center distance
 
-  for (const point of points) {
-    let y = point.originalY;
-    let collided = true;
-    let attempts = 0;
-    let yOffset = 0;
-
-    while (collided && attempts < 200) {
-      collided = false;
-      
-      // Check collision with previously placed points
-      for (const placed of placedPoints) {
-        const dx = point.x - placed.x;
-        const dy = y - placed.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const minDistance = point.r + placed.r + 1;
-        
-        if (distance < minDistance) {
-          collided = true;
-          break;
-        }
-      }
-      
-      if (collided) {
-        attempts++;
-        // Use systematic offset instead of random
-        yOffset = Math.ceil(attempts / 2) * (point.r * 2 + 1);
-        const direction = attempts % 2 === 1 ? 1 : -1;
-        y = centerY + (direction * yOffset);
-        
-        // Keep within bounds
-        if (y < margin.top + point.r) {
-          y = margin.top + point.r;
-        } else if (y > height - margin.bottom - point.r) {
-          y = height - margin.bottom - point.r;
-        }
-        
-        // If we've exceeded max offset, force placement
-        if (yOffset > maxYOffset) {
-          break;
-        }
-      }
-    }
-    
-    point.y = y;
-    placedPoints.push(point);
-
-    // Draw point
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, point.r, 0, 2 * Math.PI);
-    ctx.fillStyle = "rgba(0, 122, 255, 0.7)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(0, 122, 255, 0.9)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+  // Combine sold and active into one array so collision detection is global
+  const allDots = [];
+  filteredPrices.forEach(price => {
+    allDots.push({ x: xScale(price), r: dotRadius, type: 'sold' });
+  });
+  if (filteredActivePrices && filteredActivePrices.length > 0) {
+    filteredActivePrices
+      .filter(p => p >= axisMin && p <= axisMax)
+      .forEach(price => {
+        allDots.push({ x: xScale(price), r: dotRadius, type: 'active' });
+      });
   }
 
-  // --- Draw Active Listing dots (red) — clipped to axis range ---
-  if (filteredActivePrices && filteredActivePrices.length > 0) {
-    const clippedActive = filteredActivePrices.filter(p => p >= axisMin && p <= axisMax);
-    const activePoints = clippedActive.map(price => ({
-      x: xScale(price),
-      y: height / 2,
-      r: 4,
-    }));
+  // Place all dots with a single collision pass
+  const placedPoints = [];
+  for (const dot of allDots) {
+    let y = centerY;
+    let placed = false;
 
-    // Collision detection — spread active dots vertically same as sold
-    const placedActive = [];
-    for (const point of activePoints) {
-      let placed = false;
-      for (let offset = 0; offset <= maxYOffset; offset += 2) {
-        for (const dir of [1, -1]) {
-          const testY = centerY + dir * offset;
-          const collision = placedActive.some(p =>
-            Math.abs(p.x - point.x) < point.r * 2 + 1 &&
-            Math.abs(p.y - testY) < point.r * 2 + 1
-          ) || placedPoints.some(p =>
-            Math.abs(p.x - point.x) < point.r * 2 + 1 &&
-            Math.abs(p.y - testY) < point.r * 2 + 1
-          );
-          if (!collision) {
-            point.y = testY;
-            placedActive.push({ ...point });
-            placed = true;
-            break;
-          }
+    for (let offset = 0; offset <= maxYOffset; offset += 1) {
+      const dirs = offset === 0 ? [0] : [1, -1];
+      for (const dir of dirs) {
+        const testY = centerY + dir * offset;
+        if (testY < margin.top + dot.r || testY > height - margin.bottom - dot.r) continue;
+
+        const collision = placedPoints.some(p => {
+          const dx = p.x - dot.x;
+          const dy = p.y - testY;
+          return Math.sqrt(dx * dx + dy * dy) < minDist;
+        });
+
+        if (!collision) {
+          y = testY;
+          placed = true;
+          break;
         }
-        if (placed) break;
       }
-      if (!placed) placedActive.push(point);
+      if (placed) break;
+    }
 
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, point.r, 0, 2 * Math.PI);
+    dot.y = y;
+    placedPoints.push(dot);
+  }
+
+  // Draw all dots
+  for (const dot of placedPoints) {
+    ctx.beginPath();
+    ctx.arc(dot.x, dot.y, dot.r, 0, 2 * Math.PI);
+    if (dot.type === 'sold') {
+      ctx.fillStyle = "rgba(0, 122, 255, 0.7)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0, 122, 255, 0.9)";
+    } else {
       ctx.fillStyle = "rgba(255, 59, 48, 0.6)";
       ctx.fill();
       ctx.strokeStyle = "rgba(255, 59, 48, 0.85)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
     }
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
   // --- Draw Axis ---
@@ -4276,10 +4348,475 @@ function drawBeeswarmInternal(prices, activePrices = []) {
   }
 }
 
+// ============================================================================
+// SHARED CROSSHAIR — works on any chart canvas with axis metadata
+// ============================================================================
+
+function drawChartCrosshair(canvas, x) {
+  const axMin = parseFloat(canvas.dataset.axisMin);
+  const axMax = parseFloat(canvas.dataset.axisMax);
+  const mLeft = parseFloat(canvas.dataset.marginLeft);
+  const mRight = parseFloat(canvas.dataset.marginRight);
+  const mTop = parseFloat(canvas.dataset.marginTop);
+  const mBottom = parseFloat(canvas.dataset.marginBottom);
+  const iWidth = parseFloat(canvas.dataset.innerWidth);
+
+  if (x < mLeft || x > canvas.width - mRight) return;
+
+  const price = axMin + ((x - mLeft) / iWidth) * (axMax - axMin);
+  const ctx = canvas.getContext('2d');
+  const h = canvas.height;
+
+  // Vertical line
+  ctx.strokeStyle = 'rgba(255, 149, 0, 1.0)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, mTop);
+  ctx.lineTo(x, h - mBottom);
+  ctx.stroke();
+
+  // Tooltip
+  const priceText = formatMoney(price);
+  ctx.font = 'bold 14px sans-serif';
+  const tw = ctx.measureText(priceText).width;
+  const pad = 8;
+  const tipW = tw + pad * 2;
+  const tipH = 28;
+  const radius = 4;
+
+  let tipX = x - tipW / 2;
+  tipX = Math.max(mLeft, Math.min(tipX, canvas.width - mRight - tipW));
+  const tipY = mTop - 10;
+
+  // Rounded rect background
+  ctx.fillStyle = 'rgba(255, 149, 0, 1.0)';
+  ctx.beginPath();
+  ctx.moveTo(tipX + radius, tipY - tipH);
+  ctx.lineTo(tipX + tipW - radius, tipY - tipH);
+  ctx.quadraticCurveTo(tipX + tipW, tipY - tipH, tipX + tipW, tipY - tipH + radius);
+  ctx.lineTo(tipX + tipW, tipY - radius);
+  ctx.quadraticCurveTo(tipX + tipW, tipY, tipX + tipW - radius, tipY);
+  ctx.lineTo(tipX + radius, tipY);
+  ctx.quadraticCurveTo(tipX, tipY, tipX, tipY - radius);
+  ctx.lineTo(tipX, tipY - tipH + radius);
+  ctx.quadraticCurveTo(tipX, tipY - tipH, tipX + radius, tipY - tipH);
+  ctx.closePath();
+  ctx.fill();
+
+  // Price text
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.fillText(priceText, tipX + tipW / 2, tipY - tipH / 2 + 5);
+}
+
+// ============================================================================
+// MIRRORED STRIP PLOT — Sold above axis, Active below axis
+// ============================================================================
+
+function drawMirroredStrip(prices, activePrices) {
+  const canvas = document.getElementById("mirroredStripCanvas");
+  if (!canvas || !prices || prices.length === 0) return;
+
+  resizeCanvasToContainer(canvas, 400);
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const margin = { top: 60, right: 40, bottom: 70, left: 40 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  ctx.clearRect(0, 0, width, height);
+
+  // Title
+  ctx.fillStyle = "#1d1d1f";
+  ctx.font = "bold 16px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  ctx.fillText("Price Density", width / 2, 15);
+
+  const validPrices = prices.filter(p => p != null && !isNaN(p) && p > 0).map(Number);
+  const filteredPrices = filterOutliers(validPrices);
+  if (filteredPrices.length === 0) return;
+
+  const validActive = (activePrices || []).filter(p => p != null && !isNaN(p) && p > 0).map(Number);
+  const filteredActive = filterOutliers(validActive);
+
+  // Axis range — use shared range if available
+  const axisMin = sharedChartAxisMin != null ? sharedChartAxisMin : (() => {
+    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const dMin = Math.min(Math.min(...filteredPrices), ...fmvValues);
+    const dMax = Math.max(Math.max(...filteredPrices), ...fmvValues);
+    const dMid = (dMin + dMax) / 2; const hSpan = (dMax - dMin) / 2;
+    const dPad = hSpan * 0.15 || dMin * 0.10 || 0.10;
+    return dMid - hSpan - dPad;
+  })();
+  const axisMax = sharedChartAxisMax != null ? sharedChartAxisMax : (() => {
+    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const dMin = Math.min(Math.min(...filteredPrices), ...fmvValues);
+    const dMax = Math.max(Math.max(...filteredPrices), ...fmvValues);
+    const dMid = (dMin + dMax) / 2; const hSpan = (dMax - dMin) / 2;
+    const dPad = hSpan * 0.15 || dMin * 0.10 || 0.10;
+    return dMid + hSpan + dPad;
+  })();
+  const priceRange = axisMax - axisMin;
+
+  const xScale = (price) => priceRange === 0 ? width / 2 : margin.left + ((price - axisMin) / priceRange) * innerWidth;
+  const centerY = margin.top + innerHeight / 2;
+
+  // Center axis line
+  ctx.strokeStyle = "#d2d2d7";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(margin.left, centerY);
+  ctx.lineTo(width - margin.right, centerY);
+  ctx.stroke();
+
+  // FMV band
+  if (expectLowGlobal !== null && expectHighGlobal !== null && priceRange > 0) {
+    const x1 = xScale(expectLowGlobal);
+    const x2 = xScale(expectHighGlobal);
+    const gradient = ctx.createLinearGradient(x1, margin.top, x2, height - margin.bottom);
+    gradient.addColorStop(0, 'rgba(52, 199, 89, 0.15)');
+    gradient.addColorStop(1, 'rgba(52, 199, 89, 0.08)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x1, margin.top, x2 - x1, innerHeight);
+    ctx.strokeStyle = 'rgba(52, 199, 89, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(x1, margin.top); ctx.lineTo(x1, height - margin.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2, margin.top); ctx.lineTo(x2, height - margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#34c759";
+    ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.fillText(formatMoney(expectLowGlobal), x1, margin.top - 8);
+    ctx.fillText(formatMoney(expectHighGlobal), x2, margin.top - 8);
+  }
+
+  const dotR = 4;
+  const minDist = dotR * 2 + 1;
+  const halfHeight = innerHeight / 2 - 5;
+
+  // Place sold dots ABOVE center axis
+  const placeSold = [];
+  for (const price of filteredPrices) {
+    const x = xScale(price);
+    let y = centerY - dotR - 1;
+    for (let offset = 0; offset <= halfHeight; offset += 1) {
+      const testY = centerY - dotR - 1 - offset;
+      if (testY < margin.top + dotR) break;
+      if (!placeSold.some(p => Math.sqrt((p.x - x) ** 2 + (p.y - testY) ** 2) < minDist)) {
+        y = testY; break;
+      }
+    }
+    placeSold.push({ x, y });
+    ctx.beginPath(); ctx.arc(x, y, dotR, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(0, 122, 255, 0.7)"; ctx.fill();
+    ctx.strokeStyle = "rgba(0, 122, 255, 0.9)"; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // Place active dots BELOW center axis
+  const clippedActive = filteredActive.filter(p => p >= axisMin && p <= axisMax);
+  const placeActive = [];
+  for (const price of clippedActive) {
+    const x = xScale(price);
+    let y = centerY + dotR + 1;
+    for (let offset = 0; offset <= halfHeight; offset += 1) {
+      const testY = centerY + dotR + 1 + offset;
+      if (testY > height - margin.bottom - dotR) break;
+      if (!placeActive.some(p => Math.sqrt((p.x - x) ** 2 + (p.y - testY) ** 2) < minDist)) {
+        y = testY; break;
+      }
+    }
+    placeActive.push({ x, y });
+    ctx.beginPath(); ctx.arc(x, y, dotR, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(255, 59, 48, 0.6)"; ctx.fill();
+    ctx.strokeStyle = "rgba(255, 59, 48, 0.85)"; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // Bottom axis
+  ctx.beginPath(); ctx.moveTo(margin.left, height - margin.bottom); ctx.lineTo(width - margin.right, height - margin.bottom);
+  ctx.strokeStyle = "#d2d2d7"; ctx.lineWidth = 1; ctx.stroke();
+
+  // FMV marker
+  if (marketValueGlobal !== null && priceRange > 0) {
+    const fmvX = xScale(marketValueGlobal);
+    ctx.beginPath(); ctx.moveTo(fmvX, height - margin.bottom); ctx.lineTo(fmvX, height - margin.bottom + 5);
+    ctx.strokeStyle = "#ff9500"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = "#6e6e73"; ctx.font = "11px " + getComputedStyle(document.body).fontFamily; ctx.textAlign = "center";
+    ctx.fillText("FMV", fmvX, height - margin.bottom + 15);
+    ctx.fillStyle = "#ff9500"; ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText(formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 30);
+  }
+
+  // Side labels
+  ctx.fillStyle = "#007AFF"; ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily; ctx.textAlign = "left";
+  ctx.fillText("\u25B2 Sold", margin.left, margin.top - 8);
+  ctx.fillStyle = "#FF3B30";
+  ctx.fillText("\u25BC Active", margin.left, height - margin.bottom + 15);
+
+  // Legend
+  const legendY = height - 15;
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  const items = [
+    { label: "Sold Listings", color: "rgba(0, 122, 255, 0.7)", stroke: "rgba(0, 122, 255, 0.9)" },
+    { label: "Active Listings", color: "rgba(255, 59, 48, 0.6)", stroke: "rgba(255, 59, 48, 0.85)" },
+    { label: "FMV Range", color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)", type: "rect" },
+  ];
+  const dotLR = 6; const spacing = 6; const itemGap = 24;
+  const itemWidths = items.map(item => { const iconW = item.type === "rect" ? 20 : dotLR * 2; return iconW + spacing + ctx.measureText(item.label).width; });
+  const totalW = itemWidths.reduce((a, b) => a + b, 0) + itemGap * (items.length - 1);
+  let lx = (width - totalW) / 2;
+  items.forEach((item, i) => {
+    const iconW = item.type === "rect" ? 20 : dotLR * 2;
+    if (item.type === "rect") {
+      ctx.fillStyle = item.color; ctx.fillRect(lx, legendY - 12, iconW, 12);
+      ctx.strokeStyle = item.stroke; ctx.lineWidth = 1; ctx.strokeRect(lx, legendY - 12, iconW, 12);
+    } else {
+      ctx.beginPath(); ctx.arc(lx + dotLR, legendY - 4, dotLR, 0, 2 * Math.PI);
+      ctx.fillStyle = item.color; ctx.fill(); ctx.strokeStyle = item.stroke; ctx.lineWidth = 1; ctx.stroke();
+    }
+    ctx.fillStyle = "#1d1d1f"; ctx.textAlign = "left";
+    ctx.fillText(item.label, lx + iconW + spacing, legendY - 3);
+    lx += itemWidths[i] + itemGap;
+  });
+
+  // Store axis metadata for crosshair
+  canvas.dataset.axisMin = axisMin;
+  canvas.dataset.axisMax = axisMax;
+  canvas.dataset.marginLeft = margin.left;
+  canvas.dataset.marginRight = margin.right;
+  canvas.dataset.marginTop = margin.top;
+  canvas.dataset.marginBottom = margin.bottom;
+  canvas.dataset.innerWidth = innerWidth;
+  canvas.style.cursor = 'crosshair';
+
+  if (!canvas._crosshairAttached) {
+    canvas.addEventListener('click', function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      drawMirroredStrip(currentBeeswarmPrices, currentBeeswarmActivePrices);
+      drawChartCrosshair(canvas, x);
+    });
+    canvas._crosshairAttached = true;
+  }
+}
+
+// ============================================================================
+// KDE DENSITY CHART — Smooth density curves with rug plot
+// ============================================================================
+
+function gaussianKDE(data, bandwidth, xMin, xMax, nPoints) {
+  const xs = [];
+  const ys = [];
+  const step = (xMax - xMin) / nPoints;
+  const n = data.length;
+  const coeff = 1 / (n * bandwidth * Math.sqrt(2 * Math.PI));
+  for (let i = 0; i <= nPoints; i++) {
+    const x = xMin + i * step;
+    let sum = 0;
+    for (const d of data) { const z = (x - d) / bandwidth; sum += Math.exp(-0.5 * z * z); }
+    xs.push(x);
+    ys.push(sum * coeff);
+  }
+  return { xs, ys };
+}
+
+function drawKDEChart(prices, activePrices) {
+  const canvas = document.getElementById("kdeCanvas");
+  if (!canvas || !prices || prices.length === 0) return;
+
+  resizeCanvasToContainer(canvas, 350);
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const margin = { top: 50, right: 40, bottom: 100, left: 40 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  ctx.clearRect(0, 0, width, height);
+
+  // No title — shares "Price Density" title from mirrored strip above
+
+  const validPrices = prices.filter(p => p != null && !isNaN(p) && p > 0).map(Number);
+  const filteredPrices = filterOutliers(validPrices);
+  if (filteredPrices.length === 0) return;
+
+  const validActive = (activePrices || []).filter(p => p != null && !isNaN(p) && p > 0).map(Number);
+  const filteredActive = filterOutliers(validActive);
+
+  // Axis range — use shared range from mirrored strip
+  const axisMin = sharedChartAxisMin != null ? sharedChartAxisMin : (() => {
+    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const dMin = Math.min(Math.min(...filteredPrices), ...fmvValues);
+    const dMax = Math.max(Math.max(...filteredPrices), ...fmvValues);
+    const dMid = (dMin + dMax) / 2; const hSpan = (dMax - dMin) / 2;
+    const dPad = hSpan * 0.15 || dMin * 0.10 || 0.10;
+    return dMid - hSpan - dPad;
+  })();
+  const axisMax = sharedChartAxisMax != null ? sharedChartAxisMax : (() => {
+    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const dMin = Math.min(Math.min(...filteredPrices), ...fmvValues);
+    const dMax = Math.max(Math.max(...filteredPrices), ...fmvValues);
+    const dMid = (dMin + dMax) / 2; const hSpan = (dMax - dMin) / 2;
+    const dPad = hSpan * 0.15 || dMin * 0.10 || 0.10;
+    return dMid + hSpan + dPad;
+  })();
+
+  const xScale = (v) => margin.left + ((v - axisMin) / (axisMax - axisMin)) * innerWidth;
+
+  const silverman = (data) => {
+    const n = data.length;
+    const sorted = [...data].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(n * 0.25)];
+    const q3 = sorted[Math.floor(n * 0.75)];
+    const iqr = q3 - q1;
+    const mean = data.reduce((a, b) => a + b, 0) / n;
+    const std = Math.sqrt(data.reduce((s, v) => s + (v - mean) ** 2, 0) / n);
+    return 0.9 * Math.min(std, iqr / 1.34) * Math.pow(n, -0.2);
+  };
+
+  const nPts = 200;
+  const soldKDE = gaussianKDE(filteredPrices, silverman(filteredPrices), axisMin, axisMax, nPts);
+  let activeKDE = null;
+  if (filteredActive.length > 0) {
+    activeKDE = gaussianKDE(filteredActive, silverman(filteredActive), axisMin, axisMax, nPts);
+  }
+
+  // Scale KDE by sample count so curve areas are proportional to listing counts
+  const totalItems = filteredPrices.length + filteredActive.length;
+  const soldScale = totalItems > 0 ? filteredPrices.length / totalItems : 1;
+  const activeScale = totalItems > 0 ? filteredActive.length / totalItems : 0;
+  const scaledSoldYs = soldKDE.ys.map(y => y * soldScale);
+  let scaledActiveYs = [];
+  if (activeKDE) scaledActiveYs = activeKDE.ys.map(y => y * activeScale);
+
+  let maxDensity = Math.max(...scaledSoldYs);
+  if (scaledActiveYs.length > 0) maxDensity = Math.max(maxDensity, ...scaledActiveYs);
+  // Cap curves to 60% of plot height so neither dominates
+  const yScale = (v) => height - margin.bottom - (v / maxDensity) * innerHeight * 0.6;
+
+  // FMV band
+  if (expectLowGlobal !== null && expectHighGlobal !== null) {
+    const x1 = xScale(expectLowGlobal);
+    const x2 = xScale(expectHighGlobal);
+    ctx.fillStyle = 'rgba(52, 199, 89, 0.1)';
+    ctx.fillRect(x1, margin.top, x2 - x1, innerHeight);
+    ctx.strokeStyle = 'rgba(52, 199, 89, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(x1, margin.top); ctx.lineTo(x1, height - margin.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2, margin.top); ctx.lineTo(x2, height - margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Sold density curve
+  ctx.beginPath();
+  ctx.moveTo(xScale(soldKDE.xs[0]), yScale(scaledSoldYs[0]));
+  for (let i = 1; i < soldKDE.xs.length; i++) ctx.lineTo(xScale(soldKDE.xs[i]), yScale(scaledSoldYs[i]));
+  ctx.lineTo(xScale(soldKDE.xs[soldKDE.xs.length - 1]), height - margin.bottom);
+  ctx.lineTo(xScale(soldKDE.xs[0]), height - margin.bottom);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(0, 122, 255, 0.25)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0, 122, 255, 0.8)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(xScale(soldKDE.xs[0]), yScale(scaledSoldYs[0]));
+  for (let i = 1; i < soldKDE.xs.length; i++) ctx.lineTo(xScale(soldKDE.xs[i]), yScale(scaledSoldYs[i]));
+  ctx.stroke();
+
+  // Active density curve
+  if (activeKDE) {
+    ctx.beginPath();
+    ctx.moveTo(xScale(activeKDE.xs[0]), yScale(scaledActiveYs[0]));
+    for (let i = 1; i < activeKDE.xs.length; i++) ctx.lineTo(xScale(activeKDE.xs[i]), yScale(scaledActiveYs[i]));
+    ctx.lineTo(xScale(activeKDE.xs[activeKDE.xs.length - 1]), height - margin.bottom);
+    ctx.lineTo(xScale(activeKDE.xs[0]), height - margin.bottom);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255, 59, 48, 0.2)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 59, 48, 0.8)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(xScale(activeKDE.xs[0]), yScale(scaledActiveYs[0]));
+    for (let i = 1; i < activeKDE.xs.length; i++) ctx.lineTo(xScale(activeKDE.xs[i]), yScale(scaledActiveYs[i]));
+    ctx.stroke();
+  }
+
+  // Rug plot
+  const rugY = height - margin.bottom;
+  filteredPrices.forEach(p => {
+    ctx.strokeStyle = "rgba(0, 122, 255, 0.5)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(xScale(p), rugY); ctx.lineTo(xScale(p), rugY + 6); ctx.stroke();
+  });
+  filteredActive.forEach(p => {
+    if (p >= axisMin && p <= axisMax) {
+      ctx.strokeStyle = "rgba(255, 59, 48, 0.4)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(xScale(p), rugY + 6); ctx.lineTo(xScale(p), rugY + 12); ctx.stroke();
+    }
+  });
+
+  // X-axis
+  ctx.beginPath(); ctx.moveTo(margin.left, height - margin.bottom); ctx.lineTo(width - margin.right, height - margin.bottom);
+  ctx.strokeStyle = "#d2d2d7"; ctx.lineWidth = 1; ctx.stroke();
+
+  // X-axis labels — just min and max at edges
+  ctx.fillStyle = "#6e6e73"; ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "left";
+  ctx.fillText(formatMoney(axisMin), margin.left, height - margin.bottom + 18);
+  ctx.textAlign = "right";
+  ctx.fillText(formatMoney(axisMax), width - margin.right, height - margin.bottom + 18);
+
+  // FMV marker — centered below rug plot
+  if (marketValueGlobal !== null) {
+    const fmvX = xScale(marketValueGlobal);
+    ctx.fillStyle = "#6e6e73"; ctx.font = "11px " + getComputedStyle(document.body).fontFamily; ctx.textAlign = "center";
+    ctx.fillText("FMV", fmvX, height - margin.bottom + 36);
+    ctx.fillStyle = "#ff9500"; ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+    ctx.fillText(formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 52);
+  }
+
+  // Legend — positioned at very bottom
+  const legendY = height - 8;
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  const lgItems = [
+    { label: "Sold", color: "rgba(0, 122, 255, 0.25)", stroke: "rgba(0, 122, 255, 0.8)" },
+    { label: "Active", color: "rgba(255, 59, 48, 0.2)", stroke: "rgba(255, 59, 48, 0.8)" },
+    { label: "FMV Range", color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)" },
+  ];
+  const lgWidths = lgItems.map(item => 20 + 6 + ctx.measureText(item.label).width);
+  const lgTotal = lgWidths.reduce((a, b) => a + b, 0) + 24;
+  let lgx = (width - lgTotal) / 2;
+  lgItems.forEach((item, i) => {
+    ctx.fillStyle = item.color; ctx.fillRect(lgx, legendY - 10, 20, 10);
+    ctx.strokeStyle = item.stroke; ctx.lineWidth = 1.5; ctx.strokeRect(lgx, legendY - 10, 20, 10);
+    ctx.fillStyle = "#1d1d1f"; ctx.textAlign = "left";
+    ctx.fillText(item.label, lgx + 26, legendY - 1);
+    lgx += lgWidths[i] + 24;
+  });
+
+  // Store axis metadata for crosshair
+  canvas.dataset.axisMin = axisMin;
+  canvas.dataset.axisMax = axisMax;
+  canvas.dataset.marginLeft = margin.left;
+  canvas.dataset.marginRight = margin.right;
+  canvas.dataset.marginTop = margin.top;
+  canvas.dataset.marginBottom = margin.bottom;
+  canvas.dataset.innerWidth = innerWidth;
+  canvas.style.cursor = 'crosshair';
+
+  if (!canvas._crosshairAttached) {
+    canvas.addEventListener('click', function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      drawKDEChart(currentBeeswarmPrices, currentBeeswarmActivePrices);
+      drawChartCrosshair(canvas, x);
+    });
+    canvas._crosshairAttached = true;
+  }
+}
+
 /**
- * Public wrapper function for drawing beeswarm chart
- * Guards against recursive redraws during crosshair interactions
- */
 function drawBeeswarm(prices, activePrices = []) {
   // PERFORMANCE FIX: Add diagnostic logging to track call source
   if (window.DEBUG_MODE.BEESWARM) {
@@ -4907,8 +5444,7 @@ function drawBeeswarmCrosshair(canvas, x, isPersisted) {
     // Redraw chart without crosshair
     const prices = currentBeeswarmPrices;
     if (prices && prices.length > 0) {
-        drawBeeswarmInternal(prices);
-    }
+        drawBeeswarmInternal(prices, currentBeeswarmActivePrices);    }
     
     // Restore and draw persistent crosshair
     beeswarmCrosshairX = savedCrosshair;

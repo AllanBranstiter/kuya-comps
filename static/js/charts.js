@@ -294,11 +294,11 @@ function drawBeeswarm(prices) {
  * @param {Object} soldData - Sold listings data
  * @param {Object} activeData - Active listings data
  */
-function drawPriceDistributionChart(soldData, activeData) {
+function drawPriceDistributionChart(soldData, activeData, canvasId, numBinsOverride) {
     console.log('[CHART] drawPriceDistributionChart called');
-    
+
     try {
-        const canvas = document.getElementById("priceDistributionCanvas");
+        const canvas = document.getElementById(canvasId || "priceDistributionCanvas");
         if (!canvas) {
             console.error('[CHART ERROR] Price distribution canvas not found');
             return;
@@ -320,162 +320,222 @@ function drawPriceDistributionChart(soldData, activeData) {
         
         const width = canvas.width;
         const height = canvas.height;
-        const margin = { top: 40, right: 40, bottom: 60, left: 60 };
+        const margin = { top: 55, right: 40, bottom: 80, left: 40 };
         const innerWidth = width - margin.left - margin.right;
         const innerHeight = height - margin.top - margin.bottom;
-        
+
         ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(0, 0, width, height);
-        
-        // Prepare data
-        let soldPrices = soldData?.items?.map(item => item.total_price).filter(p => p > 0) || [];
-        let activePrices = activeData?.items?.filter(item => {
-            const buyingFormat = (item.buying_format || '').toLowerCase();
-            return buyingFormat.includes('buy it now');
-        }).map(item => {
-            return item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
-        }).filter(p => p > 0) || [];
-        
+
+        // Prepare data (filter out low-relevance listings)
+        const RELEVANCE_THRESHOLD = 0.5;
+        let soldPrices = (soldData?.items || [])
+            .filter(item => (item.ai_relevance_score ?? 1.0) >= RELEVANCE_THRESHOLD)
+            .map(item => item.total_price).filter(p => p > 0);
+        let activePrices = (activeData?.items || [])
+            .filter(item => {
+                const buyingFormat = (item.buying_format || '').toLowerCase();
+                return buyingFormat.includes('buy it now') && (item.ai_relevance_score ?? 1.0) >= RELEVANCE_THRESHOLD;
+            }).map(item => {
+                return item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
+            }).filter(p => p > 0);
+
         // Filter outliers
         if (soldPrices.length >= 4) soldPrices = filterOutliers(soldPrices);
         if (activePrices.length >= 4) activePrices = filterOutliers(activePrices);
-        
+
         if (soldPrices.length === 0 && activePrices.length === 0) {
             ctx.fillStyle = "#1d1d1f";
             ctx.font = "bold 16px " + getComputedStyle(document.body).fontFamily;
             ctx.textAlign = "center";
             ctx.fillText("No data available for price distribution", width / 2, height / 2);
-            ctx.font = "14px " + getComputedStyle(document.body).fontFamily;
-            ctx.fillStyle = "#6e6e73";
-            ctx.fillText("(Sold and active listing data required)", width / 2, height / 2 + 30);
             return;
         }
-        
-        // Find price range and create bins
-        const allPrices = [...soldPrices, ...activePrices];
-        const minPrice = Math.min(...allPrices);
-        const maxPrice = Math.max(...allPrices);
-        const priceRange = maxPrice - minPrice;
-        
-        const numBins = 10;
+
+        // Use shared axis range if available, otherwise compute from data
+        const useShared = typeof sharedChartAxisMin !== 'undefined' && sharedChartAxisMin !== null;
+        const axisMin = useShared ? sharedChartAxisMin : Math.min(...soldPrices, ...activePrices);
+        const axisMax = useShared ? sharedChartAxisMax : Math.max(...soldPrices, ...activePrices);
+        const priceRange = axisMax - axisMin;
+
+        // Clip prices to axis range so outliers don't stack in edge bins
+        soldPrices = soldPrices.filter(p => p >= axisMin && p <= axisMax);
+        activePrices = activePrices.filter(p => p >= axisMin && p <= axisMax);
+
+        const numBins = numBinsOverride || 35;
         const binWidth = priceRange / numBins;
-        
+
         const soldBins = new Array(numBins).fill(0);
         const activeBins = new Array(numBins).fill(0);
-        
+
         soldPrices.forEach(price => {
-            let binIndex = Math.floor((price - minPrice) / binWidth);
+            let binIndex = Math.floor((price - axisMin) / binWidth);
             if (binIndex >= numBins) binIndex = numBins - 1;
             if (binIndex < 0) binIndex = 0;
             soldBins[binIndex]++;
         });
-        
+
         activePrices.forEach(price => {
-            let binIndex = Math.floor((price - minPrice) / binWidth);
+            let binIndex = Math.floor((price - axisMin) / binWidth);
             if (binIndex >= numBins) binIndex = numBins - 1;
             if (binIndex < 0) binIndex = 0;
             activeBins[binIndex]++;
         });
-        
+
         const maxCount = Math.max(...soldBins, ...activeBins, 1);
-        
-        // Draw axes
+
+        // Draw FMV band (behind bars)
+        const xScale = (price) => margin.left + ((price - axisMin) / priceRange) * innerWidth;
+        const eLow = typeof expectLowGlobal !== 'undefined' ? expectLowGlobal : null;
+        const eHigh = typeof expectHighGlobal !== 'undefined' ? expectHighGlobal : null;
+        if (eLow !== null && eHigh !== null && priceRange > 0) {
+            const x1 = xScale(eLow);
+            const x2 = xScale(eHigh);
+            const gradient = ctx.createLinearGradient(x1, margin.top, x2, height - margin.bottom);
+            gradient.addColorStop(0, 'rgba(52, 199, 89, 0.15)');
+            gradient.addColorStop(1, 'rgba(52, 199, 89, 0.08)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x1, margin.top, x2 - x1, innerHeight);
+            ctx.strokeStyle = 'rgba(52, 199, 89, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 3]);
+            ctx.beginPath(); ctx.moveTo(x1, margin.top); ctx.lineTo(x1, height - margin.bottom); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x2, margin.top); ctx.lineTo(x2, height - margin.bottom); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "#34c759";
+            ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = "center";
+            ctx.fillText(formatMoney(eLow), x1, margin.top - 5);
+            ctx.fillText(formatMoney(eHigh), x2, margin.top - 5);
+        }
+
+        // Draw bottom axis only
         ctx.strokeStyle = "#d2d2d7";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(margin.left, margin.top);
-        ctx.lineTo(margin.left, height - margin.bottom);
-        ctx.stroke();
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(margin.left, height - margin.bottom);
         ctx.lineTo(width - margin.right, height - margin.bottom);
         ctx.stroke();
-        
-        // Draw axis labels
-        ctx.save();
-        ctx.translate(20, height / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = "#1d1d1f";
-        ctx.font = "bold 14px " + getComputedStyle(document.body).fontFamily;
-        ctx.textAlign = "center";
-        ctx.fillText("Number of Sales/Listings", 0, 0);
-        ctx.restore();
-        
-        ctx.fillStyle = "#1d1d1f";
-        ctx.font = "bold 14px " + getComputedStyle(document.body).fontFamily;
-        ctx.textAlign = "center";
-        ctx.fillText("Price", width / 2, height - 10);
-        
-        // Draw Y-axis ticks
-        const yTicks = 5;
-        ctx.fillStyle = "#6e6e73";
-        ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
-        ctx.textAlign = "right";
-        
-        for (let i = 0; i <= yTicks; i++) {
+
+        // Draw light grid lines
+        const yTicks = 4;
+        for (let i = 1; i <= yTicks; i++) {
             const y = height - margin.bottom - (i / yTicks) * innerHeight;
-            const value = Math.round((i / yTicks) * maxCount);
-            
             ctx.strokeStyle = "#e5e5ea";
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(margin.left, y);
             ctx.lineTo(width - margin.right, y);
             ctx.stroke();
-            
-            ctx.fillText(value.toString(), margin.left - 10, y + 4);
         }
-        
+
         // Draw bars
         const barAreaWidth = innerWidth / numBins;
-        const barWidth = barAreaWidth * 0.8;
-        const barOffset = barAreaWidth * 0.1;
-        
+        const barWidth = barAreaWidth * 0.85;
+        const barOffset = barAreaWidth * 0.075;
+
         for (let i = 0; i < numBins; i++) {
             const x = margin.left + (i * barAreaWidth) + barOffset;
-            
+
             // Sold bars (blue)
             if (soldBins[i] > 0) {
                 const barHeight = (soldBins[i] / maxCount) * innerHeight;
                 const y = height - margin.bottom - barHeight;
-                
                 ctx.fillStyle = 'rgba(0, 122, 255, 0.6)';
                 ctx.fillRect(x, y, barWidth, barHeight);
                 ctx.strokeStyle = 'rgba(0, 122, 255, 0.9)';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 1;
                 ctx.strokeRect(x, y, barWidth, barHeight);
             }
-            
-            // Active bars (red)
+
+            // Active bars (red, offset slightly)
             if (activeBins[i] > 0) {
                 const barHeight = (activeBins[i] / maxCount) * innerHeight;
                 const y = height - margin.bottom - barHeight;
-                const offsetX = barWidth * 0.15;
-                
-                ctx.fillStyle = 'rgba(255, 59, 48, 0.6)';
+                const offsetX = barWidth * 0.1;
+                ctx.fillStyle = 'rgba(255, 59, 48, 0.5)';
                 ctx.fillRect(x + offsetX, y, barWidth, barHeight);
-                ctx.strokeStyle = 'rgba(255, 59, 48, 0.9)';
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(255, 59, 48, 0.85)';
+                ctx.lineWidth = 1;
                 ctx.strokeRect(x + offsetX, y, barWidth, barHeight);
             }
         }
+
+        // FMV marker on x-axis
+        const mVal = typeof marketValueGlobal !== 'undefined' ? marketValueGlobal : null;
+        if (mVal !== null && priceRange > 0) {
+            const fmvX = xScale(mVal);
+            ctx.beginPath(); ctx.moveTo(fmvX, height - margin.bottom); ctx.lineTo(fmvX, height - margin.bottom + 5);
+            ctx.strokeStyle = "#ff9500"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = "#6e6e73"; ctx.font = "11px " + getComputedStyle(document.body).fontFamily; ctx.textAlign = "center";
+            ctx.fillText("FMV", fmvX, height - margin.bottom + 16);
+            ctx.fillStyle = "#ff9500"; ctx.font = "bold 12px " + getComputedStyle(document.body).fontFamily;
+            ctx.fillText(formatMoney(mVal), fmvX, height - margin.bottom + 30);
+        }
         
-        // Draw X-axis labels
+        // Draw X-axis labels — min and max aligned with mirrored strip
         ctx.fillStyle = "#6e6e73";
-        ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
-        ctx.textAlign = "center";
-        
-        const tickIndices = [0, Math.floor(numBins / 2), numBins - 1];
-        tickIndices.forEach(i => {
-            const binStart = minPrice + (i * binWidth);
-            const x = margin.left + (i * barAreaWidth) + (barAreaWidth / 2);
-            ctx.fillText(formatMoney(binStart), x, height - margin.bottom + 20);
+        ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+        ctx.textAlign = "left";
+        ctx.fillText(formatMoney(axisMin), margin.left, height - margin.bottom + 18);
+        ctx.textAlign = "right";
+        ctx.fillText(formatMoney(axisMax), width - margin.right, height - margin.bottom + 18);
+
+        // Legend
+        ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+        const lgItems = [
+            { label: "Sold Listings", color: "rgba(0, 122, 255, 0.6)", stroke: "rgba(0, 122, 255, 0.9)", type: "dot" },
+            { label: "Active Listings", color: "rgba(255, 59, 48, 0.5)", stroke: "rgba(255, 59, 48, 0.85)", type: "dot" },
+            { label: "FMV Range", color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)", type: "rect" },
+        ];
+        const lgDotR = 6; const lgSpacing = 6; const lgGap = 24;
+        const lgWidths = lgItems.map(item => {
+            const iconW = item.type === "rect" ? 20 : lgDotR * 2;
+            return iconW + lgSpacing + ctx.measureText(item.label).width;
         });
-        
-        const finalX = margin.left + (numBins * barAreaWidth);
-        ctx.fillText(formatMoney(maxPrice), finalX, height - margin.bottom + 20);
-        
+        const lgTotal = lgWidths.reduce((a, b) => a + b, 0) + lgGap * (lgItems.length - 1);
+        let lgx = (width - lgTotal) / 2;
+        const lgY = height - 8;
+        lgItems.forEach((item, i) => {
+            const iconW = item.type === "rect" ? 20 : lgDotR * 2;
+            if (item.type === "rect") {
+                ctx.fillStyle = item.color; ctx.fillRect(lgx, lgY - 12, iconW, 12);
+                ctx.strokeStyle = item.stroke; ctx.lineWidth = 1; ctx.strokeRect(lgx, lgY - 12, iconW, 12);
+            } else {
+                ctx.beginPath(); ctx.arc(lgx + lgDotR, lgY - 4, lgDotR, 0, 2 * Math.PI);
+                ctx.fillStyle = item.color; ctx.fill(); ctx.strokeStyle = item.stroke; ctx.lineWidth = 1; ctx.stroke();
+            }
+            ctx.fillStyle = "#1d1d1f"; ctx.textAlign = "left";
+            ctx.fillText(item.label, lgx + iconW + lgSpacing, lgY - 1);
+            lgx += lgWidths[i] + lgGap;
+        });
+
+        // Store axis metadata for crosshair
+        canvas.dataset.axisMin = axisMin;
+        canvas.dataset.axisMax = axisMax;
+        canvas.dataset.marginLeft = margin.left;
+        canvas.dataset.marginRight = margin.right;
+        canvas.dataset.marginTop = margin.top;
+        canvas.dataset.marginBottom = margin.bottom;
+        canvas.dataset.innerWidth = innerWidth;
+        canvas.style.cursor = 'crosshair';
+
+        if (!canvas._crosshairAttached) {
+            const cid = canvasId || "priceDistributionCanvas";
+            canvas.addEventListener('click', function(e) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                // Use globals for latest data
+                const sd = typeof currentSoldData !== 'undefined' ? currentSoldData : soldData;
+                const ad = typeof currentActiveData !== 'undefined' ? currentActiveData : activeData;
+                const bins = parseInt(document.getElementById('binSlider')?.value || 35);
+                drawPriceDistributionChart(sd, ad, cid, bins);
+                if (typeof drawChartCrosshair === 'function') {
+                    drawChartCrosshair(canvas, x);
+                }
+            });
+            canvas._crosshairAttached = true;
+        }
+
         console.log('[CHART] Price distribution chart completed successfully');
         
     } catch (error) {

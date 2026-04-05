@@ -297,8 +297,17 @@ Minimum ratio of sales in one cluster to detect price concentration.
 If 25%+ of sales fall within a tight price range, use cluster center as FMV.
 """
 
-PRICE_BIN_SIZE = 0.50
-"""Bin size in dollars for histogram-based clustering ($0.50 bins)."""
+PRICE_BIN_SIZE_BULK = 0.50
+"""Bin size for cards with median price ≤$10."""
+
+PRICE_BIN_SIZE_LOW = 2.00
+"""Bin size for cards with median price $10-$100."""
+
+PRICE_BIN_PCT_MID = 0.05
+"""Bin size as fraction of median price for $100-$1000 cards."""
+
+PRICE_BIN_PCT_GRAIL = 0.03
+"""Bin size as fraction of median price for $1000+ cards."""
 
 
 # ============================================================================
