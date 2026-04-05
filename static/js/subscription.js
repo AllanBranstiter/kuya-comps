@@ -155,6 +155,8 @@ const SubscriptionManager = (function() {
         } catch (error) {
             console.error('[SUBSCRIPTION] Error fetching usage:', error);
             currentUsage = { searches_used: 0, cards_count: 0 };
+            // Stop polling if the endpoint is broken to avoid console spam
+            stopUsageCheck();
         }
     }
     

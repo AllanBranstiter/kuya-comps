@@ -87,6 +87,7 @@ class CompItem(BaseModel):
     sold: Optional[bool] = None
     total_price: Optional[float] = None
     deep_link: Optional[str] = None
+    ai_relevance_score: Optional[float] = None  # 0.0-1.0 from AI relevance scoring
 
 
 class CompsResponse(BaseModel):
@@ -125,6 +126,9 @@ class FmvResponse(BaseModel):
     volume_confidence: Optional[str] = None
     count: int
     price_tier: Optional[PriceTier] = None  # NEW: Price tier information
+    analytics_scores: Optional[Dict] = None  # Analytics scores (confidence, pressure, liquidity, collectibility)
+    sold_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for sold items
+    active_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for active items
 
 
 class MarketMessageRequest(BaseModel):

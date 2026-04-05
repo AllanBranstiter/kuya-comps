@@ -9,6 +9,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from backend.services.fmv_service import calculate_fmv, calculate_fmv_blended, get_active_market_floor
+from backend.services.relevance_service import score_listing_relevance
 from backend.models.schemas import CompItem, FmvResponse
 from backend.middleware.subscription_gate import check_search_limit
 
@@ -76,6 +77,7 @@ def get_fmv(
 class FmvV2Request(BaseModel):
     sold_items: List[CompItem]
     active_items: Optional[List[CompItem]] = None
+    query: Optional[str] = None  # Search query for AI relevance scoring
 
 
 @router.post("/fmv/v2", response_model=FmvResponse)
@@ -96,11 +98,24 @@ def get_fmv_v2(
       - Bid/ask spread (how far sellers are from recent comps)
     """
     try:
+        # Score listing relevance if query is provided
+        sold_scores = None
+        active_scores = None
+        if request.query and request.sold_items:
+            sold_scores = score_listing_relevance(request.query, request.sold_items)
+            for item, score in zip(request.sold_items, sold_scores):
+                item.ai_relevance_score = score
+        if request.query and request.active_items:
+            active_scores = score_listing_relevance(request.query, request.active_items)
+
         result = calculate_fmv_blended(
             sold_items=request.sold_items,
             active_items=request.active_items,
         )
-        return FmvResponse(**result.to_dict())
+        response_dict = result.to_dict()
+        response_dict['sold_relevance_scores'] = sold_scores
+        response_dict['active_relevance_scores'] = active_scores
+        return FmvResponse(**response_dict)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
