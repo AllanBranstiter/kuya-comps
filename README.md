@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v0.8.0
+# eBay Baseball Card Comps Tool v0.9.0
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations, intelligent deal-finding, and a personal card collection tracker with automatic price history.
 
@@ -11,7 +11,8 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Discount/Market Value/Premium ranges
 *   **Bid/Ask Market Structure**: Stock-market-style display showing what buyers paid (bid) vs. what sellers are asking (ask), with spread signal
-*   **Collectibility Score**: 1–10 score based on price tier, market depth, and supply/demand ratio
+*   **Collectibility Score**: 1–10 score using continuous log-scaled price, volume, and scarcity components
+*   **AI Relevance Scoring**: LLM-powered listing filter — each sold and active listing is scored 0.0–1.0 for relevance to the search query; low-relevance listings (wrong card, wrong grade, lots) have minimal weight in FMV
 *   **Interactive Visualization**: Beeswarm chart showing sold (blue) and active (red) price distributions
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
 
@@ -55,7 +56,7 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Caching**: Redis with aioredis for aggressive API cost optimization
 *   **Rate Limiting**: slowapi (10 requests/minute per IP)
 *   **Monitoring**: Sentry (production), custom `/metrics` endpoint
-*   **ML/Analytics**: scikit-learn, numpy, pandas, scipy for volume-weighted FMV calculations
+*   **ML/Analytics**: scikit-learn, numpy, pandas, scipy for volume-weighted FMV calculations; httpx for OpenRouter AI relevance scoring
 
 ### Frontend
 *   **UI**: Vanilla HTML, CSS, and JavaScript (static files)
@@ -85,6 +86,8 @@ kuya-comps/
 │   ├── services/
 │   │   ├── valuation_service.py      # Automated FMV updates using volume-weighted algorithm
 │   │   ├── fmv_service.py            # Core volume-weighted FMV calculation (shared)
+│   │   ├── analytics_score_service.py # Market Confidence, Liquidity, Collectibility, Market Pressure
+│   │   ├── relevance_service.py      # AI-powered listing relevance scoring (OpenRouter/Gemini)
 │   │   ├── collection_service.py     # Binder/card CRUD, price history writes
 │   │   ├── subscription_service.py   # Tier limits and usage tracking
 │   │   └── ...
@@ -162,6 +165,7 @@ kuya-comps/
     - `ENVIRONMENT` — set to `production`
     - `SENTRY_DSN` — error monitoring (optional)
     - `REDIS_URL` — automatically provided by Railway for caching
+    - `OPENROUTER_API_KEY` — OpenRouter API key for AI relevance scoring (optional; scoring is skipped gracefully if absent)
     - `ADMIN_USER_IDS`, `ADMIN_EMAILS` — comma-separated admin identifiers
 
 ### Supabase Setup
@@ -198,7 +202,7 @@ USING (
 *   **`GET /comps`** — Sold listings for market analysis
 *   **`GET /active`** — Active listings at or below FMV
 *   **`POST /fmv`** — Volume-weighted Fair Market Value calculation (legacy, sold comps only)
-*   **`POST /fmv/v2`** — Blended FMV calculation using both sold comps (bid) and active listings (ask)
+*   **`POST /fmv/v2`** — Blended FMV calculation using both sold comps (bid) and active listings (ask); optional `query` field triggers AI relevance scoring — returns `sold_relevance_scores` and `active_relevance_scores` arrays
 *   **`POST /api/v1/cards/{card_id}/update-value`** — Trigger FMV refresh for a single card (auth required)
     - Scrapes eBay using the card's stored search query and saved filters
     - Uses the same volume-weighted FMV algorithm as the Comps tab
@@ -229,6 +233,29 @@ See [`docs/SECURITY.md`](docs/SECURITY.md) for full security guidelines.
 *   **Middleware Optimization**: Reverse execution order of `add_middleware()` calls
 
 ## Version History
+
+### Version 0.9.0 (AI Relevance Scoring & Analytics Score Engine)
+
+**AI Relevance Scoring (`relevance_service.py`):**
+- New `backend/services/relevance_service.py` — scores each listing title 0.0–1.0 for relevance to the search query using an LLM (Gemini 2.0 Flash Lite via OpenRouter)
+- Scores used as weight multipliers in FMV so irrelevant listings (wrong variant, wrong grade, lots, reprints) have minimal influence on the price estimate
+- `/fmv/v2` now accepts an optional `query` field; when provided, AI scoring runs and `sold_relevance_scores` / `active_relevance_scores` arrays are returned in the response
+- Processing is chunked (20 listings/call) and gracefully falls back to uniform weights if the API key is absent or a chunk fails
+- Model: `google/gemini-2.0-flash-lite-001` via OpenRouter; configurable via `OPENROUTER_API_KEY` env var
+
+**Analytics Score Engine (`analytics_score_service.py`):**
+- New `backend/services/analytics_score_service.py` consolidates all analytics score calculations into a single service
+- **Market Confidence**: volume-weighted coefficient of variation → 0–100 score with bands (Excellent / Good / Moderate / High Variation / Chaotic)
+- **Liquidity**: recency-weighted absorption ratio (14-day exponential decay on sold count vs. BIN active count) → 0–100 score with labels
+- **Collectibility**: continuous log-scaled components replace hard price thresholds, eliminating cliff effects — price (1–4), volume (0–3), scarcity (0–3) → 1–10 score
+- **Market Pressure**: seller-deduplicated, IQR-filtered ask median vs. FMV → pressure % with status labels (BELOW_FMV / HEALTHY / OPTIMISTIC / RESISTANCE / UNREALISTIC)
+
+**FMV Price Bins (tier-scaled):**
+- Replaced single `PRICE_BIN_SIZE` constant with four tier-specific constants: `PRICE_BIN_SIZE_BULK` ($0.50), `PRICE_BIN_SIZE_LOW` ($2.00), `PRICE_BIN_PCT_MID` (5%), `PRICE_BIN_PCT_GRAIL` (3%)
+- Bin size now scales with card value, producing better cluster detection across all price tiers
+
+**Cleanup:**
+- Phase implementation summary files (15 `.md` files) removed from project root; superseded by `AI_CONTEXT.md`
 
 ### Version 0.8.0 (Blended FMV, Collectibility Score, Bid/Ask Dashboard)
 

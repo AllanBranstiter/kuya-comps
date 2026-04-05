@@ -2,8 +2,8 @@
 
 > **Purpose:** This document provides context for AI assistants working on this project. It should be shared at the start of each new task to minimize token usage and accelerate onboarding.
 
-**Last Updated:** April 4, 2026
-**Version:** 0.8.0
+**Last Updated:** April 5, 2026
+**Version:** 0.9.0
 **Maintained By:** Allan Branstiter
 
 ---
@@ -17,6 +17,7 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 - **Dual Search Display:** Automatically shows both sold listings and active listings below FMV
 - **Smart Deal Finding:** Active listings filtered to show only items priced at or below Fair Market Value with discount indicators
 - **Market Analysis:** Blended FMV using both sold comps (bid) and active listings (ask), with Discount/Market Value/Premium ranges
+- **AI Relevance Scoring:** LLM-powered listing filter — each listing scored 0.0–1.0 for relevance to the search query; low-relevance listings have minimal weight in FMV
 - **Bid/Ask Market Structure:** Stock-market-style display showing bid (sold tiers) vs. ask (active p10/median/p90) with spread signal
 - **Collectibility Score:** 1–10 score based on price tier, market depth, and supply/demand ratio
 - **Interactive Visualization:** Beeswarm chart showing sold (blue) and active (red) price distributions with outlier clipping
@@ -97,6 +98,8 @@ kuya-comps/
 │   │   └── grading_advisor.py  # API endpoints for grading analysis
 │   ├── services/        # Business logic
 │   │   ├── fmv_service.py         # FMV calculations
+│   │   ├── analytics_score_service.py  # Market Confidence, Liquidity, Collectibility, Market Pressure
+│   │   ├── relevance_service.py   # AI-powered listing relevance scoring (OpenRouter/Gemini)
 │   │   ├── feedback_service.py    # Feedback CRUD
 │   │   ├── intelligence_service.py # Market intelligence
 │   │   ├── market_message_service.py
@@ -179,6 +182,8 @@ kuya-comps/
 | [`backend/services/search_log_service.py`](backend/services/search_log_service.py:1) | Saves every search to search_logs/ as JSON + CSV | Dev only — gitignored |
 | [`backend/routes/dev_log.py`](backend/routes/dev_log.py:1) | POST /api/dev/analytics-snapshot | Frontend posts analytics after dashboard renders |
 | [`backend/routes/collection_valuation.py`](backend/routes/collection_valuation.py:1) | Card valuation API (Phase 4) | Manual & batch FMV updates |
+| [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1) | Market Confidence, Liquidity, Collectibility, Market Pressure scores | Unified analytics score engine; replaces collectibility_service |
+| [`backend/services/relevance_service.py`](backend/services/relevance_service.py:1) | AI-powered listing relevance scoring | Uses Gemini 2.0 Flash Lite via OpenRouter; chunks 20 listings/call |
 | [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | FMV business logic | Volume-weighted calculations |
 | [`backend/services/collection_service.py`](backend/services/collection_service.py:1) | Collection & binder CRUD | Manages user collections |
 | [`backend/services/valuation_service.py`](backend/services/valuation_service.py:1) | Automated valuation engine | Safety checks, outlier removal |
@@ -261,6 +266,17 @@ kuya-comps/
    - **Impact:** Replaced Unicode "⋮" with pill-shaped buttons featuring three CSS dots
    - **Design:** 12px border-radius, #f5f5f7 background, blue (#007aff) hover state
    - **Implementation:** [`static/js/collection.js`](static/js/collection.js:788) (binder), Line 1033 (card row)
+
+11. **AI Relevance Scoring**
+    - **Why:** eBay searches return noise — lots, reprints, digital cards, wrong grades — that distort FMV
+    - **Impact:** Each listing receives a 0.0–1.0 relevance score used as a weight multiplier in FMV; irrelevant listings have near-zero influence
+    - **Implementation:** [`backend/services/relevance_service.py`](backend/services/relevance_service.py:1) — LLM call to Gemini 2.0 Flash Lite via OpenRouter; chunked in batches of 20; graceful fallback to uniform weights if API key absent or chunk fails
+    - **Config:** `OPENROUTER_API_KEY` env var required; model: `google/gemini-2.0-flash-lite-001`
+
+12. **Unified Analytics Score Engine**
+    - **Why:** Analytics scores (Confidence, Liquidity, Collectibility, Market Pressure) were scattered and used hard thresholds that caused cliff effects
+    - **Impact:** All four scores now computed in one service using continuous/log-scaled algorithms; consistent with FMV's view of the data
+    - **Implementation:** [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1)
 
 ### Data Flow Patterns
 
@@ -357,6 +373,9 @@ EBAY_ENVIRONMENT=production
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# AI Relevance Scoring (Optional — scoring skipped gracefully if absent)
+OPENROUTER_API_KEY=your_openrouter_api_key
 
 # Environment
 ENVIRONMENT=development  # or production
@@ -887,9 +906,16 @@ alembic upgrade head
 
 ## 📝 Version History & Roadmap
 
-### Current Version: 0.8.0
+### Current Version: 0.9.0
 
-**Recent Changes (v0.8.0 - Blended FMV, Collectibility Score, Bid/Ask Dashboard):**
+**Recent Changes (v0.9.0 — AI Relevance Scoring & Analytics Score Engine):**
+- **New:** `backend/services/relevance_service.py` — AI-powered listing relevance scoring using Gemini 2.0 Flash Lite (via OpenRouter); scores 0.0–1.0 per listing, used as FMV weight multipliers
+- **New:** `backend/services/analytics_score_service.py` — unified engine for Market Confidence (volume-weighted CoV), Liquidity (recency-weighted absorption), Collectibility (continuous log-scaled), and Market Pressure (seller-deduplicated ask vs. FMV)
+- **Updated:** `POST /fmv/v2` accepts optional `query` field; returns `sold_relevance_scores` and `active_relevance_scores` arrays when AI scoring runs
+- **Updated:** Price bin sizing is now tier-scaled (`PRICE_BIN_SIZE_BULK`, `PRICE_BIN_SIZE_LOW`, `PRICE_BIN_PCT_MID`, `PRICE_BIN_PCT_GRAIL`) — replaces single constant
+- **Cleanup:** Phase implementation summary `.md` files removed from project root (superseded by `AI_CONTEXT.md`)
+
+**Previous Changes (v0.8.0 — Blended FMV, Collectibility Score, Bid/Ask Dashboard):**
 - **New:** `POST /fmv/v2` — blended FMV using sold comps (bid) + active listings (ask)
 - **New:** `backend/services/collectibility_service.py` — 1–10 collectibility score
 - **New:** `backend/services/search_log_service.py` + `backend/routes/dev_log.py` — search logging
@@ -1079,7 +1105,7 @@ When starting a new task, review these first:
 
 ### Project Maturity
 
-**Project Maturity:** Production (Beta v0.8.0)
+**Project Maturity:** Production (Beta v0.9.0)
 **Test Coverage:** Partial (core services covered)
 **Documentation:** Complete
 **Active Development:** Yes

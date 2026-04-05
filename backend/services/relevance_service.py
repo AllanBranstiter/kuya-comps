@@ -17,7 +17,9 @@ import httpx
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "google/gemini-2.0-flash-lite-001"
+OPENROUTER_MODEL = "google/gemini-2.0-flash-lite-001"       # used for >40 listings
+OPENROUTER_MODEL_LITE = "google/gemini-1.5-flash-8b"        # used for <=40 listings
+OPENROUTER_SMALL_THRESHOLD = 40
 OPENROUTER_TIMEOUT = 15  # seconds
 CHUNK_SIZE = 20  # max listings per LLM call (smaller = more reliable parsing)
 
@@ -63,7 +65,7 @@ def _extract_json_array(text: str) -> Optional[list]:
     return None
 
 
-def _score_chunk(query: str, titles: List[str], key: str) -> Optional[List[float]]:
+def _score_chunk(query: str, titles: List[str], key: str, model: str) -> Optional[List[float]]:
     """Score a single chunk of titles. Returns None on failure."""
     titles_block = "\n".join(f"{i}: {t}" for i, t in enumerate(titles))
     prompt = (
@@ -86,7 +88,7 @@ def _score_chunk(query: str, titles: List[str], key: str) -> Optional[List[float
             "Content-Type": "application/json",
         },
         json={
-            "model": OPENROUTER_MODEL,
+            "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.0,
             "max_tokens": len(titles) * 12 + 50,
@@ -153,6 +155,10 @@ def score_listing_relevance(
     if not any(titles):
         return fallback
 
+    # Select model based on result count
+    model = OPENROUTER_MODEL_LITE if len(items) <= OPENROUTER_SMALL_THRESHOLD else OPENROUTER_MODEL
+    print(f"[RELEVANCE] Using model: {model} ({len(items)} listings)")
+
     # Process in chunks to avoid LLM output length issues
     all_scores = []
     start = time.time()
@@ -162,7 +168,7 @@ def score_listing_relevance(
     for chunk_start in range(0, len(titles), CHUNK_SIZE):
         chunk_titles = titles[chunk_start:chunk_start + CHUNK_SIZE]
         try:
-            chunk_scores = _score_chunk(query, chunk_titles, key)
+            chunk_scores = _score_chunk(query, chunk_titles, key, model)
             if chunk_scores:
                 all_scores.extend(chunk_scores)
                 chunks_succeeded += 1

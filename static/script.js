@@ -1,8 +1,10 @@
 let lastData = null;
 let lastActiveData = null; // Store active listings data
+let aiFilteringRan = false; // Set to true when AI relevance scoring runs successfully
 let lastMarketValue = null; // Store market value for filtering
 let priceDistributionChartTimeout = null; // Track pending chart draw
 let lastChartData = { soldData: null, activeData: null }; // Store data for chart redraws
+let currentSearchController = null; // AbortController for the in-progress search; replaced on each new search
 let currentPriceTier = null; // Store tier from most recent search
 let volumeProfileBins = null; // Store current number of bins for Volume Profile chart (null = auto)
 let beeswarmCrosshairX = null; // Store crosshair position for FMV beeswarm chart (persists)
@@ -848,7 +850,17 @@ function resizeCanvas() {
 
 async function renderData(data, secondData = null, marketValue = null) {
     const resultsDiv = document.getElementById("results");
-    
+
+    // Capture which search owns this renderData call. If the user starts a new
+    // search before we finish, currentSearchController will point to the new
+    // controller and we can bail out rather than overwriting new results.
+    const myController = currentSearchController;
+
+    // Reset chart data at the start of every render so a new search never
+    // inherits stale chart state from the previous search.
+    lastChartData.soldData = null;
+    lastChartData.activeData = null;
+
     // Store active data and market value globally for checkbox toggle
     lastActiveData = secondData;
     lastMarketValue = marketValue;
@@ -1120,6 +1132,10 @@ async function renderData(data, secondData = null, marketValue = null) {
     // Update FMV first, then draw beeswarm chart
     const fmvData = await updateFmv(data, secondData);
 
+    // If a newer search has started since we began, bail out so we don't
+    // overwrite the newer search's analysis container with our stale data.
+    if (currentSearchController !== myController) return;
+
     // AI scoring done, now building dashboard
     updateSearchStage('stage-dashboard');
     
@@ -1139,6 +1155,18 @@ async function renderData(data, secondData = null, marketValue = null) {
             console.error('[ERROR] Failed to render Analysis Dashboard, but Comps data is still available:', error);
             // Don't throw - let the Comps data display normally
         }
+    } else {
+        // No FMV data — clear the analysis container so stale chart from a
+        // previous search doesn't remain visible in the DOM.
+        const analysisContainer = document.getElementById("analysis-subtab");
+        if (analysisContainer) {
+            analysisContainer.innerHTML = `
+                <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+                    <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Market Analysis</h3>
+                    <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Run a search to see advanced market analytics and insights</p>
+                </div>
+            `;
+        }
     }
     const RELEVANCE_THRESHOLD = 0.5;
     const relevantSoldItems = data.items.filter(item => (item.ai_relevance_score ?? 1.0) >= RELEVANCE_THRESHOLD);
@@ -1147,6 +1175,18 @@ async function renderData(data, secondData = null, marketValue = null) {
     const activeFiltered = (secondData?.items || []).length - relevantActiveItems.length;
     if (soldFiltered > 0 || activeFiltered > 0) {
       console.log(`[RELEVANCE] Filtered out ${soldFiltered} sold + ${activeFiltered} active low-relevance listings`);
+    }
+
+    // Show AI Filtered badge on the sold listings heading if AI scoring ran
+    if (aiFilteringRan) {
+      const soldHeading = document.querySelector('#listings-tables-container h3');
+      if (soldHeading && !soldHeading.querySelector('.ai-filtered-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'ai-filtered-badge';
+        badge.textContent = 'AI Filtered';
+        badge.style.cssText = 'display: inline-block; margin-left: 0.6rem; padding: 2px 8px; font-size: 0.7rem; font-weight: 600; border-radius: 20px; background: rgba(88, 86, 214, 0.12); color: #5856d6; border: 1px solid rgba(88, 86, 214, 0.3); vertical-align: middle; letter-spacing: 0.02em;';
+        soldHeading.appendChild(badge);
+      }
     }
 
     // Hide low-relevance rows from the already-rendered sold listings table
@@ -1355,6 +1395,12 @@ function toggleActiveListingsView() {
 }
 
 function clearSearch() {
+    // Cancel any in-progress search
+    if (currentSearchController) {
+      currentSearchController.abort();
+      currentSearchController = null;
+    }
+
     // Clear the query input
     document.getElementById("query").value = "";
     
@@ -1697,8 +1743,24 @@ async function runSearchInternal() {
       throw new Error("Please enter a search query");
     }
 
+    // Cancel any in-progress search and immediately clear the analysis container
+    // so stale results from the previous search don't linger.
+    if (currentSearchController) {
+      currentSearchController.abort();
+    }
+    currentSearchController = new AbortController();
+    const analysisContainerEarly = document.getElementById("analysis-subtab");
+    if (analysisContainerEarly) {
+      analysisContainerEarly.innerHTML = `
+        <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
+          <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Market Analysis</h3>
+          <p style="margin: 0; font-size: 1rem; line-height: 1.6; color: var(--subtle-text-color); max-width: 500px; margin: 0 auto;">Run a search to see advanced market analytics and insights</p>
+        </div>
+      `;
+    }
+
     let query = getSearchQueryWithExclusions(baseQuery);
-    
+
     // Reset crosshair positions for new search
     beeswarmCrosshairX = null;
     volumeProfileCrosshairX = null;
@@ -1911,9 +1973,13 @@ async function runSearchInternal() {
         }
       }
       
-      // Set up timeout and abort controller
+      // Set up timeout and abort controller; also wire in the search-level controller
+      // so a new search (or Clear) can cancel this request mid-flight.
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      if (currentSearchController) {
+        currentSearchController.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
 
       const resp = await fetch(url, {
         signal: controller.signal,
@@ -2091,10 +2157,13 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
     
     const activeController = new AbortController();
     const activeTimeoutId = setTimeout(() => activeController.abort(), 30000);
-    
+    if (currentSearchController) {
+      currentSearchController.signal.addEventListener('abort', () => activeController.abort(), { once: true });
+    }
+
     try {
         console.log('[DEBUG] Fetching active listings from:', activeUrl);
-        
+
         // Reuse the same auth headers for active listings
         const secondResp = await fetch(activeUrl, {
             signal: activeController.signal,
@@ -2189,6 +2258,7 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
         await renderData(data, secondData, marketValue);
     } catch (error) {
         console.error('[DEBUG] Active listings fetch failed:', error);
+        if (error.name === 'AbortError') return; // New search started — bail out silently
         // Still render the sold data even if active listings fail
         await renderData(data, null, marketValue);
     }
@@ -2202,6 +2272,7 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
     }
 
     } catch (err) {
+      if (err.name === 'AbortError') return; // User started a new search or clicked Clear — bail out silently
       const errorHtml = `
         <div class="error-container">
           <div class="error-icon">⚠️</div>
@@ -2788,6 +2859,9 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     const analysisContainer = document.getElementById("analysis-subtab");
     
     if (!data || !data.items || data.items.length === 0) {
+        // Reset chart data so stale data from a previous search doesn't persist
+        lastChartData.soldData = null;
+        lastChartData.activeData = null;
         analysisContainer.innerHTML = `
             <div style="text-align: center; padding: 3rem 2rem; background: var(--card-background); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);">
                 <h3 style="margin: 0 0 1rem 0; color: var(--text-color); font-size: 1.5rem; font-weight: 600;">📊 Market Analysis</h3>
@@ -3826,7 +3900,9 @@ async function updateFmv(data, activeData = null) {
     window.backendAnalyticsScores = fmvData.analytics_scores || null;
 
     // Merge AI relevance scores back into items for filtering
+    aiFilteringRan = false;
     if (fmvData.sold_relevance_scores && data.items) {
+      aiFilteringRan = true;
       fmvData.sold_relevance_scores.forEach((score, i) => {
         if (i < data.items.length) data.items[i].ai_relevance_score = score;
       });
@@ -4548,11 +4624,6 @@ function drawMirroredStrip(prices, activePrices) {
     ctx.fillText(formatMoney(marketValueGlobal), fmvX, height - margin.bottom + 30);
   }
 
-  // Side labels
-  ctx.fillStyle = "#007AFF"; ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily; ctx.textAlign = "left";
-  ctx.fillText("\u25B2 Sold", margin.left, margin.top - 8);
-  ctx.fillStyle = "#FF3B30";
-  ctx.fillText("\u25BC Active", margin.left, height - margin.bottom + 15);
 
   // Legend
   const legendY = height - 15;
