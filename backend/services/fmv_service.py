@@ -15,6 +15,7 @@ from backend.services.analytics_score_service import (
     calculate_collectibility,
     calculate_market_pressure,
 )
+from backend.logging_config import get_logger
 from backend.config import (
     MIN_ITEMS_FOR_OUTLIER_DETECTION,
     MIN_ITEMS_FOR_FMV,
@@ -32,6 +33,8 @@ from backend.config import (
     CONFIDENCE_HIGH_RATIO,
     CONFIDENCE_MEDIUM_RATIO,
 )
+
+logger = get_logger(__name__)
 
 
 class FMVResult:
@@ -240,9 +243,9 @@ def detect_price_concentration(prices: np.ndarray) -> Optional[float]:
     if concentration_ratio >= min_concentration:
         # Return the center of the dominant bin
         bin_center = (edges[max_bin_idx] + edges[max_bin_idx + 1]) / 2
-        print(f"[FMV] Price concentration detected: {max_count}/{len(prices)} sales "
-              f"({concentration_ratio:.1%}) in ${edges[max_bin_idx]:.2f}-${edges[max_bin_idx+1]:.2f} range "
-              f"(center: ${bin_center:.2f})")
+        logger.info(f"Price concentration detected: {max_count}/{len(prices)} sales "
+                    f"({concentration_ratio:.1%}) in ${edges[max_bin_idx]:.2f}-${edges[max_bin_idx+1]:.2f} range "
+                    f"(center: ${bin_center:.2f})")
         return bin_center
 
     return None
@@ -281,13 +284,13 @@ def is_representative_sale(item: object, q1: float, q3: float, iqr: float) -> bo
     if parallel_match:
         parallel_number = int(parallel_match.group(1))
         if parallel_number <= 50:
-            print(f"[FMV] Excluding rare parallel: /{parallel_number} - {item.title[:60]}")
+            logger.debug(f"Excluding rare parallel: /{parallel_number} - {item.title[:60]}")
             return False
 
     # Check for gem mint grades (PSA 10, BGS 10)
     if ('psa 10' in title_lower or 'bgs 10' in title_lower or
         'gem mint 10' in title_lower or 'pristine 10' in title_lower):
-        print(f"[FMV] Excluding gem mint 10: {item.title[:60]}")
+        logger.debug(f"Excluding gem mint 10: {item.title[:60]}")
         return False
 
     # If it has an auto keyword AND is an extreme outlier, it might be special
@@ -299,7 +302,7 @@ def is_representative_sale(item: object, q1: float, q3: float, iqr: float) -> bo
         # If it's more than 3x the IQR above Q3, it's likely a special auto variant
         extreme_upper = q3 + 3 * iqr
         if item.total_price > extreme_upper:
-            print(f"[FMV] Excluding extreme auto outlier: ${item.total_price:.2f} - {item.title[:60]}")
+            logger.debug(f"Excluding extreme auto outlier: ${item.total_price:.2f} - {item.title[:60]}")
             return False
 
     # Otherwise, consider it representative
@@ -348,7 +351,7 @@ def calculate_robust_std(prices: np.ndarray, weights: np.ndarray, weighted_media
     # Convert MAD to std equivalent (1.4826 is the conversion factor)
     robust_std = mad * 1.4826
 
-    print(f"[FMV] Robust std: ${robust_std:.2f} (MAD: ${mad:.2f})")
+    logger.debug(f"Robust std: ${robust_std:.2f} (MAD: ${mad:.2f})")
 
     return robust_std
 
@@ -395,8 +398,8 @@ def get_active_market_floor(active_items: List) -> Optional[float]:
     # Calculate 10th percentile as market floor
     floor_price = np.percentile(active_prices, 10)
 
-    print(f"[FMV] Active market floor (10th percentile): ${floor_price:.2f} "
-          f"from {len(active_prices)} active listings")
+    logger.debug(f"Active market floor (10th percentile): ${floor_price:.2f} "
+                 f"from {len(active_prices)} active listings")
 
     return floor_price
 
@@ -491,20 +494,20 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         weights = all_weights[mask]
 
         outliers_removed = len(all_prices) - len(prices)
-        print(f"[FMV] IQR bounds: ${lower_bound:.2f} - ${upper_bound:.2f} (Q1: ${q1:.2f}, Q3: ${q3:.2f}, mult: {iqr_mult}x)")
-        print(f"[FMV] Removed {outliers_removed} non-representative outliers using smart classification")
+        logger.debug(f"IQR bounds: ${lower_bound:.2f} - ${upper_bound:.2f} (Q1: ${q1:.2f}, Q3: ${q3:.2f}, mult: {iqr_mult}x)")
+        logger.info(f"Removed {outliers_removed} non-representative outliers using smart classification")
 
         # Log details of excluded items (limit to first 3 for brevity)
         if excluded_items:
             for price, title in excluded_items[:3]:
-                print(f"[FMV]   Excluded: ${price:.2f} - {title}")
+                logger.debug(f"  Excluded: ${price:.2f} - {title}")
             if len(excluded_items) > 3:
-                print(f"[FMV]   ... and {len(excluded_items) - 3} more")
+                logger.debug(f"  ... and {len(excluded_items) - 3} more")
     else:
         # Not enough data for outlier detection
         prices = all_prices
         weights = all_weights
-        print(f"[FMV] Skipping outlier detection (need {MIN_ITEMS_FOR_OUTLIER_DETECTION}+ items, have {len(all_prices)})")
+        logger.debug(f"Skipping outlier detection (need {MIN_ITEMS_FOR_OUTLIER_DETECTION}+ items, have {len(all_prices)})")
 
     # Calculate volume-weighted statistics
     weighted_mean = np.average(prices, weights=weights)
@@ -534,13 +537,13 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     concentration_price = detect_price_concentration(prices)
     if concentration_price:
         market_value = concentration_price
-        print(f"[FMV] Using price concentration: ${concentration_price:.2f}")
+        logger.info(f"Using price concentration: ${concentration_price:.2f}")
     elif abs(distribution_skewness) > 1.5:
         # Use weighted median instead of mean
         median_value = find_weighted_percentile(sorted_prices, cumulative_weights, total_weight, 0.5)
         market_value = median_value
-        print(f"[FMV] High skewness detected ({distribution_skewness:.2f})")
-        print(f"[FMV] Using weighted median ${median_value:.2f} instead of mean ${weighted_mean:.2f}")
+        logger.debug(f"High skewness detected ({distribution_skewness:.2f})")
+        logger.debug(f"Using weighted median ${median_value:.2f} instead of mean ${weighted_mean:.2f}")
     else:
         market_value = weighted_mean
 
@@ -576,15 +579,15 @@ def calculate_fmv(items: List[object]) -> FMVResult:
             volume_confidence = "Low"
         else:
             volume_confidence = base_confidence
-        print(f"[FMV] High volatility (CV={price_cv:.2f}) - downgrading confidence from {base_confidence} to {volume_confidence}")
+        logger.warning(f"High volatility (CV={price_cv:.2f}) - downgrading confidence from {base_confidence} to {volume_confidence}")
     else:
         volume_confidence = base_confidence
 
     # Count items within FMV range
     inliers = [price for price in prices if fmv_low <= price <= fmv_high]
 
-    print(f"[FMV] Volume-weighted mean: ${weighted_mean:.2f}, FMV range: ${fmv_low:.2f}-${fmv_high:.2f} (P20-P80)")
-    print(f"[FMV] High-weight sales: {high_weight_count}/{len(weights)} ({volume_confidence} confidence)")
+    logger.info(f"Volume-weighted mean: ${weighted_mean:.2f}, FMV range: ${fmv_low:.2f}-${fmv_high:.2f} (P20-P80)")
+    logger.info(f"High-weight sales: {high_weight_count}/{len(weights)} ({volume_confidence} confidence)")
 
     # Calculate price tier based on market_value
     tier_data = get_price_tier(fmv=market_value, avg_listing_price=None)
@@ -750,8 +753,8 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
             ask_p90 * (1.0 - premium_bid_w)
         )
 
-        print(
-            f"[FMV v2] tier={tier} supply={supply} ratio={ratio:.1f}x "
+        logger.info(
+            f"tier={tier} supply={supply} ratio={ratio:.1f}x "
             f"bid=${bid_center:.2f} ({bid_weight:.0%}) + "
             f"ask=${ask_center:.2f} ({ask_weight:.0%}) = MV=${market_value:.2f} "
             f"discount=${quick_sale:.2f} premium=${patient_sale:.2f}"
@@ -794,8 +797,8 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         market_value = max(quick_sale, min(market_value, patient_sale))
 
         pressure_pct = pressure.get("pressure_pct") or 0
-        print(
-            f"[FMV v2 adj] confidence={conf_score} range_mult={range_multiplier:.2f} "
+        logger.info(
+            f"confidence={conf_score} range_mult={range_multiplier:.2f} "
             f"pressure={pressure_pct:+.1f}% → QS=${quick_sale:.2f} MV=${market_value:.2f} PS=${patient_sale:.2f}"
         )
 

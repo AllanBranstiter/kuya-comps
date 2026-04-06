@@ -12,6 +12,9 @@ from backend.services.fmv_service import calculate_fmv, calculate_fmv_blended, g
 from backend.services.relevance_service import score_listing_relevance
 from backend.models.schemas import CompItem, FmvResponse
 from backend.middleware.subscription_gate import check_search_limit
+from backend.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 # Initialize router
@@ -47,13 +50,13 @@ def get_fmv(
     Returns:
         FmvResponse: FMV calculations and confidence metrics
     """
-    print(f"[FMV ENDPOINT] Received request with {len(items)} items")
+    logger.debug(f"Received request with {len(items)} items")
     if len(items) > 0:
-        print("[FMV ENDPOINT] First item sample:")
-        print(f"  - item_id: {items[0].item_id}")
-        print(f"  - title: {items[0].title[:50] if items[0].title else 'None'}")
-        print(f"  - total_price: {items[0].total_price}")
-        print(f"  - date_scraped: {items[0].date_scraped} (type: {type(items[0].date_scraped)})")
+        logger.debug("First item sample:")
+        logger.debug(f"  item_id: {items[0].item_id}")
+        logger.debug(f"  title: {items[0].title[:50] if items[0].title else 'None'}")
+        logger.debug(f"  total_price: {items[0].total_price}")
+        logger.debug(f"  date_scraped: {items[0].date_scraped} (type: {type(items[0].date_scraped)})")
 
     try:
         # Calculate base FMV from sold listings
@@ -66,12 +69,13 @@ def get_fmv(
                 # Active floor is 20%+ higher than quick_sale - adjust upward
                 result.quick_sale = active_floor
                 result.market_value = max(result.market_value, active_floor * 1.15)
-                print(f"[FMV] Adjusted quick_sale to ${active_floor:.2f} based on active market floor")
-                print(f"[FMV] Adjusted market_value to ${result.market_value:.2f} (115% of active floor)")
+                logger.info(f"Adjusted quick_sale to ${active_floor:.2f} based on active market floor")
+                logger.info(f"Adjusted market_value to ${result.market_value:.2f} (115% of active floor)")
 
         return FmvResponse(**result.to_dict())
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("[FMV] Error calculating FMV")
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 class FmvV2Request(BaseModel):
@@ -117,7 +121,8 @@ def get_fmv_v2(
         response_dict['active_relevance_scores'] = active_scores
         return FmvResponse(**response_dict)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("[FMV] Error calculating blended FMV")
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.get("/test-ebay-api")
@@ -139,13 +144,13 @@ def test_ebay_api():
     try:
         from ebay_browse_client import eBayBrowseClient
 
-        print("[TEST] Initializing eBay Browse API client...")
+        logger.info("Initializing eBay Browse API client...")
         client = eBayBrowseClient()
 
-        print("[TEST] Testing authentication...")
+        logger.info("Testing authentication...")
         _token = client.get_access_token()
 
-        print("[TEST] Testing search...")
+        logger.info("Testing search...")
         results = client.search_items(
             query="baseball card",
             limit=5
@@ -164,8 +169,8 @@ def test_ebay_api():
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        print(f"[TEST] eBay API test failed: {e}")
-        print(f"[TEST] Traceback: {error_trace}")
+        logger.error(f"eBay API test failed: {e}")
+        logger.error(f"Traceback: {error_trace}")
 
         return {
             "status": "error",

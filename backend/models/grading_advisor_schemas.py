@@ -207,14 +207,6 @@ class GradingAdvisorRequest(BaseModel):
 
     @field_validator('population_data')
     @classmethod
-    def validate_population_requirement(cls, v: Dict[str, int]) -> Dict[str, int]:
-        """Validate that at least one population entry exists."""
-        if not v or sum(v.values()) == 0:
-            raise ValueError("Population data must contain at least one entry with a non-zero value")
-        return v
-
-    @field_validator('population_data')
-    @classmethod
     def validate_population_data(cls, v: Dict[str, int]) -> Dict[str, int]:
         """Validate that population data contains valid grade keys and has at least one entry."""
         valid_grades = {str(i) for i in range(1, 11)}

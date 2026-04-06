@@ -178,8 +178,8 @@ function getUserFriendlyMessage(error) {
         return 'Too many requests. Please wait a moment before trying again.';
     }
     
-    // Return original message if no specific mapping
-    return String(error);
+    // Return generic message to avoid leaking internal details
+    return 'An unexpected error occurred. Please try again.';
 }
 
 /**

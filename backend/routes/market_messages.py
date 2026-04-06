@@ -100,7 +100,7 @@ async def get_market_message_endpoint(request: MarketMessageRequest):
 
     except ValueError as e:
         logger.error(f"[MARKET_MESSAGE] ValueError: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid market message request")
     except Exception as e:
         logger.error(f"[MARKET_MESSAGE] Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error processing market message")

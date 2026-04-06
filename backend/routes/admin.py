@@ -156,8 +156,8 @@ async def get_metrics_overview(
         }
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error fetching metrics overview: {e}")
-        raise HTTPException(500, f"Error fetching metrics: {str(e)}")
+        logger.exception("[ADMIN] Error fetching metrics overview")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/metrics/revenue")
@@ -225,8 +225,8 @@ async def get_revenue_metrics(
         }
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error fetching revenue metrics: {e}")
-        raise HTTPException(500, f"Error fetching revenue metrics: {str(e)}")
+        logger.exception("[ADMIN] Error fetching revenue metrics")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/metrics/users")
@@ -320,8 +320,8 @@ async def get_user_metrics(
         }
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error fetching user metrics: {e}")
-        raise HTTPException(500, f"Error fetching user metrics: {str(e)}")
+        logger.exception("[ADMIN] Error fetching user metrics")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/metrics/usage")
@@ -393,8 +393,8 @@ async def get_usage_metrics(
         }
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error fetching usage metrics: {e}")
-        raise HTTPException(500, f"Error fetching usage metrics: {str(e)}")
+        logger.exception("[ADMIN] Error fetching usage metrics")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/webhooks/recent")
@@ -446,8 +446,8 @@ async def get_recent_webhooks(
         }
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error fetching recent webhooks: {e}")
-        raise HTTPException(500, f"Error fetching webhooks: {str(e)}")
+        logger.exception("[ADMIN] Error fetching recent webhooks")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/subscriptions/failing")
@@ -489,8 +489,8 @@ async def get_failing_subscriptions(
         }
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error fetching failing subscriptions: {e}")
-        raise HTTPException(500, f"Error fetching failing subscriptions: {str(e)}")
+        logger.exception("[ADMIN] Error fetching failing subscriptions")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/export/subscriptions")
@@ -538,8 +538,8 @@ async def export_subscriptions_csv(
         )
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error exporting subscriptions: {e}")
-        raise HTTPException(500, f"Error exporting subscriptions: {str(e)}")
+        logger.exception("[ADMIN] Error exporting subscriptions")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/export/usage")
@@ -592,8 +592,8 @@ async def export_usage_csv(
         )
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error exporting usage: {e}")
-        raise HTTPException(500, f"Error exporting usage: {str(e)}")
+        logger.exception("[ADMIN] Error exporting usage")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/cohort-analysis")
@@ -625,5 +625,5 @@ async def get_cohort_analysis(
         }
 
     except Exception as e:
-        logger.error(f"[ADMIN] Error fetching cohort analysis: {e}")
-        raise HTTPException(500, f"Error fetching cohort analysis: {str(e)}")
+        logger.exception("[ADMIN] Error fetching cohort analysis")
+        raise HTTPException(500, "An internal error occurred")

@@ -9,6 +9,9 @@ import csv
 import os
 from typing import List, Dict
 from backend.config import EBAY_ROTATION_IDS
+from backend.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def generate_ebay_deep_link(item_id: str, marketplace: str = "com") -> str:
@@ -34,14 +37,14 @@ def generate_ebay_deep_link(item_id: str, marketplace: str = "com") -> str:
         parts = clean_item_id.split('|')
         if len(parts) >= 2:
             clean_item_id = parts[1]  # Extract the numeric ID (middle part)
-            print(f"[DEEPLINK] Extracted numeric ID '{clean_item_id}' from Browse API format '{item_id}'")
+            logger.debug(f"Extracted numeric ID '{clean_item_id}' from Browse API format '{item_id}'")
 
     base_url = f"https://www.ebay.{marketplace}/itm/{clean_item_id}"
     mkrid = EBAY_ROTATION_IDS.get(marketplace, EBAY_ROTATION_IDS["com"])
     params = f"?mkevt=1&mkcid=1&mkrid={mkrid}&customid=kuyacomps"
 
     deep_link = base_url + params
-    print(f"[DEEPLINK] Generated: {deep_link}")
+    logger.debug(f"Generated: {deep_link}")
 
     return deep_link
 
@@ -93,7 +96,7 @@ def load_test_data() -> List[Dict]:
                 }
                 items.append(item)
 
-        print(f"[TEST] Loaded {len(items)} items from test CSV")
+        logger.info(f"Loaded {len(items)} items from test CSV")
         return items
 
     except Exception as e:

@@ -220,11 +220,11 @@ async def create_checkout_session(
         )
 
     except stripe.error.StripeError as e:
-        logger.error(f"[BILLING] Stripe error creating checkout session: {e}")
-        raise HTTPException(500, f"Stripe error: {str(e)}")
+        logger.exception("[BILLING] Stripe error creating checkout session")
+        raise HTTPException(500, "A payment processing error occurred")
     except Exception as e:
-        logger.error(f"[BILLING] Unexpected error creating checkout session: {e}")
-        raise HTTPException(500, f"Error creating checkout session: {str(e)}")
+        logger.exception("[BILLING] Unexpected error creating checkout session")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/customer-portal", response_model=CustomerPortalResponse)
@@ -272,13 +272,13 @@ async def get_customer_portal(
         return CustomerPortalResponse(portal_url=session.url)
 
     except stripe.error.StripeError as e:
-        logger.error(f"[BILLING] Stripe error creating portal session: {e}")
-        raise HTTPException(500, f"Stripe error: {str(e)}")
+        logger.exception("[BILLING] Stripe error creating portal session")
+        raise HTTPException(500, "A payment processing error occurred")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[BILLING] Unexpected error creating portal session: {e}")
-        raise HTTPException(500, f"Error creating portal session: {str(e)}")
+        logger.exception("[BILLING] Unexpected error creating portal session")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.get("/subscription", response_model=SubscriptionResponse)
@@ -407,8 +407,8 @@ async def get_usage_stats(
         }
 
     except Exception as e:
-        logger.error(f"[BILLING] Error fetching usage stats: {e}")
-        raise HTTPException(500, f"Error fetching usage stats: {str(e)}")
+        logger.exception("[BILLING] Error fetching usage stats")
+        raise HTTPException(500, "An internal error occurred")
 
 
 # ============================================================================
@@ -669,8 +669,8 @@ async def stripe_webhook(
             logger.info(f"[WEBHOOK] Unhandled event type: {event_type}")
             processed = False
     except Exception as e:
-        logger.error(f"[WEBHOOK] Error processing event {event_id}: {e}")
-        error_message = str(e)
+        logger.exception(f"[WEBHOOK] Error processing event {event_id}")
+        error_message = str(e)  # kept for database logging only
         processed = False
 
     # Log event to database
@@ -685,6 +685,6 @@ async def stripe_webhook(
     )
 
     if error_message:
-        raise HTTPException(500, f"Error processing webhook: {error_message}")
+        raise HTTPException(500, "An internal error occurred")
 
     return {'status': 'success', 'event_id': event_id}

@@ -114,7 +114,7 @@ async def analyze_grading(request: Request, body: GradingAdvisorRequest):
             endpoint='/api/grading-advisor',
             error=str(e)
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid grading advisor input")
     except Exception as e:
         log_with_context(
             logger,
@@ -123,7 +123,7 @@ async def analyze_grading(request: Request, body: GradingAdvisorRequest):
             endpoint='/api/grading-advisor',
             error=str(e)
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.get("/health")

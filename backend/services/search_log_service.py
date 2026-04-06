@@ -22,6 +22,9 @@ from datetime import datetime
 from pathlib import Path
 
 from backend.models.schemas import CompsResponse
+from backend.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 # Project root / search_logs directory
 SEARCH_LOGS_DIR = Path(__file__).resolve().parents[2] / "search_logs"
@@ -107,7 +110,7 @@ def _compute_fmv_inline(response: CompsResponse) -> dict:
         result = calculate_fmv(response.items)
         return result.to_dict()
     except Exception as e:
-        print(f"[SEARCH LOG] FMV computation failed: {e}")
+        logger.error(f"FMV computation failed: {e}")
         return {}
 
 
@@ -231,7 +234,7 @@ def save_search(endpoint: str, response: CompsResponse) -> Path:
     fields = SOLD_CSV_FIELDS if endpoint == "sold" else ACTIVE_CSV_FIELDS
     _write_csv(csv_path, response.items, fields)
 
-    print(f"[SEARCH LOG] Saved: {json_path.name}  ({len(response.items)} items)")
+    logger.info(f"Saved: {json_path.name}  ({len(response.items)} items)")
     return json_path
 
 
@@ -255,7 +258,7 @@ def append_analytics_snapshot(query: str, snapshot: dict) -> bool:
     matches = sorted(SEARCH_LOGS_DIR.glob(pattern), reverse=True)
 
     if not matches:
-        print(f"[SEARCH LOG] No sold log found for query: {query}")
+        logger.warning(f"No sold log found for query: {query}")
         return False
 
     latest = matches[0]
@@ -278,5 +281,5 @@ def append_analytics_snapshot(query: str, snapshot: dict) -> bool:
             default=str,
         )
 
-    print(f"[SEARCH LOG] Analytics snapshot saved: {snapshot_path.name}")
+    logger.info(f"Analytics snapshot saved: {snapshot_path.name}")
     return True
