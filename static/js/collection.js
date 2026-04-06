@@ -1725,10 +1725,10 @@ const CollectionModule = (function() {
                 // Status indicators
                 let statusHTML = '';
                 if (card.review_required) {
-                    statusHTML += `<span class="review-flag" title="${escapeHtmlAttr(card.review_reason || 'Review required')} — Click to update price" style="color: #ff3b30; font-size: 1rem; cursor: pointer;" onclick="CollectionModule.refreshCardPrice('${card.id}', '${card.binder_id}', this)">⚠️</span> `;
+                    statusHTML += `<span class="review-flag" title="${escapeHtmlAttr(card.review_reason || 'Review required')} — Click to update price" style="color: #ff3b30; font-size: 1rem; cursor: pointer;" onclick="CollectionModule.refreshCardPrice('${parseInt(card.id)}', '${parseInt(card.binder_id)}', this)">⚠️</span> `;
                 }
                 if (isStale && card.auto_update) {
-                    statusHTML += `<span class="stale-warning" title="Click to update price" style="color: #ff9500; font-size: 0.85rem; cursor: pointer;" onclick="CollectionModule.refreshCardPrice('${card.id}', '${card.binder_id}', this)">⏰</span>`;
+                    statusHTML += `<span class="stale-warning" title="Click to update price" style="color: #ff9500; font-size: 0.85rem; cursor: pointer;" onclick="CollectionModule.refreshCardPrice('${parseInt(card.id)}', '${parseInt(card.binder_id)}', this)">⏰</span>`;
                 }
                 if (!statusHTML) {
                     const dayWord = daysLeft === 1 ? 'day' : 'days';
@@ -2585,11 +2585,11 @@ const CollectionModule = (function() {
         `;
         
         menu.innerHTML = `
-            <div class="context-menu-item" onclick="CollectionModule.showEditBinderModal('${binderId}', '${binderName.replace(/'/g, "\\'")}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.showEditBinderModal('${parseInt(binderId)}', '${binderName.replace(/'/g, "\\'")}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">✏️</span>
                 <span>Edit</span>
             </div>
-            <div class="context-menu-item" onclick="CollectionModule.deleteBinder('${binderId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.deleteBinder('${parseInt(binderId)}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">🗑️</span>
                 <span>Delete</span>
             </div>
@@ -2646,15 +2646,15 @@ const CollectionModule = (function() {
         `;
         
         menu.innerHTML = `
-            <div class="context-menu-item" onclick="CollectionModule.showEditCardModal('${cardId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.showEditCardModal('${parseInt(cardId)}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">✏️</span>
                 <span>Edit</span>
             </div>
-            <div class="context-menu-item" onclick="CollectionModule.showMoveCardModal('${cardId}', '${binderId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.showMoveCardModal('${parseInt(cardId)}', '${parseInt(binderId)}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">📁</span>
                 <span>Move</span>
             </div>
-            <div class="context-menu-item" onclick="CollectionModule.deleteCard('${cardId}', '${binderId}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
+            <div class="context-menu-item" onclick="CollectionModule.deleteCard('${parseInt(cardId)}', '${parseInt(binderId)}'); CollectionModule.closeContextMenu();" style="padding: 0.75rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: background 0.2s; font-size: 0.95rem; color: #ff3b30;" onmouseover="this.style.background='linear-gradient(135deg, #fff0f0 0%, #ffe6e6 100%)'" onmouseout="this.style.background='transparent'">
                 <span style="font-size: 1rem;">🗑️</span>
                 <span>Delete</span>
             </div>
@@ -2817,7 +2817,7 @@ const CollectionModule = (function() {
             let binderOptions = '';
             if (otherBinders.length > 0) {
                 binderOptions = otherBinders.map(b =>
-                    `<div class="binder-option" onclick="CollectionModule.handleMoveCard('${cardId}', '${b.id}', '${currentBinderId}')" style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s; margin-bottom: 0.75rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'; this.style.borderColor='#007aff';" onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)'">
+                    `<div class="binder-option" onclick="CollectionModule.handleMoveCard('${parseInt(cardId)}', '${parseInt(b.id)}', '${parseInt(currentBinderId)}')" style="padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s; margin-bottom: 0.75rem;" onmouseover="this.style.background='linear-gradient(135deg, #f0f4ff 0%, #e6f0ff 100%)'; this.style.borderColor='#007aff';" onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)'">
                         <div style="font-weight: 600; color: var(--text-color);">📁 ${escapeHtml(b.name)}</div>
                     </div>`
                 ).join('');
@@ -2842,7 +2842,7 @@ const CollectionModule = (function() {
                     </div>
                     
                     <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
-                        <div class="binder-option" onclick="CollectionModule.showCreateBinderForMove('${cardId}', '${currentBinderId}')" style="padding: 1rem; border: 2px dashed var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s; text-align: center;" onmouseover="this.style.background='linear-gradient(135deg, #f0fff4 0%, #e6ffe6 100%)'; this.style.borderColor='#34c759';" onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)'">
+                        <div class="binder-option" onclick="CollectionModule.showCreateBinderForMove('${parseInt(cardId)}', '${parseInt(currentBinderId)}')" style="padding: 1rem; border: 2px dashed var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s; text-align: center;" onmouseover="this.style.background='linear-gradient(135deg, #f0fff4 0%, #e6ffe6 100%)'; this.style.borderColor='#34c759';" onmouseout="this.style.background='transparent'; this.style.borderColor='var(--border-color)'">
                             <div style="font-weight: 600; color: #34c759;">+ Create New Binder</div>
                         </div>
                     </div>

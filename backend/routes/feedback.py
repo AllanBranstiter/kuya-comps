@@ -86,7 +86,7 @@ async def submit_feedback(
     except ValueError as e:
         # Validation errors
         logger.warning(f"Validation error in feedback submission: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid feedback data")
 
     except Exception as e:
         # Database or other errors

@@ -115,8 +115,8 @@ async def get_profile(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[PROFILE] Error retrieving profile for user {current_user['sub']}: {e}")
-        raise HTTPException(500, f"Error retrieving profile: {str(e)}")
+        logger.exception(f"[PROFILE] Error retrieving profile for user {current_user['sub']}")
+        raise HTTPException(500, "An internal error occurred")
 
 
 @router.put("", response_model=ProfileResponse)
@@ -173,27 +173,15 @@ async def update_profile(
             logger.warning(f"[PROFILE] No fields to update for user {current_user['sub']}")
             raise HTTPException(400, "No fields provided for update")
 
-        # Check if profile exists
-        existing = supabase.table('profiles')\
-            .select('id')\
-            .eq('id', current_user['sub'])\
+        # Upsert profile to avoid race condition between check-then-insert
+        update_data['id'] = current_user['sub']
+        update_data['email'] = current_user.get('email', update_data.get('email'))
+        update_data['created_at'] = update_data.get('created_at', datetime.utcnow().isoformat())
+
+        logger.info(f"[PROFILE] Upserting profile for user {current_user['sub']}")
+        result = supabase.table('profiles')\
+            .upsert(update_data, on_conflict='id')\
             .execute()
-
-        if not existing.data or len(existing.data) == 0:
-            # Profile doesn't exist, create it
-            logger.info(f"[PROFILE] Creating new profile for user {current_user['sub']}")
-            update_data['id'] = current_user['sub']
-            update_data['email'] = current_user.get('email')
-            update_data['created_at'] = datetime.utcnow().isoformat()
-
-            result = supabase.table('profiles').insert(update_data).execute()
-        else:
-            # Profile exists, update it
-            logger.info(f"[PROFILE] Updating existing profile for user {current_user['sub']}")
-            result = supabase.table('profiles')\
-                .update(update_data)\
-                .eq('id', current_user['sub'])\
-                .execute()
 
         if not result.data or len(result.data) == 0:
             raise HTTPException(500, "Failed to update profile")
@@ -218,5 +206,5 @@ async def update_profile(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[PROFILE] Error updating profile for user {current_user['sub']}: {e}")
-        raise HTTPException(500, f"Error updating profile: {str(e)}")
+        logger.exception(f"[PROFILE] Error updating profile for user {current_user['sub']}")
+        raise HTTPException(500, "An internal error occurred")

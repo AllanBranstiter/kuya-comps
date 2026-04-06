@@ -119,9 +119,9 @@ class Card(Base):
     no_recent_sales = Column(Boolean, default=False, nullable=False)  # No sales found in last update
 
     # Quick Filter Flags (for FMV calculations)
-    exclude_lots = Column(Boolean, default=False, nullable=True)  # Filter out lot listings from FMV calculations
-    raw_only = Column(Boolean, default=False, nullable=True)  # Filter to only raw/ungraded listings
-    base_only = Column(Boolean, default=False, nullable=True)  # Filter to only base card listings
+    exclude_lots = Column(Boolean, default=False, nullable=False, server_default='0')  # Filter out lot listings from FMV calculations
+    raw_only = Column(Boolean, default=False, nullable=False, server_default='0')  # Filter to only raw/ungraded listings
+    base_only = Column(Boolean, default=False, nullable=False, server_default='0')  # Filter to only base card listings
 
     # Metadata
     tags = Column(Text, nullable=True)  # JSON array of user tags

@@ -14,6 +14,10 @@ from backend.config import (
 )
 validate_config()
 
+# Import logger early so it's available for Sentry init messages
+from backend.logging_config import get_logger
+_early_logger = get_logger(__name__)
+
 # Initialize Sentry for error monitoring (production only)
 sentry_dsn = get_sentry_dsn()
 if sentry_dsn:
@@ -34,23 +38,24 @@ if sentry_dsn:
         attach_stacktrace=True,
         before_send=lambda event, hint: event if is_production() else None,  # Only send in production
     )
-    print("[SENTRY] Error monitoring initialized")
+    _early_logger.info("Sentry error monitoring initialized")
 else:
-    print("[SENTRY] Error monitoring disabled (no DSN configured)")
+    _early_logger.info("Sentry error monitoring disabled (no DSN configured)")
 
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from backend.exceptions import KuyaCompsException
-from backend.logging_config import get_logger
 from backend.cache import CacheService
 from backend.config import (
     get_redis_url,
     get_cors_origins,
-    get_cors_allow_credentials
+    get_cors_allow_credentials,
+    is_development
 )
+from backend.middleware.admin_gate import get_current_admin_required
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -63,8 +68,8 @@ from backend.middleware.metrics import metrics
 from backend.routes import health, comps, fmv, market_messages, feedback, admin_feedback, collection_valuation, billing, admin, profile, grading_advisor
 from backend.routes import dev_log
 
-# Initialize logger for this module
-logger = get_logger(__name__)
+# Initialize logger for this module (reuse early import)
+logger = _early_logger
 
 
 # ============================================================================
@@ -193,7 +198,10 @@ app.include_router(admin.router, tags=["Admin Analytics"])
 
 # Grading advisor endpoints (/api/grading-advisor)
 app.include_router(grading_advisor.router, tags=["Grading Advisor"])
-app.include_router(dev_log.router, tags=["Dev Logging"])
+
+# Dev logging endpoints - only available in development
+if is_development():
+    app.include_router(dev_log.router, tags=["Dev Logging"])
 
 
 # ============================================================================
@@ -201,7 +209,7 @@ app.include_router(dev_log.router, tags=["Dev Logging"])
 # ============================================================================
 
 @app.get("/metrics", tags=["Monitoring"])
-async def get_metrics():
+async def get_metrics(admin: dict = Depends(get_current_admin_required)):
     """
     Get application performance metrics.
 

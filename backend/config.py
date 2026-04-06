@@ -9,6 +9,10 @@ import os
 import sys
 from typing import Optional, List
 
+from backend.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 # ============================================================================
 # Environment Configuration
@@ -185,7 +189,7 @@ def validate_config() -> None:
 
     if not all([ebay_app_id, ebay_dev_id, ebay_cert_id]):
         # Just warn, don't fail - app can run with SearchAPI only
-        print("[WARNING] eBay API credentials not fully configured. Active listings may not work.")
+        logger.warning("eBay API credentials not fully configured. Active listings may not work.")
 
     # Validate environment name
     env = get_environment()
@@ -205,29 +209,28 @@ def validate_config() -> None:
     # Production-specific validations
     if is_production():
         if not get_sentry_dsn():
-            print("[WARNING] SENTRY_DSN not configured. Error monitoring disabled in production.")
+            logger.warning("SENTRY_DSN not configured. Error monitoring disabled in production.")
 
         if get_log_format() != 'json':
-            print("[WARNING] LOG_FORMAT should be 'json' in production for better log aggregation.")
+            logger.warning("LOG_FORMAT should be 'json' in production for better log aggregation.")
 
     # Report errors
     if errors:
-        print("\n[ERROR] Configuration validation failed:")
+        logger.error("Configuration validation failed:")
         for error in errors:
-            print(f"  - {error}")
-        print("\nPlease check your .env file and ensure all required variables are set.")
-        print("See .env.example for reference.\n")
+            logger.error(f"  {error}")
+        logger.error("Please check your .env file and ensure all required variables are set.")
+        logger.error("See .env.example for reference.")
         sys.exit(1)
 
     # Print configuration summary
-    print(f"\n[CONFIG] Environment: {get_environment()}")
-    print(f"[CONFIG] Log Level: {get_log_level()}")
-    print(f"[CONFIG] Log Format: {get_log_format()}")
-    print(f"[CONFIG] Redis URL: {get_redis_url()}")
-    print(f"[CONFIG] CORS Origins: {', '.join(get_cors_origins())}")
+    logger.info(f"Environment: {get_environment()}")
+    logger.info(f"Log Level: {get_log_level()}")
+    logger.info(f"Log Format: {get_log_format()}")
+    logger.info(f"Redis URL: {get_redis_url()}")
+    logger.info(f"CORS Origins: {', '.join(get_cors_origins())}")
     if is_production() and get_sentry_dsn():
-        print("[CONFIG] Sentry: Enabled")
-    print()
+        logger.info("Sentry: Enabled")
 
 
 # ============================================================================

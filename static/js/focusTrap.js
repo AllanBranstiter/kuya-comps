@@ -8,7 +8,8 @@
 const FocusTrap = {
     trapElement: null,
     previousActiveElement: null,
-    
+    _boundHandler: null,
+
     /**
      * Activate focus trap on an element
      * @param {HTMLElement} element - The element to trap focus within
@@ -17,28 +18,32 @@ const FocusTrap = {
         // Store the previously focused element
         this.previousActiveElement = document.activeElement;
         this.trapElement = element;
-        
-        // Add event listener for tab key
-        document.addEventListener('keydown', this.handleKeyDown);
-        
+
+        // Store bound handler reference so we can remove the exact same listener
+        this._boundHandler = this.handleKeyDown.bind(this);
+        document.addEventListener('keydown', this._boundHandler);
+
         // Focus the first focusable element
         const focusableElements = this.getFocusableElements();
         if (focusableElements.length > 0) {
             focusableElements[0].focus();
         }
     },
-    
+
     /**
      * Deactivate focus trap
      */
     deactivate() {
-        document.removeEventListener('keydown', this.handleKeyDown);
-        
+        if (this._boundHandler) {
+            document.removeEventListener('keydown', this._boundHandler);
+            this._boundHandler = null;
+        }
+
         // Restore focus to the previously focused element
         if (this.previousActiveElement) {
             this.previousActiveElement.focus();
         }
-        
+
         this.trapElement = null;
         this.previousActiveElement = null;
     },

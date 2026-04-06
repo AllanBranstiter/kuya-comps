@@ -15,6 +15,10 @@ from typing import List, Optional
 
 import httpx
 
+from backend.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = "google/gemini-2.0-flash-lite-001"       # used for >40 listings
@@ -104,7 +108,7 @@ def _score_chunk(query: str, titles: List[str], key: str, model: str) -> Optiona
 
     scores = _extract_json_array(content)
     if scores is None:
-        print(f"[RELEVANCE] Could not extract JSON array from LLM response ({len(content)} chars): {content[:200]}")
+        logger.error(f"Could not extract JSON array from LLM response ({len(content)} chars): {content[:200]}")
         return None
     if not isinstance(scores, list):
         return None
@@ -143,7 +147,7 @@ def score_listing_relevance(
     # Get API key
     key = api_key or os.environ.get("OPENROUTER_API_KEY")
     if not key:
-        print("[RELEVANCE] No OPENROUTER_API_KEY found, skipping AI scoring")
+        logger.warning("No OPENROUTER_API_KEY found, skipping AI scoring")
         return fallback
 
     # Extract titles
@@ -157,7 +161,7 @@ def score_listing_relevance(
 
     # Select model based on result count
     model = OPENROUTER_MODEL_LITE if len(items) <= OPENROUTER_SMALL_THRESHOLD else OPENROUTER_MODEL
-    print(f"[RELEVANCE] Using model: {model} ({len(items)} listings)")
+    logger.info(f"Using model: {model} ({len(items)} listings)")
 
     # Process in chunks to avoid LLM output length issues
     all_scores = []
@@ -177,11 +181,11 @@ def score_listing_relevance(
                 chunks_failed += 1
         except (httpx.TimeoutException, json.JSONDecodeError, KeyError,
                 IndexError, ValueError) as e:
-            print(f"[RELEVANCE] Chunk {chunk_start}-{chunk_start+len(chunk_titles)} failed: {e}")
+            logger.error(f"Chunk {chunk_start}-{chunk_start+len(chunk_titles)} failed: {e}")
             all_scores.extend([1.0] * len(chunk_titles))
             chunks_failed += 1
         except Exception as e:
-            print(f"[RELEVANCE] Chunk {chunk_start}-{chunk_start+len(chunk_titles)} unexpected error: {e}")
+            logger.error(f"Chunk {chunk_start}-{chunk_start+len(chunk_titles)} unexpected error: {e}")
             all_scores.extend([1.0] * len(chunk_titles))
             chunks_failed += 1
 
@@ -190,8 +194,8 @@ def score_listing_relevance(
     low_scores = sum(1 for s in all_scores if s < 0.5)
     mean_score = sum(all_scores) / len(all_scores) if all_scores else 1.0
 
-    print(f"[RELEVANCE] Scored {len(all_scores)} listings in {elapsed:.1f}s "
-          f"({total_chunks} chunks, {chunks_failed} failed, "
-          f"mean={mean_score:.2f}, {low_scores} below 0.5)")
+    logger.info(f"Scored {len(all_scores)} listings in {elapsed:.1f}s "
+                f"({total_chunks} chunks, {chunks_failed} failed, "
+                f"mean={mean_score:.2f}, {low_scores} below 0.5)")
 
     return all_scores

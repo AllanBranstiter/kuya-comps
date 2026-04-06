@@ -115,6 +115,8 @@ async def scrape_sold_comps(
                 "page": page,
                 "ebay_domain": "ebay.com",
                 "sort_by": sort_by,
+                # SearchAPI.io requires the API key as a query parameter per their docs.
+                # Header-based auth is not currently supported by their API.
                 "api_key": api_key,
             }
 
@@ -345,6 +347,8 @@ def scrape_active_listings(
             "page": page,
             "ebay_domain": "ebay.com",
             "sort_by": sort_by,
+            # SearchAPI.io requires the API key as a query parameter per their docs.
+            # Header-based auth is not currently supported by their API.
             "api_key": api_key,
         }
 

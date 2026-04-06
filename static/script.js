@@ -2278,7 +2278,7 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
           <div class="error-icon">⚠️</div>
           <div class="error-content">
             <h4>Search Failed</h4>
-            <p>${err.message}</p>
+            <p>${escapeHtml(err.message)}</p>
           </div>
         </div>
       `;

@@ -253,8 +253,9 @@ function toggleElement(element, animate = false) {
  * @param {string} html - HTML content
  */
 function setInnerHTMLSafe(element, html) {
-    // Use the existing escapeHtml function if needed for user content
-    // For now, just set directly but this is a placeholder for sanitization
+    // SECURITY NOTE: This function does NOT sanitize the html parameter.
+    // Callers must pre-escape any user-supplied content with escapeHtml()
+    // before including it in the html string passed here.
     element.innerHTML = html;
 }
 

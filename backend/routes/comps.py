@@ -118,7 +118,7 @@ async def get_comps(
                 duration_ms=round(duration_ms, 2),
                 cache_key=cache_key
             )
-            print(f"[CACHE HIT] Returning cached data for sold listings: {params.query}")
+            logger.info(f"[CACHE HIT] Returning cached data for sold listings: {params.query}")
             return CompsResponse(**cached_response)
 
     # Cache miss - log it
@@ -131,11 +131,11 @@ async def get_comps(
         query=params.query,
         cache_key=cache_key
     )
-    print(f"[CACHE MISS] Scraping fresh data for sold listings: {params.query}")
+    logger.info(f"[CACHE MISS] Scraping fresh data for sold listings: {params.query}")
 
     try:
         if params.test_mode:
-            print("[INFO] Using test mode with CSV data")
+            logger.info("[INFO] Using test mode with CSV data")
             raw_items = load_test_data()
         else:
             # Check if API key is configured
@@ -180,7 +180,7 @@ async def get_comps(
                 if params.raw_only:
                     # Filter out items with "Graded" in the condition field
                     if condition == 'graded':
-                        print(f"[RAW ONLY] Filtered graded item: {item.get('item_id')} - condition={item.get('condition')}")
+                        logger.debug(f"[RAW ONLY] Filtered graded item: {item.get('item_id')} - condition={item.get('condition')}")
                         continue
                     # Check title for grading company names and specific grading terms
                     # Note: Removed 'mint' from filter as it catches legitimate ungraded "mint condition" cards
@@ -284,7 +284,7 @@ async def get_comps(
             )
 
     # Remove duplicates based on item_id and filter out zero-price items
-    print(f"[INFO] Processing {len(raw_items)} raw items from scraper")
+    logger.info(f"[INFO] Processing {len(raw_items)} raw items from scraper")
 
     unique_items = []
     seen_item_ids = set()
@@ -297,11 +297,11 @@ async def get_comps(
 
         # DIAGNOSTIC: Log first 3 items to see what we're getting
         if idx < 3:
-            print(f"[DIAGNOSTIC] Item {idx} before filtering:")
-            print(f"  - item_id: {item_id}")
-            print(f"  - price field: {item.get('price')}")
-            print(f"  - extracted_price field: {item.get('extracted_price')}")
-            print(f"  - Item keys: {list(item.keys())[:15]}")
+            logger.debug(f"[DIAGNOSTIC] Item {idx} before filtering:")
+            logger.debug(f"  - item_id: {item_id}")
+            logger.debug(f"  - price field: {item.get('price')}")
+            logger.debug(f"  - extracted_price field: {item.get('extracted_price')}")
+            logger.debug(f"  - Item keys: {list(item.keys())[:15]}")
 
         # Skip items without item_id
         if not item_id:
@@ -318,19 +318,19 @@ async def get_comps(
         if extracted_price is None or extracted_price <= 0:
             zero_price_removed += 1
             if idx < 3:  # Log why first items are rejected
-                print(f"[DIAGNOSTIC] Item {idx} REJECTED: extracted_price={extracted_price} (price field was: {item.get('price')})")
+                logger.debug(f"[DIAGNOSTIC] Item {idx} REJECTED: extracted_price={extracted_price} (price field was: {item.get('price')})")
             continue
 
         # Item passed all filters
         unique_items.append(item)
         seen_item_ids.add(item_id)
 
-    print("[INFO] Data filtering results:")
-    print(f"  - Raw items: {len(raw_items)}")
-    print(f"  - Removed {duplicates_removed} duplicates")
-    print(f"  - Removed {zero_price_removed} zero-price items")
-    print(f"  - Removed {no_item_id_removed} items without item_id")
-    print(f"  - Final clean items: {len(unique_items)}")
+    logger.info("Data filtering results:")
+    logger.info(f"  - Raw items: {len(raw_items)}")
+    logger.info(f"  - Removed {duplicates_removed} duplicates")
+    logger.info(f"  - Removed {zero_price_removed} zero-price items")
+    logger.info(f"  - Removed {no_item_id_removed} items without item_id")
+    logger.info(f"  - Final clean items: {len(unique_items)}")
 
     # Convert raw items to CompItems with proper buying format flags
     comp_items = []
@@ -351,10 +351,10 @@ async def get_comps(
         # Generate deep link for mobile app navigation
         item_id = item.get('item_id')
         if item_id:
-            print(f"[SOLD LISTING] Processing item_id: {item_id} (type: {type(item_id).__name__})")
+            logger.debug(f"[SOLD LISTING] Processing item_id: {item_id} (type: {type(item_id).__name__})")
             item['deep_link'] = generate_ebay_deep_link(item_id)
         else:
-            print(f"[SOLD LISTING] WARNING: No item_id for item: {item.get('title', 'N/A')[:50]}")
+            logger.warning(f"[SOLD LISTING] No item_id for item: {item.get('title', 'N/A')[:50]}")
             item['deep_link'] = None
 
         comp_items.append(CompItem(**item))
@@ -414,15 +414,15 @@ async def get_comps(
             ttl=CACHE_TTL_SOLD
         )
         if cache_stored:
-            print(f"[CACHE SET] Stored sold listings in cache: {params.query} (TTL: 30 min)")
+            logger.info(f"[CACHE SET] Stored sold listings in cache: {params.query} (TTL: 30 min)")
         else:
-            print("[CACHE SET] Failed to store sold listings in cache (continuing without cache)")
+            logger.warning("[CACHE SET] Failed to store sold listings in cache (continuing without cache)")
 
     # Save search log to disk (JSON + CSV)
     try:
         save_search("sold", response_data)
     except Exception as log_err:
-        print(f"[SEARCH LOG] Warning: failed to save log: {log_err}")
+        logger.warning(f"[SEARCH LOG] Failed to save log: {log_err}")
 
     return response_data
 
@@ -489,7 +489,7 @@ async def get_active_listings(
             duration_ms=round(duration_ms, 2),
             cache_key=cache_key
         )
-        print(f"[CACHE HIT] Returning cached data for active listings: {params.query}")
+        logger.info(f"[CACHE HIT] Returning cached data for active listings: {params.query}")
         return CompsResponse(**cached_response)
 
     # Cache miss - log it
@@ -502,13 +502,13 @@ async def get_active_listings(
         query=params.query,
         cache_key=cache_key
     )
-    print(f"[CACHE MISS] Scraping fresh data for active listings: {params.query}")
+    logger.info(f"[CACHE MISS] Scraping fresh data for active listings: {params.query}")
 
     try:
         # Always use official eBay Browse API for active listings
-        print("[INFO] Using official eBay Browse API for active listings")
-        print(f"[INFO] Query: {params.query}")
-        print(f"[INFO] Sort: {params.sort_by}, Pages: {params.pages}")
+        logger.info("Using official eBay Browse API for active listings")
+        logger.info(f"Query: {params.query}")
+        logger.info(f"Sort: {params.sort_by}, Pages: {params.pages}")
 
         raw_items = await scrape_active_listings_ebay_api(
             query=params.query,
@@ -522,13 +522,13 @@ async def get_active_listings(
             enrich_shipping=True,  # Fetch detailed shipping info when missing from search results
         )
 
-        print(f"[INFO] Browse API returned {len(raw_items)} raw items")
+        logger.info(f"Browse API returned {len(raw_items)} raw items")
 
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"[ERROR] Active listings failed: {e}")
-        print(f"[ERROR] Traceback: {error_details}")
+        logger.error(f"Active listings failed: {e}")
+        logger.error(f"Traceback: {error_details}")
 
         # Determine error type and raise appropriate custom exception
         error_message = str(e)
@@ -562,12 +562,12 @@ async def get_active_listings(
             )
 
     # Remove duplicates and filter
-    print(f"[INFO] Processing {len(raw_items)} raw active listings from scraper")
+    logger.info(f"Processing {len(raw_items)} raw active listings from scraper")
 
     # Debug: Show sample of first few items
     if raw_items and len(raw_items) > 0:
-        print(f"[DEBUG] Sample item keys from Browse API: {list(raw_items[0].keys())[:10]}")
-        print(f"[DEBUG] Sample price data: extracted_price={raw_items[0].get('extracted_price')}, price={raw_items[0].get('price')}")
+        logger.debug(f"Sample item keys from Browse API: {list(raw_items[0].keys())[:10]}")
+        logger.debug(f"Sample price data: extracted_price={raw_items[0].get('extracted_price')}, price={raw_items[0].get('price')}")
 
     unique_items = []
     seen_item_ids = set()
@@ -580,7 +580,7 @@ async def get_active_listings(
 
         if not item_id:
             no_item_id_removed += 1
-            print(f"[DEBUG] Filtered item without item_id: title={item.get('title', 'N/A')[:50]}")
+            logger.debug(f"Filtered item without item_id: title={item.get('title', 'N/A')[:50]}")
             continue
 
         if item_id in seen_item_ids:
@@ -590,18 +590,18 @@ async def get_active_listings(
         extracted_price = item.get('extracted_price')
         if extracted_price is None or extracted_price <= 0:
             zero_price_removed += 1
-            print(f"[DEBUG] Filtered zero-price item: {item_id}, price={extracted_price}, title={item.get('title', 'N/A')[:50]}")
+            logger.debug(f"Filtered zero-price item: {item_id}, price={extracted_price}, title={item.get('title', 'N/A')[:50]}")
             continue
 
         unique_items.append(item)
         seen_item_ids.add(item_id)
 
-    print("[INFO] Active listings filtering results:")
-    print(f"  - Raw items: {len(raw_items)}")
-    print(f"  - Removed {duplicates_removed} duplicates")
-    print(f"  - Removed {zero_price_removed} zero-price items")
-    print(f"  - Removed {no_item_id_removed} items without item_id")
-    print(f"  - Final clean items: {len(unique_items)}")
+    logger.info("Active listings filtering results:")
+    logger.info(f"  - Raw items: {len(raw_items)}")
+    logger.info(f"  - Removed {duplicates_removed} duplicates")
+    logger.info(f"  - Removed {zero_price_removed} zero-price items")
+    logger.info(f"  - Removed {no_item_id_removed} items without item_id")
+    logger.info(f"  - Final clean items: {len(unique_items)}")
 
     # Convert to CompItems
     comp_items = []
@@ -618,10 +618,10 @@ async def get_active_listings(
         # Generate deep link for mobile app navigation
         item_id = item.get('item_id')
         if item_id:
-            print(f"[ACTIVE LISTING] Processing item_id: {item_id} (type: {type(item_id).__name__})")
+            logger.debug(f"[ACTIVE LISTING] Processing item_id: {item_id} (type: {type(item_id).__name__})")
             item['deep_link'] = generate_ebay_deep_link(item_id)
         else:
-            print(f"[ACTIVE LISTING] WARNING: No item_id for item: {item.get('title', 'N/A')[:50]}")
+            logger.warning(f"[ACTIVE LISTING] No item_id for item: {item.get('title', 'N/A')[:50]}")
             item['deep_link'] = None
 
         comp_items.append(CompItem(**item))
@@ -676,14 +676,14 @@ async def get_active_listings(
         ttl=CACHE_TTL_ACTIVE
     )
     if cache_stored:
-        print(f"[CACHE SET] Stored active listings in cache: {params.query} (TTL: 5 min)")
+        logger.info(f"[CACHE SET] Stored active listings in cache: {params.query} (TTL: 5 min)")
     else:
-        print("[CACHE SET] Failed to store active listings in cache (continuing without cache)")
+        logger.warning("[CACHE SET] Failed to store active listings in cache (continuing without cache)")
 
     # Save search log to disk (JSON + CSV)
     try:
         save_search("active", response_data)
     except Exception as log_err:
-        print(f"[SEARCH LOG] Warning: failed to save log: {log_err}")
+        logger.warning(f"[SEARCH LOG] Failed to save log: {log_err}")
 
     return response_data

@@ -16,6 +16,7 @@ from typing import List, Optional, Tuple, Dict
 from datetime import datetime
 from decimal import Decimal
 import asyncio
+import numpy as np
 
 from backend.database.schema import Card
 from backend.services.collection_service import (
@@ -116,10 +117,7 @@ def remove_outliers_iqr(prices: List[float]) -> Tuple[List[float], int]:
     n = len(sorted_prices)
 
     # Calculate quartiles
-    q1_idx = n // 4
-    q3_idx = 3 * n // 4
-    q1 = sorted_prices[q1_idx]
-    q3 = sorted_prices[q3_idx]
+    q1, q3 = np.percentile(sorted_prices, [25, 75])
     iqr = q3 - q1
 
     # Define outlier bounds

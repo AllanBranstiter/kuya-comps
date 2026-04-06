@@ -15,6 +15,9 @@ from pydantic import BaseModel
 from typing import Optional
 
 from backend.services.search_log_service import append_analytics_snapshot
+from backend.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -72,5 +75,5 @@ def post_analytics_snapshot(snapshot: AnalyticsSnapshot):
         )
         return {"success": found, "query": snapshot.query}
     except Exception as e:
-        print(f"[DEV LOG] analytics-snapshot error (non-fatal): {e}")
+        logger.error(f"analytics-snapshot error (non-fatal): {e}")
         return {"success": False, "error": str(e)}
