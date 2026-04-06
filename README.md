@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v0.9.0
+# eBay Baseball Card Comps Tool v1.0.0
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations, intelligent deal-finding, and a personal card collection tracker with automatic price history.
 
@@ -13,6 +13,7 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Bid/Ask Market Structure**: Stock-market-style display showing what buyers paid (bid) vs. what sellers are asking (ask), with spread signal
 *   **Collectibility Score**: 1–10 score using continuous log-scaled price, volume, and scarcity components
 *   **AI Relevance Scoring**: LLM-powered listing filter — each sold and active listing is scored 0.0–1.0 for relevance to the search query; low-relevance listings (wrong card, wrong grade, lots) have minimal weight in FMV
+*   **AI Market Summary**: After each search, a plain-English summary describes current market conditions, price direction, and deal opportunities — including a callout when active listings are available below market value
 *   **Interactive Visualization**: Beeswarm chart showing sold (blue) and active (red) price distributions
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
 
@@ -233,6 +234,19 @@ See [`docs/SECURITY.md`](docs/SECURITY.md) for full security guidelines.
 *   **Middleware Optimization**: Reverse execution order of `add_middleware()` calls
 
 ## Version History
+
+### Version 1.0.0 (AI Market Summary)
+
+**AI Market Summary (`market_summary_service.py`):**
+- New `backend/services/market_summary_service.py` — generates a 2–3 sentence plain-English summary of market conditions after each FMV calculation
+- Summary covers price direction (going up or going down), what a fair price looks like, and how easy it is to buy or sell right now
+- Alerts collectors when active listings are available below market value, including the lowest price found
+- Quality gate: skips generation when data is insufficient (fewer than 3 sold comps, Insufficient Data confidence band, confidence score below 30)
+- Signal gate: only runs when at least one meaningful condition is present (active listings exist, low liquidity, or moderate-or-lower confidence)
+- Model selection by user tier: Founders get `anthropic/claude-sonnet-4-5`; all other users get `google/gemini-2.0-flash-001` via OpenRouter
+- Graceful degradation: any failure (missing API key, timeout, API error) returns `None` silently — FMV result is never affected
+- `FmvResponse` schema updated with `market_summary: Optional[str]` field
+- Frontend renders a styled panel below the FMV card when a summary is present
 
 ### Version 0.9.0 (AI Relevance Scoring & Analytics Score Engine)
 

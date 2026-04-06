@@ -255,7 +255,10 @@ def append_analytics_snapshot(query: str, snapshot: dict) -> bool:
     """
     slug = _sanitize(query)
     pattern = f"sold_{slug}_*.json"
-    matches = sorted(SEARCH_LOGS_DIR.glob(pattern), reverse=True)
+    matches = sorted(
+        (p for p in SEARCH_LOGS_DIR.glob(pattern) if "_analytics" not in p.name),
+        reverse=True,
+    )
 
     if not matches:
         logger.warning(f"No sold log found for query: {query}")

@@ -129,6 +129,7 @@ class FmvResponse(BaseModel):
     analytics_scores: Optional[Dict] = None  # Analytics scores (confidence, pressure, liquidity, collectibility)
     sold_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for sold items
     active_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for active items
+    market_summary: Optional[str] = None
 
 
 class MarketMessageRequest(BaseModel):
