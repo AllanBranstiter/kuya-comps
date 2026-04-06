@@ -267,42 +267,31 @@ const FALLBACK_POPUP_MARKET_CONFIDENCE = {
 };
 
 const FALLBACK_POPUP_LIQUIDITY_RISK = {
-    title: "💧 Understanding Liquidity Risk",
+    title: "📊 Understanding Market Activity",
     sections: [
-        { type: "text", content: "Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value." },
+        { type: "text", content: "Market Activity measures how much recent sales activity exists relative to current supply. It describes the market landscape — not how fast your specific listing will sell." },
         { type: "header", content: "Absorption Ratio" },
-        { type: "formula", content: "Completed Sales / Active Listings" },
-        { type: "text", content: "<em>Measures demand vs supply based on recent completed sales and current Buy It Now listings.</em>" },
-        { type: "header", content: "How Absorption Converts to Liquidity Score" },
-        { type: "text", content: "The 0-100 liquidity score is calculated from the absorption ratio:" },
-        {
-            type: "list",
-            items: [
-                "<strong>Ratio ≥ 1.0:</strong> Score ranges from 80-100 (increases by 20 points per 1.0 ratio increase)",
-                "<strong>Ratio 0.5-1.0:</strong> Score ranges from 50-79 (linear scale)",
-                "<strong>Ratio 0.2-0.5:</strong> Score ranges from 25-49 (linear scale)",
-                "<strong>Ratio < 0.2:</strong> Score ranges from 10-24 (linear scale down to minimum of 10)"
-            ]
-        },
-        { type: "header", content: "Liquidity Bands" },
+        { type: "formula", content: "Recent Sales (decay-weighted) / Active Buy It Now Listings" },
+        { type: "text", content: "<em>A ratio above 1.0 means recent sales outpace current supply. Below 1.0 means more supply than recent sales activity.</em>" },
+        { type: "header", content: "Activity Tiers" },
         {
             type: "bands",
             items: [
-                { icon: "🟢", title: "Ratio ≥ 1.0 (HIGH LIQUIDITY)", color: "#34c759", meaning: "Demand exceeds supply - cards sell quickly.", action: "Price competitively to capture demand. Quick exits are likely." },
-                { icon: "🔵", title: "Ratio 0.5-1.0 (MODERATE)", color: "#007aff", meaning: "Balanced market with healthy liquidity.", action: "Normal market conditions - expect reasonable sell time." },
-                { icon: "🟠", title: "Ratio 0.2-0.5 (LOW LIQUIDITY)", color: "#ff9500", meaning: "Slow absorption - elevated exit risk.", action: "May need patience or competitive pricing to attract buyers." },
-                { icon: "🔴", title: "Ratio < 0.2 (VERY LOW)", color: "#ff3b30", meaning: "Illiquid market - high exit risk.", action: "Consider pricing at or below FMV to attract buyers." }
+                { icon: "🟢", title: "Ratio ≥ 1.0 (BUYERS ARE ACTIVE)", color: "#34c759", meaning: "Recent sales are outpacing active listings — demand is strong relative to current supply.", action: "Healthy market conditions for sellers. Competitive pricing is rewarded." },
+                { icon: "🔵", title: "Ratio 0.5–1.0 (MODERATE ACTIVITY)", color: "#007aff", meaning: "Balanced market — sales activity and supply are reasonably matched.", action: "Normal market conditions. No strong signal in either direction." },
+                { icon: "🟠", title: "Ratio 0.2–0.5 (MORE SELLERS THAN BUYERS)", color: "#ff9500", meaning: "Active listings outnumber recent sales — buyers have plenty of options.", action: "A crowded market. Pricing toward the lower end of the FMV range may attract more attention." },
+                { icon: "🔴", title: "Ratio < 0.2 (FEW ACTIVE BUYERS)", color: "#ff3b30", meaning: "Very few recent sales relative to current supply — a thin market.", action: "Proceed cautiously. Both the FMV and the selling environment carry more uncertainty here." }
             ]
         },
         { type: "header", content: "💡 Key Principle" },
-        { type: "text", content: "Liquidity Risk does NOT modify FMV. It tells you how easy it will be to sell at that price. High FMV with low liquidity means the card is valuable but may take time to sell." },
-        { type: "header", content: "📊 Data Confidence" },
+        { type: "text", content: "Market Activity does NOT predict how fast your listing will sell. Sell speed depends on your ask price, listing quality, and timing — none of which this metric can measure. It describes the market environment, not your outcome." },
+        { type: "header", content: "📊 Data Coverage" },
         {
             type: "list",
             items: [
-                "<strong>High:</strong> 10+ sales AND 10+ active listings",
-                "<strong>Medium:</strong> 5+ sales AND 5+ active listings",
-                "<strong>Low:</strong> Below medium thresholds (use with caution)"
+                "<strong>More reliable:</strong> 10+ recent sales AND 10+ active listings",
+                "<strong>Reasonable:</strong> 5+ recent sales AND 5+ active listings",
+                "<strong>Use with caution:</strong> Below these thresholds"
             ]
         }
     ]
@@ -631,7 +620,7 @@ function calculateLiquidityRisk(soldData, activeData) {
         statusColor = '#34c759';
         gradient = 'linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%)';
         border = '#99ff99';
-        message = 'Demand exceeds supply - cards likely sell quickly';
+        message = 'Recent sales are outpacing active listings — strong buyer activity';
     } else if (absorptionRatio >= 0.5) {
         // Moderate Liquidity: 50-79 range
         score = 50 + (absorptionRatio - 0.5) * 60;
@@ -639,7 +628,7 @@ function calculateLiquidityRisk(soldData, activeData) {
         statusColor = '#007aff';
         gradient = 'linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%)';
         border = '#99daff';
-        message = 'Balanced market - expect reasonable sell time';
+        message = 'Balanced market — sales activity and supply are reasonably matched';
     } else if (absorptionRatio >= 0.2) {
         // Low Liquidity: 25-49 range
         score = 25 + (absorptionRatio - 0.2) * 83;
@@ -647,7 +636,7 @@ function calculateLiquidityRisk(soldData, activeData) {
         statusColor = '#ff9500';
         gradient = 'linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%)';
         border = '#ffd699';
-        message = 'Slow absorption - may need patience or competitive pricing';
+        message = 'Active listings outnumber recent sales — buyers have plenty of options';
     } else {
         // Very Low Liquidity: 10-24 range
         score = Math.max(10, absorptionRatio * 125);
@@ -655,7 +644,7 @@ function calculateLiquidityRisk(soldData, activeData) {
         statusColor = '#ff3b30';
         gradient = 'linear-gradient(135deg, #ffebee 0%, #ffcccc 100%)';
         border = '#ff9999';
-        message = 'High exit risk - consider pricing at or below FMV';
+        message = 'Very few recent buyers relative to current supply — a thin market';
     }
     
     console.log('[LIQUIDITY RISK] Result:', {
@@ -2671,11 +2660,11 @@ function renderFallbackMarketAssessment(marketPressure, liquidityRisk, priceBand
         color = '#34c759';
         gradient = 'linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)';
         border = '#99e6b8';
-        message = `Cards are priced ${Math.abs(marketPressure).toFixed(1)}% below Fair Market Value with strong demand (liquidity: ${liquidityScore}/100). This is a favorable buying opportunity.`;
+        message = `Cards are priced ${Math.abs(marketPressure).toFixed(1)}% below Fair Market Value with strong recent sales activity (market activity: ${liquidityScore}/100). This is a favorable buying opportunity.`;
         advice = {
-            collector: ['This is one of the better times to buy if you\'re optimistic about the player\'s potential', 'You\'re entering below fair value in a market with real demand.', 'Acting sooner usually beats waiting in conditions like this.'],
-            seller: ['You could be leaving money on the table at current prices—consider your opinion of the player\'s potential', 'Expect fast sales, even if you raise your price slightly.', 'If you\'re listing now, consider pricing closer to fair value—or just above it.'],
-            flipper: ['This is an excellent setup.', 'Buy quickly at current prices and aim for fast resale.', 'Delays matter here—once sellers adjust, margins shrink.']
+            collector: ['This is one of the better times to buy if you\'re optimistic about the player\'s potential', 'You\'re entering below fair value in a market with active recent sales.', 'Acting sooner usually beats waiting in conditions like this.'],
+            seller: ['Current asks are below recent sales — pricing at or near fair value is well-supported by market data.', 'Consider pricing closer to fair value to benefit from the gap.', 'If you\'re listing now, pricing closer to fair value—or just above it—is reasonable.'],
+            flipper: ['This is an excellent setup.', 'Buy at current prices before sellers adjust to the gap.', 'Delays matter here — once sellers reprice, margins shrink.']
         };
     }
     // Healthy market
@@ -2905,22 +2894,22 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     const askMedian  = askCount >= 1 ? askPricesRaw[Math.floor(askCount / 2)]                           : null;
     const askP90     = askCount >= 2 ? askPricesRaw[Math.min(askCount - 1, Math.floor(askCount * 0.9))] : (askCount === 1 ? askPricesRaw[0] : null);
 
-    // Bid/Ask spread (ask median vs FMV market value)
+    // Price gap (ask median vs FMV market value)
     const spreadAmount = (askMedian != null && marketValue) ? askMedian - marketValue : null;
     const spreadPct    = (spreadAmount != null && marketValue) ? (spreadAmount / marketValue) * 100 : null;
     let spreadSignal, spreadColor;
     if (spreadPct === null) {
-        spreadSignal = 'Insufficient data'; spreadColor = '#8e8e93';
+        spreadSignal = 'No active listings to compare'; spreadColor = '#8e8e93';
     } else if (spreadPct < 0) {
-        spreadSignal = 'Sellers pricing below recent comps'; spreadColor = '#34c759';
+        spreadSignal = 'Sellers are asking less than recent sales'; spreadColor = '#34c759';
     } else if (spreadPct <= 10) {
-        spreadSignal = 'Tight spread — strong market consensus'; spreadColor = '#34c759';
+        spreadSignal = 'Sellers and buyers agree on price'; spreadColor = '#34c759';
     } else if (spreadPct <= 25) {
-        spreadSignal = 'Normal pricing friction'; spreadColor = '#ff9500';
+        spreadSignal = 'Sellers are asking a bit more than recent sales'; spreadColor = '#ff9500';
     } else if (spreadPct <= 50) {
-        spreadSignal = 'Seller optimism — buyers may need to wait'; spreadColor = '#ff6d00';
+        spreadSignal = 'Sellers are asking significantly more than recent sales'; spreadColor = '#ff6d00';
     } else {
-        spreadSignal = 'Wide spread — significant seller overpricing'; spreadColor = '#ff3b30';
+        spreadSignal = 'Sellers are asking much more than recent sales'; spreadColor = '#ff3b30';
     }
 
     // --- Collectibility Score (1-10) — prefer backend, fallback to client-side ---
@@ -2931,11 +2920,9 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
         collectibilityScore = backendScores.collectibility.score;
     } else {
         collectibilityScore = (() => {
-            const priceScore  = marketValue <= 5 ? 1 : marketValue <= 100 ? 2 : marketValue <= 1000 ? 3 : 4;
-            const volumeScore = soldCount >= 50 ? 3 : soldCount >= 20 ? 2 : soldCount >= 5 ? 1 : 0;
-            const ratio       = soldCount > 0 ? activeCount / soldCount : 10;
-            const scarcityScore = ratio <= 0.25 ? 3 : ratio <= 0.75 ? 2 : ratio <= 1.5 ? 1 : 0;
-            return Math.max(1, Math.min(10, priceScore + volumeScore + scarcityScore));
+            const priceScore  = marketValue <= 5 ? 1 : marketValue <= 100 ? 2 : marketValue <= 1000 ? 4 : 6;
+            const volumeScore = soldCount >= 50 ? 4 : soldCount >= 20 ? 3 : soldCount >= 5 ? 1 : 0;
+            return Math.max(1, Math.min(10, priceScore + volumeScore));
         })();
     }
     const collectibilityTier =
@@ -2947,33 +2934,26 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
     const collectibilityScenario = (() => {
         const highFMV    = marketValue > 100;
         const highVolume = soldCount >= 20;
-        const highSupply = activeCount >= 15;
-        if (!highFMV && !highVolume && !highSupply) return 'Minimal collector interest';
-        if (!highFMV && !highVolume &&  highSupply) return 'Common card — low hobby interest';
-        if (!highFMV &&  highVolume &&  highSupply) return 'Common card — high turnover';
-        if ( highFMV && !highVolume && !highSupply) return 'Rare and scarce — strong desirability';
-        if ( highFMV &&  highVolume && !highSupply) return 'Blue chip — exceptional collector demand';
-        if ( highFMV && !highVolume &&  highSupply) return 'Possible declining demand';
-        return 'Active market — sustained collector interest';
+        if ( highFMV &&  highVolume) return 'Blue chip — high value with an established, active market';
+        if ( highFMV && !highVolume) return 'High-value card with limited market depth';
+        if (!highFMV &&  highVolume) return 'Popular card — broad collector base, high turnover';
+        return 'Minimal collector interest';
     })();
 
     // Calculate Market Pressure % — prefer backend, fallback to client-side
     let marketPressure = null;
     let medianAskingPrice = null;
-    let marketPressureStatus = null;
     let marketPressureLabel = null;
     let marketPressureColor = null;
     let marketPressureGradient = null;
     let marketPressureBorder = null;
     let sampleSize = 0;
-    let dataConfidence = 'N/A';
 
     if (backendScores && backendScores.pressure && backendScores.pressure.pressure_pct != null) {
         // Use backend-computed pressure
         marketPressure = backendScores.pressure.pressure_pct;
         medianAskingPrice = backendScores.pressure.median_ask;
         sampleSize = backendScores.pressure.sample_size || 0;
-        dataConfidence = sampleSize >= 10 ? 'High' : sampleSize >= 5 ? 'Medium' : sampleSize > 0 ? 'Low' : 'N/A';
     } else if (activeData && activeData.items && activeData.items.length > 0) {
         // Client-side fallback
         const sellerPrices = {};
@@ -2993,46 +2973,32 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             askingPrices = filterOutliers(askingPrices);
         }
         sampleSize = askingPrices.length;
-        dataConfidence = sampleSize >= 10 ? 'High' : sampleSize >= 5 ? 'Medium' : sampleSize > 0 ? 'Low' : 'N/A';
         if (askingPrices.length > 0) {
             medianAskingPrice = calculateWeightedMedian(askingPrices);
             marketPressure = ((medianAskingPrice - marketValue) / marketValue) * 100;
         }
     }
 
-    // Assign status bands based on pressure value
+    // Assign plain-English label based on pressure value
     if (marketPressure != null) {
-        if (marketPressure >= 0 && marketPressure <= 15) {
-            marketPressureStatus = 'HEALTHY';
-            marketPressureLabel = 'Healthy pricing friction';
-            marketPressureColor = '#34c759';
-            marketPressureGradient = 'linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%)';
-            marketPressureBorder = '#99ff99';
+        if (Math.abs(marketPressure) <= 1) {
+            marketPressureLabel = 'Asking prices match recent sales.';
+        } else if (marketPressure > 1 && marketPressure <= 15) {
+            marketPressureLabel = 'Sellers are asking slightly above recent sales prices.';
         } else if (marketPressure > 15 && marketPressure <= 30) {
-            marketPressureStatus = 'OPTIMISTIC';
-            marketPressureLabel = 'Seller optimism';
-            marketPressureColor = '#007aff';
-            marketPressureGradient = 'linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%)';
-            marketPressureBorder = '#99daff';
+            marketPressureLabel = 'Sellers are asking noticeably more than recent sales.';
         } else if (marketPressure > 30 && marketPressure <= 50) {
-            marketPressureStatus = 'RESISTANCE';
-            marketPressureLabel = 'Market resistance';
-            marketPressureColor = '#ff9500';
-            marketPressureGradient = 'linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%)';
-            marketPressureBorder = '#ffd699';
+            marketPressureLabel = 'Sellers are asking significantly more than recent sales.';
         } else if (marketPressure > 50) {
-            marketPressureStatus = 'UNREALISTIC';
-            marketPressureLabel = 'Unrealistic asking prices';
-            marketPressureColor = '#ff3b30';
-            marketPressureGradient = 'linear-gradient(135deg, #ffebee 0%, #ffcccc 100%)';
-            marketPressureBorder = '#ff9999';
+            marketPressureLabel = 'Sellers are asking far above what this card has actually sold for.';
+        } else if (marketPressure < -1 && marketPressure >= -15) {
+            marketPressureLabel = 'Sellers are asking slightly below recent sales prices.';
         } else {
-            marketPressureStatus = 'BELOW FMV';
-            marketPressureLabel = 'Asking below FMV';
-            marketPressureColor = '#5856d6';
-            marketPressureGradient = 'linear-gradient(135deg, #f0e6ff 0%, #e6ccff 100%)';
-            marketPressureBorder = '#d6b3ff';
+            marketPressureLabel = 'Sellers are asking well below recent sales prices.';
         }
+        marketPressureColor = '#5856d6';
+        marketPressureGradient = 'linear-gradient(135deg, #f0eeff 0%, #e0dcff 100%)';
+        marketPressureBorder = '#b8b0ff';
     }
     
     // Price distribution quartiles
@@ -3050,16 +3016,16 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
         label = liq.label;
         if (liqScore >= 80) {
             statusColor = '#34c759'; gradient = 'linear-gradient(135deg, #e6ffe6 0%, #ccffcc 100%)'; border = '#99ff99';
-            message = 'Demand exceeds supply - cards likely sell quickly';
+            message = 'Recent sales are outpacing active listings — strong buyer activity';
         } else if (liqScore >= 50) {
             statusColor = '#007aff'; gradient = 'linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%)'; border = '#99daff';
-            message = 'Balanced market - expect reasonable sell time';
+            message = 'Balanced market — sales activity and supply are reasonably matched';
         } else if (liqScore >= 25) {
             statusColor = '#ff9500'; gradient = 'linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%)'; border = '#ffd699';
-            message = 'Slow absorption - may need patience or competitive pricing';
+            message = 'Active listings outnumber recent sales — buyers have plenty of options';
         } else {
             statusColor = '#ff3b30'; gradient = 'linear-gradient(135deg, #ffebee 0%, #ffcccc 100%)'; border = '#ff9999';
-            message = 'High exit risk - consider pricing at or below FMV';
+            message = 'Very few recent buyers relative to current supply — a thin market';
         }
         const salesCount = liq.weighted_sold != null ? Math.round(liq.weighted_sold) : (data?.items?.length || 0);
         const listingsCount = liq.bin_active || 0;
@@ -3137,7 +3103,6 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             body: JSON.stringify({
                 query: data.query,
                 market_pressure: marketPressure,
-                market_pressure_status: marketPressureStatus || null,
                 market_pressure_label: marketPressureLabel || null,
                 market_confidence: marketConfidence,
                 liquidity_score: liquidityRisk?.score ?? null,
@@ -3190,95 +3155,73 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
             <!-- Key Indicators Grid -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
                 
-                <!-- Market Pressure % -->
-                ${marketPressure !== null ? `
-                <div class="indicator-card" style="background: ${marketPressureGradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${marketPressureBorder}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Market Pressure compares what sellers are asking today to what buyers recently paid">
-                    <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Pressure bands"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
-                    <div style="margin-bottom: 0.5rem;">
-                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
+                <!-- Asking vs. Sold -->
+                ${marketPressure !== null && sampleSize >= 5 ? `
+                <div class="indicator-card" style="background: ${marketPressureGradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${marketPressureBorder}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
+                    <div style="margin-bottom: 0.75rem;">
+                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Asking vs. Sold</span>
                     </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: ${marketPressureColor}; margin-bottom: 0.5rem; line-height: 1;">
+                    <div style="font-size: 1.6rem; font-weight: 700; color: ${marketPressureColor}; margin-bottom: 0.75rem; line-height: 1.2;">
                         ${marketPressure >= 0 ? '+' : ''}${marketPressure.toFixed(1)}%
                     </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
+                    <div style="font-size: 0.8rem; color: #444; line-height: 1.5; margin-bottom: 0.75rem;">
                         ${marketPressureLabel}
                     </div>
-                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                        <strong>Sample:</strong> ${sampleSize} listings (${dataConfidence} confidence)<br>
-                        <strong>Median Ask:</strong> ${formatMoney(medianAskingPrice)}<br>
-                        <strong>FMV:</strong> ${formatMoney(marketValue)}
+                    <div style="font-size: 0.7rem; color: #999; line-height: 1.4; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.08);">
+                        Median ask ${formatMoney(medianAskingPrice)} vs. FMV ${formatMoney(marketValue)} &middot; ${sampleSize} listings<br>
+                        Reflects current asking prices, not a prediction of where prices are headed.
                     </div>
                 </div>
-                ` : `
-                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); position: relative;">
-                    <button onclick="showMarketPressureInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Pressure bands"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
-                    <div style="margin-bottom: 0.5rem;">
-                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Pressure</span>
-                    </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem; line-height: 1;">
-                        --
-                    </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        No active listings data
-                    </div>
-                </div>
-                `}
+                ` : ''}
                 
                 <!-- Market Confidence -->
-                <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15); position: relative;" title="Market Confidence measures how consistent prices are">
-                    <button onclick="showMarketConfidenceInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Market Confidence"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
-                    <div style="margin-bottom: 0.5rem;">
-                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Market Confidence</span>
+                <div class="indicator-card" style="background: linear-gradient(135deg, #e6f7ff 0%, #ccedff 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #99daff; box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);">
+                    <div style="margin-bottom: 0.75rem;">
+                        <span style="font-size: 0.85rem; color: #0055b3; font-weight: 500;">FMV Reliability</span>
                     </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: #007aff; margin-bottom: 0.5rem; line-height: 1;">
-                        ${marketConfidence.toFixed(0)}/100
+                    <div style="font-size: 1.35rem; font-weight: 700; color: #007aff; margin-bottom: 0.75rem; line-height: 1.2;">
+                        ${marketConfidence >= 85 ? 'Prices are very consistent' : marketConfidence >= 70 ? 'Prices are fairly consistent' : marketConfidence >= 55 ? 'Prices vary noticeably' : marketConfidence >= 40 ? 'Prices vary a lot' : 'Prices are all over the place'}
                     </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
-                        ${marketConfidence >= 85 ? 'Excellent price consensus' : marketConfidence >= 70 ? 'Good price consensus' : marketConfidence >= 55 ? 'Moderate price variation' : marketConfidence >= 40 ? 'High price variation' : marketConfidence >= 25 ? 'Very high price variation' : 'Market chaos'}
+                    <div style="font-size: 0.8rem; color: #444; line-height: 1.5; margin-bottom: 0.75rem;">
+                        ${marketConfidence >= 85 ? 'Sales cluster tightly — the FMV is reliable.' : marketConfidence >= 70 ? 'Some spread, but the FMV is a solid estimate.' : marketConfidence >= 55 ? 'The FMV is a reasonable midpoint, not a precise value.' : marketConfidence >= 40 ? 'Take the FMV as a rough guide only.' : 'The FMV has limited reliability here.'}
                     </div>
-                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                        <strong>CoV:</strong> ${coefficientOfVariation.toFixed(1)}%<br>
-                        <strong>Std Dev:</strong> ${formatMoney(stdDev)}<br>
-                        <strong>Sample:</strong> ${data.items.length} sales
+                    <div style="font-size: 0.7rem; color: #5599cc; line-height: 1.4; padding-top: 0.5rem; border-top: 1px solid rgba(0, 122, 255, 0.15);">
+                        Based on ${data.items.length} sales
                     </div>
                 </div>
                 
-                <!-- Liquidity Risk Score (NEW) -->
+                <!-- Liquidity Risk Score -->
                 ${liquidityRisk && liquidityRisk.score !== null ? `
-                <div class="indicator-card" style="background: ${liquidityRisk.gradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${liquidityRisk.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Liquidity Risk measures how easy it is to sell this card at or near FMV">
-                    <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Liquidity Risk"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
-                    <div style="margin-bottom: 0.5rem;">
-                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity</span>
+                <div class="indicator-card" style="background: ${liquidityRisk.gradient}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${liquidityRisk.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
+                    <div style="margin-bottom: 0.75rem;">
+                        <span style="font-size: 0.85rem; color: ${liquidityRisk.statusColor}; font-weight: 500;">Market Activity</span>
                     </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: ${liquidityRisk.statusColor}; margin-bottom: 0.5rem; line-height: 1;">
-                        ${liquidityRisk.score}/100
+                    <div style="font-size: 1.35rem; font-weight: 700; color: ${liquidityRisk.statusColor}; margin-bottom: 0.75rem; line-height: 1.2;">
+                        ${liquidityRisk.label === 'High Liquidity' ? 'Buyers are active' : liquidityRisk.label === 'Moderate Liquidity' ? 'Moderate buyer interest' : liquidityRisk.label === 'Low Liquidity' ? 'More sellers than buyers' : 'Few active buyers'}
                     </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4; margin-bottom: 0.5rem;">
-                        ${liquidityRisk.message}
+                    <div style="font-size: 0.8rem; color: #444; line-height: 1.5; margin-bottom: 0.75rem;">
+                        ${liquidityRisk.label === 'High Liquidity' ? 'Recent sales are outpacing active listings — demand is strong relative to supply.' : liquidityRisk.label === 'Moderate Liquidity' ? 'Balanced market with healthy buyer activity relative to current supply.' : liquidityRisk.label === 'Low Liquidity' ? 'Active listings outnumber recent sales — buyers have plenty of options.' : 'Very few recent buyers relative to current supply — a thin market.'}
                     </div>
-                    <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                        <strong>Absorption Ratio:</strong> ${liquidityRisk.absorptionRatio || 'N/A'}<br>
-                        <strong>Sales:</strong> ${liquidityRisk.salesCount || 0} | <strong>Listings:</strong> ${liquidityRisk.listingsCount || 0}<br>
-                        <strong>Confidence:</strong> ${liquidityRisk.confidence || 'N/A'}
+                    <div style="font-size: 0.7rem; color: ${liquidityRisk.statusColor}; line-height: 1.4; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.08);">
+                        ${liquidityRisk.salesCount || 0} recent sales vs. ${liquidityRisk.listingsCount || 0} active listings
                     </div>
                 </div>
                 ` : `
-                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); position: relative;">
-                    <button onclick="showLiquidityRiskInfo(); event.stopPropagation();" style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" onmouseover="this.style.background='rgba(255, 255, 255, 1)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.15)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'; this.style.boxShadow='0 2px 4px rgba(0, 0, 0, 0.1)';" title="Learn about Liquidity Risk"><svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill="none" style="display: block;"><path fill="#666" fill-rule="evenodd" d="M10 3a7 7 0 100 14 7 7 0 000-14zm-9 7a9 9 0 1118 0 9 9 0 01-18 0zm8-4a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm.01 8a1 1 0 102 0V9a1 1 0 10-2 0v5z"/></svg></button>
-                    <div style="margin-bottom: 0.5rem;">
-                        <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Liquidity</span>
+                <div class="indicator-card" style="background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid #d1d1d6; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+                    <div style="margin-bottom: 0.75rem;">
+                        <span style="font-size: 0.85rem; color: #6e6e73; font-weight: 500;">Market Activity</span>
                     </div>
-                    <div style="font-size: 2rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.5rem; line-height: 1;">
-                        --
+                    <div style="font-size: 1.35rem; font-weight: 700; color: #6e6e73; margin-bottom: 0.75rem; line-height: 1.2;">
+                        Not enough data
                     </div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.4;">
-                        ${liquidityRisk && liquidityRisk.message ? liquidityRisk.message : 'No active listings data'}
+                    <div style="font-size: 0.8rem; color: #888; line-height: 1.5;">
+                        No active listings found to assess buyer demand.
                     </div>
                 </div>
                 `}
 
                 <!-- Collectibility Score -->
-                <div class="indicator-card" style="background: ${collectibilityTier.bg}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${collectibilityTier.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Collectibility measures a card's sustained desirability based on price, market depth, and supply/demand balance">
+                <div class="indicator-card" style="background: ${collectibilityTier.bg}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${collectibilityTier.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Collectibility measures a card's sustained desirability based on price tier and sales volume. Supply/demand balance is shown separately in the Market Activity card.">
                     <div style="margin-bottom: 0.5rem;">
                         <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Collectibility</span>
                     </div>
@@ -3290,18 +3233,18 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                     </div>
                     <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
                         ${collectibilityScenario}<br>
-                        <strong>Sold:</strong> ${soldCount} comps | <strong>Active:</strong> ${activeCount} listings
+                        <strong>Sold:</strong> ${soldCount} comps | <strong>FMV:</strong> $${marketValue.toFixed(0)}
                     </div>
                 </div>
             </div>
 
             <!-- Bid / Ask Market Structure -->
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
-                <h4 style="margin: 0 0 1.25rem 0; color: var(--text-color);">Bid / Ask Market Structure</h4>
+                <h4 style="margin: 0 0 1.25rem 0; color: var(--text-color);">Sales vs. Listed Now</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 1.25rem;">
-                    <!-- Bid side -->
+                    <!-- Recent Sales side -->
                     <div style="background: rgba(0, 122, 255, 0.05); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(0, 122, 255, 0.2);">
-                        <div style="font-size: 0.75rem; font-weight: 600; color: #007aff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">BID — What buyers have paid</div>
+                        <div style="font-size: 0.75rem; font-weight: 600; color: #007aff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Recent Sales — What cards have sold for</div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">
                             <span>Discount</span><span style="font-weight: 500; color: var(--text-color);">${formatMoney(quickSale)}</span>
                         </div>
@@ -3315,18 +3258,18 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                             Based on ${soldCount} sold comp${soldCount !== 1 ? 's' : ''}
                         </div>
                     </div>
-                    <!-- Ask side -->
+                    <!-- Listed Now side -->
                     <div style="background: rgba(255, 59, 48, 0.05); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(255, 59, 48, 0.2);">
-                        <div style="font-size: 0.75rem; font-weight: 600; color: #ff3b30; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">ASK — What sellers are asking</div>
+                        <div style="font-size: 0.75rem; font-weight: 600; color: #ff3b30; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Listed Now — What sellers are asking</div>
                         ${activeCount > 0 ? `
                         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">
-                            <span>Floor (p10)</span><span style="font-weight: 500; color: var(--text-color);">${askP10 != null ? formatMoney(askP10) : '—'}</span>
+                            <span>Low</span><span style="font-weight: 500; color: var(--text-color);">${askP10 != null ? formatMoney(askP10) : '—'}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 1rem; color: #ff3b30; font-weight: 700; margin-bottom: 0.4rem;">
-                            <span>Median Ask</span><span>${askMedian != null ? formatMoney(askMedian) : '—'}</span>
+                            <span>Median</span><span>${askMedian != null ? formatMoney(askMedian) : '—'}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666;">
-                            <span>Ceiling (p90)</span><span style="font-weight: 500; color: var(--text-color);">${askP90 != null ? formatMoney(askP90) : '—'}</span>
+                            <span>High</span><span style="font-weight: 500; color: var(--text-color);">${askP90 != null ? formatMoney(askP90) : '—'}</span>
                         </div>
                         <div style="font-size: 0.7rem; color: #999; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.08);">
                             Based on ${activeCount} active listing${activeCount !== 1 ? 's' : ''}
@@ -3336,10 +3279,10 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                         `}
                     </div>
                 </div>
-                <!-- Spread indicator -->
+                <!-- Price gap indicator -->
                 ${spreadPct !== null ? `
                 <div style="display: flex; align-items: center; gap: 1rem; padding: 0.85rem 1.25rem; background: rgba(0,0,0,0.03); border-radius: 8px; border: 1px solid rgba(0,0,0,0.07);">
-                    <div style="font-size: 0.85rem; color: #666; font-weight: 500; white-space: nowrap;">Spread</div>
+                    <div style="font-size: 0.85rem; color: #666; font-weight: 500; white-space: nowrap;">Price Gap</div>
                     <div style="font-size: 1rem; font-weight: 700; color: ${spreadColor}; white-space: nowrap;">
                         ${spreadAmount >= 0 ? '+' : ''}${formatMoney(spreadAmount)} (${spreadPct >= 0 ? '+' : ''}${spreadPct.toFixed(1)}%)
                     </div>
@@ -3347,7 +3290,7 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                 </div>
                 ` : `
                 <div style="font-size: 0.85rem; color: #999; padding: 0.85rem 1.25rem; background: rgba(0,0,0,0.03); border-radius: 8px;">
-                    Spread unavailable — run an active listings search to compare
+                    Price gap unavailable — run an active listings search to compare
                 </div>
                 `}
             </div>
@@ -3747,36 +3690,36 @@ function generateMarketInsights(data, fmvData, priceSpread, marketConfidence, li
     // Extract score from liquidityRisk object (handle both old number format and new object format)
     const liquidityScore = (liquidityRisk && typeof liquidityRisk === 'object') ? (liquidityRisk.score || 0) : (liquidityRisk || 0);
     
-    // Market Pressure insights (replaces volatility)
-    if (marketPressure !== null) {
+    // Asking vs. Sold insights
+    if (marketPressure !== null && sampleSize >= 5) {
         if (marketPressure >= 0 && marketPressure <= 15) {
             insights.push(`
-                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%); border-left: 4px solid #34c759; border-radius: 6px;">
-                    <strong style="color: #34c759;">✓ ${marketPressureLabel}:</strong> Asking prices are ${marketPressure.toFixed(1)}% above FMV, indicating realistic seller expectations and healthy market conditions.
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f5f5f7 0%, #ebebf0 100%); border-left: 4px solid #8e8e93; border-radius: 6px;">
+                    <strong style="color: #3a3a3c;">Asking vs. Sold (+${marketPressure.toFixed(1)}%):</strong> ${marketPressureLabel}
                 </li>
             `);
         } else if (marketPressure > 15 && marketPressure <= 30) {
             insights.push(`
-                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%); border-left: 4px solid #007aff; border-radius: 6px;">
-                    <strong style="color: #007aff;">📊 ${marketPressureLabel}:</strong> Asking prices are ${marketPressure.toFixed(1)}% above FMV. Sellers are optimistic but prices remain negotiable.
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f5f5f7 0%, #ebebf0 100%); border-left: 4px solid #8e8e93; border-radius: 6px;">
+                    <strong style="color: #3a3a3c;">Asking vs. Sold (+${marketPressure.toFixed(1)}%):</strong> ${marketPressureLabel}
                 </li>
             `);
         } else if (marketPressure > 30 && marketPressure <= 50) {
             insights.push(`
-                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%); border-left: 4px solid #ff9500; border-radius: 6px;">
-                    <strong style="color: #ff9500;">⚠ ${marketPressureLabel}:</strong> Asking prices are ${marketPressure.toFixed(1)}% above FMV. Current listings may be overpriced relative to recent sales.
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f5f5f7 0%, #ebebf0 100%); border-left: 4px solid #8e8e93; border-radius: 6px;">
+                    <strong style="color: #3a3a3c;">Asking vs. Sold (+${marketPressure.toFixed(1)}%):</strong> ${marketPressureLabel}
                 </li>
             `);
         } else if (marketPressure > 50) {
             insights.push(`
-                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%); border-left: 4px solid #ff3b30; border-radius: 6px;">
-                    <strong style="color: #ff3b30;">⚠ ${marketPressureLabel}:</strong> Asking prices are ${marketPressure.toFixed(1)}% above FMV. Significant gap suggests sellers may need to adjust expectations.
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f5f5f7 0%, #ebebf0 100%); border-left: 4px solid #8e8e93; border-radius: 6px;">
+                    <strong style="color: #3a3a3c;">Asking vs. Sold (+${marketPressure.toFixed(1)}%):</strong> ${marketPressureLabel}
                 </li>
             `);
         } else if (marketPressure < 0) {
             insights.push(`
-                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%); border-left: 4px solid #5856d6; border-radius: 6px;">
-                    <strong style="color: #5856d6;">💎 Opportunity:</strong> Asking prices are ${Math.abs(marketPressure).toFixed(1)}% below FMV. Active listings may represent good value.
+                <li style="padding: 1rem; margin-bottom: 0.75rem; background: linear-gradient(135deg, #f5f5f7 0%, #ebebf0 100%); border-left: 4px solid #8e8e93; border-radius: 6px;">
+                    <strong style="color: #3a3a3c;">Asking vs. Sold (${marketPressure.toFixed(1)}%):</strong> ${marketPressureLabel}
                 </li>
             `);
         }
@@ -3989,6 +3932,21 @@ async function updateFmv(data, activeData = null) {
     // Technical details hidden from UI: Auction sales weighted higher than Buy-It-Now • More bids = higher weight
     if (fmvContainer) {
       fmvContainer.innerHTML = fmvHtml;
+    }
+
+    // --- AI Market Summary ---
+    const summary = fmvData?.market_summary;
+    if (summary && fmvContainer) {
+      const summaryEl = document.createElement('div');
+      summaryEl.className = 'market-summary-panel';
+      summaryEl.innerHTML = `
+        <div class="market-summary-header">
+          <span class="market-summary-icon">&#10022;</span>
+          <span class="market-summary-label">Market Summary</span>
+        </div>
+        <p class="market-summary-text">${escapeHtml(summary)}</p>
+      `;
+      fmvContainer.appendChild(summaryEl);
     }
     
     // Return FMV data for use in analytics dashboard

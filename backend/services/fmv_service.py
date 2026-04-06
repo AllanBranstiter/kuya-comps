@@ -14,6 +14,7 @@ from backend.services.analytics_score_service import (
     calculate_liquidity,
     calculate_collectibility,
     calculate_market_pressure,
+    calculate_staleness_adjustment,
 )
 from backend.logging_config import get_logger
 from backend.config import (
@@ -663,14 +664,31 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         sold_price_max = max(sold_prices_all) if sold_prices_all else 0
 
     # --- Compute analytics scores ---
-    confidence = calculate_market_confidence(
-        bid_result._filtered_prices, bid_result._filtered_weights
-    ) if bid_result._filtered_prices is not None else {"score": None}
+    # Market Confidence uses a relevance-filtered price array (threshold >= 0.5)
+    # so CoV reflects genuine market variation, not search noise from reprints/lots/parallels.
+    # FMV is unaffected — it uses the down-weighting approach as before.
+    _CONFIDENCE_RELEVANCE_THRESHOLD = 0.5
+    _conf_items = [
+        item for item in sold_items
+        if getattr(item, "total_price", None) and item.total_price > 0
+        and getattr(item, "ai_relevance_score", 1.0) >= _CONFIDENCE_RELEVANCE_THRESHOLD
+    ]
+    if len(_conf_items) >= 2:
+        _conf_prices = np.array([item.total_price for item in _conf_items], dtype=float)
+        _conf_weights = np.array([calculate_volume_weight(item) for item in _conf_items], dtype=float)
+        if len(_conf_items) >= 4:
+            _cq1, _cq3 = np.percentile(_conf_prices, [25, 75])
+            _ciqr = _cq3 - _cq1
+            _cmask = (_conf_prices >= _cq1 - 1.5 * _ciqr) & (_conf_prices <= _cq3 + 1.5 * _ciqr)
+            _conf_prices = _conf_prices[_cmask]
+            _conf_weights = _conf_weights[_cmask]
+        confidence = calculate_market_confidence(_conf_prices, _conf_weights) if len(_conf_prices) >= 2 else {"score": None, "band": "Insufficient Data", "cov": None}
+    else:
+        confidence = {"score": None, "band": "Insufficient Data", "cov": None}
 
     liquidity = calculate_liquidity(sold_items, active_items)
     collectibility_result = calculate_collectibility(
         bid_center, sold_count,
-        len(active_items) if active_items else 0,
     )
     # Market pressure computed after blending (needs final market_value)
 
@@ -685,6 +703,39 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         active_count = len(ask_prices)
         if active_count > 0:
             ask_center = ask_prices[active_count // 2]   # median
+
+    # --- Staleness adjustment (pre-blend) ---
+    # Adjust bid_center for market drift before blending, using active asks
+    # as a proxy for where the market has moved since the sold comps were recorded.
+    staleness_result = {
+        "coefficient": 0.0, "raw_gap_pct": None,
+        "pressure_bucket": None, "liq_factor": None,
+        "conf_factor": None, "suppressed": False,
+    }
+    if ask_center is not None and active_count > 0:
+        staleness_result = calculate_staleness_adjustment(
+            bid_center=bid_center,
+            ask_center=ask_center,
+            liquidity_score=liquidity.get("score"),
+            confidence_score=confidence.get("score"),
+        )
+        coeff = staleness_result["coefficient"]
+        if coeff != 0.0:
+            original_bid_center = bid_center
+            bid_center = bid_center * (1 + coeff)
+            logger.info(
+                f"[staleness] gap={staleness_result['raw_gap_pct']:+.1f}% "
+                f"bucket={staleness_result['pressure_bucket']} "
+                f"liq_factor={staleness_result['liq_factor']} "
+                f"conf_factor={staleness_result['conf_factor']} "
+                f"coeff={coeff:+.4f} "
+                f"bid_center ${original_bid_center:.2f} → ${bid_center:.2f}"
+            )
+        elif staleness_result["suppressed"]:
+            logger.info(
+                f"[staleness] sellers-dreaming suppressed "
+                f"(ask=${ask_center:.2f} > 2x bid=${bid_center:.2f})"
+            )
 
     # --- Blend ---
     if ask_center is None or active_count == 0:
@@ -726,11 +777,6 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
             else:
                 bid_weight = max(bid_weight, 0.85)
             supply = "sellers_dreaming"
-
-        # Liquidity adjustment: high liquidity trusts sold prices more
-        liq_score = liquidity.get("score") or 50
-        liquidity_adj = (liq_score - 50) / 500  # range: -0.10 to +0.10
-        bid_weight = max(0.20, min(0.95, bid_weight + liquidity_adj))
 
         ask_weight   = 1.0 - bid_weight
         market_value = bid_center * bid_weight + ask_center * ask_weight
@@ -820,5 +866,6 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
             "pressure": pressure,
             "liquidity": liquidity,
             "collectibility": collectibility_result,
+            "staleness": staleness_result,
         },
     )

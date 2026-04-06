@@ -10,8 +10,12 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from backend.services.fmv_service import calculate_fmv, calculate_fmv_blended, get_active_market_floor
 from backend.services.relevance_service import score_listing_relevance
+from backend.services.market_summary_service import generate_market_summary
 from backend.models.schemas import CompItem, FmvResponse
 from backend.middleware.subscription_gate import check_search_limit
+from backend.middleware.supabase_auth import get_current_user_optional
+from backend.services.subscription_service import SubscriptionService
+from backend.config import get_supabase_client
 from backend.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -85,9 +89,10 @@ class FmvV2Request(BaseModel):
 
 
 @router.post("/fmv/v2", response_model=FmvResponse)
-def get_fmv_v2(
+async def get_fmv_v2(
     request: FmvV2Request,
-    search_limit: dict = Depends(check_search_limit)
+    search_limit: dict = Depends(check_search_limit),
+    user: Optional[dict] = Depends(get_current_user_optional),
 ):
     """
     Blended FMV calculation using both sold comps (bid side) and active
@@ -119,6 +124,39 @@ def get_fmv_v2(
         response_dict = result.to_dict()
         response_dict['sold_relevance_scores'] = sold_scores
         response_dict['active_relevance_scores'] = active_scores
+
+        # --- AI Market Summary ---
+        user_tier = "free"
+        if user:
+            supabase = get_supabase_client()
+            subscription_service = SubscriptionService(supabase)
+            user_tier = await subscription_service.get_user_tier(user.get("sub"))
+
+        sold_count = sum(
+            1 for i in request.sold_items
+            if getattr(i, "total_price", None) and i.total_price > 0
+        )
+        active_count = len(request.active_items) if request.active_items else 0
+
+        below_fmv_listings = []
+        if result.market_value and request.active_items:
+            below_fmv_listings = sorted([
+                i.extracted_price
+                for i in request.active_items
+                if getattr(i, "extracted_price", None)
+                and i.extracted_price > 0
+                and i.extracted_price < result.market_value
+            ])
+
+        response_dict["market_summary"] = generate_market_summary(
+            fmv_result=result,
+            sold_count=sold_count,
+            active_count=active_count,
+            card_name=request.query,
+            user_tier=user_tier,
+            below_fmv_listings=below_fmv_listings,
+        )
+
         return FmvResponse(**response_dict)
     except Exception as e:
         logger.exception("[FMV] Error calculating blended FMV")

@@ -154,42 +154,33 @@ def calculate_liquidity(
 def calculate_collectibility(
     market_value: float,
     sold_count: int,
-    active_count: int,
 ) -> Dict:
     """
     Collectibility score with continuous log-scaled components.
 
-    Eliminates cliff effects from hard price thresholds by using
-    log-scaled price, volume, and scarcity components.
+    Measures sustained market desirability using price and sales volume.
+    Supply/demand balance is captured separately by the liquidity score.
 
     Args:
         market_value: FMV market value
         sold_count: Number of sold comps found
-        active_count: Number of active listings found
 
     Returns:
         {"score": 1-10, "label": str, "components": {...}}
     """
-    # Continuous price component (1-4)
+    # Continuous price component (1-6)
     if market_value <= 0:
         price_score = 1.0
     else:
-        price_score = max(1.0, min(4.0, math.log2(market_value / 2.5)))
+        price_score = max(1.0, min(6.0, math.log2(market_value / 2.5)))
 
-    # Continuous volume component (0-3)
+    # Continuous volume component (0-4)
     if sold_count <= 0:
         volume_score = 0.0
     else:
-        volume_score = min(3.0, math.log2(max(1, sold_count)) / math.log2(100) * 3)
+        volume_score = min(4.0, math.log2(max(1, sold_count)) / math.log2(100) * 4)
 
-    # Continuous scarcity component (0-3)
-    if sold_count > 0:
-        ratio = active_count / sold_count
-        scarcity_score = max(0.0, min(3.0, 3.0 * (1 - ratio / 2.0)))
-    else:
-        scarcity_score = 0.0
-
-    raw = price_score + volume_score + scarcity_score
+    raw = price_score + volume_score
     score = max(1, min(10, round(raw)))
 
     # Label tiers
@@ -210,7 +201,6 @@ def calculate_collectibility(
         "components": {
             "price": round(price_score, 2),
             "volume": round(volume_score, 2),
-            "scarcity": round(scarcity_score, 2),
         },
     }
 
@@ -287,4 +277,87 @@ def calculate_market_pressure(
         "median_ask": round(median_ask, 2),
         "status": status,
         "sample_size": len(asking),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Staleness Coefficient
+# ---------------------------------------------------------------------------
+
+def calculate_staleness_adjustment(
+    bid_center: float,
+    ask_center: float,
+    liquidity_score: Optional[float],
+    confidence_score: Optional[float],
+) -> Dict:
+    """
+    Staleness coefficient for FMV adjustment.
+
+    Uses active listing prices as a proxy for market direction when no
+    sale dates are available. The coefficient is applied as:
+        adjusted_bid_center = bid_center * (1 + coefficient)
+
+    Positive → sold comps are stale-low, nudge bid center up
+    Negative → sold comps are stale-high, nudge bid center down
+    Zero     → no adjustment (healthy gap or sellers-dreaming suppression)
+
+    Returns:
+        {"coefficient": float, "raw_gap_pct": float, "pressure_bucket": str,
+         "liq_factor": float, "conf_factor": float, "suppressed": bool}
+    """
+    MAX_COEFFICIENT = 0.15  # ±15% hard cap
+
+    raw_gap_pct = (ask_center - bid_center) / bid_center * 100
+
+    # Sellers-dreaming suppression: asks 2x+ bid are implausible
+    if ask_center > bid_center * 2.0:
+        return {
+            "coefficient": 0.0,
+            "raw_gap_pct": round(raw_gap_pct, 1),
+            "pressure_bucket": "UNREALISTIC",
+            "liq_factor": None,
+            "conf_factor": None,
+            "suppressed": True,
+        }
+
+    # Map gap to base directional signal
+    # Thresholds mirror calculate_market_pressure status tiers
+    if raw_gap_pct < 0:
+        # -1% gap → ~-0.004 base; -25% → -0.10; capped at -0.15
+        base = max(-MAX_COEFFICIENT, raw_gap_pct / 250.0)
+        pressure_bucket = "BELOW_FMV"
+    elif raw_gap_pct <= 15:
+        base = 0.0
+        pressure_bucket = "HEALTHY"
+    elif raw_gap_pct <= 30:
+        # 15–30% gap → base 0.0–0.04
+        base = (raw_gap_pct - 15) / 375.0
+        pressure_bucket = "OPTIMISTIC"
+    elif raw_gap_pct <= 50:
+        # 30–50% gap → base 0.04–0.08
+        base = 0.04 + (raw_gap_pct - 30) / 500.0
+        pressure_bucket = "RESISTANCE"
+    else:
+        # 50–100% (not yet 2x): treat as capped resistance
+        base = 0.08
+        pressure_bucket = "RESISTANCE"
+
+    # Liquidity scaling: 0→1.50, 50→1.00, 100→0.50
+    liq = liquidity_score if liquidity_score is not None else 50
+    liq_factor = 1.50 - (liq / 100.0)
+
+    # Confidence scaling: 0→0.50, 50→0.75, 100→1.00
+    conf = confidence_score if confidence_score is not None else 70
+    conf_factor = 0.50 + (conf / 200.0)
+
+    coefficient = base * liq_factor * conf_factor
+    coefficient = max(-MAX_COEFFICIENT, min(MAX_COEFFICIENT, coefficient))
+
+    return {
+        "coefficient": round(coefficient, 4),
+        "raw_gap_pct": round(raw_gap_pct, 1),
+        "pressure_bucket": pressure_bucket,
+        "liq_factor": round(liq_factor, 3),
+        "conf_factor": round(conf_factor, 3),
+        "suppressed": False,
     }

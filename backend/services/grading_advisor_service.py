@@ -1187,8 +1187,8 @@ def _generate_warnings(
     if distribution.total_population < 200:
         warnings.append(
             f"With only {distribution.total_population} graded copies, "
-            "this card may be difficult to sell quickly. "
-            "Lower liquidity means wider bid-ask spreads."
+            "this card has a smaller secondary market. "
+            "Lower population typically means wider bid-ask spreads."
         )
     elif distribution.total_population < LOW_POPULATION_THRESHOLD:
         warnings.append(

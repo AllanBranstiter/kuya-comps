@@ -2,8 +2,8 @@
 
 > **Purpose:** This document provides context for AI assistants working on this project. It should be shared at the start of each new task to minimize token usage and accelerate onboarding.
 
-**Last Updated:** April 5, 2026
-**Version:** 0.9.0
+**Last Updated:** April 6, 2026
+**Version:** 1.0.0
 **Maintained By:** Allan Branstiter
 
 ---
@@ -17,12 +17,12 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 - **Dual Search Display:** Automatically shows both sold listings and active listings below FMV
 - **Smart Deal Finding:** Active listings filtered to show only items priced at or below Fair Market Value with discount indicators
 - **Market Analysis:** Blended FMV using both sold comps (bid) and active listings (ask), with Discount/Market Value/Premium ranges
-- **AI Relevance Scoring:** LLM-powered listing filter — each listing scored 0.0–1.0 for relevance to the search query; low-relevance listings have minimal weight in FMV
-- **Bid/Ask Market Structure:** Stock-market-style display showing bid (sold tiers) vs. ask (active p10/median/p90) with spread signal
-- **Collectibility Score:** 1–10 score based on price tier, market depth, and supply/demand ratio
+- **AI Market Summary:** After each FMV calculation, a plain-English summary describes market conditions, price direction, and ease of buying/selling — with a deal alert when active listings are below market value. Tier-aware model selection (Founders: Claude Sonnet; others: Gemini Flash 2.0). Graceful degradation if API key is absent or call fails.
+- **Sales vs. Listed Now:** Side-by-side panel showing recent sold comps (Discount/Market Value/Premium) vs. active listing prices (Low/Median/High) with a plain-English price gap signal
+- **Collectibility Score:** 1–10 score based on price tier and sales volume (supply/demand balance is captured separately in Market Activity)
 - **Interactive Visualization:** Beeswarm chart showing sold (blue) and active (red) price distributions with outlier clipping
 - **Grading Advisor:** Backend-powered intelligent grading recommendations with grade value analysis, premium calculations, and market comparisons across grading companies (PSA, BGS, SGC, CGC)
-- **Advanced Analytics Dashboard:** Market pressure analysis, liquidity profiles, absorption ratios
+- **Advanced Analytics Dashboard:** Asking vs. Sold indicator, liquidity profiles, absorption ratios
 - **Collection Management (NEW):** Track card collections with binders and smart organization
 - **Editable Search Queries (NEW):** Edit search queries in Edit Card modal to refine automated valuations
 - **Automated Valuation Engine (NEW):** Automatic FMV updates every 90 days with safety checks
@@ -98,8 +98,9 @@ kuya-comps/
 │   │   └── grading_advisor.py  # API endpoints for grading analysis
 │   ├── services/        # Business logic
 │   │   ├── fmv_service.py         # FMV calculations
-│   │   ├── analytics_score_service.py  # Market Confidence, Liquidity, Collectibility, Market Pressure
+│   │   ├── analytics_score_service.py  # Market Confidence, Liquidity, Collectibility, Asking vs. Sold
 │   │   ├── relevance_service.py   # AI-powered listing relevance scoring (OpenRouter/Gemini)
+│   │   ├── market_summary_service.py  # AI Market Summary (OpenRouter; tier-aware model selection)
 │   │   ├── feedback_service.py    # Feedback CRUD
 │   │   ├── intelligence_service.py # Market intelligence
 │   │   ├── market_message_service.py
@@ -178,12 +179,13 @@ kuya-comps/
 | [`backend/routes/comps.py`](backend/routes/comps.py:1) | /comps and /active endpoints | Main search functionality |
 | [`backend/routes/fmv.py`](backend/routes/fmv.py:1) | POST /fmv (legacy) and POST /fmv/v2 (blended) | v2 is the active endpoint |
 | [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | calculate_fmv() + calculate_fmv_blended() | v2 blend uses price tier × supply ratio table |
-| [`backend/services/collectibility_service.py`](backend/services/collectibility_service.py:1) | Collectibility score (1–10) | price_tier + volume + scarcity components |
+| [`backend/services/collectibility_service.py`](backend/services/collectibility_service.py:1) | Collectibility score (1–10) | price_tier + volume components (scarcity removed — captured by Market Activity) |
 | [`backend/services/search_log_service.py`](backend/services/search_log_service.py:1) | Saves every search to search_logs/ as JSON + CSV | Dev only — gitignored |
 | [`backend/routes/dev_log.py`](backend/routes/dev_log.py:1) | POST /api/dev/analytics-snapshot | Frontend posts analytics after dashboard renders |
 | [`backend/routes/collection_valuation.py`](backend/routes/collection_valuation.py:1) | Card valuation API (Phase 4) | Manual & batch FMV updates |
-| [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1) | Market Confidence, Liquidity, Collectibility, Market Pressure scores | Unified analytics score engine; replaces collectibility_service |
+| [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1) | Market Confidence, Liquidity, Collectibility, Asking vs. Sold scores | Unified analytics score engine; replaces collectibility_service |
 | [`backend/services/relevance_service.py`](backend/services/relevance_service.py:1) | AI-powered listing relevance scoring | Uses Gemini 2.0 Flash Lite via OpenRouter; chunks 20 listings/call |
+| [`backend/services/market_summary_service.py`](backend/services/market_summary_service.py:1) | AI Market Summary generation | Quality + signal gates; tier-aware model (Founders: Claude Sonnet, others: Gemini Flash 2.0); never raises |
 | [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | FMV business logic | Volume-weighted calculations |
 | [`backend/services/collection_service.py`](backend/services/collection_service.py:1) | Collection & binder CRUD | Manages user collections |
 | [`backend/services/valuation_service.py`](backend/services/valuation_service.py:1) | Automated valuation engine | Safety checks, outlier removal |
@@ -274,9 +276,44 @@ kuya-comps/
     - **Config:** `OPENROUTER_API_KEY` env var required; model: `google/gemini-2.0-flash-lite-001`
 
 12. **Unified Analytics Score Engine**
-    - **Why:** Analytics scores (Confidence, Liquidity, Collectibility, Market Pressure) were scattered and used hard thresholds that caused cliff effects
+    - **Why:** Analytics scores (Confidence, Liquidity, Collectibility, Asking vs. Sold) were scattered and used hard thresholds that caused cliff effects
     - **Impact:** All four scores now computed in one service using continuous/log-scaled algorithms; consistent with FMV's view of the data
     - **Implementation:** [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1)
+
+13. **Asking vs. Sold (formerly "Market Pressure")**
+    - **Why:** The original "Market Pressure" metric used named status bands (HEALTHY, OPTIMISTIC, RESISTANCE, UNREALISTIC) that overstated confidence in the signal. The metric reliably tells you the gap between current asking prices and recent sold prices, but cannot reliably predict whether that gap represents a buying opportunity or a declining market.
+    - **Impact:** Renamed to "Asking vs. Sold." Removed status bands and the info button. Card now leads with the plain-English sentence describing the gap, with the percentage demoted to supporting detail. Card is hidden entirely when sample size < 5. Purple styling (#5856d6 / lavender gradient).
+    - **Label logic:** Within ±1% → "Asking prices match recent sales." | +1–15% → "slightly above" | +16–30% → "noticeably more" | +31–50% → "significantly more" | >50% → "far above what this card has actually sold for" | -1 to -15% → "slightly below" | <-15% → "well below"
+    - **Implementation:** [`static/script.js`](static/script.js:1) — label assignment and card HTML
+
+14. **FMV Reliability Card (formerly "Market Confidence")**
+    - **Why:** The 0–100 score had no intuitive meaning to collectors. The card also showed CoV and Std Dev in the footer, which are opaque metrics. The user's real question is "can I trust this FMV?" — so the card was redesigned to answer that directly.
+    - **Impact:** Renamed to "FMV Reliability." Score number dropped entirely. Headline is now a plain-English tier statement ("Prices vary a lot"). Body is a one-sentence implication ("Take the FMV as a rough guide only."). Footer shows only "Based on N sales." CoV, Std Dev, and info button removed. Blue styling retained for visual distinction from other cards.
+    - **Band → display mapping:**
+      - Excellent (≥85): "Prices are very consistent" / "Sales cluster tightly — the FMV is reliable."
+      - Good (≥70): "Prices are fairly consistent" / "Some spread, but the FMV is a solid estimate."
+      - Moderate (≥55): "Prices vary noticeably" / "The FMV is a reasonable midpoint, not a precise value."
+      - High Variation (≥40): "Prices vary a lot" / "Take the FMV as a rough guide only."
+      - Chaotic (<40): "Prices are all over the place" / "The FMV has limited reliability here."
+
+15. **Market Activity Card (formerly "Liquidity")**
+    - **Why:** The original metric presented an absorption ratio as a 0–100 score with labels like "Low Liquidity." Two fundamental problems surfaced: (1) sell speed depends heavily on ask price, which we don't control; (2) we don't know when sold listings actually sold within the 90-day window — we only have `date_scraped`. Predicting "days to sell" or using "Sell Speed" as a label overstates confidence in the data.
+    - **Impact:** Renamed to "Market Activity." Numeric score and absorption ratio removed from display. Info button removed. Card now describes market conditions (demand vs. supply balance), not seller outcomes. Headline and body use market-landscape framing, not timing predictions.
+
+16. **Collectibility Score — Scarcity Component Removed**
+    - **Why:** The original formula combined price (1–4), volume (0–3), and scarcity (0–3, based on active-to-sold ratio) into a 1–10 score. The scarcity component was measuring supply/demand balance — the same signal already captured by the Market Activity card's absorption ratio. Keeping it in Collectibility created redundancy and muddied what the score was communicating.
+    - **Impact:** Scarcity component removed. Price rescaled to 1–6, volume rescaled to 0–4 to maintain the 1–10 range. The score now cleanly answers: "Is this a card that commands high prices and has an established sales history?" Supply/demand balance is the Market Activity card's job.
+    - **Files changed:** `backend/services/analytics_score_service.py` (formula), `backend/services/fmv_service.py` (call site), `static/script.js` (fallback formula, scenario strings, card footer)
+    - **`collectibilityScenario` strings simplified** from 6 conditions (using highFMV/highVolume/highSupply) to 4 (highFMV/highVolume only). Card footer now shows "Sold: N comps | FMV: $X" instead of "Sold: N comps | Active: N listings."
+    - **Tier → display mapping:**
+      - High Liquidity (absorption ≥ 1.0): "Buyers are active" / "Recent sales are outpacing active listings — demand is strong relative to supply."
+      - Moderate Liquidity (0.5–1.0): "Moderate buyer interest" / "Balanced market with healthy buyer activity relative to current supply."
+      - Low Liquidity (0.2–0.5): "More sellers than buyers" / "Active listings outnumber recent sales — buyers have plenty of options."
+      - Very Low Liquidity (<0.2): "Few active buyers" / "Very few recent buyers relative to current supply — a thin market."
+    - **Footer:** "X recent sales vs. Y active listings" — raw signal, no derived conclusions.
+    - **Implementation:** [`static/script.js`](static/script.js:1) — card HTML only; backend `calculate_liquidity()` in `analytics_score_service.py` unchanged.
+    - **Backend change:** Market Confidence now uses a relevance-filtered price array (threshold `ai_relevance_score >= 0.5`) before computing CoV. Items below the threshold are excluded entirely — not just down-weighted — so CoV reflects genuine market variation rather than search noise from reprints, lots, and parallels. FMV calculations are unaffected. IQR outlier filtering still runs on the cleaned set. Falls back to full dataset gracefully if no relevance scores are present.
+    - **Implementation:** [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) — relevance filter at call site in `calculate_fmv_blended()`; [`static/script.js`](static/script.js:1) — card HTML
 
 ### Data Flow Patterns
 
@@ -906,9 +943,76 @@ alembic upgrade head
 
 ## 📝 Version History & Roadmap
 
-### Current Version: 0.9.0
+### Current Version: 1.0.0
 
-**Recent Changes (v0.9.0 — AI Relevance Scoring & Analytics Score Engine):**
+**Recent Changes (v1.0.0 — AI Market Summary):**
+- **`backend/services/market_summary_service.py`** (new): Generates a 2–3 sentence plain-English market summary after each FMV calculation. Quality gate (skips on insufficient data) + signal gate (at least one meaningful condition required). Alerts collectors to below-FMV active listings including the lowest price. Tier-aware model selection: Founders get `anthropic/claude-sonnet-4-5`, all others get `google/gemini-2.0-flash-001` via OpenRouter. Never raises — all failures return `None` silently.
+- **`backend/models/schemas.py`:** `FmvResponse` — added `market_summary: Optional[str] = None`.
+- **`backend/routes/fmv.py`:** `get_fmv_v2` changed to `async def`; added `user` dependency via `get_current_user_optional`; computes below-FMV active listing prices and passes them to the summary service alongside sold count, active count, and resolved user tier.
+- **`static/script.js`:** Renders `.market-summary-panel` below the FMV card when `fmvData.market_summary` is present. Text escaped via `escapeHtml`.
+- **`static/style.css`:** Added `.market-summary-panel`, `.market-summary-header`, `.market-summary-text` — styled to match the Discount/Market Value/Premium stat boxes.
+
+**Previous Changes (v0.9.8 — Bid/Ask section reframed for casual users):**
+- **`static/script.js`:** "Bid / Ask Market Structure" section renamed and relabeled throughout. Section title → "Sales vs. Listed Now". Left panel header → "Recent Sales — What cards have sold for". Right panel header → "Listed Now — What sellers are asking". Right panel rows: "Floor (p10)" → "Low", "Median Ask" → "Median", "Ceiling (p90)" → "High". Bottom bar label "Spread" → "Price Gap". All five spread signal strings rewritten in plain English (e.g., "Tight spread — strong market consensus" → "Sellers and buyers agree on price"). Fallback text updated to match.
+- **Rationale:** The stock-market terminology (Bid/Ask, spread, p10/p90) was not meaningful to casual card collectors. The section now communicates the same data in plain language: what cards sold for recently vs. what sellers are asking right now.
+
+**Previous Changes (v0.9.7 — Collectibility score scarcity component removed):**
+- **`backend/services/analytics_score_service.py`:** `calculate_collectibility()` — removed `active_count` parameter and scarcity component (0–3, active-to-sold ratio). Price component rescaled 1–4 → 1–6; volume component rescaled 0–3 → 0–4. Score range remains 1–10.
+- **`backend/services/fmv_service.py`:** Removed `active_count` argument from the `calculate_collectibility()` call.
+- **`static/script.js`:** Fallback formula updated to match (no scarcity term, rescaled price/volume steps). `collectibilityScenario` simplified from 6 conditions to 4 (highFMV/highVolume only — highSupply removed). Card footer updated: "Active: N listings" → "FMV: $X". Tooltip updated to clarify supply/demand balance is handled by Market Activity.
+- **Rationale:** The scarcity component (active-to-sold ratio) was measuring supply/demand balance — the same signal already captured by the Market Activity card. Removing it clarifies the score's meaning: "Is this a card that commands high prices and has an established sales history?"
+
+**Previous Changes (v0.9.6 — Final stale liquidity framing cleanup):**
+- **`market_messages_content.json` (root):** Was a stale v1.2.0 copy that never received the v1.3.0 updates. Overwritten with the current `static/market_messages_content.json` — both files are now identical at v1.3.0.
+- **`backend/services/grading_advisor_service.py` line 1190:** "this card may be difficult to sell quickly. Lower liquidity means wider bid-ask spreads." → "this card has a smaller secondary market. Lower population typically means wider bid-ask spreads." Timing prediction removed; the bid-ask spread observation (which is a structural claim about thin markets, not a sell-speed prediction) was retained.
+
+**Previous Changes (v0.9.5 — Market Activity framing propagated to script.js):**
+- **`static/script.js`:** Same framing corrections applied to the remaining four locations that still used sell-speed language:
+  - `FALLBACK_POPUP_LIQUIDITY_RISK` — fully rewritten to match the updated `market_messages_content.json` popup. Title changed to "Market Activity", score-conversion section removed, bands reframed with activity language, Key Principle updated to explicitly state the metric does not predict sell speed.
+  - `calculateLiquidityRisk()` message strings — all four replaced: "cards likely sell quickly" / "expect reasonable sell time" / "may need patience or competitive pricing" / "High exit risk - consider pricing at or below FMV" → activity-based descriptions with no timing or pricing prescriptions.
+  - Backend-scores liquidity block — same four message strings updated to match.
+  - Strong Buy Opportunity block — message changed from "strong demand (liquidity: X/100)" to "strong recent sales activity (market activity: X/100)"; seller advice removed "leaving money on the table" and "Expect fast sales"; flipper advice changed from "Buy quickly" to "Buy at current prices before sellers adjust to the gap."
+
+**Previous Changes (v0.9.4 — Market Activity framing propagated to market messages and analysis.js):**
+- **`static/market_messages_content.json` (v1.2.0 → v1.3.0):** All market message bodies and persona advice strings updated to remove timing predictions and sell-speed framing. Key changes:
+  - "buyers are active/interested" → "recent sales activity is high/low"
+  - "selling quickly", "slow sales", "fast/slow" → removed throughout
+  - Pricing recommendations that were tied to absorption as timing (e.g., "price at or below FMV to sell faster") reframed as market-condition observations
+  - `liquidityRisk` popup fully rewritten as "Market Activity" — removed sell-speed interpretation, added explicit Key Principle: absorption ratio does not predict how fast your listing will sell
+  - All 7 message types updated: `twoTierMarket`, `highRiskConditions`, `overpricedActiveMarket`, `fairPricingLimitedDemand`, `strongBuyOpportunity`, `healthyMarketConditions`, `balancedMarket`
+- **`static/js/analysis.js`:** Same framing applied across all helper functions and fallback content:
+  - `getSpeedFromAbsorption()` — labels changed from `FAST/NORMAL/SLOW` (with day estimates) to `HIGH/MODERATE/LOW` (activity levels, no timeline)
+  - `getSellerQuickTip/getFlipperQuickTip/getCollectorQuickTip` — updated to use new labels, all `.timeline` references removed
+  - `getDominantBandStatement()` — "selling very fast/slowly" → "high/low absorption"
+  - `getVelocityStatement()` — day/week estimates removed; now describes activity level only
+  - `getAbsorptionRatioInterpretation()` — removed "act fast", "deals vanish", "instant sales", "wait times"
+  - `getPricingRecommendations()` — "Quick Sale Strategy" → "Competitive Price Strategy"; footer disclaimer added noting absorption ratio is not a sell-time prediction
+  - `FALLBACK_MESSAGE_CONTENT` — all timing strings removed ("2-3 weeks", "7-10 day sale", "flip quickly", "Buy NOW", etc.)
+- **Rationale:** Absorption ratio measures recent sales relative to current supply. It cannot predict how fast a specific listing sells because (1) sell speed depends on ask price set by the individual seller, and (2) `date_scraped` is not the actual sale date, making velocity estimates falsely precise. All user-facing text now describes market conditions, not seller outcomes.
+
+**Previous Changes (v0.9.3 — Market Activity Card):**
+- **Renamed:** "Liquidity" card → "Market Activity"
+- **Removed:** 0–100 numeric score, absorption ratio, confidence level, info button — all removed from display
+- **Redesigned:** Card now describes market conditions rather than predicting seller outcomes. Headline is a plain-English demand signal ("Buyers are active", "More sellers than buyers", etc.). Body is a one-sentence market-landscape description. Footer shows raw "X recent sales vs. Y active listings."
+- **Rationale:** Two data constraints make timing predictions unreliable — (1) sell speed depends on ask price, which varies per seller; (2) `date_scraped` is not the actual sale date, so sales velocity calculations would be falsely precise. The metric honestly measures demand-vs-supply balance, not sell speed.
+- **Backend:** No changes — `calculate_liquidity()` in `analytics_score_service.py` is unchanged.
+
+**Previous Changes (v0.9.2 — FMV Reliability Card & Relevance-Filtered Confidence):**
+- **Changed:** "Market Confidence" card renamed to "FMV Reliability"
+- **Removed:** 0–100 numeric score, CoV%, Std Dev, info button — all removed from the card display
+- **Redesigned:** Card now leads with a plain-English headline tier ("Prices vary a lot") and a one-sentence implication ("Take the FMV as a rough guide only."). Footer shows only "Based on N sales."
+- **Backend:** `calculate_market_confidence()` in `fmv_service.py` now receives a relevance-filtered price array (`ai_relevance_score >= 0.5`) instead of the raw IQR-filtered array. Low-relevance items (reprints, lots, wrong-product noise) are excluded entirely before CoV is computed. FMV calculations are unaffected. Falls back to full dataset if no scores are present.
+- **Changed:** "Asking vs. Sold" card color updated from neutral gray to purple (#5856d6, lavender gradient)
+
+**Previous Changes (v0.9.1 — Asking vs. Sold):**
+- **Changed:** "Market Pressure" indicator card renamed to "Asking vs. Sold"
+- **Removed:** Status bands (HEALTHY/OPTIMISTIC/RESISTANCE/UNREALISTIC/BELOW FMV), colored gradients per band, info button
+- **Added:** Plain-English sentence label describing the gap (e.g. "Sellers are asking noticeably more than recent sales.")
+- **Added:** Disclaimer line: "Reflects current asking prices, not a prediction of where prices are headed."
+- **Added:** Minimum sample size gate — card hidden entirely when fewer than 5 active listings in sample
+- **Simplified:** Neutral gray card styling regardless of pressure value; `marketPressureStatus` and `dataConfidence` variables removed
+
+**Previous Changes (v0.9.0 — AI Relevance Scoring & Analytics Score Engine):**
 - **New:** `backend/services/relevance_service.py` — AI-powered listing relevance scoring using Gemini 2.0 Flash Lite (via OpenRouter); scores 0.0–1.0 per listing, used as FMV weight multipliers
 - **New:** `backend/services/analytics_score_service.py` — unified engine for Market Confidence (volume-weighted CoV), Liquidity (recency-weighted absorption), Collectibility (continuous log-scaled), and Market Pressure (seller-deduplicated ask vs. FMV)
 - **Updated:** `POST /fmv/v2` accepts optional `query` field; returns `sold_relevance_scores` and `active_relevance_scores` arrays when AI scoring runs
@@ -919,7 +1023,7 @@ alembic upgrade head
 - **New:** `POST /fmv/v2` — blended FMV using sold comps (bid) + active listings (ask)
 - **New:** `backend/services/collectibility_service.py` — 1–10 collectibility score
 - **New:** `backend/services/search_log_service.py` + `backend/routes/dev_log.py` — search logging
-- **Dashboard:** Bid/Ask Market Structure section, Collectibility indicator card
+- **Dashboard:** Sales vs. Listed Now section, Collectibility indicator card
 - **Dashboard:** Removed Market Assessment, Sales Speed by Price, Price Statistics block
 - **Renamed:** Quick Sale → Discount, Patient Sale → Premium throughout UI
 - **Beeswarm:** Active listings plotted as red dots, three-item legend, centered axis, active outliers clipped
@@ -1105,7 +1209,7 @@ When starting a new task, review these first:
 
 ### Project Maturity
 
-**Project Maturity:** Production (Beta v0.9.0)
+**Project Maturity:** Production (Beta v0.9.8)
 **Test Coverage:** Partial (core services covered)
 **Documentation:** Complete
 **Active Development:** Yes

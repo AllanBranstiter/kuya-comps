@@ -1,6 +1,6 @@
 {
-  "version": "1.2.0",
-  "last_updated": "2024-12-20",
+  "version": "1.3.0",
+  "last_updated": "2026-04-05",
   "messages": {
     "dataQualityWarning": {
       "title": "Data Quality Warning",
@@ -34,12 +34,12 @@
       "color": "#5856d6",
       "gradient": "linear-gradient(135deg, #f0f0ff 0%, #f8f8ff 100%)",
       "border": "#c5c4e8",
-      "message": "Cards priced below fair value are selling quickly, while higher-priced listings struggle to move.\n\nThis market has two different speeds: Cards priced below FMV are selling {absorptionBelow}x faster than new listings appear ({salesBelow} sales vs {belowFMV} listings), while higher-priced cards aren't selling quickly ({absorptionAbove} absorption, {salesAbove} sales vs {aboveFMV} listings). Average asking price is {marketPressure}% vs FMV.",
+      "message": "This market shows two distinct activity levels by price tier.\n\nCards priced below FMV show much higher sales activity relative to supply ({absorptionBelow}x absorption: {salesBelow} sales vs {belowFMV} listings), while higher-priced cards show low activity ({absorptionAbove} absorption: {salesAbove} sales vs {aboveFMV} listings). Average asking price is {marketPressure}% vs FMV.",
       "personaAdvice": {
         "seller": [
-          "Cards priced near or below fair value sell much faster.",
-          "Overpricing usually leads to long wait times.",
-          "If you want a quick sale, price competitively."
+          "Cards priced near or below fair value show stronger buyer activity.",
+          "Higher-priced listings are sitting with little competition for them.",
+          "Competitive pricing tends to generate more buyer engagement."
         ],
         "flipper": [
           "This is a good flipping setup.",
@@ -60,7 +60,7 @@
       "color": "#ff3b30",
       "gradient": "linear-gradient(135deg, #ffe6e6 0%, #fff0f0 100%)",
       "border": "#ffb3b3",
-      "message": "Prices are high, but buyers aren't active\n\nSellers are asking {marketPressure}% above FMV, but there aren't many buyers interested (liquidity: {liquidityScore}/100). This means listings are overpriced compared to what buyers are actually willing to pay. It may be better to wait for sellers to lower prices or look for better deals elsewhere.",
+      "message": "Prices are high, but sales activity is low\n\nSellers are asking {marketPressure}% above FMV, but recent sales activity is low relative to available supply (market activity: {liquidityScore}/100). Listings are priced well above what buyers have recently paid. Waiting for sellers to adjust prices, or looking for better-priced alternatives, is worth considering.",
       "personaAdvice": {
         "seller": [
           "This is a tough environment to sell in.",
@@ -86,12 +86,12 @@
       "color": "#ff9500",
       "gradient": "linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)",
       "border": "#ffd699",
-      "message": "Prices are high, but buyers are still buying\n\nThe market for this card is very hot. Asking prices are {marketPressure}% above FMV, and are supported by strong demand and good liquidity ({liquidityScore}/100). Sellers currently have the upper hand because there are plenty of buyers and lots of sales happening, which helps support these high prices. Prices may still be rising, but they could start to drop if buyer interest or liquidity slows down.",
+      "message": "Prices are high, and sales activity remains strong\n\nAsking prices are {marketPressure}% above FMV, and recent sales activity is high relative to supply (market activity: {liquidityScore}/100). Sellers currently have the upper hand. Prices could soften if market activity cools, but for now buyers are engaging at elevated prices.",
       "personaAdvice": {
         "seller": [
           "This is a strong selling window.",
           "Buyers are accepting higher prices right now.",
-          "Consider selling while demand is hot."
+          "Consider selling — current activity levels favor sellers."
         ],
         "flipper": [
           "Flips are possible, but timing matters.",
@@ -112,11 +112,11 @@
       "color": "#ff9500",
       "gradient": "linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)",
       "border": "#ffd699",
-      "message": "Prices make sense, but sales are slow\n\nPrices are fairly reasonable ({marketPressure}% vs FMV), but not many buyers are interested (liquidity: {liquidityScore}/100). Even though prices are fair, cards aren't selling well. This could mean the card is losing popularity or buyer interest is fading. If this card is from a recent release, this could also mean the number of cards available for sale (supply) is starting to outstrip the number of interested buyers (demand).",
+      "message": "Prices make sense, but sales activity is low\n\nPrices are fairly reasonable ({marketPressure}% vs FMV), but sales activity is low relative to available supply (market activity: {liquidityScore}/100). This could mean the card is losing popularity, or that supply is outpacing buyer interest. If this is a recent release, it may simply be that more sellers than buyers are active right now.",
       "personaAdvice": {
         "seller": [
           "Slow sales are likely, even at fair prices.",
-          "If you want quicker action, slight discounts can help.",
+          "Pricing toward the lower end of the FMV range may attract more activity.",
           "Otherwise, patience is required."
         ],
         "flipper": [
@@ -138,21 +138,21 @@
       "color": "#34c759",
       "gradient": "linear-gradient(135deg, #e6f7ed 0%, #f0faf4 100%)",
       "border": "#99e6b8",
-      "message": "Current sellers are asking {absMarketPressure}% below Fair Market Value\n\nActive listings are priced below what cards recently sold for, and lots of buyers are active (liquidity: {liquidityScore}/100). This is a rare opportunity: current asking prices are undervalued compared to recent sales. This could mean sellers haven't adjusted to rising demand, or a player is breaking out.",
+      "message": "Current sellers are asking {absMarketPressure}% below Fair Market Value\n\nActive listings are priced below what cards recently sold for, and recent sales activity is strong relative to supply (market activity: {liquidityScore}/100). Current asking prices are undervalued compared to recent sales. This could mean sellers haven't adjusted to recent sales trends, or a player is breaking out.",
       "personaAdvice": {
         "seller": [
-          "Current market asks are below recent sales—you could price at Fair Market Value and still sell quickly",
-          "Expect fast sales even if you raise your price toward Fair Market Value",
+          "Current asks are below recent sales — you could price at or near Fair Market Value and benefit from the gap.",
+          "Pricing toward Fair Market Value is supported by current sales activity.",
           "Consider pricing at Fair Market Value or just above it"
         ],
         "flipper": [
           "This is an excellent setup.",
-          "Buy quickly at current prices and aim for fast resale.",
-          "Delays matter here—once sellers adjust, margins shrink."
+          "Buy at current prices before sellers adjust the gap.",
+          "Delays matter here—once sellers reprice, margins shrink."
         ],
         "collector": [
           "This is one of the better times to buy if you're optimistic about the player's potential",
-          "You're entering below fair value in a market with real demand.",
+          "You're entering below fair value in a market with active recent sales.",
           "Acting sooner usually beats waiting in conditions like this."
         ]
       },
@@ -190,7 +190,7 @@
       "color": "#007aff",
       "gradient": "linear-gradient(135deg, #e6f2ff 0%, #f0f7ff 100%)",
       "border": "#99c9ff",
-      "message": "Prices are in the middle range ({marketPressure}% vs FMV) with moderate buyer activity (liquidity: {liquidityScore}/100). This is a normal, stable market: nothing particularly remarkable happening. Use your normal judgment when buying or selling.",
+      "message": "Prices are in the middle range ({marketPressure}% vs FMV) with moderate sales activity (market activity: {liquidityScore}/100). This is a normal, stable market: nothing particularly remarkable happening. Use your normal judgment when buying or selling.",
       "personaAdvice": {
         "seller": [],
         "flipper": [],
@@ -204,18 +204,18 @@
       "color": "#ff9500",
       "gradient": "linear-gradient(135deg, #fff5e6 0%, #fffaf0 100%)",
       "border": "#ffd699",
-      "message": "Cards are selling at very different prices. Market has two speeds.\n\nThis market shows a fragmented pattern: Cards below FMV are selling {absorptionBelow}x faster than supply ({salesBelow} sales vs {belowFMV} listings), while cards above FMV move much slower ({absorptionAbove}:1 absorption, {salesAbove} sales vs {aboveFMV} listings). Market Confidence is {confidence}/100, confirming price scatter. This suggests distinct buyer segments operating at different price points.",
+      "message": "Cards are selling at very different prices, with a clear activity split by price tier.\n\nThis market shows a fragmented pattern: cards below FMV show higher sales activity relative to supply ({absorptionBelow}x absorption: {salesBelow} sales vs {belowFMV} listings), while cards above FMV show much lower activity ({absorptionAbove} absorption: {salesAbove} sales vs {aboveFMV} listings). FMV Reliability is {confidence}/100, confirming price scatter. This suggests distinct buyer segments operating at different price points.",
       "personaAdvice": {
         "seller": [
           "This market rewards strategic pricing.",
-          "Cards priced below FMV sell quickly to value hunters.",
-          "Premium pricing leads to extended wait times.",
+          "Cards priced below FMV show stronger buyer engagement.",
+          "Premium pricing leads to low activity in fragmented markets.",
           "Consider your urgency when choosing a price tier."
         ],
         "flipper": [
-          "Target the high-absorption zone below FMV for fastest turnover.",
-          "Buy in the value segment, sell quickly at or just below FMV.",
-          "Avoid premium pricing - those listings stall in fragmented markets.",
+          "Target the higher-absorption zone below FMV.",
+          "Buy in the value segment, sell at or just below FMV.",
+          "Avoid premium pricing — those listings stall in fragmented markets.",
           "Volume beats premium pricing in bimodal conditions."
         ],
         "collector": [
@@ -424,11 +424,11 @@
       ]
     },
     "liquidityRisk": {
-      "title": "💧 Understanding Liquidity Risk",
+      "title": "📊 Understanding Market Activity",
       "sections": [
         {
           "type": "text",
-          "content": "Liquidity Risk measures how easy or difficult it may be to <strong>SELL</strong> a card at or near Fair Market Value. It focuses on <strong>exit risk</strong>, not value."
+          "content": "Market Activity measures how much recent sales activity exists relative to current supply. It describes the market landscape — not how fast your specific listing will sell."
         },
         {
           "type": "header",
@@ -436,63 +436,46 @@
         },
         {
           "type": "formula",
-          "content": "Completed Sales / Active Listings"
+          "content": "Recent Sales (decay-weighted) / Active Buy It Now Listings"
         },
         {
           "type": "text",
-          "content": "<em>Measures demand vs supply based on recent completed sales and current Buy It Now listings.</em>"
+          "content": "<em>A ratio above 1.0 means recent sales outpace current supply. Below 1.0 means more supply than recent sales activity.</em>"
         },
         {
           "type": "header",
-          "content": "How Absorption Converts to Liquidity Score"
-        },
-        {
-          "type": "text",
-          "content": "The 0-100 liquidity score is calculated from the absorption ratio:"
-        },
-        {
-          "type": "list",
-          "items": [
-            "<strong>Ratio ≥ 1.0:</strong> Score ranges from 80-100 (increases by 20 points per 1.0 ratio increase)",
-            "<strong>Ratio 0.5-1.0:</strong> Score ranges from 50-79 (linear scale)",
-            "<strong>Ratio 0.2-0.5:</strong> Score ranges from 25-49 (linear scale)",
-            "<strong>Ratio < 0.2:</strong> Score ranges from 10-24 (linear scale down to minimum of 10)"
-          ]
-        },
-        {
-          "type": "header",
-          "content": "Liquidity Bands"
+          "content": "Activity Tiers"
         },
         {
           "type": "bands",
           "items": [
             {
               "icon": "🟢",
-              "title": "Ratio ≥ 1.0 (HIGH LIQUIDITY)",
+              "title": "Ratio ≥ 1.0 (BUYERS ARE ACTIVE)",
               "color": "#34c759",
-              "meaning": "Demand exceeds supply - cards sell quickly.",
-              "action": "Price competitively to capture demand. Quick exits are likely."
+              "meaning": "Recent sales are outpacing active listings — demand is strong relative to current supply.",
+              "action": "Healthy market conditions for sellers. Competitive pricing is rewarded."
             },
             {
               "icon": "🔵",
-              "title": "Ratio 0.5-1.0 (MODERATE)",
+              "title": "Ratio 0.5–1.0 (MODERATE ACTIVITY)",
               "color": "#007aff",
-              "meaning": "Balanced market with healthy liquidity.",
-              "action": "Normal market conditions - expect reasonable sell time."
+              "meaning": "Balanced market — sales activity and supply are reasonably matched.",
+              "action": "Normal market conditions. No strong signal in either direction."
             },
             {
               "icon": "🟠",
-              "title": "Ratio 0.2-0.5 (LOW LIQUIDITY)",
+              "title": "Ratio 0.2–0.5 (MORE SELLERS THAN BUYERS)",
               "color": "#ff9500",
-              "meaning": "Slow absorption - elevated exit risk.",
-              "action": "May need patience or competitive pricing to attract buyers."
+              "meaning": "Active listings outnumber recent sales — buyers have plenty of options.",
+              "action": "A crowded market. Pricing toward the lower end of the FMV range may attract more attention."
             },
             {
               "icon": "🔴",
-              "title": "Ratio < 0.2 (VERY LOW)",
+              "title": "Ratio < 0.2 (FEW ACTIVE BUYERS)",
               "color": "#ff3b30",
-              "meaning": "Illiquid market - high exit risk.",
-              "action": "Pricing at or below FMV may help, but sales can still take time."
+              "meaning": "Very few recent sales relative to current supply — a thin market.",
+              "action": "Proceed cautiously. Both the FMV and the selling environment carry more uncertainty here."
             }
           ]
         },
@@ -502,18 +485,18 @@
         },
         {
           "type": "text",
-          "content": "Liquidity Risk does NOT modify FMV. It tells you how easy it will be to sell at that price. High FMV with low liquidity means the card is valuable but may take time to sell."
+          "content": "Market Activity does NOT predict how fast your listing will sell. Sell speed depends on your ask price, listing quality, and timing — none of which this metric can measure. It tells you about the market environment, not your outcome."
         },
         {
           "type": "header",
-          "content": "📊 Liquidity Data Coverage"
+          "content": "📊 Data Coverage"
         },
         {
           "type": "list",
           "items": [
-            "<strong>High:</strong> 10+ sales AND 10+ active listings",
-            "<strong>Medium:</strong> 5+ sales AND 5+ active listings",
-            "<strong>Low:</strong> Below medium thresholds (use with caution)"
+            "<strong>More reliable:</strong> 10+ recent sales AND 10+ active listings",
+            "<strong>Reasonable:</strong> 5+ recent sales AND 5+ active listings",
+            "<strong>Use with caution:</strong> Below these thresholds"
           ]
         }
       ]

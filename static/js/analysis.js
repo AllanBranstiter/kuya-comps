@@ -74,44 +74,44 @@ function filterOutliers(prices) {
 }
 
 /**
- * Convert absorption ratio to user-friendly speed indicator
+ * Convert absorption ratio to market activity indicator
  * @param {string|number} absorption - Absorption ratio
- * @returns {Object} Speed indicator with emoji, label, timeline, color, bg
+ * @returns {Object} Activity indicator with emoji, label, color, bg
  */
 function getSpeedFromAbsorption(absorption) {
     if (absorption === 'N/A' || absorption === null) {
         return {
             emoji: '📭',
             label: 'NO DATA',
-            timeline: 'No listings',
+            timeline: '',
             color: '#8e8e93',
             bg: '#fafafa'
         };
     }
-    
+
     const ratio = parseFloat(absorption);
-    
+
     if (ratio >= 1.5) {
         return {
             emoji: '🔥',
-            label: 'FAST',
-            timeline: '1-5 days',
+            label: 'HIGH',
+            timeline: '',
             color: '#34c759',
             bg: '#f0fff0'
         };
     } else if (ratio >= 0.5) {
         return {
             emoji: '✅',
-            label: 'NORMAL',
-            timeline: '1-2 weeks',
+            label: 'MODERATE',
+            timeline: '',
             color: '#007aff',
             bg: '#f0f9ff'
         };
     } else {
         return {
             emoji: '🐌',
-            label: 'SLOW',
-            timeline: '3+ weeks',
+            label: 'LOW',
+            timeline: '',
             color: '#ff9500',
             bg: '#fffaf0'
         };
@@ -119,15 +119,15 @@ function getSpeedFromAbsorption(absorption) {
 }
 
 /**
- * Generate seller quick tip based on speed zones
+ * Generate seller quick tip based on activity zones
  */
 function getSellerQuickTip(belowSpeed, belowRange, atRange) {
-    if (belowSpeed.label === 'FAST') {
-        return `${belowRange} for quick sale OR ${atRange} for fair value`;
-    } else if (belowSpeed.label === 'NORMAL' || belowSpeed.label === 'NO DATA') {
-        return `${atRange} for standard timeline`;
+    if (belowSpeed.label === 'HIGH') {
+        return `${belowRange} for competitive pricing OR ${atRange} for fair value`;
+    } else if (belowSpeed.label === 'MODERATE' || belowSpeed.label === 'NO DATA') {
+        return `${atRange} aligns with current market activity`;
     } else {
-        return `Price competitively—market moving slowly`;
+        return `Price competitively — buyer activity is currently low`;
     }
 }
 
@@ -135,8 +135,8 @@ function getSellerQuickTip(belowSpeed, belowRange, atRange) {
  * Generate flipper quick tip
  */
 function getFlipperQuickTip(belowSpeed, belowRange, fmvFormatted) {
-    if (belowSpeed.label === 'FAST') {
-        return `Buy ${belowRange}, flip at ${fmvFormatted} (${belowSpeed.timeline})`;
+    if (belowSpeed.label === 'HIGH') {
+        return `Buy ${belowRange}, target ${fmvFormatted} — below-FMV zone has strong activity`;
     } else {
         return `Look for deals 20%+ below ${fmvFormatted}`;
     }
@@ -146,10 +146,10 @@ function getFlipperQuickTip(belowSpeed, belowRange, fmvFormatted) {
  * Generate collector quick tip
  */
 function getCollectorQuickTip(atSpeed, atRange) {
-    if (atSpeed.label === 'FAST' || atSpeed.label === 'NORMAL') {
-        return `${atRange} offers fair value (${atSpeed.timeline})`;
+    if (atSpeed.label === 'HIGH' || atSpeed.label === 'MODERATE') {
+        return `${atRange} offers fair value in an active market`;
     } else {
-        return `Market slow—negotiate below asking`;
+        return `Buyer activity is low — negotiate below asking`;
     }
 }
 
@@ -480,30 +480,30 @@ function getDominantBandStatement(below, at, above, absBelow, absAt, absAbove, s
     
     // Plain language version with actual numbers
     if (absorption >= 1.5) {
-        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (selling very fast)`;
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (high absorption)`;
     } else if (absorption >= 0.5) {
-        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (normal pace)`;
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (moderate absorption)`;
     } else if (absorption > 0) {
-        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (selling slowly)`;
+        return `Most activity ${location} — ${sales} recent sales vs ${listings} current listings (low absorption)`;
     } else {
         return `Most activity ${location} — ${listings} current listings, no recent sales data`;
     }
 }
 
 /**
- * Generate velocity statement for sell time estimates
+ * Generate activity statement describing absorption ratio in plain language
  * @param {string|number} absorptionRatio - Absorption ratio
  * @param {string} scenario - Pricing scenario description
- * @returns {string} Velocity statement
+ * @returns {string} Activity statement
  */
 function getVelocityStatement(absorptionRatio, scenario) {
     if (absorptionRatio === 'N/A' || absorptionRatio < 0) return '';
-    
+
     const ratio = parseFloat(absorptionRatio);
-    if (ratio >= 1.5) return `${scenario}: Selling within days at current demand`;
-    if (ratio >= 0.8) return `${scenario}: 1-2 week sell time expected`;
-    if (ratio >= 0.4) return `${scenario}: 3-4 weeks to sell`;
-    return `${scenario}: 4+ weeks expected (slow absorption)`;
+    if (ratio >= 1.5) return `${scenario}: High sales activity relative to supply`;
+    if (ratio >= 0.8) return `${scenario}: Moderate sales activity`;
+    if (ratio >= 0.4) return `${scenario}: Low sales activity relative to supply`;
+    return `${scenario}: Very low sales activity relative to supply`;
 }
 
 /**
@@ -518,32 +518,32 @@ function getAbsorptionRatioInterpretation(absorptionRatio, band) {
     }
     
     const ratio = parseFloat(absorptionRatio);
-    
+
     if (band === 'below') {
         if (ratio >= 1.5) {
-            return '🔥 Extremely hot zone! Sales happening 50%+ faster than new listings appear. Deals vanish quickly at these prices.';
+            return '🔥 High activity zone. Recent sales are well above current supply at these prices.';
         } else if (ratio >= 1.0) {
-            return '🔥 Hot zone! More sales than listings means deals sell faster than they\'re posted. Act fast on good prices.';
+            return '🔥 Active zone. Recent sales outnumber current listings at these prices.';
         } else if (ratio >= 0.5) {
-            return '⚡ Moderate demand. Cards at these prices get steady interest, though not instant sales.';
+            return '⚡ Moderate activity. Cards at these prices see steady buyer engagement.';
         } else {
-            return '📊 Lower activity. Some bargains available but demand is modest at these price points.';
+            return '📊 Lower activity. Some options available but sales are limited at these price points.';
         }
     } else if (band === 'at') {
         if (ratio >= 1.0) {
-            return '🔥 Strong demand at fair value! Cards priced near FMV are selling faster than they\'re listed.';
+            return '🔥 Strong activity at fair value. Recent sales outnumber current listings near FMV.';
         } else if (ratio >= 0.5) {
-            return '✅ Healthy activity! Balanced supply and demand. Cards move at a steady, predictable pace.';
+            return '✅ Healthy activity. Balanced supply and sales at fair value prices.';
         } else {
-            return '⏳ Slower activity. More listings than recent sales. Sellers may need patience or slight price adjustments.';
+            return '⏳ Slower activity. More listings than recent sales near FMV.';
         }
     } else {
         if (ratio >= 0.5) {
-            return '📊 Moderate demand even at premium pricing. Some buyers willing to pay above FMV.';
+            return '📊 Moderate activity even at premium prices. Some buyers engaging above FMV.';
         } else if (ratio >= 0.3) {
-            return '⏳ Lower demand. Premium-priced cards face longer wait times. Most sales happen closer to FMV.';
+            return '⏳ Lower activity at premium prices. Most sales are happening closer to FMV.';
         } else {
-            return '⚠️ Very low demand at these prices. Significant oversupply vs sales. Overpriced for current market conditions.';
+            return '⚠️ Very low activity at these prices. Significant oversupply vs recent sales.';
         }
     }
 }
@@ -574,15 +574,15 @@ function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
     const atAbsorption = atFMV.absorption !== 'N/A' ? parseFloat(atFMV.absorption) : 0;
     const aboveAbsorption = aboveFMV.absorption !== 'N/A' ? parseFloat(aboveFMV.absorption) : 0;
     
-    // Recommendation 1: Quick Sale Strategy
+    // Recommendation 1: Competitive Price Strategy
     if (belowAbsorption >= 1.0 && belowFMV.count > 0) {
         const quickPrice = fmv * 0.85;
         recommendations.push({
             icon: '⚡',
-            title: 'Quick Sale Strategy',
+            title: 'Competitive Price Strategy',
             price: quickPrice,
             range: `${formatMoney(fmv * 0.80)} - ${formatMoney(fmv * 0.90)}`,
-            reason: `High demand below FMV (${belowAbsorption}:1 absorption ratio). Cards priced 10-20% below FMV are selling faster than they're listed.`,
+            reason: `High sales activity below FMV (${belowAbsorption}:1 absorption ratio). Cards priced 10-20% below FMV show strong buyer engagement.`,
             color: '#34c759',
             bg: 'linear-gradient(135deg, #e6ffe6 0%, #f0fff0 100%)',
             border: '#99ff99'
@@ -596,7 +596,7 @@ function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
             title: 'Fair Market Strategy',
             price: fmv,
             range: `${formatMoney(fmv * 0.95)} - ${formatMoney(fmv * 1.05)}`,
-            reason: `Steady activity at FMV (${atAbsorption} absorption ratio). Price competitively near ${formatMoney(fmv)} for reliable sales.`,
+            reason: `Steady activity at FMV (${atAbsorption} absorption ratio). Pricing near ${formatMoney(fmv)} is well-supported by current market data.`,
             color: '#007aff',
             bg: 'linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%)',
             border: '#99daff'
@@ -611,7 +611,7 @@ function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
             title: 'Patient Sale Strategy',
             price: patientPrice,
             range: `${formatMoney(fmv * 1.05)} - ${formatMoney(fmv * 1.15)}`,
-            reason: `Low market pressure and good liquidity suggest room for premium pricing if you're patient.`,
+            reason: `Low market pressure and good market activity suggest room for premium pricing in this market.`,
             color: '#5856d6',
             bg: 'linear-gradient(135deg, #f0e6ff 0%, #f5f0ff 100%)',
             border: '#d6b3ff'
@@ -677,7 +677,7 @@ function getPricingRecommendations(bands, fmv, marketPressure, liquidityScore) {
             
             <div style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, #f5f5f7 0%, #fafafa 100%); border-radius: 8px;">
                 <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.5;">
-                    <strong>💡 Note:</strong> These recommendations are based on recent market activity and absorption ratios. Adjust based on your selling timeline and risk tolerance. Always factor in fees, shipping costs, and current market trends.
+                    <strong>💡 Note:</strong> These recommendations are based on recent market activity and absorption ratios. Adjust based on your card condition, fees, shipping costs, and risk tolerance. Absorption ratios reflect the balance of recent sales to current supply — not a prediction of how fast your listing will sell.
                 </p>
             </div>
         </div>
@@ -765,65 +765,65 @@ const FALLBACK_MESSAGE_CONTENT = {
         },
         
         twoTierMarket: {
-            message: `Fast sales below FMV ({absorptionBelow}:1), slow sales above ({absorptionAbove}:1)`,
+            message: `Higher activity below FMV ({absorptionBelow}:1 absorption) vs above FMV ({absorptionAbove}:1 absorption)`,
             personaAdvice: {
-                seller: "List below {fmv} → fast | List above {fmv} → 3+ weeks",
-                flipper: "Buy below {quick_sale}, flip at {fmv} for quick profit",
+                seller: "Below {fmv} shows stronger buyer engagement | Above {fmv} shows low activity",
+                flipper: "Buy below {quick_sale}, target {fmv} — better absorption in that zone",
                 collector: "Buy at {fmv}±10%, avoid overpriced premium listings"
             }
         },
-        
+
         highRiskConditions: {
-            message: `Asking {marketPressure}% above FMV but liquidity low ({liquidityScore}/100). Overpriced vs actual demand.`,
+            message: `Asking {marketPressure}% above FMV but market activity is low ({liquidityScore}/100). Listings priced well above recent sales.`,
             personaAdvice: {
-                seller: "Price below crowd at {fmv} or expect slow sales",
-                flipper: "Skip—high prices + low demand = no profit margin",
+                seller: "Price at or near {fmv} to stand out in a crowded, slow market",
+                flipper: "Skip — high prices + low activity = no margin",
                 collector: "Wait for prices to drop toward {fmv}"
             }
         },
-        
+
         overpricedActiveMarket: {
-            message: `Hot market: asking {marketPressure}% above FMV, supported by liquidity ({liquidityScore}/100).`,
+            message: `Asking {marketPressure}% above FMV, with active sales relative to supply ({liquidityScore}/100).`,
             personaAdvice: {
-                seller: "Strong selling window—list at {patient_sale} while demand hot",
-                flipper: "Buy and flip quickly—market can cool fast",
-                collector: "Paying premium now or wait for hype to fade"
+                seller: "Current activity favors sellers — consider listing at {patient_sale}",
+                flipper: "Buy and resell before market activity cools",
+                collector: "Paying a premium now, or wait for activity to normalize"
             }
         },
-        
+
         fairPricingLimitedDemand: {
-            message: `Fair prices ({marketPressure}% vs FMV) but liquidity low ({liquidityScore}/100). Slow sales despite reasonable pricing.`,
+            message: `Fair prices ({marketPressure}% vs FMV) but sales activity is low ({liquidityScore}/100) relative to available supply.`,
             personaAdvice: {
-                seller: "Expect 2-3 weeks even at {fmv}. Discount to {quick_sale} speeds it up",
-                flipper: "Slow flips—only buy if expecting future catalyst",
-                collector: "Quiet buying opportunity—fair prices without hype"
+                seller: "Sales may be slow even at {fmv}. Pricing toward the lower end of the range may attract more attention.",
+                flipper: "Low activity — only buy if expecting a future catalyst",
+                collector: "Quiet buying opportunity — fair prices without hype"
             }
         },
-        
+
         strongBuyOpportunity: {
-            message: `Cards {absMarketPressure}% below FMV with strong liquidity ({liquidityScore}/100). Rare underpriced opportunity.`,
+            message: `Cards {absMarketPressure}% below FMV with strong recent sales activity ({liquidityScore}/100).`,
             personaAdvice: {
-                seller: "You're leaving money on table—price closer to {fmv}",
-                flipper: "Buy NOW at {quick_sale}, flip at {fmv} quickly",
-                collector: "Excellent entry at {quick_sale} ({absMarketPressure}% discount)"
+                seller: "Current asks are below recent sales — pricing at {fmv} is well-supported",
+                flipper: "Buy at {quick_sale}, target {fmv} — sellers haven't adjusted to the gap yet",
+                collector: "Strong entry at {quick_sale} ({absMarketPressure}% below recent sales)"
             }
         },
-        
+
         healthyMarketConditions: {
-            message: `Fair pricing ({marketPressure}% vs FMV) + good liquidity ({liquidityScore}/100). Balanced market.`,
+            message: `Fair pricing ({marketPressure}% vs FMV) with good sales activity ({liquidityScore}/100). Balanced market.`,
             personaAdvice: {
-                seller: "List at {fmv}±5% → standard 7-10 day sale",
-                flipper: "Find deals below {quick_sale}, flip at {fmv}",
-                collector: "No rush—buy at {fmv} when you find good condition"
+                seller: "List at {fmv}±5% — current market activity supports fair pricing",
+                flipper: "Find deals below {quick_sale}, target {fmv}",
+                collector: "No rush — buy at {fmv} when you find the right condition"
             }
         },
-        
+
         balancedMarket: {
-            message: `Normal market conditions ({marketPressure}% vs FMV, liquidity {liquidityScore}/100).`,
+            message: `Normal market conditions ({marketPressure}% vs FMV, market activity {liquidityScore}/100).`,
             personaAdvice: {
-                seller: "List at {fmv} for typical sale timeline",
-                flipper: "Standard margins—buy {quick_sale}, sell {fmv}",
-                collector: "No market timing needed—buy when ready"
+                seller: "List at {fmv} — no strong signal in either direction",
+                flipper: "Standard margins — buy {quick_sale}, sell {fmv}",
+                collector: "No market timing needed — buy when ready"
             }
     }
 };
