@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v1.0.0
+# eBay Baseball Card Comps Tool v1.1.0
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations, intelligent deal-finding, and a personal card collection tracker with automatic price history.
 
@@ -7,14 +7,14 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 ### Comps & Analysis
 *   **Dual Search Display**: Automatically shows both sold listings and active listings below FMV
 *   **Advanced Filtering**: Raw Only, Base Only, Exclude Autographs, and Buy It Now Only filters
-*   **Smart Deal Finding**: Active listings filtered to show only items priced at or below Fair Market Value
+*   **Smart Deal Finding**: Active listings sorted cheapest first with discount indicators showing how much below FMV each listing is priced
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
-*   **Market Analysis**: Fair Market Value calculations with Discount/Market Value/Premium ranges
-*   **Bid/Ask Market Structure**: Stock-market-style display showing what buyers paid (bid) vs. what sellers are asking (ask), with spread signal
+*   **Market Analysis**: Fair Market Value calculations with Discount/Market Value/Premium ranges, competitive active zone detection for accurate blending
+*   **Competitive Zone Detection**: Identifies active listings priced near recent sales and uses that convergence signal for FMV blending, rather than treating all active listings as one distribution
 *   **Collectibility Score**: 1–10 score using continuous log-scaled price, volume, and scarcity components
 *   **AI Relevance Scoring**: LLM-powered listing filter — each sold and active listing is scored 0.0–1.0 for relevance to the search query; low-relevance listings (wrong card, wrong grade, lots) have minimal weight in FMV
 *   **AI Market Summary**: After each search, a plain-English summary describes current market conditions, price direction, and deal opportunities — including a callout when active listings are available below market value
-*   **Interactive Visualization**: Beeswarm chart showing sold (blue) and active (red) price distributions
+*   **Interactive Visualization**: Beeswarm and price density charts showing sold (blue) and active (red) price distributions — all sold comps shown transparently
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
 
 ### Collection Tracker

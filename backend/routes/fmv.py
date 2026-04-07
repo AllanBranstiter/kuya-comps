@@ -141,11 +141,11 @@ async def get_fmv_v2(
         below_fmv_listings = []
         if result.market_value and request.active_items:
             below_fmv_listings = sorted([
-                i.extracted_price
+                i.total_price
                 for i in request.active_items
-                if getattr(i, "extracted_price", None)
-                and i.extracted_price > 0
-                and i.extracted_price < result.market_value
+                if getattr(i, "total_price", None)
+                and i.total_price > 0
+                and i.total_price < result.market_value
             ])
 
         response_dict["market_summary"] = generate_market_summary(

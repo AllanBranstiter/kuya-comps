@@ -383,9 +383,13 @@ async def get_usage_stats(
         # Get auto-valuation usage (if binder_id provided, otherwise just check limits)
         # For the usage endpoint, we'll just show aggregate data
         # We don't need a specific binder_id, so we'll check against user's first binder
-        from backend.database.schema import Binder
-        binders = db.query(Binder.id).filter(Binder.user_id == user_id).first()
-        binder_id = binders[0] if binders else 1  # Default to 1 if no binders
+        binder_id = 1  # Default
+        try:
+            from backend.database.schema import Binder
+            binders = db.query(Binder.id).filter(Binder.user_id == user_id).first()
+            binder_id = binders[0] if binders else 1
+        except Exception:
+            logger.debug("[BILLING] Could not query binders (database may be unavailable), using default")
 
         auto_val_check = await service.check_auto_valuation_limit(user_id, binder_id)
 

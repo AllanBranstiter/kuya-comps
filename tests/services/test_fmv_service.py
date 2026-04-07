@@ -722,3 +722,181 @@ class TestActiveFloorGuardrail:
         assert result.quick_sale is not None
         # quick_sale should stay anchored to the sold cluster, not drop to active P10
         assert result.quick_sale > 50.0
+
+
+class TestSecondaryClusterMinimum:
+    """Tests that single items cannot form secondary clusters."""
+
+    def test_single_item_cannot_form_secondary_cluster(self):
+        """A lone outlier should not qualify as a secondary cluster."""
+        # 4 items in primary cluster + 1 lone outlier
+        # With MIN_SECONDARY_CLUSTER_SIZE=2, the outlier can't form a cluster
+        prices = np.array([2.24, 2.49, 2.74, 2.24, 8.99], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        # The single $8.99 item should NOT qualify as a secondary cluster
+        assert result.upper_median is None
+
+    def test_two_items_can_form_secondary_cluster(self):
+        """Two items in a separate group should qualify as a secondary cluster."""
+        # Primary cluster at ~$50, secondary at ~$100 with 2 items
+        prices = np.array([48, 50, 52, 49, 51, 50, 48, 52, 49, 51,
+                           100, 102], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        # The 2-item $100 cluster should qualify (2 >= MIN_SECONDARY_CLUSTER_SIZE)
+        assert result.upper_median is not None
+        assert result.upper_median > 90.0
+
+
+class TestDetectCompetitiveZone:
+    """Tests for competitive active zone detection."""
+
+    def test_finds_competitive_zone_near_sold_cluster(self):
+        """Active listings near sold prices should form a competitive zone."""
+        from backend.services.fmv_service import detect_competitive_zone
+
+        sold_prices = np.array([2.24, 2.49, 2.74], dtype=float)
+        # Mix of competitive ($2.41-$2.55) and dreamers ($7-$9)
+        ask_prices = [1.89, 2.41, 2.48, 2.49, 2.55, 3.59, 7.20, 8.69, 8.99, 9.99]
+        bid_center = 2.49
+
+        zone = detect_competitive_zone(sold_prices, ask_prices, bid_center)
+
+        assert zone is not None
+        assert zone["count"] >= 3
+        # Center should be near the sold cluster, not the dreamers
+        assert zone["center"] < 4.0
+
+    def test_returns_none_when_insufficient_competitive_listings(self):
+        """Should return None when too few active listings are near sold prices."""
+        from backend.services.fmv_service import detect_competitive_zone
+
+        sold_prices = np.array([10.0, 12.0, 11.0], dtype=float)
+        # All active listings are far above sold prices
+        ask_prices = [50.0, 55.0, 60.0, 65.0, 70.0]
+        bid_center = 11.0
+
+        zone = detect_competitive_zone(sold_prices, ask_prices, bid_center)
+
+        assert zone is None
+
+    def test_returns_none_when_no_active_items(self):
+        """Should return None with empty active list."""
+        from backend.services.fmv_service import detect_competitive_zone
+
+        sold_prices = np.array([10.0, 12.0, 11.0], dtype=float)
+        zone = detect_competitive_zone(sold_prices, [], 11.0)
+
+        assert zone is None
+
+    def test_zone_scales_with_sold_iqr(self):
+        """Wider sold IQR should produce a wider competitive zone."""
+        from backend.services.fmv_service import detect_competitive_zone
+
+        # Tight sold cluster
+        tight_sold = np.array([49.0, 50.0, 51.0, 50.0, 49.5], dtype=float)
+        # Wide sold cluster
+        wide_sold = np.array([30.0, 40.0, 50.0, 60.0, 70.0], dtype=float)
+
+        ask_prices = [25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0]
+
+        tight_zone = detect_competitive_zone(tight_sold, ask_prices, 50.0)
+        wide_zone = detect_competitive_zone(wide_sold, ask_prices, 50.0)
+
+        # Wide sold cluster should capture more active listings
+        if tight_zone is not None and wide_zone is not None:
+            assert wide_zone["count"] >= tight_zone["count"]
+        elif wide_zone is not None:
+            assert wide_zone["count"] >= 3
+
+    def test_minimum_margin_floor(self):
+        """Very tight sold cluster should still get a reasonable zone via min margin."""
+        from backend.services.fmv_service import detect_competitive_zone
+
+        # All sold at exactly the same price — IQR = 0
+        sold_prices = np.array([50.0, 50.0, 50.0, 50.0], dtype=float)
+        # Active listings slightly above and below
+        ask_prices = [46.0, 48.0, 50.0, 52.0, 54.0]
+        bid_center = 50.0
+
+        zone = detect_competitive_zone(sold_prices, ask_prices, bid_center)
+
+        # With min margin = bid_center * 0.10 = $5.0, zone should be $45-$55
+        assert zone is not None
+        assert zone["count"] >= 3
+
+
+class TestBlendedFMVWithCompetitiveZone:
+    """Tests for competitive zone integration in calculate_fmv_blended."""
+
+    def _make_items(self, prices, is_auction=False, bids=0, best_offer=False):
+        """Helper to create CompItem list from price list."""
+        return [
+            CompItem(
+                item_id=str(i),
+                title=f"Card {i}",
+                total_price=p,
+                is_auction=is_auction,
+                bids=bids,
+                has_best_offer=best_offer,
+                ai_relevance_score=1.0,
+            )
+            for i, p in enumerate(prices)
+        ]
+
+    def test_competitive_zone_replaces_dreaming_ask_center(self):
+        """When competitive zone exists, market_value should use it, not the dreaming median."""
+        # Sold items: cluster around $2.50
+        sold = self._make_items([2.24, 2.49, 2.74, 2.24, 2.49])
+        # Active items: 5 competitive + 15 dreamers
+        competitive_active = [2.41, 2.48, 2.49, 2.55, 2.60]
+        dreamer_active = [7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0,
+                          7.2, 7.8, 8.3, 8.8, 9.2, 9.7, 10.5, 11.0]
+        active = self._make_items(competitive_active + dreamer_active)
+
+        result = calculate_fmv_blended(sold, active)
+
+        assert result.market_value is not None
+        # Market value should be near $2.50, NOT pulled toward $8+ by dreamers
+        assert result.market_value < 3.50, (
+            f"Market value ${result.market_value:.2f} should be near sold cluster, "
+            f"not pulled up by dreaming active listings"
+        )
+
+    def test_supply_ratio_uses_competitive_count(self):
+        """Supply/demand ratio should reflect competitive listings, not total noise."""
+        # Sold: 5 items around $50
+        sold = self._make_items([45, 48, 50, 52, 55])
+        # Active: 3 competitive ($48-$55) + 20 dreamers ($150+)
+        # With competitive zone, ratio = 3/5 = 0.6 (balanced)
+        # Without, ratio = 23/5 = 4.6 (oversupplied) — very different bid_weight
+        competitive_active = [48.0, 52.0, 55.0]
+        dreamer_active = [150.0] * 20
+        active = self._make_items(competitive_active + dreamer_active)
+
+        result = calculate_fmv_blended(sold, active)
+
+        # Market value should be near $50, not dramatically pulled by dreamers
+        assert result.market_value is not None
+        assert 40.0 < result.market_value < 65.0, (
+            f"Market value ${result.market_value:.2f} should be near $50"
+        )
+
+    def test_fallback_when_no_competitive_zone(self):
+        """When no competitive zone exists, should fall back to current behavior."""
+        # Sold: cluster around $10
+        sold = self._make_items([9, 10, 11, 10, 9, 11, 10, 9, 11, 10])
+        # Active: all far above sold prices — no competitive zone
+        active = self._make_items([50, 55, 60, 65, 70, 75, 80])
+
+        result = calculate_fmv_blended(sold, active)
+
+        # Should still produce valid results via fallback (sellers_dreaming or regular blend)
+        assert result.market_value is not None
+        assert result.quick_sale is not None
+        assert result.patient_sale is not None
+        # Market value should still be anchored to sold data
+        assert result.market_value < 30.0

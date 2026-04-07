@@ -339,8 +339,8 @@ function drawPriceDistributionChart(soldData, activeData, canvasId, numBinsOverr
                 return item.total_price ?? ((item.extracted_price || 0) + (item.extracted_shipping || 0));
             }).filter(p => p > 0);
 
-        // Filter outliers
-        if (soldPrices.length >= 4) soldPrices = filterOutliers(soldPrices);
+        // Filter outliers from active listings only — sold listings are always
+        // shown so users can see every comp that influenced the FMV range
         if (activePrices.length >= 4) activePrices = filterOutliers(activePrices);
 
         if (soldPrices.length === 0 && activePrices.length === 0) {
