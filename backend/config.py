@@ -300,6 +300,12 @@ Minimum ratio of sales in one cluster to detect price concentration.
 If 25%+ of sales fall within a tight price range, use cluster center as FMV.
 """
 
+MIN_SECONDARY_CLUSTER_RATIO = 0.10
+"""
+Minimum ratio of sales for a secondary cluster to anchor quick_sale/patient_sale.
+Lower bar than primary (10% vs 25%) because secondaries inform the range, not the center.
+"""
+
 PRICE_BIN_SIZE_BULK = 0.50
 """Bin size for cards with median price ≤$10."""
 
@@ -363,14 +369,14 @@ BEST_OFFER_WEIGHT = 1.1
 """Weight multiplier for sales with Best Offer accepted."""
 
 # Bid count weight bonuses
-BID_COUNT_HIGH = 10
-"""Bid count threshold for high competition."""
+BID_COUNT_HIGH = 20
+"""Bid count threshold for high competition (~75th percentile)."""
 
-BID_COUNT_MODERATE = 5
-"""Bid count threshold for moderate competition."""
+BID_COUNT_MODERATE = 10
+"""Bid count threshold for moderate competition (~50th percentile)."""
 
-BID_COUNT_LOW = 2
-"""Bid count threshold for low competition."""
+BID_COUNT_LOW = 3
+"""Bid count threshold for low competition (~25th percentile)."""
 
 BID_WEIGHT_HIGH = 1.0
 """Additional weight for high bid count."""

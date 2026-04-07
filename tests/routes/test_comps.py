@@ -7,9 +7,101 @@ Tests cover:
 - Rate limiting behavior
 - Cache hit/miss scenarios
 - Error handling for external service failures
+- parse_buying_format() helper
 """
 import pytest
 from unittest.mock import AsyncMock, patch
+
+from backend.routes.comps import parse_buying_format
+
+
+class TestParseBuyingFormat:
+    """Unit tests for parse_buying_format() helper."""
+
+    def test_auction_with_multiple_bids(self):
+        """'43 bids' should set auction flags with bid count 43."""
+        item = {'buying_format': '43 bids'}
+        parse_buying_format(item)
+        assert item['is_auction'] is True
+        assert item['auction_sold'] is True
+        assert item['bids'] == 43
+        assert item['total_bids'] == 43
+        assert item['is_buy_it_now'] is False
+        assert item['is_best_offer'] is False
+
+    def test_auction_singular_bid(self):
+        """'1 bid' (singular) should parse correctly."""
+        item = {'buying_format': '1 bid'}
+        parse_buying_format(item)
+        assert item['is_auction'] is True
+        assert item['bids'] == 1
+        assert item['total_bids'] == 1
+
+    def test_auction_zero_bids(self):
+        """'0 bids' should still be classified as auction."""
+        item = {'buying_format': '0 bids'}
+        parse_buying_format(item)
+        assert item['is_auction'] is True
+        assert item['bids'] == 0
+        assert item['total_bids'] == 0
+
+    def test_buy_it_now(self):
+        """'Buy It Now' should set BIN flag."""
+        item = {'buying_format': 'Buy It Now'}
+        parse_buying_format(item)
+        assert item['is_auction'] is False
+        assert item['is_buy_it_now'] is True
+        assert item['is_best_offer'] is False
+
+    def test_best_offer(self):
+        """'or Best Offer' should set BIN + BO flags."""
+        item = {'buying_format': 'or Best Offer'}
+        parse_buying_format(item)
+        assert item['is_auction'] is False
+        assert item['is_buy_it_now'] is True
+        assert item['is_best_offer'] is True
+        assert item['has_best_offer'] is True
+        assert item['best_offer_enabled'] is True
+
+    def test_empty_buying_format(self):
+        """Empty string should fall through to defaults."""
+        item = {'buying_format': ''}
+        parse_buying_format(item)
+        assert item['is_auction'] is False
+        assert item['is_buy_it_now'] is False
+        assert item['is_best_offer'] is False
+
+    def test_missing_buying_format(self):
+        """Missing key should fall through to defaults."""
+        item = {}
+        parse_buying_format(item)
+        assert item['is_auction'] is False
+        assert item['is_buy_it_now'] is False
+        assert item['is_best_offer'] is False
+
+    def test_preserves_existing_flags_on_unknown_format(self):
+        """Unknown format should preserve pre-existing flags."""
+        item = {
+            'buying_format': 'something unexpected',
+            'is_auction': True,
+            'is_buy_it_now': False,
+        }
+        parse_buying_format(item)
+        assert item['is_auction'] is True
+        assert item['is_buy_it_now'] is False
+
+    def test_does_not_overwrite_preexisting_bids_on_non_auction(self):
+        """Non-auction format should not touch bids field."""
+        item = {'buying_format': 'Buy It Now', 'bids': 5}
+        parse_buying_format(item)
+        assert item['bids'] == 5
+        assert item['is_auction'] is False
+
+    def test_auction_overwrites_preexisting_bids(self):
+        """Auction format should set bids to the parsed value."""
+        item = {'buying_format': '20 bids', 'bids': 5}
+        parse_buying_format(item)
+        assert item['bids'] == 20
 
 
 

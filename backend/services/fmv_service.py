@@ -5,6 +5,8 @@ Fair Market Value (FMV) calculation service.
 This module contains all logic for calculating volume-weighted FMV
 and related statistics for card valuations.
 """
+from dataclasses import dataclass
+from math import ceil
 from typing import List, Optional, Dict
 import numpy as np
 from scipy.stats import skew
@@ -33,9 +35,31 @@ from backend.config import (
     MAX_VOLUME_WEIGHT,
     CONFIDENCE_HIGH_RATIO,
     CONFIDENCE_MEDIUM_RATIO,
+    PRICE_BIN_SIZE_BULK,
+    PRICE_BIN_SIZE_LOW,
+    PRICE_BIN_PCT_MID,
+    PRICE_BIN_PCT_GRAIL,
+    MIN_CONCENTRATION_RATIO,
+    MIN_SECONDARY_CLUSTER_RATIO,
 )
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class ClusterResult:
+    """Result of multi-cluster price detection."""
+    primary_median: float           # Median of cluster nearest to overall median
+    lower_median: Optional[float]   # Median of largest cluster below primary
+    upper_median: Optional[float]   # Median of largest cluster above primary
+    cluster_count: int
+    primary_size: int
+    total_prices: int
+    # Internal percentiles of the primary cluster (for gravity blend)
+    primary_p20: float
+    primary_p25: float
+    primary_p75: float
+    primary_p80: float
 
 
 class FMVResult:
@@ -196,36 +220,43 @@ def find_weighted_percentile(
     return sorted_prices[idx]
 
 
-def detect_price_concentration(prices: np.ndarray) -> Optional[float]:
+def detect_price_clusters(prices: np.ndarray) -> Optional[ClusterResult]:
     """
-    Find if prices cluster around a specific value using histogram analysis.
+    Detect multiple price clusters using histogram-based merging.
 
-    Returns cluster center if 25%+ of sales fall within a tight range.
-    Bin size scales with price tier so detection works across all price levels.
+    Replaces single-bin concentration detection with multi-cluster detection.
+    The primary cluster's median becomes market_value; secondary clusters
+    anchor quick_sale/patient_sale.
+
+    Algorithm:
+    1. Build histogram with tier-scaled bins
+    2. Walk bins and merge adjacent occupied bins into clusters (gap = 1+ empty bins)
+    3. Primary cluster = nearest to overall median (not largest)
+    4. Secondary clusters = largest cluster on each side of primary
 
     Args:
         prices: Array of prices to analyze
 
     Returns:
-        float: Cluster center price if concentration detected, None otherwise
+        ClusterResult if a valid primary cluster is found, None otherwise
     """
     if len(prices) < 4:
         return None
 
-    # Scale bin size by price tier
-    median_price = np.median(prices)
+    # Scale bin size by price tier using config constants
+    median_price = float(np.median(prices))
     if median_price <= 10:
-        bin_size = 0.50       # $0.50 bins for bulk cards
+        bin_size = PRICE_BIN_SIZE_BULK
     elif median_price <= 100:
-        bin_size = 2.00       # $2.00 bins for low-tier
+        bin_size = PRICE_BIN_SIZE_LOW
     elif median_price <= 1000:
-        bin_size = median_price * 0.05  # 5% of median for mid-tier
+        bin_size = median_price * PRICE_BIN_PCT_MID
     else:
-        bin_size = median_price * 0.03  # 3% of median for grails
+        bin_size = median_price * PRICE_BIN_PCT_GRAIL
 
-    # Create histogram with $0.50 bins
-    min_price = np.min(prices)
-    max_price = np.max(prices)
+    # Build histogram
+    min_price = float(np.min(prices))
+    max_price = float(np.max(prices))
     bins = np.arange(min_price, max_price + bin_size, bin_size)
 
     if len(bins) < 2:
@@ -233,23 +264,110 @@ def detect_price_concentration(prices: np.ndarray) -> Optional[float]:
 
     counts, edges = np.histogram(prices, bins=bins)
 
-    # Find the bin with the most sales
-    max_count = np.max(counts)
-    max_bin_idx = np.argmax(counts)
+    # Walk bins and merge adjacent occupied bins into clusters
+    # A cluster boundary occurs at 1+ empty bins
+    clusters = []  # list of (start_edge, end_edge)
+    in_cluster = False
+    cluster_start = None
 
-    # Check if this bin represents 25%+ of all sales
-    concentration_ratio = max_count / len(prices)
-    min_concentration = 0.25  # 25% threshold
+    for i, count in enumerate(counts):
+        if count > 0:
+            if not in_cluster:
+                cluster_start = edges[i]
+                in_cluster = True
+            cluster_end = edges[i + 1]
+        else:
+            if in_cluster:
+                clusters.append((cluster_start, cluster_end))
+                in_cluster = False
 
-    if concentration_ratio >= min_concentration:
-        # Return the center of the dominant bin
-        bin_center = (edges[max_bin_idx] + edges[max_bin_idx + 1]) / 2
-        logger.info(f"Price concentration detected: {max_count}/{len(prices)} sales "
-                    f"({concentration_ratio:.1%}) in ${edges[max_bin_idx]:.2f}-${edges[max_bin_idx+1]:.2f} range "
-                    f"(center: ${bin_center:.2f})")
-        return bin_center
+    # Close final cluster if still open
+    if in_cluster:
+        clusters.append((cluster_start, cluster_end))
 
-    return None
+    if not clusters:
+        return None
+
+    # For each cluster, collect actual prices and compute median
+    cluster_data = []  # list of (median, prices_in_cluster, start, end)
+    for start, end in clusters:
+        mask = (prices >= start) & (prices <= end)
+        cluster_prices = prices[mask]
+        if len(cluster_prices) > 0:
+            cluster_data.append((
+                float(np.median(cluster_prices)),
+                cluster_prices,
+                start,
+                end,
+            ))
+
+    if not cluster_data:
+        return None
+
+    # Primary cluster = nearest to overall median (not largest by count)
+    overall_median = float(np.median(prices))
+    primary_idx = min(range(len(cluster_data)),
+                      key=lambda i: abs(cluster_data[i][0] - overall_median))
+    primary_median, primary_prices, _, _ = cluster_data[primary_idx]
+    primary_size = len(primary_prices)
+
+    # Validate: primary must contain >= ceil(total * MIN_CONCENTRATION_RATIO)
+    total = len(prices)
+    if primary_size < ceil(total * MIN_CONCENTRATION_RATIO):
+        return None
+
+    # Find secondary clusters on each side of primary
+    min_secondary = ceil(total * MIN_SECONDARY_CLUSTER_RATIO)
+
+    lower_median = None
+    lower_clusters = [
+        (cd[0], cd[1]) for j, cd in enumerate(cluster_data)
+        if j != primary_idx and cd[0] < primary_median
+    ]
+    if lower_clusters:
+        # Largest cluster below primary
+        best = max(lower_clusters, key=lambda x: len(x[1]))
+        if len(best[1]) >= min_secondary:
+            lower_median = best[0]
+
+    upper_median = None
+    upper_clusters = [
+        (cd[0], cd[1]) for j, cd in enumerate(cluster_data)
+        if j != primary_idx and cd[0] > primary_median
+    ]
+    if upper_clusters:
+        # Largest cluster above primary
+        best = max(upper_clusters, key=lambda x: len(x[1]))
+        if len(best[1]) >= min_secondary:
+            upper_median = best[0]
+
+    cluster_count = len(cluster_data)
+
+    # Compute internal percentiles of the primary cluster (for gravity blend)
+    primary_p20 = float(np.percentile(primary_prices, 20))
+    primary_p25 = float(np.percentile(primary_prices, 25))
+    primary_p75 = float(np.percentile(primary_prices, 75))
+    primary_p80 = float(np.percentile(primary_prices, 80))
+
+    logger.info(
+        f"Price clusters detected: {cluster_count} clusters, "
+        f"primary ${primary_median:.2f} ({primary_size}/{total} prices), "
+        f"lower={'${:.2f}'.format(lower_median) if lower_median else 'None'}, "
+        f"upper={'${:.2f}'.format(upper_median) if upper_median else 'None'}"
+    )
+
+    return ClusterResult(
+        primary_median=primary_median,
+        lower_median=lower_median,
+        upper_median=upper_median,
+        cluster_count=cluster_count,
+        primary_size=primary_size,
+        total_prices=total,
+        primary_p20=primary_p20,
+        primary_p25=primary_p25,
+        primary_p75=primary_p75,
+        primary_p80=primary_p80,
+    )
 
 
 def is_representative_sale(item: object, q1: float, q3: float, iqr: float) -> bool:
@@ -534,28 +652,52 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     # Calculate skewness to detect asymmetric distributions
     distribution_skewness = skew(prices, axis=0)
 
-    # Check for concentration FIRST (stronger signal than skewness)
-    concentration_price = detect_price_concentration(prices)
-    if concentration_price:
-        market_value = concentration_price
-        logger.info(f"Using price concentration: ${concentration_price:.2f}")
+    # Check for price clusters FIRST (stronger signal than skewness)
+    clusters = detect_price_clusters(prices)
+    if clusters:
+        gravity = clusters.primary_size / clusters.total_prices
+
+        market_value = clusters.primary_median
+
+        # quick_sale / patient_sale: secondary clusters anchor if present, else gravity blend
+        if clusters.lower_median is not None:
+            quick_sale = clusters.lower_median
+        else:
+            quick_sale = max(0, gravity * clusters.primary_p25 + (1 - gravity) * percentile_25)
+
+        if clusters.upper_median is not None:
+            patient_sale = clusters.upper_median
+        else:
+            patient_sale = gravity * clusters.primary_p75 + (1 - gravity) * percentile_75
+
+        # fmv_low / fmv_high: always gravity-blended
+        fmv_low = max(0, gravity * clusters.primary_p20 + (1 - gravity) * percentile_20)
+        fmv_high = gravity * clusters.primary_p80 + (1 - gravity) * percentile_80
+
+        logger.info(f"Using cluster-based FMV (gravity={gravity:.2f}): "
+                    f"MV=${market_value:.2f}, QS=${quick_sale:.2f}, PS=${patient_sale:.2f}, "
+                    f"range=${fmv_low:.2f}-${fmv_high:.2f}")
     elif abs(distribution_skewness) > 1.5:
         # Use weighted median instead of mean
-        median_value = find_weighted_percentile(sorted_prices, cumulative_weights, total_weight, 0.5)
-        market_value = median_value
+        market_value = weighted_median
+        quick_sale = max(0, percentile_25)
+        patient_sale = percentile_75
+        fmv_low = max(0, percentile_20)
+        fmv_high = percentile_80
         logger.debug(f"High skewness detected ({distribution_skewness:.2f})")
-        logger.debug(f"Using weighted median ${median_value:.2f} instead of mean ${weighted_mean:.2f}")
+        logger.debug(f"Using weighted median ${weighted_median:.2f} instead of mean ${weighted_mean:.2f}")
     else:
         market_value = weighted_mean
+        quick_sale = max(0, percentile_25)
+        patient_sale = percentile_75
+        fmv_low = max(0, percentile_20)
+        fmv_high = percentile_80
 
-    # Define FMV range using percentile-based bounds (reflects actual distribution shape)
-    fmv_low = max(0, percentile_20)
-    fmv_high = percentile_80
-
-    # Volume-weighted market tiers
-    quick_sale = max(0, percentile_25)      # 25th percentile - quick sale price
-    # market_value assigned above based on skewness
-    patient_sale = percentile_75            # 75th percentile - patient seller price
+    # Enforce ordering: quick_sale <= market_value <= patient_sale
+    if quick_sale > market_value:
+        quick_sale = market_value
+    if patient_sale < market_value:
+        patient_sale = market_value
 
     # Determine confidence based on high-weight sales and price volatility
     high_weight_count = sum(1 for w in weights if w > 1.0)

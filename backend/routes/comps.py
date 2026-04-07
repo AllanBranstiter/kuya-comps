@@ -5,6 +5,7 @@ Comps router - handles sold and active listings endpoints.
 This module contains the main search endpoints for finding comparable
 card prices from eBay's sold and active listings.
 """
+import re
 import time
 import uuid
 from typing import Optional
@@ -38,6 +39,62 @@ logger = get_logger(__name__)
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
+
+
+_BID_PATTERN = re.compile(r'^(\d+)\s+bids?$', re.IGNORECASE)
+
+
+def parse_buying_format(item: dict) -> None:
+    """Parse the buying_format string from SearchAPI and set auction/BIN/BO flags in-place.
+
+    SearchAPI returns buying_format as one of:
+      - "43 bids"       -> auction
+      - "Buy It Now"    -> BIN
+      - "or Best Offer" -> BIN + Best Offer
+
+    The eBay Browse API (active listings) returns structured buyingOptions that are
+    already parsed in ebay_browse_client.py, so this is safe to call on those items too;
+    it will only overwrite flags when it recognises a known pattern.
+    """
+    buying_format = (item.get('buying_format') or '').strip()
+
+    bid_match = _BID_PATTERN.match(buying_format)
+    if bid_match:
+        bid_count = int(bid_match.group(1))
+        item['is_auction'] = True
+        item['auction_sold'] = True
+        item['bids'] = bid_count
+        item['total_bids'] = bid_count
+        item['is_buy_it_now'] = False
+        item['is_best_offer'] = False
+        return
+
+    fmt_lower = buying_format.lower()
+
+    if fmt_lower == 'buy it now':
+        item['is_auction'] = False
+        item['is_buy_it_now'] = True
+        item['is_best_offer'] = False
+        return
+
+    if fmt_lower == 'or best offer':
+        item['is_auction'] = False
+        item['is_buy_it_now'] = True
+        item['is_best_offer'] = True
+        item['has_best_offer'] = True
+        item['best_offer_enabled'] = True
+        return
+
+    # Unknown or empty — preserve any existing flags as fallback
+    if 'is_auction' not in item:
+        item['is_auction'] = False
+    if 'is_buy_it_now' not in item:
+        item['is_buy_it_now'] = False
+    if 'is_best_offer' not in item:
+        item['is_best_offer'] = (
+            item.get('best_offer_enabled', False) or
+            item.get('has_best_offer', False)
+        )
 
 
 def get_cache_service(request: Request) -> CacheService:
@@ -335,18 +392,7 @@ async def get_comps(
     # Convert raw items to CompItems with proper buying format flags
     comp_items = []
     for item in unique_items:
-        # Get the buying format from the API response
-        buying_format = item.get('buying_format', '').lower()
-
-        # Set flags based on the buying format
-        item['is_auction'] = 'auction' in buying_format
-        item['is_buy_it_now'] = 'buy it now' in buying_format
-        item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
-
-        # If it's an auction, override other flags
-        if item['is_auction']:
-            item['is_buy_it_now'] = False
-            item['is_best_offer'] = False
+        parse_buying_format(item)
 
         # Generate deep link for mobile app navigation
         item_id = item.get('item_id')
@@ -606,14 +652,7 @@ async def get_active_listings(
     # Convert to CompItems
     comp_items = []
     for item in unique_items:
-        buying_format = item.get('buying_format', '').lower()
-        item['is_auction'] = 'auction' in buying_format
-        item['is_buy_it_now'] = 'buy it now' in buying_format
-        item['is_best_offer'] = item.get('best_offer_enabled', False) or item.get('has_best_offer', False)
-
-        if item['is_auction']:
-            item['is_buy_it_now'] = False
-            item['is_best_offer'] = False
+        parse_buying_format(item)
 
         # Generate deep link for mobile app navigation
         item_id = item.get('item_id')

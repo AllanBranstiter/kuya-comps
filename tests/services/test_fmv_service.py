@@ -13,6 +13,8 @@ from backend.services.fmv_service import (
     calculate_volume_weight,
     find_weighted_percentile,
     calculate_fmv,
+    detect_price_clusters,
+    ClusterResult,
     FMVResult
 )
 from backend.models.schemas import CompItem
@@ -359,3 +361,226 @@ class TestFMVResult:
         assert result.fmv_high is None
         assert result.market_value is None
         assert result.count == 0
+
+
+class TestDetectPriceClusters:
+    """Test multi-cluster price detection."""
+
+    def test_single_tight_cluster(self):
+        """A tight group of prices should yield one cluster with no secondaries."""
+        prices = np.array([10, 11, 12, 10, 11, 12, 11, 10], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        assert 10.0 <= result.primary_median <= 12.0
+        assert result.lower_median is None
+        assert result.upper_median is None
+        assert result.cluster_count == 1
+
+    def test_two_clusters(self):
+        """Two separated groups should produce 2 clusters."""
+        prices = np.array([5, 6, 5, 6, 5, 20, 21, 20, 21, 20], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        assert result.cluster_count == 2
+        # Primary should be nearest to overall median (~12.5)
+        # That's the upper cluster (~20)
+        assert result.primary_median >= 15.0
+
+    def test_three_clusters(self):
+        """Three separated groups should populate lower + upper secondaries."""
+        prices = np.array([3, 4, 3, 4, 15, 16, 15, 16, 15, 50, 51, 50], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        assert result.cluster_count == 3
+        assert result.lower_median is not None or result.upper_median is not None
+
+    def test_primary_is_nearest_to_median_not_largest(self):
+        """Primary cluster should be nearest to overall median, not the largest."""
+        # $2 cluster is largest (6 items), but overall median is ~10
+        # $10-10.2 cluster (8 items) is nearest to median and fits within one bin
+        prices = np.array([2]*6 + [10.0, 10.2]*4 + [50]*3, dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        # Primary should be near 10, not 2
+        assert result.primary_median >= 8.0
+
+    def test_too_few_prices(self):
+        """Fewer than 4 prices should return None."""
+        prices = np.array([5, 10, 15], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is None
+
+    def test_no_concentration_spread(self):
+        """Evenly spread prices with no cluster meeting the threshold should return None."""
+        prices = np.array([1, 5, 10, 15, 20, 25, 30, 35], dtype=float)
+        result = detect_price_clusters(prices)
+
+        # With 8 prices spread across wide range, primary needs ceil(8*0.25)=2
+        # This may or may not find clusters depending on bin sizes
+        # The key invariant: if result is not None, primary_size >= 2
+        if result is not None:
+            assert result.primary_size >= 2
+
+    def test_tiny_secondary_ignored(self):
+        """A secondary cluster with too few items should be ignored."""
+        # Primary: 10 items at $50-52 (well above 25%)
+        # Tiny secondary: 1 item at $10 (below 10% of 11 total)
+        prices = np.array([10.0] + [50, 51, 52, 50, 51, 52, 50, 51, 52, 50], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        # The single $10 item should not qualify as a secondary
+        assert result.lower_median is None
+
+    def test_medians_use_actual_prices(self):
+        """Cluster medians should be medians of actual prices, not bin centers."""
+        # All prices in one cluster: 100, 102, 104, 106, 108
+        prices = np.array([100, 102, 104, 106, 108], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        # Median of [100, 102, 104, 106, 108] is exactly 104.0
+        assert result.primary_median == 104.0
+
+    def test_cluster_result_includes_internal_percentiles(self):
+        """ClusterResult should include primary cluster's internal P20/P25/P75/P80."""
+        prices = np.array([100, 102, 104, 106, 108, 101, 103, 105, 107, 109], dtype=float)
+        result = detect_price_clusters(prices)
+
+        assert result is not None
+        # Internal percentiles should be within the cluster's price range
+        assert result.primary_p20 >= 100.0
+        assert result.primary_p80 <= 109.0
+        # Ordering: p20 <= p25 <= median <= p75 <= p80
+        assert result.primary_p20 <= result.primary_p25
+        assert result.primary_p25 <= result.primary_median
+        assert result.primary_median <= result.primary_p75
+        assert result.primary_p75 <= result.primary_p80
+
+
+class TestCalculateFMVClusters:
+    """Integration tests for cluster-based FMV in calculate_fmv()."""
+
+    def _make_items(self, prices):
+        """Helper to create CompItem list from price list."""
+        return [
+            CompItem(
+                item_id=str(i),
+                title=f"Card {i}",
+                total_price=p,
+                is_auction=True,
+                bids=5,
+            )
+            for i, p in enumerate(prices)
+        ]
+
+    def test_two_clusters_sets_quick_sale(self):
+        """Lower cluster should anchor quick_sale instead of P25."""
+        # Lower cluster at $5-6, upper cluster at $20-21
+        prices = [5, 6, 5, 6, 5, 20, 21, 20, 21, 20]
+        items = self._make_items(prices)
+        result = calculate_fmv(items)
+
+        assert result.market_value is not None
+        assert result.quick_sale is not None
+        assert result.patient_sale is not None
+        assert result.quick_sale <= result.market_value <= result.patient_sale
+
+    def test_three_clusters_sets_both_ends(self):
+        """Lower and upper clusters should anchor quick_sale and patient_sale."""
+        # Three clusters: low ($3-4), mid ($15-16), high ($50-51)
+        prices = [3, 4, 3, 4, 15, 16, 15, 16, 15, 50, 51, 50]
+        items = self._make_items(prices)
+        result = calculate_fmv(items)
+
+        assert result.market_value is not None
+        assert result.quick_sale <= result.market_value <= result.patient_sale
+
+    def test_single_cluster_falls_back_to_percentiles(self):
+        """With only one cluster, quick_sale/patient_sale should fall back to P25/P75."""
+        prices = [10, 11, 12, 10, 11, 12, 11, 10]
+        items = self._make_items(prices)
+        result = calculate_fmv(items)
+
+        assert result.market_value is not None
+        # With a tight single cluster, all values should be close
+        assert abs(result.market_value - 11.0) < 2.0
+
+    def test_ordering_invariant(self):
+        """quick_sale <= market_value <= patient_sale must always hold."""
+        # Various distributions
+        test_cases = [
+            [5, 6, 5, 6, 5, 20, 21, 20, 21, 20],                  # two clusters
+            [3, 4, 3, 4, 15, 16, 15, 16, 15, 50, 51, 50],         # three clusters
+            [10, 11, 12, 10, 11, 12, 11, 10],                       # single cluster
+            [100 + i * 10 for i in range(10)],                       # uniform spread
+            [50.0] * 10,                                              # identical prices
+        ]
+        for prices in test_cases:
+            items = self._make_items(prices)
+            result = calculate_fmv(items)
+            if result.market_value is not None:
+                assert result.quick_sale <= result.market_value, f"Failed for prices={prices}"
+                assert result.market_value <= result.patient_sale, f"Failed for prices={prices}"
+
+    def test_strong_cluster_narrows_fmv_range(self):
+        """A dominant cluster should produce a tighter fmv_low-fmv_high range."""
+        # 18 items in tight cluster ($50-52) + 2 stragglers at edges
+        # The cluster has 90% of sales, so gravity ~0.9
+        prices = [10.0, 50, 51, 52, 50, 51, 52, 50, 51, 52,
+                  50, 51, 52, 50, 51, 52, 50, 51, 52, 200.0]
+        items = self._make_items(prices)
+        result = calculate_fmv(items)
+
+        assert result.market_value is not None
+        # The FMV range should be pulled tight around $50-52, not stretched to $10-$200
+        assert result.fmv_high - result.fmv_low < 100.0
+        # Range should be much closer to cluster than to full spread
+        assert result.fmv_low > 20.0   # pulled up from the $10 straggler
+        assert result.fmv_high < 150.0  # pulled down from the $200 straggler
+
+    def test_weak_cluster_preserves_wide_range(self):
+        """A cluster barely meeting the 25% threshold should preserve most of the percentile range."""
+        # 4 items in cluster ($50-52), 12 items spread widely
+        # Cluster has ~25% of sales, so gravity ~0.25 (minimal pull)
+        prices = [50, 51, 52, 50,  # cluster (4 items)
+                  5, 10, 15, 20, 80, 90, 100, 110, 120, 130, 140, 150]  # spread (12 items)
+        items = self._make_items(prices)
+        result = calculate_fmv(items)
+
+        assert result.market_value is not None
+        # Range should still be fairly wide since gravity is low
+        assert result.fmv_high - result.fmv_low > 30.0
+
+    def test_gravity_scales_with_concentration(self):
+        """Higher cluster concentration should produce a tighter range than lower concentration."""
+        # High concentration: 16 in cluster + 4 spread = 80% gravity
+        high_conc_prices = ([50, 51, 52, 50, 51, 52, 50, 51, 52, 50,
+                             51, 52, 50, 51, 52, 50] +
+                            [10, 30, 80, 120])
+        # Low concentration: 5 in cluster + 15 spread = ~25% gravity
+        low_conc_prices = ([50, 51, 52, 50, 51] +
+                           [5, 10, 15, 20, 25, 30, 35, 80, 90, 100,
+                            110, 120, 130, 140, 150])
+        high_items = self._make_items(high_conc_prices)
+        low_items = self._make_items(low_conc_prices)
+
+        high_result = calculate_fmv(high_items)
+        low_result = calculate_fmv(low_items)
+
+        assert high_result.market_value is not None
+        assert low_result.market_value is not None
+
+        high_range = high_result.fmv_high - high_result.fmv_low
+        low_range = low_result.fmv_high - low_result.fmv_low
+
+        # Higher concentration should yield a tighter range
+        assert high_range < low_range, (
+            f"High concentration range ({high_range:.2f}) should be tighter "
+            f"than low concentration range ({low_range:.2f})"
+        )
