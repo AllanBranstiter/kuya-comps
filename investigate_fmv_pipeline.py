@@ -11,6 +11,7 @@ consolidated report. Designed to be run from the project root:
 import json
 import glob
 import os
+import re
 import sys
 import numpy as np
 from collections import Counter, defaultdict
@@ -38,7 +39,12 @@ LOG_DIR = Path("search_logs")
 # ============================================================================
 
 def load_sold_logs():
-    """Load all sold JSON logs. Returns list of (filename, data) tuples."""
+    """Load all sold JSON logs. Returns list of (filename, data) tuples.
+
+    Retroactively parses buying_format on every item so that historical
+    logs (saved before parse_buying_format was deployed) get correct
+    is_auction / bids / has_best_offer flags.
+    """
     logs = []
     for path in sorted(LOG_DIR.glob("sold_*.json")):
         if "_analytics" in path.name:
@@ -46,6 +52,9 @@ def load_sold_logs():
         try:
             with open(path) as f:
                 data = json.load(f)
+            # Retroactively fix auction/BIN/BO flags from buying_format string
+            for item in data.get("items", []):
+                parse_buying_format(item)
             logs.append((path.name, data))
         except (json.JSONDecodeError, IOError):
             pass
@@ -65,6 +74,46 @@ def load_analytics_supplements():
         except (json.JSONDecodeError, IOError):
             pass
     return supplements
+
+
+_BID_PATTERN = re.compile(r'^(\d+)\s+bids?$', re.IGNORECASE)
+
+
+def parse_buying_format(item):
+    """Parse the buying_format string from SearchAPI and set auction/BIN/BO flags.
+
+    Mirrors the parse_buying_format function in comps.py so we can
+    retroactively fix historical logs that were saved before the parser
+    was deployed.
+    """
+    buying_format = (item.get('buying_format') or '').strip()
+
+    bid_match = _BID_PATTERN.match(buying_format)
+    if bid_match:
+        bid_count = int(bid_match.group(1))
+        item['is_auction'] = True
+        item['auction_sold'] = True
+        item['bids'] = bid_count
+        item['total_bids'] = bid_count
+        item['is_buy_it_now'] = False
+        item['is_best_offer'] = False
+        return
+
+    fmt_lower = buying_format.lower()
+
+    if fmt_lower == 'buy it now':
+        item['is_auction'] = False
+        item['is_buy_it_now'] = True
+        item['is_best_offer'] = False
+        return
+
+    if fmt_lower == 'or best offer':
+        item['is_auction'] = False
+        item['is_buy_it_now'] = True
+        item['is_best_offer'] = True
+        item['has_best_offer'] = True
+        item['best_offer_enabled'] = True
+        return
 
 
 def extract_prices(items):
@@ -247,6 +296,7 @@ def investigate_step2(sold_logs, supplements):
 
     all_weights = []
     weight_by_type = {"auction": [], "bin": [], "best_offer": []}
+    bid_counts = []
     conditions = Counter()
     price_by_condition = defaultdict(list)
     seller_fb = []
@@ -262,6 +312,7 @@ def investigate_step2(sold_logs, supplements):
                          (item.get("bids") and item["bids"] > 0))
             if is_auction:
                 weight_by_type["auction"].append(w)
+                bid_counts.append(item.get("bids") or 0)
             elif item.get("has_best_offer") or item.get("best_offer_enabled"):
                 weight_by_type["best_offer"].append(w)
             else:
@@ -275,11 +326,24 @@ def investigate_step2(sold_logs, supplements):
             if fb is not None:
                 seller_fb.append(fb)
 
-    print(f"\nVolume weight distribution ({len(all_weights)} items):")
+    total_items = len(all_weights)
+    print(f"\nVolume weight distribution ({total_items} items):")
     print(f"  {fmt_dist(all_weights)}")
     print(f"\n  By type:")
     for typ, ws in weight_by_type.items():
-        print(f"    {typ}: {len(ws)} items, {fmt_dist(ws)}")
+        print(f"    {typ}: {len(ws)} items ({pct(len(ws), total_items)}), weights: {fmt_dist(ws)}")
+
+    if bid_counts:
+        print(f"\n  Auction bid counts ({len(bid_counts)} auctions):")
+        print(f"    {fmt_dist(bid_counts)}")
+        high_bid = sum(1 for b in bid_counts if b >= BID_COUNT_HIGH)
+        mod_bid = sum(1 for b in bid_counts if BID_COUNT_MODERATE <= b < BID_COUNT_HIGH)
+        low_bid = sum(1 for b in bid_counts if BID_COUNT_LOW <= b < BID_COUNT_MODERATE)
+        no_bid = sum(1 for b in bid_counts if b < BID_COUNT_LOW)
+        print(f"    High ({BID_COUNT_HIGH}+ bids): {high_bid}")
+        print(f"    Moderate ({BID_COUNT_MODERATE}-{BID_COUNT_HIGH-1}): {mod_bid}")
+        print(f"    Low ({BID_COUNT_LOW}-{BID_COUNT_MODERATE-1}): {low_bid}")
+        print(f"    Minimal (<{BID_COUNT_LOW}): {no_bid}")
 
     # Check if weights are bunched (low spread = not differentiating much)
     if all_weights:
@@ -287,6 +351,8 @@ def investigate_step2(sold_logs, supplements):
         print(f"\n  Weight CV (spread measure): {cv:.3f}")
         if cv < 0.15:
             print(f"  -> LOW SPREAD: weights are too similar, not differentiating well")
+        else:
+            print(f"  -> GOOD SPREAD: weights are differentiating sale types")
 
     print(f"\nCondition distribution:")
     for cond, count in conditions.most_common():
