@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV '/Users/allanbranstiter/Documents/Personal/Card Selling/ebay_comps_app/venv'
+set -gx VIRTUAL_ENV /Users/allanbranstiter/Documents/GitHub/kuya-comps/venv
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

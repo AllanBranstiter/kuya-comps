@@ -3,7 +3,7 @@
 > **Purpose:** This document provides context for AI assistants working on this project. It should be shared at the start of each new task to minimize token usage and accelerate onboarding.
 
 **Last Updated:** April 6, 2026
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Maintained By:** Allan Branstiter
 
 ---
@@ -16,7 +16,7 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 ### Key Features
 - **Dual Search Display:** Automatically shows both sold listings and active listings below FMV
 - **Smart Deal Finding:** Active listings filtered to show only items priced at or below Fair Market Value with discount indicators
-- **Market Analysis:** Blended FMV using both sold comps (bid) and active listings (ask), with Discount/Market Value/Premium ranges
+- **Market Analysis:** Blended FMV using both sold comps (bid) and active listings (ask), with Discount/Market Value/Premium ranges. Competitive active zone detection identifies active listings priced near the sold cluster and uses that convergence signal for blending instead of the raw all-active median.
 - **AI Market Summary:** After each FMV calculation, a plain-English summary describes market conditions, price direction, and ease of buying/selling — with a deal alert when active listings are below market value. Tier-aware model selection (Founders: Claude Sonnet; others: Gemini Flash 2.0). Graceful degradation if API key is absent or call fails.
 - **Sales vs. Listed Now:** Side-by-side panel showing recent sold comps (Discount/Market Value/Premium) vs. active listing prices (Low/Median/High) with a plain-English price gap signal
 - **Collectibility Score:** 1–10 score based on price tier and sales volume (supply/demand balance is captured separately in Market Activity)
@@ -178,7 +178,7 @@ kuya-comps/
 | [`backend/config.py`](backend/config.py:1) | Centralized configuration constants | All magic numbers and settings live here |
 | [`backend/routes/comps.py`](backend/routes/comps.py:1) | /comps and /active endpoints | Main search functionality |
 | [`backend/routes/fmv.py`](backend/routes/fmv.py:1) | POST /fmv (legacy) and POST /fmv/v2 (blended) | v2 is the active endpoint |
-| [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | calculate_fmv() + calculate_fmv_blended() | v2 blend uses price tier × supply ratio table |
+| [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | calculate_fmv() + calculate_fmv_blended() + detect_competitive_zone() | v2 blend uses competitive zone detection + price tier × supply ratio table |
 | [`backend/services/collectibility_service.py`](backend/services/collectibility_service.py:1) | Collectibility score (1–10) | price_tier + volume components (scarcity removed — captured by Market Activity) |
 | [`backend/services/search_log_service.py`](backend/services/search_log_service.py:1) | Saves every search to search_logs/ as JSON + CSV | Dev only — gitignored |
 | [`backend/routes/dev_log.py`](backend/routes/dev_log.py:1) | POST /api/dev/analytics-snapshot | Frontend posts analytics after dashboard renders |
@@ -280,6 +280,23 @@ kuya-comps/
     - **Impact:** All four scores now computed in one service using continuous/log-scaled algorithms; consistent with FMV's view of the data
     - **Implementation:** [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1)
 
+13. **Competitive Active Zone Detection**
+    - **Why:** Active listings include dreamers, different variants (e.g., Members Only), and COMC listings with inflated shipping. Using the raw median of all active listings as the ask center produced unrealistic blends. The sellers_dreaming override compensated but threw out the baby with the bathwater, ignoring competitive active listings that validate the sold cluster.
+    - **Impact:** `detect_competitive_zone()` identifies active listings within the sold IQR range (with margin). When both sold comps and competitive active listings converge on the same price zone, that convergence drives the blend. Supply/demand ratio, staleness adjustment, and discount/premium blend all use competitive zone data. Falls back to full-active median when no competitive zone exists.
+    - **Implementation:** [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) — `detect_competitive_zone()`, integration in `calculate_fmv_blended()`
+    - **Config:** `COMPETITIVE_ZONE_IQR_MULT`, `COMPETITIVE_ZONE_MIN_MARGIN`, `MIN_COMPETITIVE_ACTIVE_COUNT` in [`backend/config.py`](backend/config.py:1)
+
+14. **Secondary Cluster Minimum Size**
+    - **Why:** `detect_price_clusters()` allowed a single outlier sale to form its own secondary cluster, directly anchoring patient_sale or quick_sale and bypassing the more conservative gravity blend fallback. This inflated the FMV range at all price tiers.
+    - **Impact:** Secondary clusters now require at least 2 items (`MIN_SECONDARY_CLUSTER_SIZE`), regardless of the ratio-based calculation. Single outliers fall through to the gravity blend.
+    - **Implementation:** [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) — `detect_price_clusters()` line ~322
+    - **Config:** `MIN_SECONDARY_CLUSTER_SIZE = 2` in [`backend/config.py`](backend/config.py:1)
+
+15. **Charts Show All Sold Listings**
+    - **Why:** The beeswarm and price density charts were applying their own frontend-side IQR outlier filter to sold listings, hiding data points that influenced the FMV range. Users couldn't understand why the upper/lower FMV bounds were where they were.
+    - **Impact:** Sold listings are never outlier-filtered on the charts. Active listings still use IQR filtering to prevent dreamers from compressing the chart. Every sold comp that influenced the FMV is visible.
+    - **Implementation:** [`static/js/charts.js`](static/js/charts.js:1) — `drawPriceDistributionChart()`, [`static/script.js`](static/script.js:1) — `drawBeeswarmInternal()`
+
 13. **Asking vs. Sold (formerly "Market Pressure")**
     - **Why:** The original "Market Pressure" metric used named status bands (HEALTHY, OPTIMISTIC, RESISTANCE, UNREALISTIC) that overstated confidence in the signal. The metric reliably tells you the gap between current asking prices and recent sold prices, but cannot reliably predict whether that gap represents a buying opportunity or a declining market.
     - **Impact:** Renamed to "Asking vs. Sold." Removed status bands and the info button. Card now leads with the plain-English sentence describing the gap, with the percentage demoted to supporting detail. Card is hidden entirely when sample size < 5. Purple styling (#5856d6 / lavender gradient).
@@ -328,7 +345,7 @@ kuya-comps/
 7. Render results + beeswarm chart
 ```
 
-**Example: Blended FMV Calculation Flow (v0.8.0)**
+**Example: Blended FMV Calculation Flow (v1.1.0)**
 ```
 1. Sold search completes → data available
 2. Active search completes → secondData available
@@ -336,13 +353,17 @@ kuya-comps/
 4. updateFmv(data, secondData) → POST /fmv/v2
 5. Backend: calculate_fmv_blended(sold_items, active_items)
    - Bid center: volume-weighted percentiles of sold comps
-   - Ask center: median of active prices
+   - Cluster detection: histogram bins → primary + secondary clusters
+     (secondary clusters require ≥2 items; single outliers use gravity blend fallback)
+   - Competitive zone: sold IQR (Q1-margin to Q3+margin) → filter active listings
+     If ≥3 active listings fall within zone → use their median as ask center
+     Otherwise fall back to median of all active prices
    - Price tier: Bulk/Low/Mid/Grail from bid center
-   - Supply ratio: active_count / sold_count
+   - Supply ratio: competitive_count / sold_count (or all active if no zone)
    - Blend weight: from 4×3 table (tier × supply)
-   - Override: bid_weight = max(w, 0.85) if ask > 2× bid
-   - Discount = p25_sold * w + p10_active * (1-w)
-   - Premium = p75_sold * w' + p90_active * (1-w'), w' = min(w+0.10, 0.95)
+   - Override: sellers-dreaming ramp at 1.5x–3x gap
+   - Discount = p25_sold * w + competitive_p10 * (1-w)
+   - Premium = p75_sold * w' + competitive_p90 * (1-w'), w' = min(w+0.10, 0.95)
    - Clamp: Discount ≤ Market Value ≤ Premium
 6. Return Discount / Market Value / Premium
 7. renderAnalysisDashboard renders with blended FMV
@@ -943,9 +964,18 @@ alembic upgrade head
 
 ## 📝 Version History & Roadmap
 
-### Current Version: 1.0.0
+### Current Version: 1.1.0
 
-**Recent Changes (v1.0.0 — AI Market Summary):**
+**Recent Changes (v1.1.0 — Competitive Zone & FMV Range Fix):**
+- **`backend/services/fmv_service.py`:** Added `detect_competitive_zone()` — identifies active listings within the sold IQR range and uses their median/p10/p90 for blending instead of the raw all-active median. Fixed `detect_price_clusters()` to require ≥2 items for secondary clusters (`MIN_SECONDARY_CLUSTER_SIZE`), preventing single outliers from anchoring the FMV range. Competitive zone data added to `analytics_scores` for downstream use by market summary.
+- **`backend/services/market_summary_service.py`:** Prompt now includes competitive zone context (seller-facing: how many active listings are competitively priced) and uses `total_price` for below-FMV listings instead of `extracted_price`.
+- **`backend/routes/fmv.py`:** Fixed below-FMV listing price calculation to use `total_price` (includes shipping) instead of `extracted_price` (listing price only).
+- **`backend/config.py`:** Added `MIN_SECONDARY_CLUSTER_SIZE = 2`, `COMPETITIVE_ZONE_IQR_MULT = 1.0`, `COMPETITIVE_ZONE_MIN_MARGIN = 0.10`, `MIN_COMPETITIVE_ACTIVE_COUNT = 3`.
+- **`static/script.js`:** Active Listings table renamed from "Active Listings Below Fair Market Value" to "Active Listings"; defaults to showing all listings sorted cheapest first (checkbox starts checked). Beeswarm chart no longer outlier-filters sold listings.
+- **`static/js/charts.js`:** Price Density chart no longer outlier-filters sold listings — all sold comps visible so users can see what influenced the FMV range. Active listings still IQR-filtered.
+- **`tests/services/test_fmv_service.py`:** Added 10 new tests: `TestSecondaryClusterMinimum` (2), `TestDetectCompetitiveZone` (5), `TestBlendedFMVWithCompetitiveZone` (3).
+
+**Previous Changes (v1.0.0 — AI Market Summary):**
 - **`backend/services/market_summary_service.py`** (new): Generates a 2–3 sentence plain-English market summary after each FMV calculation. Quality gate (skips on insufficient data) + signal gate (at least one meaningful condition required). Alerts collectors to below-FMV active listings including the lowest price. Tier-aware model selection: Founders get `anthropic/claude-sonnet-4-5`, all others get `google/gemini-2.0-flash-001` via OpenRouter. Never raises — all failures return `None` silently.
 - **`backend/models/schemas.py`:** `FmvResponse` — added `market_summary: Optional[str] = None`.
 - **`backend/routes/fmv.py`:** `get_fmv_v2` changed to `async def`; added `user` dependency via `get_current_user_optional`; computes below-FMV active listing prices and passes them to the summary service alongside sold count, active count, and resolved user tier.

@@ -931,9 +931,9 @@ async function renderData(data, secondData = null, marketValue = null) {
     if (secondData && secondData.items) {
         console.log('[DEBUG renderData] Starting to filter active listings. Total items:', secondData.items.length);
         
-        // Get checkbox state (default to unchecked on first render)
+        // Get checkbox state (default to checked — show all listings)
         const seeAllCheckbox = document.getElementById('see-all-active-listings');
-        const showAllListings = seeAllCheckbox ? seeAllCheckbox.checked : false;
+        const showAllListings = seeAllCheckbox ? seeAllCheckbox.checked : true;
         
         console.log('[DEBUG renderData] See All checkbox state:', showAllListings);
         
@@ -994,11 +994,9 @@ async function renderData(data, secondData = null, marketValue = null) {
         
         // Determine header text and checkbox state based on FMV availability
         const hasMarketValue = marketValue !== null && marketValue !== undefined;
-        const headerText = hasMarketValue
-            ? (showAllListings ? 'Active Listings' : 'Active Listings Below Fair Market Value')
-            : 'Active Listings';
+        const headerText = 'Active Listings';
         const checkboxDisabled = !hasMarketValue;
-        
+
         html += `
           <div style="margin-bottom: 1rem; margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
             <h3 style="margin: 0; color: var(--text-color);">${headerText}</h3>
@@ -1265,8 +1263,8 @@ function toggleActiveListingsView() {
         
         // Get checkbox state
         const seeAllCheckbox = document.getElementById('see-all-active-listings');
-        const showAllListings = seeAllCheckbox ? seeAllCheckbox.checked : false;
-        
+        const showAllListings = seeAllCheckbox ? seeAllCheckbox.checked : true;
+
         console.log('[DEBUG] Checkbox state:', showAllListings);
         
         // Check if market value is available
@@ -1371,9 +1369,7 @@ function toggleActiveListingsView() {
         // Update the heading based on FMV availability
         const headingContainer = tableContainer?.previousElementSibling?.previousElementSibling;
         if (headingContainer && headingContainer.querySelector('h3')) {
-            const headerText = hasMarketValue
-                ? (showAllListings ? 'Active Listings' : 'Active Listings Below Fair Market Value')
-                : 'Active Listings';
+            const headerText = 'Active Listings';
             headingContainer.querySelector('h3').textContent = headerText;
         }
         
@@ -4092,8 +4088,9 @@ function drawBeeswarmInternal(prices, activePrices = []) {
     return;
   }
 
-  // Filter outliers using IQR method
-  const filteredPrices = filterOutliers(validPrices);
+  // Show all sold prices — these are actual transactions and users need to see
+  // every comp that influenced the FMV range. Only filter active outliers.
+  const filteredPrices = validPrices;
 
   if (filteredPrices.length === 0) {
     ctx.fillStyle = "#6e6e73";

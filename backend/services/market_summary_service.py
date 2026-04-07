@@ -67,6 +67,7 @@ def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int
     collectibility = analytics.get("collectibility") or {}
     staleness = analytics.get("staleness") or {}
     pressure = analytics.get("pressure") or {}
+    comp_zone = analytics.get("competitive_zone") or {}
 
     market_value = fmv_result.market_value
     quick_sale = fmv_result.quick_sale
@@ -84,6 +85,12 @@ def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int
     suppressed = staleness.get("suppressed", False)
     pressure_pct = pressure.get("pressure_pct", "N/A")
     pressure_status = pressure.get("status", "N/A")
+
+    # Competitive zone summary
+    zone_found = comp_zone.get("found", False)
+    zone_competitive = comp_zone.get("competitive_count", 0)
+    zone_total = comp_zone.get("total_active_count", active_count)
+    zone_center = comp_zone.get("center")
 
     return (
         f'You are writing a market summary for a baseball card price tool used by collectors. '
@@ -106,6 +113,14 @@ def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int
         f"- Asking vs. sold gap: {raw_gap_pct}% ({pressure_bucket})\n"
         f"- Staleness signal: coefficient={coeff}, suppressed={suppressed}\n"
         f"- Seller pressure: {pressure_pct}% ({pressure_status})\n"
+        f"- Competitive active zone: "
+        + (
+            f"{zone_competitive} of {zone_total} active listings are priced near recent sales "
+            f"(around ${zone_center:.2f}). The rest are priced well above. "
+            f"This is useful context for sellers: to move this card, you'd need to price near ${zone_center:.2f}.\n"
+            if zone_found and zone_center is not None
+            else f"No active listings are priced near recent sales. Most sellers are asking well above what this card has sold for.\n"
+        )
         + (
             f"- Active listings BELOW market value: {len(below_fmv_listings)} listing(s) "
             f"at prices {', '.join(f'${p:.2f}' for p in below_fmv_listings)}. "

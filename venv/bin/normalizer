@@ -1,6 +1,4 @@
-#!/bin/sh
-'''exec' "/Users/allanbranstiter/Documents/Personal/Card Selling/ebay_comps_app/venv/bin/python3.13" "$0" "$@"
-' '''
+#!/Users/allanbranstiter/Documents/GitHub/kuya-comps/venv/bin/python3.13
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -42,6 +42,10 @@ from backend.config import (
     PRICE_BIN_PCT_GRAIL,
     MIN_CONCENTRATION_RATIO,
     MIN_SECONDARY_CLUSTER_RATIO,
+    MIN_SECONDARY_CLUSTER_SIZE,
+    COMPETITIVE_ZONE_IQR_MULT,
+    COMPETITIVE_ZONE_MIN_MARGIN,
+    MIN_COMPETITIVE_ACTIVE_COUNT,
 )
 
 logger = get_logger(__name__)
@@ -318,7 +322,7 @@ def detect_price_clusters(prices: np.ndarray) -> Optional[ClusterResult]:
         return None
 
     # Find secondary clusters on each side of primary
-    min_secondary = ceil(total * MIN_SECONDARY_CLUSTER_RATIO)
+    min_secondary = max(MIN_SECONDARY_CLUSTER_SIZE, ceil(total * MIN_SECONDARY_CLUSTER_RATIO))
 
     lower_median = None
     lower_clusters = [
@@ -501,15 +505,16 @@ def get_active_market_floor(active_items: List) -> Optional[float]:
     active_prices = []
     for item in active_items:
         # Handle different possible price attributes
+        # Prefer total_price (numeric) over price (may be a formatted string like "$1.16")
         price = None
-        if hasattr(item, 'price') and item.price:
-            price = item.price
-        elif hasattr(item, 'total_price') and item.total_price:
+        if hasattr(item, 'total_price') and item.total_price:
             price = item.total_price
+        elif hasattr(item, 'extracted_price') and item.extracted_price:
+            price = item.extracted_price
         elif hasattr(item, 'current_price') and item.current_price:
             price = item.current_price
 
-        if price and price > 0:
+        if price and isinstance(price, (int, float)) and price > 0:
             active_prices.append(price)
 
     if len(active_prices) < 5:
@@ -522,6 +527,70 @@ def get_active_market_floor(active_items: List) -> Optional[float]:
                  f"from {len(active_prices)} active listings")
 
     return floor_price
+
+
+def detect_competitive_zone(
+    sold_prices: np.ndarray,
+    ask_prices: List[float],
+    bid_center: float,
+) -> Optional[Dict]:
+    """
+    Identify active listings in the "competitive zone" near sold prices.
+
+    The competitive zone is the price band where willing sellers are pricing
+    near recent sold comps — the strongest market signal. Active listings
+    outside this zone (dreamers, different variants, inflated shipping) are
+    excluded from the blend.
+
+    Zone boundaries: sold Q1 - margin to sold Q3 + margin, where
+    margin = max(IQR, bid_center * MIN_MARGIN) * IQR_MULT.
+
+    Args:
+        sold_prices: IQR-filtered sold prices (from bid_result._filtered_prices)
+        ask_prices: Sorted list of all active listing total_prices
+        bid_center: Bid-side market value
+
+    Returns:
+        Dict with {center, count, p10, p90, lower, upper} if enough competitive
+        listings exist, None otherwise.
+    """
+    if sold_prices is None or len(sold_prices) < 2 or not ask_prices:
+        return None
+
+    sq1, sq3 = np.percentile(sold_prices, [25, 75])
+    s_iqr = sq3 - sq1
+    margin = max(s_iqr, bid_center * COMPETITIVE_ZONE_MIN_MARGIN) * COMPETITIVE_ZONE_IQR_MULT
+
+    zone_lower = sq1 - margin
+    zone_upper = sq3 + margin
+
+    competitive = [p for p in ask_prices if zone_lower <= p <= zone_upper]
+
+    if len(competitive) < MIN_COMPETITIVE_ACTIVE_COUNT:
+        logger.debug(
+            f"Competitive zone ${zone_lower:.2f}-${zone_upper:.2f}: "
+            f"only {len(competitive)} active listings (need {MIN_COMPETITIVE_ACTIVE_COUNT}), skipping"
+        )
+        return None
+
+    center = competitive[len(competitive) // 2]
+    p10_idx = max(0, int(len(competitive) * 0.10))
+    p90_idx = min(len(competitive) - 1, int(len(competitive) * 0.90))
+
+    logger.info(
+        f"Competitive zone ${zone_lower:.2f}-${zone_upper:.2f}: "
+        f"{len(competitive)}/{len(ask_prices)} active listings, "
+        f"center=${center:.2f}, p10=${competitive[p10_idx]:.2f}, p90=${competitive[p90_idx]:.2f}"
+    )
+
+    return {
+        "center": center,
+        "count": len(competitive),
+        "p10": competitive[p10_idx],
+        "p90": competitive[p90_idx],
+        "lower": zone_lower,
+        "upper": zone_upper,
+    }
 
 
 def calculate_fmv(items: List[object]) -> FMVResult:
@@ -849,6 +918,8 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
     # --- Ask side (active listings) ---
     ask_center   = None
     active_count = 0
+    ask_prices   = []
+    competitive_zone = None
     if active_items:
         ask_prices = sorted(
             i.total_price for i in active_items
@@ -858,18 +929,39 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         if active_count > 0:
             ask_center = ask_prices[active_count // 2]   # median
 
+    # --- Competitive zone detection ---
+    # Identify active listings priced near the sold cluster. When both sides
+    # of the market converge on the same price zone, that convergence is the
+    # strongest market signal and should drive the blend.
+    blend_ask_center = ask_center
+    blend_active_count = active_count
+    blend_ask_p10 = None
+    blend_ask_p90 = None
+    if ask_prices and bid_result._filtered_prices is not None:
+        competitive_zone = detect_competitive_zone(
+            sold_prices=bid_result._filtered_prices,
+            ask_prices=ask_prices,
+            bid_center=bid_center,
+        )
+        if competitive_zone is not None:
+            blend_ask_center = competitive_zone["center"]
+            blend_active_count = competitive_zone["count"]
+            blend_ask_p10 = competitive_zone["p10"]
+            blend_ask_p90 = competitive_zone["p90"]
+
     # --- Staleness adjustment (pre-blend) ---
     # Adjust bid_center for market drift before blending, using active asks
     # as a proxy for where the market has moved since the sold comps were recorded.
+    # Use competitive zone center when available for a more accurate gap measurement.
     staleness_result = {
         "coefficient": 0.0, "raw_gap_pct": None,
         "pressure_bucket": None, "liq_factor": None,
         "conf_factor": None, "suppressed": False,
     }
-    if ask_center is not None and active_count > 0:
+    if blend_ask_center is not None and blend_active_count > 0:
         staleness_result = calculate_staleness_adjustment(
             bid_center=bid_center,
-            ask_center=ask_center,
+            ask_center=blend_ask_center,
             liquidity_score=liquidity.get("score"),
             confidence_score=confidence.get("score"),
         )
@@ -892,7 +984,7 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
             )
 
     # --- Blend ---
-    if ask_center is None or active_count == 0:
+    if blend_ask_center is None or blend_active_count == 0:
         market_value = bid_center
     else:
         # Price tier
@@ -914,8 +1006,9 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
             logger.info(f"Collectibility override: {original_tier} -> {tier} "
                         f"(collectibility={c_score})")
 
-        # Supply/demand ratio
-        ratio = active_count / sold_count if sold_count > 0 else 10.0
+        # Supply/demand ratio — use competitive count when available
+        # so the weight table reflects real competition, not total noise
+        ratio = blend_active_count / sold_count if sold_count > 0 else 10.0
         if ratio > 2.0:
             supply = "oversupplied"
         elif ratio < 0.5:
@@ -934,38 +1027,39 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
 
         # Override: sellers dreaming — graduated ramp starting at 1.5x
         # At 1.5x: small nudge. At 2x: strong override. At 3x+: near-total ignore of asks.
-        if ask_center > bid_center * 1.5:
-            dream_ratio = ask_center / bid_center
+        if blend_ask_center > bid_center * 1.5:
+            dream_ratio = blend_ask_center / bid_center
             dream_strength = min(1.0, (dream_ratio - 1.5) / 1.5)  # 0.0 at 1.5x, 1.0 at 3x
             target_bid_weight = 0.95 if tier in ("bulk", "low") else 0.90
             bid_weight = bid_weight + (target_bid_weight - bid_weight) * dream_strength
             supply = "sellers_dreaming"
 
         ask_weight   = 1.0 - bid_weight
-        market_value = bid_center * bid_weight + ask_center * ask_weight
+        market_value = bid_center * bid_weight + blend_ask_center * ask_weight
 
         # --- Blended Discount (p25 sold + p10 active) ---
-        ask_p10 = ask_prices[max(0, int(len(ask_prices) * 0.10))]
+        effective_ask_p10 = blend_ask_p10 if blend_ask_p10 is not None else ask_prices[max(0, int(len(ask_prices) * 0.10))]
         discount_bid_w = bid_weight
         quick_sale = (
             (quick_sale or 0) * discount_bid_w +
-            ask_p10 * (1.0 - discount_bid_w)
+            effective_ask_p10 * (1.0 - discount_bid_w)
         )
 
         # --- Blended Premium (p75 sold + p90 active) ---
         # Use a more conservative (higher bid) weight for the ceiling so
         # dreaming sellers don't inflate the top end
-        ask_p90 = ask_prices[min(len(ask_prices) - 1, int(len(ask_prices) * 0.90))]
+        effective_ask_p90 = blend_ask_p90 if blend_ask_p90 is not None else ask_prices[min(len(ask_prices) - 1, int(len(ask_prices) * 0.90))]
         premium_bid_w = min(bid_weight + 0.10, 0.95)
         patient_sale = (
             (patient_sale or 0) * premium_bid_w +
-            ask_p90 * (1.0 - premium_bid_w)
+            effective_ask_p90 * (1.0 - premium_bid_w)
         )
 
+        zone_label = "competitive" if competitive_zone else "all-active"
         logger.info(
-            f"tier={tier} supply={supply} ratio={ratio:.1f}x "
+            f"tier={tier} supply={supply} ratio={ratio:.1f}x zone={zone_label} "
             f"bid=${bid_center:.2f} ({bid_weight:.0%}) + "
-            f"ask=${ask_center:.2f} ({ask_weight:.0%}) = MV=${market_value:.2f} "
+            f"ask=${blend_ask_center:.2f} ({ask_weight:.0%}) = MV=${market_value:.2f} "
             f"discount=${quick_sale:.2f} premium=${patient_sale:.2f}"
         )
 
@@ -1041,5 +1135,13 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
             "liquidity": liquidity,
             "collectibility": collectibility_result,
             "staleness": staleness_result,
+            "competitive_zone": {
+                "found": competitive_zone is not None,
+                "competitive_count": competitive_zone["count"] if competitive_zone else 0,
+                "total_active_count": active_count,
+                "center": competitive_zone["center"] if competitive_zone else None,
+                "range_lower": competitive_zone["lower"] if competitive_zone else None,
+                "range_upper": competitive_zone["upper"] if competitive_zone else None,
+            },
         },
     )

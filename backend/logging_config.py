@@ -71,7 +71,13 @@ class ReadableFormatter(logging.Formatter):
         # Add extra fields if present
         if hasattr(record, 'extra_data'):
             extra_str = json.dumps(record.extra_data, indent=2)
-            return f"{base_msg}\n{extra_str}"
+            base_msg = f"{base_msg}\n{extra_str}"
+
+        # Include exception traceback if present (e.g. from logger.exception())
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self.formatException(record.exc_info)
+        if record.exc_text:
+            base_msg = f"{base_msg}\n{record.exc_text}"
 
         return base_msg
 

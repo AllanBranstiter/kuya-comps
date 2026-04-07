@@ -306,6 +306,12 @@ Minimum ratio of sales for a secondary cluster to anchor quick_sale/patient_sale
 Lower bar than primary (10% vs 25%) because secondaries inform the range, not the center.
 """
 
+MIN_SECONDARY_CLUSTER_SIZE = 2
+"""
+Absolute minimum items for a secondary cluster, regardless of ratio.
+Prevents a single outlier sale from anchoring quick_sale/patient_sale.
+"""
+
 PRICE_BIN_SIZE_BULK = 0.50
 """Bin size for cards with median price ≤$10."""
 
@@ -320,6 +326,20 @@ PRICE_BIN_PCT_MID = 0.05
 
 PRICE_BIN_PCT_GRAIL = 0.03
 """Bin size as fraction of median price for $1000+ cards."""
+
+
+# ============================================================================
+# Competitive Active Zone Detection
+# ============================================================================
+
+COMPETITIVE_ZONE_IQR_MULT = 1.0
+"""IQR multiplier for competitive zone boundaries around sold Q1/Q3."""
+
+COMPETITIVE_ZONE_MIN_MARGIN = 0.10
+"""Minimum zone margin as fraction of bid_center (floor when sold IQR is tiny)."""
+
+MIN_COMPETITIVE_ACTIVE_COUNT = 3
+"""Minimum competitive active listings required to use competitive zone in blend."""
 
 
 # ============================================================================
