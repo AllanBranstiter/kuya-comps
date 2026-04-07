@@ -12,6 +12,10 @@ from collections import defaultdict
 
 import numpy as np
 
+from backend.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # Market Confidence
@@ -85,11 +89,17 @@ def calculate_liquidity(
         reference_date = date.today()
 
     # Recency-weighted sold count
+    # When all items share the same date_scraped (typical: all from one search),
+    # per-item decay is uniform and doesn't differentiate. Detect this case and
+    # use simple count to avoid false precision.
     weighted_sold = 0.0
+    all_dates = set()
+    valid_sold_count = 0
     for item in sold_items:
         price = getattr(item, "total_price", None)
         if not price or price <= 0:
             continue
+        valid_sold_count += 1
         item_date = getattr(item, "date_scraped", None)
         if item_date:
             if isinstance(item_date, str):
@@ -97,11 +107,20 @@ def calculate_liquidity(
                     item_date = date.fromisoformat(item_date)
                 except ValueError:
                     item_date = reference_date
+            all_dates.add(item_date)
             days_ago = max(0, (reference_date - item_date).days)
         else:
             days_ago = 30  # assume ~1 month old if unknown
         decay = 2 ** (-days_ago / 14)
         weighted_sold += decay
+
+    # If all items share the same date, recency decay is uniform —
+    # just use the raw count scaled by the common decay factor
+    if len(all_dates) <= 1 and valid_sold_count > 0 and weighted_sold > 0:
+        # All items got the same decay, so weighted_sold is just count * decay.
+        # Use it as-is (it's numerically correct), but log the limitation.
+        logger.debug(f"Liquidity: all {valid_sold_count} sold items share same date "
+                     f"(no per-item recency differentiation)")
 
     # BIN-only active listings
     bin_active = 0
@@ -342,9 +361,10 @@ def calculate_staleness_adjustment(
         base = 0.08
         pressure_bucket = "RESISTANCE"
 
-    # Liquidity scaling: 0→1.50, 50→1.00, 100→0.50
+    # Liquidity scaling: low liq → dampen (conservative), high liq → amplify (trust signal)
+    # 0→0.50, 50→1.00, 100→1.50
     liq = liquidity_score if liquidity_score is not None else 50
-    liq_factor = 1.50 - (liq / 100.0)
+    liq_factor = 0.50 + (liq / 100.0)
 
     # Confidence scaling: 0→0.50, 50→0.75, 100→1.00
     conf = confidence_score if confidence_score is not None else 70

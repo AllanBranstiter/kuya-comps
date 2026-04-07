@@ -24,7 +24,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from backend.config import (
     MIN_CONCENTRATION_RATIO, MIN_SECONDARY_CLUSTER_RATIO,
-    PRICE_BIN_SIZE_BULK, PRICE_BIN_SIZE_LOW, PRICE_BIN_PCT_MID, PRICE_BIN_PCT_GRAIL,
+    PRICE_BIN_SIZE_BULK, PRICE_BIN_SIZE_LOW, PRICE_BIN_PCT_LOW,
+    PRICE_BIN_PCT_MID, PRICE_BIN_PCT_GRAIL,
     AUCTION_BASE_WEIGHT, BUY_IT_NOW_WEIGHT, BEST_OFFER_WEIGHT,
     BID_COUNT_HIGH, BID_COUNT_MODERATE, BID_COUNT_LOW,
     BID_WEIGHT_HIGH, BID_WEIGHT_MODERATE, BID_WEIGHT_LOW,
@@ -158,7 +159,7 @@ def detect_clusters_from_prices(prices_arr):
     if median_price <= 10:
         bin_size = PRICE_BIN_SIZE_BULK
     elif median_price <= 100:
-        bin_size = PRICE_BIN_SIZE_LOW
+        bin_size = median_price * PRICE_BIN_PCT_LOW
     elif median_price <= 1000:
         bin_size = median_price * PRICE_BIN_PCT_MID
     else:

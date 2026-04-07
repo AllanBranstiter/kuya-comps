@@ -37,6 +37,7 @@ from backend.config import (
     CONFIDENCE_MEDIUM_RATIO,
     PRICE_BIN_SIZE_BULK,
     PRICE_BIN_SIZE_LOW,
+    PRICE_BIN_PCT_LOW,
     PRICE_BIN_PCT_MID,
     PRICE_BIN_PCT_GRAIL,
     MIN_CONCENTRATION_RATIO,
@@ -248,7 +249,7 @@ def detect_price_clusters(prices: np.ndarray) -> Optional[ClusterResult]:
     if median_price <= 10:
         bin_size = PRICE_BIN_SIZE_BULK
     elif median_price <= 100:
-        bin_size = PRICE_BIN_SIZE_LOW
+        bin_size = median_price * PRICE_BIN_PCT_LOW
     elif median_price <= 1000:
         bin_size = median_price * PRICE_BIN_PCT_MID
     else:
@@ -575,9 +576,9 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         from scipy.stats import skew as _skew
         raw_skewness = _skew(all_prices, axis=0)
         if len(all_prices) < 10:
-            iqr_mult = 1.5    # Standard — avoid over-filtering small samples
+            iqr_mult = 2.0    # Generous — preserve data when sample is thin
         elif abs(raw_skewness) > 1.5:
-            iqr_mult = 1.0    # Moderate trim for heavily skewed distributions
+            iqr_mult = 1.5    # Standard — skewed distributions may have valid secondary clusters
         else:
             iqr_mult = 1.5    # Standard
 
@@ -589,6 +590,10 @@ def calculate_fmv(items: List[object]) -> FMVResult:
         mask = []
         excluded_items = []
 
+        # Tighter bounds for relevance-based filtering
+        relevance_lower = q1 - 1.0 * iqr
+        relevance_upper = q3 + 1.0 * iqr
+
         for i, price in enumerate(all_prices):
             within_bounds = lower_bound <= price <= upper_bound
 
@@ -596,14 +601,21 @@ def calculate_fmv(items: List[object]) -> FMVResult:
             if within_bounds:
                 mask.append(True)
             else:
-                # Check if outlier is representative of the typical variant
-                is_representative = is_representative_sale(all_items[i], q1, q3, iqr)
-                mask.append(is_representative)
-
-                if not is_representative:
-                    # Log excluded outlier for debugging
+                # Relevance-aware: low-relevance items outside 1.0x IQR are removed
+                # regardless of title check (catches wrong-variant items with clean titles)
+                ai_score = getattr(all_items[i], 'ai_relevance_score', None)
+                if ai_score is not None and ai_score < 0.3 and not (relevance_lower <= price <= relevance_upper):
+                    mask.append(False)
                     title_preview = all_items[i].title[:60] if hasattr(all_items[i], 'title') else 'Unknown'
                     excluded_items.append((price, title_preview))
+                else:
+                    # Check if outlier is representative of the typical variant
+                    is_representative = is_representative_sale(all_items[i], q1, q3, iqr)
+                    mask.append(is_representative)
+
+                    if not is_representative:
+                        title_preview = all_items[i].title[:60] if hasattr(all_items[i], 'title') else 'Unknown'
+                        excluded_items.append((price, title_preview))
 
         # Convert mask to numpy array
         mask = np.array(mask, dtype=bool)
@@ -813,7 +825,7 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
     _conf_items = [
         item for item in sold_items
         if getattr(item, "total_price", None) and item.total_price > 0
-        and getattr(item, "ai_relevance_score", 1.0) >= _CONFIDENCE_RELEVANCE_THRESHOLD
+        and (getattr(item, "ai_relevance_score", None) or 1.0) >= _CONFIDENCE_RELEVANCE_THRESHOLD
     ]
     if len(_conf_items) >= 2:
         _conf_prices = np.array([item.total_price for item in _conf_items], dtype=float)
@@ -893,6 +905,15 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         else:
             tier = "grail"
 
+        # Collectibility override: high-demand cards get more sold trust
+        # A $30 Blue Chip card should blend like mid-tier, not low-tier
+        c_score = collectibility_result.get("score") or 0
+        if c_score >= 7 and tier in ("bulk", "low"):
+            original_tier = tier
+            tier = "low" if tier == "bulk" else "mid"
+            logger.info(f"Collectibility override: {original_tier} -> {tier} "
+                        f"(collectibility={c_score})")
+
         # Supply/demand ratio
         ratio = active_count / sold_count if sold_count > 0 else 10.0
         if ratio > 2.0:
@@ -911,13 +932,13 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         }
         bid_weight = weight_table[tier][supply]
 
-        # Override: sellers dreaming (ask > 2x bid) — don't let implausible asks drag FMV up
-        # Use more aggressive bid weight for lower-value cards where dreaming is most common
-        if ask_center > bid_center * 2.0:
-            if tier in ("bulk", "low"):
-                bid_weight = max(bid_weight, 0.92)
-            else:
-                bid_weight = max(bid_weight, 0.85)
+        # Override: sellers dreaming — graduated ramp starting at 1.5x
+        # At 1.5x: small nudge. At 2x: strong override. At 3x+: near-total ignore of asks.
+        if ask_center > bid_center * 1.5:
+            dream_ratio = ask_center / bid_center
+            dream_strength = min(1.0, (dream_ratio - 1.5) / 1.5)  # 0.0 at 1.5x, 1.0 at 3x
+            target_bid_weight = 0.95 if tier in ("bulk", "low") else 0.90
+            bid_weight = bid_weight + (target_bid_weight - bid_weight) * dream_strength
             supply = "sellers_dreaming"
 
         ask_weight   = 1.0 - bid_weight
@@ -959,9 +980,9 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
 
     # --- Analytics adjustments to FMV range ---
     if quick_sale is not None and patient_sale is not None and market_value is not None:
-        # 2A: Confidence widens/narrows range
+        # 2A: Confidence widens/narrows range (quadratic — gentle at high conf, steep at low)
         conf_score = confidence.get("score") or 70
-        range_multiplier = 1.0 + 0.3 * (1 - conf_score / 100)
+        range_multiplier = 1.0 + 0.8 * ((100 - conf_score) / 100) ** 2
         midpoint = market_value
         half_range = (patient_sale - quick_sale) / 2
         quick_sale = midpoint - half_range * range_multiplier
@@ -978,6 +999,17 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         patient_sale = min(patient_sale, sold_price_max * 1.10)
         # Quick sale: never below min sold price, never $0
         quick_sale = max(quick_sale, sold_price_min)
+
+        # --- Active-floor guardrail ---
+        # If active listings are abundant, their P10 is a better floor than
+        # historical min sold. Apply at 90% of floor to avoid overcorrecting.
+        active_floor = get_active_market_floor(active_items)
+        if active_floor is not None:
+            adjusted_floor = active_floor * 0.90
+            if adjusted_floor > quick_sale:
+                logger.info(f"Active floor ${active_floor:.2f} (90%=${adjusted_floor:.2f}) "
+                            f"raising quick_sale from ${quick_sale:.2f}")
+                quick_sale = adjusted_floor
 
         # Re-clamp after adjustments
         if quick_sale > patient_sale:

@@ -310,7 +310,10 @@ PRICE_BIN_SIZE_BULK = 0.50
 """Bin size for cards with median price ≤$10."""
 
 PRICE_BIN_SIZE_LOW = 2.00
-"""Bin size for cards with median price $10-$100."""
+"""Bin size for cards with median price $10-$100. DEPRECATED — use PRICE_BIN_PCT_LOW instead."""
+
+PRICE_BIN_PCT_LOW = 0.05
+"""Bin size as fraction of median price for $10-$100 cards (matches mid-tier scaling)."""
 
 PRICE_BIN_PCT_MID = 0.05
 """Bin size as fraction of median price for $100-$1000 cards."""

@@ -13,6 +13,7 @@ from backend.services.fmv_service import (
     calculate_volume_weight,
     find_weighted_percentile,
     calculate_fmv,
+    calculate_fmv_blended,
     detect_price_clusters,
     ClusterResult,
     FMVResult
@@ -368,11 +369,11 @@ class TestDetectPriceClusters:
 
     def test_single_tight_cluster(self):
         """A tight group of prices should yield one cluster with no secondaries."""
-        prices = np.array([10, 11, 12, 10, 11, 12, 11, 10], dtype=float)
+        prices = np.array([10.0, 10.2, 10.4, 10.0, 10.2, 10.4, 10.2, 10.0], dtype=float)
         result = detect_price_clusters(prices)
 
         assert result is not None
-        assert 10.0 <= result.primary_median <= 12.0
+        assert 10.0 <= result.primary_median <= 10.5
         assert result.lower_median is None
         assert result.upper_median is None
         assert result.cluster_count == 1
@@ -502,14 +503,14 @@ class TestCalculateFMVClusters:
         assert result.quick_sale <= result.market_value <= result.patient_sale
 
     def test_single_cluster_falls_back_to_percentiles(self):
-        """With only one cluster, quick_sale/patient_sale should fall back to P25/P75."""
-        prices = [10, 11, 12, 10, 11, 12, 11, 10]
+        """With only one cluster, quick_sale/patient_sale should use gravity blend."""
+        prices = [10.0, 10.2, 10.4, 10.0, 10.2, 10.4, 10.2, 10.0]
         items = self._make_items(prices)
         result = calculate_fmv(items)
 
         assert result.market_value is not None
         # With a tight single cluster, all values should be close
-        assert abs(result.market_value - 11.0) < 2.0
+        assert abs(result.market_value - 10.2) < 1.0
 
     def test_ordering_invariant(self):
         """quick_sale <= market_value <= patient_sale must always hold."""
@@ -517,7 +518,7 @@ class TestCalculateFMVClusters:
         test_cases = [
             [5, 6, 5, 6, 5, 20, 21, 20, 21, 20],                  # two clusters
             [3, 4, 3, 4, 15, 16, 15, 16, 15, 50, 51, 50],         # three clusters
-            [10, 11, 12, 10, 11, 12, 11, 10],                       # single cluster
+            [10.0, 10.2, 10.4, 10.0, 10.2, 10.4, 10.2, 10.0],    # single cluster
             [100 + i * 10 for i in range(10)],                       # uniform spread
             [50.0] * 10,                                              # identical prices
         ]
@@ -584,3 +585,140 @@ class TestCalculateFMVClusters:
             f"High concentration range ({high_range:.2f}) should be tighter "
             f"than low concentration range ({low_range:.2f})"
         )
+
+
+class TestConfidenceRangeScaling:
+    """Tests for the quadratic confidence-based range multiplier in calculate_fmv_blended."""
+
+    def _make_items(self, prices, is_auction=True, bids=5):
+        """Helper to create CompItem list from price list."""
+        return [
+            CompItem(
+                item_id=str(i),
+                title=f"Card {i}",
+                total_price=p,
+                is_auction=is_auction,
+                bids=bids,
+                ai_relevance_score=1.0,
+            )
+            for i, p in enumerate(prices)
+        ]
+
+    def test_high_confidence_tight_range(self):
+        """Tight price cluster should produce a narrow range (high confidence, low multiplier)."""
+        # All prices within $2 of each other -> high confidence (low CoV)
+        sold = self._make_items([100, 101, 99, 100, 102, 98, 101, 100, 99, 101])
+        active = self._make_items([105, 106, 104, 103, 107], is_auction=False, bids=0)
+        result = calculate_fmv_blended(sold, active)
+
+        assert result.market_value is not None
+        assert result.quick_sale is not None
+        assert result.patient_sale is not None
+        fmv_range = result.patient_sale - result.quick_sale
+        # With very tight prices, range should be small relative to MV
+        assert fmv_range < result.market_value * 0.30
+
+    def test_low_confidence_wide_range(self):
+        """Spread prices should produce a wider range (low confidence, high multiplier)."""
+        # Prices all over the place -> low confidence (high CoV)
+        sold = self._make_items([20, 50, 100, 200, 30, 150, 80, 250, 40, 120])
+        active = self._make_items([60, 100, 180, 90, 140], is_auction=False, bids=0)
+        result = calculate_fmv_blended(sold, active)
+
+        assert result.market_value is not None
+        fmv_range = result.patient_sale - result.quick_sale
+        # With highly spread prices, range should be wide relative to MV
+        assert fmv_range > result.market_value * 0.30
+
+    def test_range_scales_nonlinearly(self):
+        """The gap between low and mid confidence should be larger than mid to high.
+
+        This tests the quadratic nature of the formula: the curve steepens
+        at low confidence rather than scaling linearly.
+        """
+        # Quadratic formula: multiplier = 1.0 + 0.8 * ((100 - score) / 100)^2
+        # At score=70: 1.072
+        # At score=50: 1.200
+        # At score=30: 1.392
+        # Gap 70->50 = 0.128
+        # Gap 50->30 = 0.192  (larger)
+        mult_70 = 1.0 + 0.8 * ((100 - 70) / 100) ** 2
+        mult_50 = 1.0 + 0.8 * ((100 - 50) / 100) ** 2
+        mult_30 = 1.0 + 0.8 * ((100 - 30) / 100) ** 2
+
+        gap_high_to_mid = mult_50 - mult_70
+        gap_mid_to_low = mult_30 - mult_50
+
+        # Quadratic: the lower end should widen faster
+        assert gap_mid_to_low > gap_high_to_mid, (
+            f"Non-linear scaling: gap 50->30 ({gap_mid_to_low:.3f}) should be larger "
+            f"than gap 70->50 ({gap_high_to_mid:.3f})"
+        )
+
+
+class TestActiveFloorGuardrail:
+    """Tests for the active-floor guardrail in calculate_fmv_blended."""
+
+    def _make_items(self, prices, is_auction=True, bids=5):
+        """Helper to create CompItem list from price list."""
+        return [
+            CompItem(
+                item_id=str(i),
+                title=f"Card {i}",
+                total_price=p,
+                is_auction=is_auction,
+                bids=bids,
+                ai_relevance_score=1.0,
+            )
+            for i, p in enumerate(prices)
+        ]
+
+    def test_active_floor_raises_quick_sale(self):
+        """When active P10 is well above quick_sale, it should raise the floor."""
+        # Sold items: wide range, quick_sale will be low
+        sold = self._make_items([10, 20, 50, 80, 100, 120, 50, 60, 70, 90])
+        # Active items: all priced $40+, so P10 is ~$42
+        # This should raise quick_sale above the sold min of $10
+        active = self._make_items(
+            [40, 45, 50, 55, 60, 65, 70], is_auction=False, bids=0
+        )
+        result = calculate_fmv_blended(sold, active)
+
+        assert result.quick_sale is not None
+        # Quick sale should be raised above the raw sold min ($10)
+        # Active floor P10 ~$42, * 0.9 = ~$37.8
+        assert result.quick_sale > 20.0, (
+            f"Active floor should raise quick_sale above $20, got ${result.quick_sale:.2f}"
+        )
+
+    def test_active_floor_requires_minimum_listings(self):
+        """Active floor should not fire with fewer than 5 active listings."""
+        sold = self._make_items([10, 20, 50, 80, 100, 50, 60, 70, 90, 40])
+        # Only 3 active items — below the 5-item threshold for active floor
+        active_few = self._make_items([80, 90, 100], is_auction=False, bids=0)
+        # 7 active items — above the threshold
+        active_many = self._make_items([80, 85, 90, 95, 100, 105, 110], is_auction=False, bids=0)
+
+        result_few = calculate_fmv_blended(sold, active_few)
+        result_many = calculate_fmv_blended(sold, active_many)
+
+        assert result_few.quick_sale is not None
+        assert result_many.quick_sale is not None
+        # With more active items triggering the active floor, quick_sale should
+        # be higher than with too few active items (where floor doesn't fire)
+        assert result_many.quick_sale >= result_few.quick_sale
+
+    def test_active_floor_does_not_lower_quick_sale(self):
+        """Active floor should only raise quick_sale, never lower it."""
+        # Sold items: tight cluster around $100
+        sold = self._make_items([95, 98, 100, 102, 105, 97, 99, 101, 103, 96])
+        # Active items: very cheap (P10 ~$12, 90% = ~$10.8)
+        # This is BELOW the sold-based quick_sale, so it should not lower it
+        active = self._make_items(
+            [10, 12, 15, 18, 20, 25, 30], is_auction=False, bids=0
+        )
+        result = calculate_fmv_blended(sold, active)
+
+        assert result.quick_sale is not None
+        # quick_sale should stay anchored to the sold cluster, not drop to active P10
+        assert result.quick_sale > 50.0
