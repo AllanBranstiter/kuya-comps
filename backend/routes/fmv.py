@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from backend.services.fmv_service import calculate_fmv, calculate_fmv_blended, get_active_market_floor
 from backend.services.relevance_service import score_listing_relevance
 from backend.services.market_summary_service import generate_market_summary
+from backend.services.print_run_service import estimate_print_run
 from backend.models.schemas import CompItem, FmvResponse
 from backend.middleware.subscription_gate import check_search_limit
 from backend.middleware.supabase_auth import get_current_user_optional
@@ -148,6 +149,12 @@ async def get_fmv_v2(
                 and i.total_price < result.market_value
             ])
 
+        # --- Print Run Estimation ---
+        all_titles = [i.title for i in request.sold_items if i.title]
+        if request.active_items:
+            all_titles += [i.title for i in request.active_items if i.title]
+        print_run_info = estimate_print_run(request.query or "", all_titles)
+
         response_dict["market_summary"] = generate_market_summary(
             fmv_result=result,
             sold_count=sold_count,
@@ -155,6 +162,7 @@ async def get_fmv_v2(
             card_name=request.query,
             user_tier=user_tier,
             below_fmv_listings=below_fmv_listings,
+            print_run_info=print_run_info,
         )
 
         return FmvResponse(**response_dict)

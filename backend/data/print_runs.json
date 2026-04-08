@@ -1,0 +1,652 @@
+[
+  {
+    "set": "Topps",
+    "variant": "base",
+    "year_start": 1952,
+    "year_end": 1955,
+    "print_run_low": 50000,
+    "print_run_high": 100000,
+    "confidence": "estimated",
+    "source": "hobby research, surviving population analysis"
+  },
+  {
+    "set": "Topps",
+    "variant": "base",
+    "year_start": 1956,
+    "year_end": 1969,
+    "print_run_low": 100000,
+    "print_run_high": 250000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Topps",
+    "variant": "base",
+    "year_start": 1970,
+    "year_end": 1979,
+    "print_run_low": 200000,
+    "print_run_high": 500000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Topps",
+    "variant": "base",
+    "year_start": 1980,
+    "year_end": 1985,
+    "print_run_low": 300000,
+    "print_run_high": 700000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Topps",
+    "variant": "base",
+    "year_start": 1986,
+    "year_end": 1993,
+    "print_run_low": 500000,
+    "print_run_high": 1500000,
+    "confidence": "estimated",
+    "source": "junk wax era mass production"
+  },
+  {
+    "set": "Topps",
+    "variant": "base",
+    "year_start": 1994,
+    "year_end": 2005,
+    "print_run_low": 50000,
+    "print_run_high": 200000,
+    "confidence": "estimated",
+    "source": "post-junk wax production cuts"
+  },
+  {
+    "set": "Topps",
+    "variant": "base",
+    "year_start": 2006,
+    "year_end": 2015,
+    "print_run_low": 30000,
+    "print_run_high": 100000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps",
+    "variant": "base",
+    "year_start": 2016,
+    "year_end": 2026,
+    "print_run_low": 10000,
+    "print_run_high": 50000,
+    "confidence": "estimated",
+    "source": "industry estimates, hobby box count analysis"
+  },
+  {
+    "set": "Topps",
+    "variant": "gold",
+    "year_start": 2016,
+    "year_end": 2026,
+    "print_run_low": 2005,
+    "print_run_high": 2005,
+    "confidence": "confirmed",
+    "source": "serial numbered /2005"
+  },
+  {
+    "set": "Topps",
+    "variant": "rainbow_foil",
+    "year_start": 2020,
+    "year_end": 2026,
+    "print_run_low": 1000,
+    "print_run_high": 3000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "base",
+    "year_start": 1996,
+    "year_end": 2005,
+    "print_run_low": 10000,
+    "print_run_high": 50000,
+    "confidence": "estimated",
+    "source": "early Chrome era estimates"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "base",
+    "year_start": 2006,
+    "year_end": 2015,
+    "print_run_low": 5000,
+    "print_run_high": 20000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "base",
+    "year_start": 2016,
+    "year_end": 2026,
+    "print_run_low": 5000,
+    "print_run_high": 15000,
+    "confidence": "estimated",
+    "source": "industry estimates, hobby box count analysis"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "refractor",
+    "year_start": 1996,
+    "year_end": 2005,
+    "print_run_low": 500,
+    "print_run_high": 1500,
+    "confidence": "estimated",
+    "source": "early refractor scarcity analysis"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "refractor",
+    "year_start": 2006,
+    "year_end": 2026,
+    "print_run_low": 500,
+    "print_run_high": 2000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "xfractor",
+    "year_start": 2003,
+    "year_end": 2026,
+    "print_run_low": 200,
+    "print_run_high": 500,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "aqua_refractor",
+    "year_start": 2020,
+    "year_end": 2026,
+    "print_run_low": 199,
+    "print_run_high": 199,
+    "confidence": "confirmed",
+    "source": "serial numbered /199"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "gold_refractor",
+    "year_start": 2016,
+    "year_end": 2026,
+    "print_run_low": 50,
+    "print_run_high": 50,
+    "confidence": "confirmed",
+    "source": "serial numbered /50"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "orange_refractor",
+    "year_start": 2016,
+    "year_end": 2026,
+    "print_run_low": 25,
+    "print_run_high": 25,
+    "confidence": "confirmed",
+    "source": "serial numbered /25"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "red_refractor",
+    "year_start": 2016,
+    "year_end": 2026,
+    "print_run_low": 5,
+    "print_run_high": 5,
+    "confidence": "confirmed",
+    "source": "serial numbered /5"
+  },
+  {
+    "set": "Topps Chrome",
+    "variant": "superfractor",
+    "year_start": 1996,
+    "year_end": 2026,
+    "print_run_low": 1,
+    "print_run_high": 1,
+    "confidence": "confirmed",
+    "source": "serial numbered 1/1"
+  },
+  {
+    "set": "Topps Heritage",
+    "variant": "base",
+    "year_start": 2001,
+    "year_end": 2026,
+    "print_run_low": 10000,
+    "print_run_high": 50000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Heritage",
+    "variant": "chrome",
+    "year_start": 2001,
+    "year_end": 2026,
+    "print_run_low": 999,
+    "print_run_high": 999,
+    "confidence": "confirmed",
+    "source": "serial numbered /999"
+  },
+  {
+    "set": "Topps Heritage",
+    "variant": "chrome_refractor",
+    "year_start": 2001,
+    "year_end": 2026,
+    "print_run_low": 572,
+    "print_run_high": 572,
+    "confidence": "confirmed",
+    "source": "serial numbered /572"
+  },
+  {
+    "set": "Topps Finest",
+    "variant": "base",
+    "year_start": 1993,
+    "year_end": 2005,
+    "print_run_low": 5000,
+    "print_run_high": 20000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Finest",
+    "variant": "base",
+    "year_start": 2006,
+    "year_end": 2026,
+    "print_run_low": 3000,
+    "print_run_high": 10000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Finest",
+    "variant": "refractor",
+    "year_start": 1993,
+    "year_end": 2026,
+    "print_run_low": 300,
+    "print_run_high": 1000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Stadium Club",
+    "variant": "base",
+    "year_start": 1991,
+    "year_end": 1998,
+    "print_run_low": 100000,
+    "print_run_high": 500000,
+    "confidence": "estimated",
+    "source": "premium product but high 90s production"
+  },
+  {
+    "set": "Stadium Club",
+    "variant": "base",
+    "year_start": 2014,
+    "year_end": 2026,
+    "print_run_low": 3000,
+    "print_run_high": 10000,
+    "confidence": "estimated",
+    "source": "industry estimates, modern revival"
+  },
+  {
+    "set": "Stadium Club",
+    "variant": "chrome",
+    "year_start": 2019,
+    "year_end": 2026,
+    "print_run_low": 1000,
+    "print_run_high": 5000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Stadium Club",
+    "variant": "chrome_refractor",
+    "year_start": 2019,
+    "year_end": 2026,
+    "print_run_low": 200,
+    "print_run_high": 500,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Bowman",
+    "variant": "base",
+    "year_start": 1989,
+    "year_end": 1998,
+    "print_run_low": 200000,
+    "print_run_high": 800000,
+    "confidence": "estimated",
+    "source": "late 80s/90s mass production"
+  },
+  {
+    "set": "Bowman",
+    "variant": "base",
+    "year_start": 1999,
+    "year_end": 2010,
+    "print_run_low": 20000,
+    "print_run_high": 80000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Bowman",
+    "variant": "base",
+    "year_start": 2011,
+    "year_end": 2026,
+    "print_run_low": 10000,
+    "print_run_high": 40000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Bowman Chrome",
+    "variant": "base",
+    "year_start": 2001,
+    "year_end": 2026,
+    "print_run_low": 3000,
+    "print_run_high": 15000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Bowman Chrome",
+    "variant": "refractor",
+    "year_start": 2001,
+    "year_end": 2026,
+    "print_run_low": 300,
+    "print_run_high": 1500,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Bowman's Best",
+    "variant": "base",
+    "year_start": 1994,
+    "year_end": 2026,
+    "print_run_low": 2000,
+    "print_run_high": 10000,
+    "confidence": "estimated",
+    "source": "premium product, limited distribution"
+  },
+  {
+    "set": "Bowman's Best",
+    "variant": "refractor",
+    "year_start": 1994,
+    "year_end": 2026,
+    "print_run_low": 200,
+    "print_run_high": 1000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Donruss",
+    "variant": "base",
+    "year_start": 1981,
+    "year_end": 1985,
+    "print_run_low": 200000,
+    "print_run_high": 500000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Donruss",
+    "variant": "base",
+    "year_start": 1986,
+    "year_end": 1993,
+    "print_run_low": 500000,
+    "print_run_high": 2000000,
+    "confidence": "estimated",
+    "source": "junk wax era mass production"
+  },
+  {
+    "set": "Donruss",
+    "variant": "base",
+    "year_start": 1994,
+    "year_end": 2005,
+    "print_run_low": 30000,
+    "print_run_high": 150000,
+    "confidence": "estimated",
+    "source": "post-junk wax production cuts"
+  },
+  {
+    "set": "Fleer",
+    "variant": "base",
+    "year_start": 1981,
+    "year_end": 1985,
+    "print_run_low": 200000,
+    "print_run_high": 500000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Fleer",
+    "variant": "base",
+    "year_start": 1986,
+    "year_end": 1993,
+    "print_run_low": 500000,
+    "print_run_high": 1500000,
+    "confidence": "estimated",
+    "source": "junk wax era mass production"
+  },
+  {
+    "set": "Fleer",
+    "variant": "base",
+    "year_start": 1994,
+    "year_end": 2005,
+    "print_run_low": 20000,
+    "print_run_high": 100000,
+    "confidence": "estimated",
+    "source": "post-junk wax production cuts"
+  },
+  {
+    "set": "Score",
+    "variant": "base",
+    "year_start": 1988,
+    "year_end": 1993,
+    "print_run_low": 500000,
+    "print_run_high": 1500000,
+    "confidence": "estimated",
+    "source": "junk wax era mass production"
+  },
+  {
+    "set": "Upper Deck",
+    "variant": "base",
+    "year_start": 1989,
+    "year_end": 1993,
+    "print_run_low": 300000,
+    "print_run_high": 1000000,
+    "confidence": "estimated",
+    "source": "premium product but high volume era"
+  },
+  {
+    "set": "Upper Deck",
+    "variant": "base",
+    "year_start": 1994,
+    "year_end": 2009,
+    "print_run_low": 30000,
+    "print_run_high": 150000,
+    "confidence": "estimated",
+    "source": "post-junk wax production cuts"
+  },
+  {
+    "set": "Topps Cosmic Chrome",
+    "variant": "base",
+    "year_start": 2024,
+    "year_end": 2026,
+    "print_run_low": 3000,
+    "print_run_high": 10000,
+    "confidence": "estimated",
+    "source": "new premium product, limited distribution"
+  },
+  {
+    "set": "Topps Cosmic Chrome",
+    "variant": "nucleus",
+    "year_start": 2024,
+    "year_end": 2026,
+    "print_run_low": 100,
+    "print_run_high": 300,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Sapphire",
+    "variant": "base",
+    "year_start": 2018,
+    "year_end": 2026,
+    "print_run_low": 5000,
+    "print_run_high": 15000,
+    "confidence": "estimated",
+    "source": "online exclusive, limited release windows"
+  },
+  {
+    "set": "Topps Sapphire",
+    "variant": "gold",
+    "year_start": 2018,
+    "year_end": 2026,
+    "print_run_low": 50,
+    "print_run_high": 75,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Living",
+    "variant": "base",
+    "year_start": 2018,
+    "year_end": 2026,
+    "print_run_low": null,
+    "print_run_high": null,
+    "confidence": "confirmed",
+    "source": "print-to-order, exact count published weekly by Topps"
+  },
+  {
+    "set": "Topps Archives",
+    "variant": "base",
+    "year_start": 2012,
+    "year_end": 2026,
+    "print_run_low": 5000,
+    "print_run_high": 20000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Topps Allen & Ginter",
+    "variant": "base",
+    "year_start": 2006,
+    "year_end": 2026,
+    "print_run_low": 5000,
+    "print_run_high": 20000,
+    "confidence": "estimated",
+    "source": "industry estimates"
+  },
+  {
+    "set": "Pinnacle",
+    "variant": "base",
+    "year_start": 1992,
+    "year_end": 1998,
+    "print_run_low": 50000,
+    "print_run_high": 200000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Pinnacle",
+    "variant": "museum_collection",
+    "year_start": 1996,
+    "year_end": 1998,
+    "print_run_low": 200,
+    "print_run_high": 500,
+    "confidence": "estimated",
+    "source": "hobby research, museum inserts were short-printed"
+  },
+  {
+    "set": "New Pinnacle",
+    "variant": "base",
+    "year_start": 1997,
+    "year_end": 1998,
+    "print_run_low": 30000,
+    "print_run_high": 100000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "New Pinnacle",
+    "variant": "museum",
+    "year_start": 1997,
+    "year_end": 1998,
+    "print_run_low": 200,
+    "print_run_high": 500,
+    "confidence": "estimated",
+    "source": "hobby research, museum inserts were short-printed"
+  },
+  {
+    "set": "Leaf Studio",
+    "variant": "base",
+    "year_start": 1993,
+    "year_end": 1998,
+    "print_run_low": 30000,
+    "print_run_high": 100000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Leaf Studio",
+    "variant": "stained_glass",
+    "year_start": 1996,
+    "year_end": 1998,
+    "print_run_low": 100,
+    "print_run_high": 300,
+    "confidence": "estimated",
+    "source": "hobby research, rare insert set"
+  },
+  {
+    "set": "Studio",
+    "variant": "base",
+    "year_start": 1993,
+    "year_end": 1998,
+    "print_run_low": 30000,
+    "print_run_high": 100000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Studio",
+    "variant": "hit_parade",
+    "year_start": 1998,
+    "year_end": 1998,
+    "print_run_low": 100,
+    "print_run_high": 300,
+    "confidence": "estimated",
+    "source": "hobby research, rare insert set"
+  },
+  {
+    "set": "Upper Deck Ionix",
+    "variant": "base",
+    "year_start": 1999,
+    "year_end": 2001,
+    "print_run_low": 10000,
+    "print_run_high": 40000,
+    "confidence": "estimated",
+    "source": "hobby research"
+  },
+  {
+    "set": "Brooklyn Collection",
+    "variant": "base",
+    "year_start": 2018,
+    "year_end": 2026,
+    "print_run_low": 500,
+    "print_run_high": 2000,
+    "confidence": "estimated",
+    "source": "ultra-premium product, very limited distribution"
+  },
+  {
+    "set": "Topps Complete Set",
+    "variant": "base",
+    "year_start": 2016,
+    "year_end": 2026,
+    "print_run_low": 20000,
+    "print_run_high": 60000,
+    "confidence": "estimated",
+    "source": "factory set distribution estimates"
+  }
+]

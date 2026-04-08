@@ -1750,6 +1750,13 @@ async function runSearchInternal() {
     beeswarmCrosshairX = null;
     volumeProfileCrosshairX = null;
 
+    // Clear previous search results so stale visuals don't persist
+    clearBeeswarm();
+    const fmvContainer = document.getElementById("fmv-container");
+    if (fmvContainer) fmvContainer.innerHTML = "";
+    const mirroredContainer = document.getElementById("mirrored-chart-container");
+    if (mirroredContainer) mirroredContainer.style.display = 'none';
+
     // Add loading styles if not present
     if (!document.getElementById('loading-styles')) {
       const style = document.createElement('style');

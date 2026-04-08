@@ -3,7 +3,7 @@
 AI-powered market summary generation using OpenRouter.
 
 Generates a 2-3 sentence plain-English description of market conditions
-after FMV calculation. Founders get Claude Sonnet; all others get Gemini Flash.
+after FMV calculation. Uses Gemini Flash for all users.
 """
 import os
 from typing import Optional
@@ -17,9 +17,7 @@ logger = get_logger(__name__)
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 SUMMARY_TIMEOUT = 10  # seconds
 
-MODEL_BY_TIER = {
-    "founder": "anthropic/claude-sonnet-4-5",
-}
+MODEL_BY_TIER = {}
 MODEL_DEFAULT = "google/gemini-2.0-flash-001"
 
 
@@ -59,8 +57,35 @@ def should_generate_summary(fmv_result, sold_count: int, active_count: int) -> t
     return False, "no meaningful signal present"
 
 
+def _format_print_run_line(print_run_info: Optional[dict]) -> str:
+    """Format print run data as a prompt line, or return empty string if unknown."""
+    if not print_run_info or print_run_info.get("confidence") == "unknown":
+        return ""
+
+    pr = print_run_info["print_run"]
+    confidence = print_run_info["confidence"]
+
+    if pr == "print-to-order":
+        return (
+            f"- Print run: Print-to-order (exact count published by manufacturer). "
+            f"If you know the typical order volume for this set, mention it briefly.\n"
+        )
+
+    if confidence == "confirmed":
+        return (
+            f"- Print run: /{pr} (confirmed). "
+            f"Mention this briefly to give the collector context on scarcity.\n"
+        )
+
+    # estimated
+    return (
+        f"- Estimated print run: ~{pr} ({print_run_info.get('source', 'reference data')}). "
+        f"Mention this briefly to give the collector context on scarcity.\n"
+    )
+
+
 def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int,
-                  below_fmv_listings: list) -> str:
+                  below_fmv_listings: list, print_run_info: Optional[dict] = None) -> str:
     analytics = fmv_result.analytics_scores or {}
     confidence = analytics.get("confidence") or {}
     liquidity = analytics.get("liquidity") or {}
@@ -126,7 +151,8 @@ def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int
             f"at prices {', '.join(f'${p:.2f}' for p in below_fmv_listings)}. "
             f"Alert the collector to this opportunity and mention the lowest price available.\n"
             if below_fmv_listings else ""
-        ) +
+        )
+        + _format_print_run_line(print_run_info) +
         f"\nWrite only the summary. No headers, no bullets, no extra text."
     )
 
@@ -138,6 +164,7 @@ def generate_market_summary(
     card_name: str,
     user_tier: str = "free",
     below_fmv_listings: Optional[list] = None,
+    print_run_info: Optional[dict] = None,
     api_key: Optional[str] = None,
 ) -> Optional[str]:
     """
@@ -159,7 +186,7 @@ def generate_market_summary(
 
         model = MODEL_BY_TIER.get(user_tier, MODEL_DEFAULT)
         prompt = _build_prompt(card_name or "this card", fmv_result, sold_count, active_count,
-                               below_fmv_listings or [])
+                               below_fmv_listings or [], print_run_info)
 
         response = httpx.post(
             OPENROUTER_URL,
