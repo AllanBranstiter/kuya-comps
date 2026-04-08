@@ -152,8 +152,13 @@ def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int
             f"Alert the collector to this opportunity and mention the lowest price available.\n"
             if below_fmv_listings else ""
         )
-        + _format_print_run_line(print_run_info) +
-        f"\nWrite only the summary. No headers, no bullets, no extra text."
+        + _format_print_run_line(print_run_info)
+        + (
+            "- Do not mention print runs, production numbers, or scarcity estimates.\n"
+            if not print_run_info or print_run_info.get("confidence") == "unknown"
+            else ""
+        )
+        + f"\nWrite only the summary. No headers, no bullets, no extra text."
     )
 
 
