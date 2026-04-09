@@ -119,6 +119,29 @@ def _format_print_run_line(print_run_info: Optional[dict]) -> str:
     )
 
 
+def _format_rarity_urgency_line(print_run_info: Optional[dict]) -> str:
+    """Add buying-urgency guidance when the card has a confirmed rare print run."""
+    if not print_run_info:
+        return ""
+
+    confidence = print_run_info.get("confidence")
+    if confidence not in ("confirmed", "checklist"):
+        return ""
+
+    pr = print_run_info.get("print_run")
+    if not isinstance(pr, int) or pr > 2000:
+        return ""
+
+    return (
+        "- BUYING GUIDANCE FOR RARE CARDS: This card has a limited print run. "
+        "Cards like this get harder to find over time because copies get absorbed "
+        "into collections and rarely come back to market. Do not advise the collector "
+        'to "wait for a better price" or "be patient." Instead, suggest that if they '
+        "find one near market value, it is worth acting on. The rarer the card, the "
+        "more this applies.\n"
+    )
+
+
 def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int,
                   below_fmv_listings: list, print_run_info: Optional[dict] = None) -> str:
     analytics = fmv_result.analytics_scores or {}
@@ -205,6 +228,7 @@ def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int
             if not print_run_info or print_run_info.get("confidence") not in ("confirmed", "checklist")
             else ""
         )
+        + _format_rarity_urgency_line(print_run_info)
         + f"\nWrite only the summary. No headers, no bullets, no extra text."
     )
 

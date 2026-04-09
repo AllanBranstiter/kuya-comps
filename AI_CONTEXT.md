@@ -20,7 +20,7 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 - **AI Market Summary:** After each FMV calculation, a plain-English summary describes market conditions, price direction, and ease of buying/selling — with print run context when available from checklist data. Warm, mentor-like tone with rarity classifications. Model: Gemini 2.0 Flash via OpenRouter (configurable via `AI_MODEL_SUMMARY` env var). Graceful degradation if API key is absent or call fails.
 - **Print Run Database:** Three-stage estimation cascade — (1) confirmed /N from listing titles, (2) detailed checklist JSON per set/year, (3) broad reference table fallback. Print run and scarcity tier displayed in a dedicated analytics dashboard card. Only "confirmed" or "checklist" confidence data is fed to the AI summary to prevent hallucination.
 - **Sales vs. Listed Now:** Side-by-side panel showing recent sold comps (Discount/Market Value/Premium) vs. active listing prices (Low/Median/High) with a plain-English price gap signal
-- **Collectibility Score:** 1–10 score based on price tier and sales volume (supply/demand balance is captured separately in Market Activity)
+- **Collectibility Score:** 1–10 score incorporating player-level factors (position, market size, pedigree via ADP, underlying statistics, Wikipedia popularity) alongside card-level signals (price, volume, rarity). Player identification extracts the athlete from search queries via regex + fuzzy matching + AI fallback. Blue Chip (9–10) requires player identification; without it, max is 5 ("Sought After").
 - **Interactive Visualization:** Beeswarm chart showing sold (blue) and active (red) price distributions with outlier clipping
 - **Grading Advisor:** Backend-powered intelligent grading recommendations with grade value analysis, premium calculations, and market comparisons across grading companies (PSA, BGS, SGC, CGC)
 - **Advanced Analytics Dashboard:** Asking vs. Sold indicator, liquidity profiles, absorption ratios
@@ -103,6 +103,9 @@ kuya-comps/
 │   │   ├── relevance_service.py   # AI-powered listing relevance scoring (OpenRouter/Gemma 3 27B)
 │   │   ├── market_summary_service.py  # AI Market Summary (OpenRouter/Gemini Flash; configurable)
 │   │   ├── print_run_service.py   # Three-stage print run estimation (listing /N, checklist, reference)
+│   │   ├── player_identification_service.py  # Extract player name from card search queries
+│   │   ├── player_score_service.py     # 7-factor player collectibility score (0-5)
+│   │   ├── player_stats_service.py     # FanGraphs CSV loading, stat lookups, composite scoring
 │   │   ├── feedback_service.py    # Feedback CRUD
 │   │   ├── intelligence_service.py # Market intelligence
 │   │   ├── market_message_service.py
@@ -116,6 +119,12 @@ kuya-comps/
 │   │   ├── validators.py
 │   │   ├── collection_schemas.py  # Collection/binder models (Phase 2)
 │   │   └── grading_advisor_schemas.py  # Pydantic models for Grading Advisor API
+│   ├── data/            # Static data files
+│   │   ├── team_market_sizes.json   # 30 MLB teams: metro population + DMA rank
+│   │   ├── hof_members.json         # HOF MLBAM IDs for pedigree scoring
+│   │   ├── position_weights.json    # Position collectibility weights (SS > OF > SP > RP)
+│   │   ├── print_runs.json          # Print run reference data
+│   │   └── print_runs_detailed/     # Per-set print run checklists
 │   ├── middleware/      # Request processing chain
 │   │   ├── request_id.py    # Request ID tracking
 │   │   ├── metrics.py       # Performance metrics
@@ -187,11 +196,10 @@ kuya-comps/
 | [`backend/routes/comps.py`](backend/routes/comps.py:1) | /comps and /active endpoints | Main search functionality |
 | [`backend/routes/fmv.py`](backend/routes/fmv.py:1) | POST /fmv (legacy) and POST /fmv/v2 (blended) | v2 is the active endpoint |
 | [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | calculate_fmv() + calculate_fmv_blended() + detect_competitive_zone() | v2 blend uses competitive zone detection + price tier × supply ratio table |
-| [`backend/services/collectibility_service.py`](backend/services/collectibility_service.py:1) | Collectibility score (1–10) | price_tier + volume components (scarcity removed — captured by Market Activity) |
-| [`backend/services/search_log_service.py`](backend/services/search_log_service.py:1) | Saves every search to search_logs/ as JSON + CSV | Dev only — gitignored |
-| [`backend/routes/dev_log.py`](backend/routes/dev_log.py:1) | POST /api/dev/analytics-snapshot | Frontend posts analytics after dashboard renders |
-| [`backend/routes/collection_valuation.py`](backend/routes/collection_valuation.py:1) | Card valuation API (Phase 4) | Manual & batch FMV updates |
-| [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1) | Market Confidence, Liquidity, Collectibility, Asking vs. Sold scores | Unified analytics score engine; replaces collectibility_service |
+| [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1) | Market Confidence, Liquidity, Collectibility, Asking vs. Sold scores | Unified analytics score engine; Collectibility rebalanced: price (0-3) + volume (0-2) + player (0-5) = 1-10 |
+| [`backend/services/player_identification_service.py`](backend/services/player_identification_service.py:1) | Extract player name from card search queries | Three-stage cascade: regex strip + fuzzy match (rapidfuzz) + AI fallback (OpenRouter) |
+| [`backend/services/player_score_service.py`](backend/services/player_score_service.py:1) | 7-factor player collectibility score (0-5) | Position, TAM, pedigree (ADP), statistics, liquidity, flipping signal, Wikipedia popularity |
+| [`backend/services/player_stats_service.py`](backend/services/player_stats_service.py:1) | FanGraphs CSV loading, stat lookups, composite scoring | Loads season/career stats + ADP/position from auction calculator CSVs |
 | [`backend/services/relevance_service.py`](backend/services/relevance_service.py:1) | AI-powered listing relevance scoring | Uses Gemma 3 27B via OpenRouter (configurable via `AI_MODEL_RELEVANCE`); chunks 20 listings/call |
 | [`backend/services/market_summary_service.py`](backend/services/market_summary_service.py:1) | AI Market Summary generation | Quality + signal gates; Gemini 2.0 Flash (configurable via `AI_MODEL_SUMMARY`); warm mentor tone; print run rarity classification; never raises |
 | [`backend/services/print_run_service.py`](backend/services/print_run_service.py:1) | Print run estimation | Three-stage cascade: listing /N → detailed checklist → broad reference. Fuzzy variant matching with eBay syntax handling |
@@ -328,8 +336,24 @@ kuya-comps/
 
 16. **Collectibility Score — Scarcity Component Removed**
     - **Why:** The original formula combined price (1–4), volume (0–3), and scarcity (0–3, based on active-to-sold ratio) into a 1–10 score. The scarcity component was measuring supply/demand balance — the same signal already captured by the Market Activity card's absorption ratio. Keeping it in Collectibility created redundancy and muddied what the score was communicating.
-    - **Impact:** Scarcity component removed. Price rescaled to 1–6, volume rescaled to 0–4 to maintain the 1–10 range. The score now cleanly answers: "Is this a card that commands high prices and has an established sales history?" Supply/demand balance is the Market Activity card's job.
+    - **Impact:** Scarcity component removed. Formula later rebalanced again when the player component was added (see item 17).
     - **Files changed:** `backend/services/analytics_score_service.py` (formula), `backend/services/fmv_service.py` (call site), `static/script.js` (fallback formula, scenario strings, card footer)
+
+17. **Collectibility Score — Player Component Added**
+    - **Why:** The most important factor in a card's collectibility is the player. The previous formula had no awareness of who was on the card.
+    - **Formula rebalanced:** `price (0-3) + volume (0-2) + player (0-5) = 1-10`. Player is the dominant signal. Without player identification, max score is 5 ("Sought After"). Blue Chip (9-10) requires knowing the player.
+    - **Player identification:** Three-stage cascade in `player_identification_service.py` — regex token stripping + fuzzy match against FanGraphs name index (~800 players via `rapidfuzz`), then AI fallback via OpenRouter.
+    - **7 player sub-factors** (scored in `player_score_service.py`):
+      1. **Position** (0-0.40): Static weights — SS > OF > 3B > 1B > 2B > C > DH > SP > RP
+      2. **Market Size / TAM** (0-0.50): Team metro population, log-scaled from `team_market_sizes.json`
+      3. **Pedigree** (0-1.25): Career stage state machine using ADP from FanGraphs auction calculator CSVs as market-consensus proxy. Stages: HOF (1.0), established (WAR rate), early career (ADP * 0.4 + WAR * 0.6), prospect (ADP only)
+      4. **Statistics** (0-1.10): Composite from FanGraphs CSVs — batters: xwOBA, Barrel%, EV, HardHit%, O-Swing%; pitchers: K/9, ERA, WHIP, WAR
+      5. **Liquidity** (0-0.50): Reuses existing liquidity score from analytics pipeline
+      6. **Flipping Signal** (0-0.50): Derived from existing data — spread compression, listing turnover, ask price trends
+      7. **Popularity** (0-0.75): Wikipedia Pageviews API — 30-day views across en/ja/ko/es Wikipedia, log-scaled
+    - **Data sources:** FanGraphs season + career CSVs (`PLAYER_STATS_CSV_DIR`), FanGraphs auction calculator CSVs (`PLAYER_PROJECTIONS_DIR` for ADP), static JSON files (`backend/data/`), Wikipedia Pageviews API (free, no auth)
+    - **Graceful degradation:** Player not identified → score 0, max collectibility 5. Missing stats → 0.3 neutral. Wikipedia down → 0.5 neutral.
+    - **Files:** `player_identification_service.py`, `player_score_service.py`, `player_stats_service.py`, `backend/data/*.json`, modified `analytics_score_service.py`, `fmv_service.py`, `routes/fmv.py`, `models/schemas.py`, `config.py`, `static/script.js`
     - **`collectibilityScenario` strings simplified** from 6 conditions (using highFMV/highVolume/highSupply) to 4 (highFMV/highVolume only). Card footer now shows "Sold: N comps | FMV: $X" instead of "Sold: N comps | Active: N listings."
     - **Tier → display mapping:**
       - High Liquidity (absorption ≥ 1.0): "Buyers are active" / "Recent sales are outpacing active listings — demand is strong relative to supply."
@@ -360,7 +384,12 @@ kuya-comps/
 2. Active search completes → secondData available
 3. renderData(data, secondData, marketValue) called
 4. updateFmv(data, secondData) → POST /fmv/v2
-5. Backend: calculate_fmv_blended(sold_items, active_items)
+5. Backend: Player identification + scoring (routes/fmv.py)
+   - identify_player(query) → regex strip + fuzzy match + AI fallback → player name + MLBAM ID
+   - calculate_player_score(player_info) → 7-factor score (0-5):
+     position, TAM, pedigree (ADP), statistics (FanGraphs CSV), liquidity,
+     flipping signal, popularity (Wikipedia Pageviews API)
+6. Backend: calculate_fmv_blended(sold_items, active_items, print_run_info, player_score)
    - Bid center: volume-weighted percentiles of sold comps
    - Cluster detection: histogram bins → primary + secondary clusters
      (secondary clusters require ≥2 items; single outliers use gravity blend fallback)
@@ -973,9 +1002,25 @@ alembic upgrade head
 
 ## 📝 Version History & Roadmap
 
-### Current Version: 1.1.0
+### Current Version: 1.3.0
 
-**Recent Changes (v1.1.0 — Competitive Zone & FMV Range Fix):**
+**Recent Changes (v1.3.0 — Player Collectibility Component):**
+- **New `backend/services/player_identification_service.py`:** Three-stage cascade extracts player name from card search queries: (1) regex strips known tokens (years, sets, grades, parallels, card numbers), (2) fuzzy matches residual against FanGraphs name index (~800 players via `rapidfuzz`), (3) AI fallback via OpenRouter. Returns player name, MLBAM ID, team, position, confidence level.
+- **New `backend/services/player_score_service.py`:** Orchestrates 7 sub-factors into a 0-5 player collectibility score: position (0-0.40), market size/TAM (0-0.50), pedigree via ADP (0-1.25), underlying statistics (0-1.10), liquidity (0-0.50), flipping signal (0-0.50), Wikipedia popularity (0-0.75). Async for Wikipedia API calls.
+- **New `backend/services/player_stats_service.py`:** Loads FanGraphs season/career CSVs and auction calculator CSVs at startup. Provides stat lookups by MLBAM ID, batter/pitcher composite scoring (xwOBA, Barrel%, EV, HardHit%, O-Swing% for batters; K/9, ERA, WHIP, WAR for pitchers), ADP lookups, and position lookups. Builds a name index for fuzzy player identification.
+- **New `backend/data/team_market_sizes.json`:** All 30 MLB teams with metro population and DMA rank for TAM scoring.
+- **New `backend/data/hof_members.json`:** ~55 HOF members with MLBAM IDs for pedigree scoring (flat 1.0).
+- **New `backend/data/position_weights.json`:** Position collectibility weights (SS=0.85 highest, RP=0.25 lowest).
+- **`backend/services/analytics_score_service.py`:** `calculate_collectibility()` rebalanced — price (0-3) + volume (0-2) + player (0-5) = 1-10. Rarity rescaled from 0-4 to 0-2. Accepts new `player_score` parameter. Blue Chip (9-10) now requires player identification; without it, max is 5 ("Sought After").
+- **`backend/services/fmv_service.py`:** `calculate_fmv_blended()` accepts `player_score` parameter and passes it to `calculate_collectibility()`.
+- **`backend/routes/fmv.py`:** Calls `identify_player()` and `calculate_player_score()` before FMV calculation. Exposes `player_info` in response.
+- **`backend/models/schemas.py`:** `FmvResponse` includes `player_info: Optional[Dict]`.
+- **`backend/config.py`:** Added `PLAYER_SCORE_ENABLED`, `PLAYER_STATS_CSV_DIR`, `PLAYER_PROJECTIONS_DIR`, `PLAYER_CACHE_TTL_*`, `WIKIPEDIA_POPULARITY_ENABLED`, `AI_MODEL_PLAYER_EXTRACTION`, player sub-factor weight constants (sum to 5.0).
+- **`static/script.js`:** Collectibility card shows player name, player score (/5), and sub-factor pills (Pedigree, Stats, Popularity, TAM, Position) color-coded by strength. Fallback formula updated for rebalanced ranges. Dev log includes `player_identified` and `player_score`.
+- **`requirements.txt`:** Added `rapidfuzz>=3.0.0`.
+- **Tests:** 107 new/updated tests across 4 test files: `test_analytics_score_service.py` (28), `test_player_identification_service.py` (16), `test_player_stats_service.py` (17), `test_player_score_service.py` (44 including ADP, Wikipedia views-to-score, all sub-factors).
+
+**Previous Changes (v1.1.0 — Competitive Zone & FMV Range Fix):**
 - **`backend/services/fmv_service.py`:** Added `detect_competitive_zone()` — identifies active listings within the sold IQR range and uses their median/p10/p90 for blending instead of the raw all-active median. Fixed `detect_price_clusters()` to require ≥2 items for secondary clusters (`MIN_SECONDARY_CLUSTER_SIZE`), preventing single outliers from anchoring the FMV range. Competitive zone data added to `analytics_scores` for downstream use by market summary.
 - **`backend/services/market_summary_service.py`:** Prompt now includes competitive zone context (seller-facing: how many active listings are competitively priced) and uses `total_price` for below-FMV listings instead of `extracted_price`.
 - **`backend/routes/fmv.py`:** Fixed below-FMV listing price calculation to use `total_price` (includes shipping) instead of `extracted_price` (listing price only).

@@ -2944,9 +2944,9 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
         collectibilityScore = backendScores.collectibility.score;
     } else {
         collectibilityScore = (() => {
-            const priceScore  = marketValue <= 5 ? 1 : marketValue <= 100 ? 2 : marketValue <= 1000 ? 4 : 6;
-            const volumeScore = soldCount >= 50 ? 4 : soldCount >= 20 ? 3 : soldCount >= 5 ? 1 : 0;
-            return Math.max(1, Math.min(10, priceScore + volumeScore));
+            const priceScore  = marketValue <= 5 ? 0 : marketValue <= 100 ? 1.5 : marketValue <= 1000 ? 2.5 : 3;
+            const volumeScore = soldCount >= 50 ? 2 : soldCount >= 20 ? 1.5 : soldCount >= 5 ? 0.5 : 0;
+            return Math.max(1, Math.min(5, Math.round(priceScore + volumeScore)));
         })();
     }
     const collectibilityTier =
@@ -2955,13 +2955,26 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
       : collectibilityScore <= 6 ? { label: 'Sought After',       color: '#c85c00', bg: 'linear-gradient(135deg, #fff8e6 0%, #fff0cc 100%)', border: '#ffd059' }
       : collectibilityScore <= 8 ? { label: 'Highly Collectible', color: '#1a7a35', bg: 'linear-gradient(135deg, #e6f9ed 0%, #ccf2d8 100%)', border: '#5dd879' }
       :                            { label: 'Blue Chip',           color: '#0051cc', bg: 'linear-gradient(135deg, #e6f0ff 0%, #cce0ff 100%)', border: '#4da3ff' };
+
+    // Player info from backend (if identified)
+    const playerInfo = fmvData.player_info || null;
+    const playerComponents = backendScores?.collectibility?.components?.player_details || null;
+    const playerScore = backendScores?.collectibility?.components?.player ?? null;
+
     const collectibilityScenario = (() => {
+        if (playerInfo && playerInfo.name) {
+            const parts = [];
+            if (playerInfo.position) parts.push(playerInfo.position);
+            if (playerInfo.team) parts.push(playerInfo.team);
+            const detail = parts.length ? ` (${parts.join(', ')})` : '';
+            return `${playerInfo.name}${detail}`;
+        }
         const highFMV    = marketValue > 100;
         const highVolume = soldCount >= 20;
-        if ( highFMV &&  highVolume) return 'Blue chip — high value with an established, active market';
+        if ( highFMV &&  highVolume) return 'High value with an established, active market';
         if ( highFMV && !highVolume) return 'High-value card with limited market depth';
-        if (!highFMV &&  highVolume) return 'Popular card — broad collector base, high turnover';
-        return 'Minimal collector interest';
+        if (!highFMV &&  highVolume) return 'Popular card with broad collector base';
+        return 'Player not identified';
     })();
 
     // Calculate Market Pressure % — prefer backend, fallback to client-side
@@ -3158,6 +3171,8 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                 collectibility_score: collectibilityScore,
                 collectibility_label: collectibilityTier.label,
                 collectibility_scenario: collectibilityScenario,
+                player_identified: playerInfo?.name || null,
+                player_score: playerScore,
                 summary_prompt_tokens: fmvData.summary_token_usage?.prompt_tokens || null,
                 summary_completion_tokens: fmvData.summary_token_usage?.completion_tokens || null,
                 summary_total_tokens: fmvData.summary_token_usage?.total_tokens || null,
@@ -3249,7 +3264,7 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                 `}
 
                 <!-- Collectibility Score -->
-                <div class="indicator-card" style="background: ${collectibilityTier.bg}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${collectibilityTier.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Collectibility measures a card's sustained desirability based on price tier and sales volume. The ratio of recent sales to active listings is shown in the Market Activity card.">
+                <div class="indicator-card" style="background: ${collectibilityTier.bg}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${collectibilityTier.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Collectibility measures a card's sustained desirability based on price, volume, rarity, and who the player is. Player-level factors include position, market size, pedigree, statistics, and popularity.">
                     <div style="margin-bottom: 0.5rem;">
                         <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Collectibility</span>
                     </div>
@@ -3262,6 +3277,25 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                     <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
                         ${collectibilityScenario}<br>
                         <strong>Sold:</strong> ${soldCount} comps | <strong>FMV:</strong> $${marketValue.toFixed(0)}
+                        ${playerScore != null ? `<br><strong>Player Score:</strong> ${playerScore}/5` : ''}
+                        ${playerComponents ? (() => {
+                            const pills = [];
+                            const factors = [
+                                ['Pedigree', playerComponents.pedigree],
+                                ['Stats', playerComponents.statistics],
+                                ['Popularity', playerComponents.popularity],
+                                ['TAM', playerComponents.tam],
+                                ['Position', playerComponents.position],
+                            ];
+                            for (const [name, data] of factors) {
+                                if (data && data.raw != null) {
+                                    const pct = Math.round(data.raw * 100);
+                                    const pillColor = pct >= 70 ? '#1a7a35' : pct >= 40 ? '#c85c00' : '#8e8e93';
+                                    pills.push('<span style="display:inline-block;font-size:0.6rem;padding:1px 5px;border-radius:8px;margin:1px;background:' + pillColor + '22;color:' + pillColor + ';border:1px solid ' + pillColor + '44;">' + name + ' ' + pct + '%</span>');
+                                }
+                            }
+                            return pills.length ? '<div style="margin-top:4px;">' + pills.join('') + '</div>' : '';
+                        })() : ''}
                     </div>
                 </div>
 

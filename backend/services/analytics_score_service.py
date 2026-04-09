@@ -170,36 +170,91 @@ def calculate_liquidity(
 # Collectibility Score
 # ---------------------------------------------------------------------------
 
+def _calculate_rarity_score(print_run_info: Optional[Dict]) -> Optional[float]:
+    """
+    Calculate a rarity bonus (0-2) from print run data.
+
+    Only uses confirmed or checklist-confidence data with a numeric print run.
+    Returns None when print run data is absent or unreliable.
+
+    The score uses a continuous log curve: /1 = 2.0, /5000 = 0.0.
+    (Rescaled from original 0-4 range to fit rebalanced formula.)
+    """
+    if not print_run_info:
+        return None
+
+    confidence = print_run_info.get("confidence")
+    if confidence not in ("confirmed", "checklist"):
+        return None
+
+    pr = print_run_info.get("print_run")
+    if not isinstance(pr, int) or pr <= 0:
+        return None
+
+    RARITY_CEILING = 5000
+    if pr >= RARITY_CEILING:
+        return 0.0
+
+    return max(0.0, min(2.0,
+        (math.log2(RARITY_CEILING) - math.log2(pr)) / math.log2(RARITY_CEILING) * 2.5
+    ))
+
+
 def calculate_collectibility(
     market_value: float,
     sold_count: int,
+    print_run_info: Optional[Dict] = None,
+    player_score: Optional[Dict] = None,
 ) -> Dict:
     """
     Collectibility score with continuous log-scaled components.
 
-    Measures sustained market desirability using price and sales volume.
+    Measures sustained market desirability using price, sales volume,
+    rarity (when print run data is available), and player-level
+    collectibility (when the player can be identified).
+
+    Formula: price (0-3) + volume (0-2) + player (0-5) = 0-10, clamped 1-10.
+    Without player data, max score is 5 ("Sought After").
+
+    Rarity sets a floor on the volume component so that scarce cards with
+    few sales are not penalized for expected low volume.
+
     Supply/demand balance is captured separately by the liquidity score.
 
     Args:
         market_value: FMV market value
         sold_count: Number of sold comps found
+        print_run_info: Optional dict with print_run, confidence, source keys
+        player_score: Optional dict from player_score_service with score (0-5)
 
     Returns:
         {"score": 1-10, "label": str, "components": {...}}
     """
-    # Continuous price component (1-6)
+    # Continuous price component (0-3)
     if market_value <= 0:
-        price_score = 1.0
+        price_score = 0.0
     else:
-        price_score = max(1.0, min(6.0, math.log2(market_value / 2.5)))
+        price_score = max(0.0, min(3.0, math.log2(market_value / 5.0)))
 
-    # Continuous volume component (0-4)
+    # Continuous volume component (0-2)
     if sold_count <= 0:
         volume_score = 0.0
     else:
-        volume_score = min(4.0, math.log2(max(1, sold_count)) / math.log2(100) * 4)
+        volume_score = min(2.0, math.log2(max(1, sold_count)) / math.log2(100) * 2)
 
-    raw = price_score + volume_score
+    # Rarity component — sets a floor on volume for rare cards (0-2)
+    rarity_score = _calculate_rarity_score(print_run_info)
+    if rarity_score is not None and rarity_score > volume_score:
+        effective_volume = rarity_score
+    else:
+        effective_volume = volume_score
+
+    # Player component (0-5)
+    player_value = 0.0
+    if player_score and player_score.get("score") is not None:
+        player_value = max(0.0, min(5.0, player_score["score"]))
+
+    raw = price_score + effective_volume + player_value
     score = max(1, min(10, round(raw)))
 
     # Label tiers
@@ -214,13 +269,19 @@ def calculate_collectibility(
     else:
         label = "Blue Chip"
 
+    components = {
+        "price": round(price_score, 2),
+        "volume": round(volume_score, 2),
+        "rarity": round(rarity_score, 2) if rarity_score is not None else None,
+        "player": round(player_value, 2) if player_value > 0 else None,
+    }
+    if player_score and player_score.get("components"):
+        components["player_details"] = player_score["components"]
+
     return {
         "score": score,
         "label": label,
-        "components": {
-            "price": round(price_score, 2),
-            "volume": round(volume_score, 2),
-        },
+        "components": components,
     }
 
 

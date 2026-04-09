@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v1.2.0
+# eBay Baseball Card Comps Tool v1.3.0
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations, intelligent deal-finding, and a personal card collection tracker with automatic price history.
 
@@ -11,7 +11,7 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Discount/Market Value/Premium ranges, competitive active zone detection for accurate blending
 *   **Competitive Zone Detection**: Identifies active listings priced near recent sales and uses that convergence signal for FMV blending, rather than treating all active listings as one distribution
-*   **Collectibility Score**: 1–10 score using continuous log-scaled price, volume, and scarcity components
+*   **Collectibility Score**: 1-10 score combining card-level signals (price, volume, rarity) with player-level factors (position, team market size, pedigree via ADP, underlying statistics, Wikipedia popularity). Player identified automatically from search queries via regex + fuzzy matching. Blue Chip (9-10) requires player identification.
 *   **Print Run Database**: Three-stage cascade for estimating card print runs — (1) confirmed /N from listing titles, (2) detailed checklist data per set/year, (3) broad reference table fallback. Print run and scarcity tier shown in a dedicated analytics card. Import script for adding new set checklists.
 *   **AI Relevance Scoring**: LLM-powered listing filter — each sold and active listing is scored 0.0–1.0 for relevance to the search query; low-relevance listings (wrong card, wrong grade, lots) have minimal weight in FMV
 *   **AI Market Summary**: After each search, a plain-English summary describes current market conditions, price direction, and deal opportunities — including print run context when available from checklist data. Warm, mentor-like tone with precise rarity classifications. Token usage tracked in analytics snapshots.
@@ -89,6 +89,9 @@ kuya-comps/
 │   │   ├── valuation_service.py      # Automated FMV updates using volume-weighted algorithm
 │   │   ├── fmv_service.py            # Core volume-weighted FMV calculation (shared)
 │   │   ├── analytics_score_service.py # Market Confidence, Liquidity, Collectibility, Market Pressure
+│   │   ├── player_identification_service.py # Extract player name from card search queries
+│   │   ├── player_score_service.py    # 7-factor player collectibility score (0-5)
+│   │   ├── player_stats_service.py    # FanGraphs CSV loading, stat lookups, composite scoring
 │   │   ├── relevance_service.py      # AI-powered listing relevance scoring (OpenRouter/Gemma 3)
 │   │   ├── market_summary_service.py # AI Market Summary (OpenRouter/Gemini Flash)
 │   │   ├── print_run_service.py      # Three-stage print run estimation (listing /N, checklist, reference)
@@ -96,6 +99,9 @@ kuya-comps/
 │   │   ├── subscription_service.py   # Tier limits and usage tracking
 │   │   └── ...
 │   ├── data/
+│   │   ├── team_market_sizes.json    # 30 MLB teams: metro pop + DMA rank
+│   │   ├── hof_members.json          # HOF MLBAM IDs for pedigree scoring
+│   │   ├── position_weights.json     # Position collectibility weights
 │   │   ├── print_runs.json           # Broad reference table (fallback)
 │   │   └── print_runs_detailed/      # Per-set checklist JSON files
 │   │       └── topps_heritage_2026.json
@@ -178,6 +184,10 @@ kuya-comps/
     - `OPENROUTER_API_KEY` — OpenRouter API key for AI relevance scoring and market summary (optional; scoring is skipped gracefully if absent)
     - `AI_MODEL_SUMMARY` — OpenRouter model ID for market summary (default: `google/gemini-2.0-flash-001`)
     - `AI_MODEL_RELEVANCE` — OpenRouter model ID for relevance scoring (default: `google/gemma-3-27b-it`)
+    - `PLAYER_SCORE_ENABLED` — Enable player collectibility component (default: `true`)
+    - `PLAYER_STATS_CSV_DIR` — Directory containing FanGraphs season/career CSV files
+    - `PLAYER_PROJECTIONS_DIR` — Directory containing FanGraphs auction calculator CSVs (for ADP/position)
+    - `WIKIPEDIA_POPULARITY_ENABLED` — Enable Wikipedia pageview popularity lookups (default: `true`)
     - `ADMIN_USER_IDS`, `ADMIN_EMAILS` — comma-separated admin identifiers
 
 ### Supabase Setup
@@ -245,6 +255,24 @@ See [`docs/SECURITY.md`](docs/SECURITY.md) for full security guidelines.
 *   **Middleware Optimization**: Reverse execution order of `add_middleware()` calls
 
 ## Version History
+
+### Version 1.3.0 (Player Collectibility Component)
+
+**Player-Aware Collectibility Score:**
+- Collectibility formula rebalanced: `price (0-3) + volume (0-2) + player (0-5) = 1-10`. Player is now the dominant signal. Without player identification, max score is 5 ("Sought After"). Blue Chip (9-10) requires knowing the player.
+- Player identification extracts the athlete from card search queries via a three-stage cascade: regex token stripping, fuzzy matching against ~800 FanGraphs players (`rapidfuzz`), and AI fallback via OpenRouter
+- 7 player sub-factors: position weight (batters > pitchers), team market size (TAM), pedigree (ADP from FanGraphs auction calculators as market-consensus proxy, with career stage state machine for HOF/established/early career/prospect), underlying statistics (xwOBA, Barrel%, EV, HardHit%, O-Swing% for batters; K/9, ERA, WHIP, WAR for pitchers), liquidity (reuses existing score), flipping signal (spread compression, listing turnover, ask price trends), and Wikipedia popularity (30-day pageviews across en/ja/ko/es Wikipedia)
+- Frontend collectibility card now shows identified player name, player score (/5), and sub-factor pills color-coded by strength
+
+**New Files:**
+- `backend/services/player_identification_service.py` — query-to-player extraction
+- `backend/services/player_score_service.py` — 7-factor player scoring orchestrator
+- `backend/services/player_stats_service.py` — FanGraphs CSV loading, stat lookups, ADP/position
+- `backend/data/team_market_sizes.json` — 30 MLB teams with metro population and DMA rank
+- `backend/data/hof_members.json` — HOF member MLBAM IDs
+- `backend/data/position_weights.json` — position collectibility weights
+
+**Dependencies:** Added `rapidfuzz>=3.0.0`. No new paid API dependencies (Wikipedia Pageviews API is free, no auth required).
 
 ### Version 1.2.0 (Print Run Database, AI Model Split, UI Refresh)
 

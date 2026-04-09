@@ -131,6 +131,7 @@ class FmvResponse(BaseModel):
     active_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for active items
     market_summary: Optional[str] = None
     print_run_info: Optional[Dict] = None  # Print run estimation data
+    player_info: Optional[Dict] = None  # Player identification and score data
     summary_token_usage: Optional[Dict] = None  # AI summary token usage tracking
 
 

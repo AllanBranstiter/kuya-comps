@@ -833,7 +833,7 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     return result
 
 
-def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[object]] = None) -> "FMVResult":
+def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[object]] = None, print_run_info: Optional[dict] = None, player_score: Optional[dict] = None) -> "FMVResult":
     """
     Blended FMV: combines bid-side (sold comps) and ask-side (active listings).
 
@@ -911,7 +911,7 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
 
     liquidity = calculate_liquidity(sold_items, active_items)
     collectibility_result = calculate_collectibility(
-        bid_center, sold_count,
+        bid_center, sold_count, print_run_info, player_score,
     )
     # Market pressure computed after blending (needs final market_value)
 

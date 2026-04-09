@@ -24,6 +24,11 @@ AI_MODEL_SUMMARY = os.getenv("AI_MODEL_SUMMARY", "google/gemini-2.0-flash-001")
 AI_MODEL_RELEVANCE = os.getenv("AI_MODEL_RELEVANCE", "google/gemma-3-27b-it")
 """Model used for AI relevance scoring of listings."""
 
+AI_MODEL_PLAYER_EXTRACTION = os.getenv(
+    "AI_MODEL_PLAYER_EXTRACTION", "google/gemma-3-27b-it"
+)
+"""Model used for player name extraction from search queries (fallback)."""
+
 
 # ============================================================================
 # Environment Configuration
@@ -571,6 +576,54 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:8000')
 # ============================================================================
 # Print Run Scarcity Tiers
 # ============================================================================
+
+# ============================================================================
+# Player Score Configuration
+# ============================================================================
+
+PLAYER_SCORE_ENABLED = os.getenv("PLAYER_SCORE_ENABLED", "true").lower() == "true"
+"""Master switch for the player collectibility component."""
+
+PLAYER_STATS_CSV_DIR = os.getenv(
+    "PLAYER_STATS_CSV_DIR",
+    os.path.expanduser(
+        "~/Documents/Personal/Fantasy Baseball/Stats/Stats"
+    ),
+)
+"""Directory containing FanGraphs season and career CSV files."""
+
+PLAYER_PROJECTIONS_DIR = os.getenv(
+    "PLAYER_PROJECTIONS_DIR",
+    os.path.expanduser(
+        "~/Documents/Personal/Fantasy Baseball/Stats/2025_Projections/Preseason"
+    ),
+)
+"""Directory containing FanGraphs projection/auction CSVs with ADP data."""
+
+PLAYER_CACHE_TTL_PROFILE = int(os.getenv("PLAYER_CACHE_TTL_PROFILE", "86400"))
+"""Redis TTL for player bio/draft data (24 hours)."""
+
+PLAYER_CACHE_TTL_STATS = int(os.getenv("PLAYER_CACHE_TTL_STATS", "21600"))
+"""Redis TTL for player season stats (6 hours)."""
+
+PLAYER_CACHE_TTL_POPULARITY = int(os.getenv("PLAYER_CACHE_TTL_POPULARITY", "14400"))
+"""Redis TTL for Wikipedia pageview data (4 hours)."""
+
+PLAYER_CACHE_TTL_SCORE = int(os.getenv("PLAYER_CACHE_TTL_SCORE", "3600"))
+"""Redis TTL for computed player score (1 hour)."""
+
+WIKIPEDIA_POPULARITY_ENABLED = os.getenv("WIKIPEDIA_POPULARITY_ENABLED", "true").lower() == "true"
+"""Enable Wikipedia pageview popularity lookups."""
+
+# Player sub-factor max contributions (must sum to 5.0)
+PLAYER_WEIGHT_POSITION = 0.40
+PLAYER_WEIGHT_TAM = 0.50
+PLAYER_WEIGHT_PEDIGREE = 1.25
+PLAYER_WEIGHT_STATISTICS = 1.10
+PLAYER_WEIGHT_LIQUIDITY = 0.50
+PLAYER_WEIGHT_FLIPPING = 0.50
+PLAYER_WEIGHT_POPULARITY = 0.75
+
 
 SCARCITY_TIERS = [
     # (max_print_run, label, gradient_start, gradient_end, border_color)
