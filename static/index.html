@@ -72,6 +72,30 @@
   <header style="text-align: center; margin-bottom: 2rem; position: relative;">
     <!-- Navigation Links (top right) -->
     <div style="position: absolute; top: 0; right: 0; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+      <a href="#" id="how-it-works-link" style="
+        text-decoration: none;
+        color: var(--text-color);
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+      " onmouseover="this.style.background='var(--background-color)'; this.style.color='var(--primary-blue)'" onmouseout="this.style.background='transparent'; this.style.color='var(--text-color)'">
+        How It Works
+      </a>
+      <a href="#" id="faq-link" style="
+        text-decoration: none;
+        color: var(--text-color);
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+      " onmouseover="this.style.background='var(--background-color)'; this.style.color='var(--primary-blue)'" onmouseout="this.style.background='transparent'; this.style.color='var(--text-color)'">
+        FAQ
+      </a>
       <a href="/pricing.html" style="
         text-decoration: none;
         color: var(--text-color);
@@ -188,16 +212,20 @@
 
       <div>
         <label style="font-size: 1.1rem; font-weight: 600;">
-          <input type="checkbox" id="exclude_lots" style="transform: scale(1.5); margin-right: 0.5rem;">
-          Exclude Lots
-        </label>
-        <label style="font-size: 1.1rem; font-weight: 600;">
           <input type="checkbox" id="ungraded_only" style="transform: scale(1.5); margin-right: 0.5rem;">
           Raw Only
         </label>
         <label style="font-size: 1.1rem; font-weight: 600;">
           <input type="checkbox" id="base_only" style="transform: scale(1.5); margin-right: 0.5rem;">
           Base Only
+        </label>
+        <label style="font-size: 1.1rem; font-weight: 600;">
+          <input type="checkbox" id="base_chrome_only" style="transform: scale(1.5); margin-right: 0.5rem;">
+          Base Chrome Only
+        </label>
+        <label style="font-size: 1.1rem; font-weight: 600;">
+          <input type="checkbox" id="base_refractor_only" style="transform: scale(1.5); margin-right: 0.5rem;">
+          Base Refractor Only
         </label>
       </div>
       <div>
@@ -435,96 +463,6 @@
   </div>
 </div>
 
-<!-- SEO Content Sections -->
-<section style="max-width: 1000px; margin: 3rem auto; padding: 2.5rem; background: var(--card-background); border-radius: 20px; box-shadow: 0 10px 30px var(--shadow-color); border: 1px solid var(--border-color);">
-  <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 1.5rem; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">How It Works</h2>
-  
-  <div style="display: grid; gap: 2rem;">
-    <div>
-      <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">🔍 Find Baseball Card Values & Track Your Collection</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Search for any baseball card by entering the year, set, player name, and card details. Our tool instantly analyzes eBay sold listings (comps) to show you real market values for PSA, BGS, SGC graded cards and raw cards. Save cards to your personal collection and organize them in custom binders. Premium subscribers get automated FMV updates every 90 days to keep collection values current.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">📊 Real-Time Market Analysis</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Get comprehensive market data including Fair Market Value (FMV), quick sale prices, and patient sale estimates. Our volume-weighted analysis gives more importance to competitive auctions with multiple bids.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">🎯 Make Smart Grading Decisions</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Decide if your raw card is worth sending to PSA with our Intelligent Grading Advisor. Enter population data and market prices to get break-even analysis, expected value calculations, and era-specific insights. Perfect for both flippers seeking quick ROI and collectors building long-term value.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.3rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.75rem;">💎 Discover Market Deals</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Our smart filters help you find undervalued cards by excluding lots, focusing on base cards only, or filtering by grading status. Perfect for sports card collectors and dealers looking for investment opportunities.</p>
-    </div>
-  </div>
-</section>
-
-<section style="max-width: 1000px; margin: 3rem auto 2rem; padding: 2.5rem; background: var(--card-background); border-radius: 20px; box-shadow: 0 10px 30px var(--shadow-color); border: 1px solid var(--border-color);">
-  <h2 style="font-size: 2rem; font-weight: 700; margin-bottom: 1.5rem; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Frequently Asked Questions</h2>
-  
-  <div style="display: grid; gap: 1.5rem;">
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">What are eBay comps for baseball cards?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">eBay comps (comparables) are sold listings that show what similar baseball cards actually sold for on eBay. They provide the most accurate real-time market values for sports cards, including PSA graded cards, BGS graded cards, and raw ungraded cards.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">How do I determine my baseball card's value?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Enter your card details (year, set, player, parallel type, and grade if applicable) into our search tool. We'll show you recent sold prices, market statistics, and Fair Market Value calculations based on real eBay sales data.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">Is this tool free to use?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Kuya Comps offers both free and premium features. The core search and FMV analysis tools are free to use. Premium features like collection management with automated valuation updates require a subscription. <a href="/pricing.html" style="color: var(--primary-blue); text-decoration: underline;">Visit our pricing page</a> to learn more about subscription tiers.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">How accurate are the Fair Market Values?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Our FMV calculations use volume-weighted analysis, giving more importance to competitive auctions with multiple bids. We filter outliers and provide ranges for quick sales and patient sales. <strong>In general, FMV estimates work best when there are plenty of recent sales to sample and your search terms are tight and accurate.</strong></p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">What is the Grading Advisor and how do I use it?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">The Grading Advisor helps you decide if it's financially worthwhile to send a raw card to PSA for grading. Enter the card's purchase price, grading fee, PSA population data, and current market prices for each grade. The tool calculates your break-even grade, expected value, and provides recommendations for flippers vs. long-term collectors. It supports vintage through ultra-modern cards with era-specific grading insights.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">How do I save cards to my collection?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">After creating a free account, click "Save to Collection" on any search result. Our smart parser automatically fills in card details from your search. Organize cards into custom binders and track your portfolio manually or with premium automated updates. Premium subscribers (Member/Founder tiers) receive automated FMV updates every 90 days to keep collection values current without manual effort.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">What's the difference between sold comps and active deals?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Sold comps show what cards actually sold for on eBay (historical data). Active deals show current eBay listings priced at or below Fair Market Value—these are potential buying opportunities. Use sold comps to understand market value, then check active deals to find cards you can buy right now.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">Where does your data come from?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">We aggregate data from eBay's official API and verified sold listings. Our system analyzes recent sales to calculate Fair Market Values using volume-weighted analysis. Data is cached for performance but refreshed regularly to reflect current market conditions.</p>
-    </div>
-    
-    <div>
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--text-color); margin-bottom: 0.5rem;">How do I get the most accurate results?</h3>
-      <p style="color: var(--subtle-text-color); line-height: 1.6; margin: 0;">Use specific search terms with quotes around multi-word phrases. Include the card number when possible for the cleanest results. Exclude unwanted terms with a minus sign (e.g., -graded -auto -lot). Check the Search Tips section above the search box for detailed examples.</p>
-    </div>
-    
-    <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid var(--accent-orange);">
-      <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--accent-orange); margin-bottom: 0.5rem;">⚠️ Is this financial or investment advice?</h3>
-      <p style="color: var(--text-color); line-height: 1.6; margin: 0;"><strong>No.</strong> Kuya Comps provides data analysis tools for informational and educational purposes only. This is <strong>not</strong> financial, investment, or professional advice. All valuations are based on historical sales data and current market listings, which are not guaranteed to predict future prices. Card values can fluctuate significantly based on player performance, market sentiment, and other factors. <strong>Always conduct your own research and consult with qualified professionals before making any buying, selling, or investment decisions.</strong> Use of this tool is at your own risk.</p>
-    </div>
-  </div>
-</section>
-
-<!-- Footer -->
-<footer style="max-width: 1000px; margin: 2rem auto 3rem; padding: 1.5rem 2rem; text-align: center; border-top: 1px solid var(--border-color);">
-  <a href="#" class="tour-trigger-link" onclick="OnboardingTour.restart(); return false;" aria-label="Restart the guided tour">
-    <span class="tour-icon" aria-hidden="true">🎓</span>
-    <span>Take a Tour</span>
-  </a>
-</footer>
 
 </main>
 
@@ -629,6 +567,97 @@
 <script src="script.js?v=27"></script>
 <script src="js/feedback.js"></script>
 <script src="js/onboarding.js"></script>
+
+<script>
+// "How It Works" and "FAQ" nav bar modals
+document.addEventListener('DOMContentLoaded', () => {
+  const howModal = new Modal({
+    id: 'how-it-works-modal',
+    title: 'How It Works',
+    size: 'large',
+    content: `
+      <div style="display: grid; gap: 2rem;">
+        <div>
+          <h3 style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.75rem;">Find Baseball Card Values & Track Your Collection</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Search for any baseball card by entering the year, set, player name, and card details. Our tool instantly analyzes eBay sold listings (comps) to show you real market values for PSA, BGS, SGC graded cards and raw cards. Save cards to your personal collection and organize them in custom binders. Premium subscribers get automated FMV updates every 90 days to keep collection values current.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.75rem;">Real-Time Market Analysis</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Get comprehensive market data including Fair Market Value (FMV), quick sale prices, and patient sale estimates. Our blended FMV weighs both sold prices and current asking prices for a more complete picture. AI relevance scoring filters out mismatched listings, and an AI-generated market summary gives you a plain-English read on the market. The analytics dashboard shows FMV reliability, market activity, collectibility, seller pressure, and estimated print run when available.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.75rem;">Make Smart Grading Decisions</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Decide if your raw card is worth sending to PSA with our Intelligent Grading Advisor. Enter population data and market prices to get break-even analysis, expected value calculations, and era-specific insights. Perfect for both flippers seeking quick ROI and collectors building long-term value.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.75rem;">Discover Market Deals</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Our smart filters help you find undervalued cards by excluding lots, focusing on base cards only, or filtering by grading status. Perfect for sports card collectors and dealers looking for investment opportunities.</p>
+        </div>
+      </div>
+    `,
+  });
+
+  const faqModal = new Modal({
+    id: 'faq-modal',
+    title: 'Frequently Asked Questions',
+    size: 'large',
+    content: `
+      <div style="display: grid; gap: 1.5rem;">
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">What are eBay comps for baseball cards?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">eBay comps (comparables) are sold listings that show what similar baseball cards actually sold for on eBay. They provide the most accurate real-time market values for sports cards, including PSA graded cards, BGS graded cards, and raw ungraded cards.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">How do I determine my baseball card's value?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Enter your card details (year, set, player, parallel type, and grade if applicable) into our search tool. We'll show you recent sold prices, market statistics, and Fair Market Value calculations based on real eBay sales data.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">Is this tool free to use?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Kuya Comps offers both free and premium features. The core search and FMV analysis tools are free to use. Premium features like collection management with automated valuation updates require a subscription. <a href="/pricing.html" style="color: var(--primary-blue); text-decoration: underline;">Visit our pricing page</a> to learn more about subscription tiers.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">How accurate are the Fair Market Values?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Our FMV calculations blend sold prices with current asking prices, weighted by price tier and supply. AI relevance scoring filters out mismatched listings before the calculation. We filter outliers and provide ranges for quick sales and patient sales. <strong>In general, FMV estimates work best when there are plenty of recent sales to sample and your search terms are tight and accurate.</strong></p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">What is the Grading Advisor and how do I use it?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">The Grading Advisor helps you decide if it's financially worthwhile to send a raw card to PSA for grading. Enter the card's purchase price, grading fee, PSA population data, and current market prices for each grade. The tool calculates your break-even grade, expected value, and provides recommendations for flippers vs. long-term collectors. It supports vintage through ultra-modern cards with era-specific grading insights.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">How do I save cards to my collection?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">After creating a free account, click "Save to Collection" on any search result. Our smart parser automatically fills in card details from your search. Organize cards into custom binders and track your portfolio manually or with premium automated updates. Premium subscribers (Member/Founder tiers) receive automated FMV updates every 90 days to keep collection values current without manual effort.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">What's the difference between sold comps and active deals?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Sold comps show what cards actually sold for on eBay (historical data). Active deals show current eBay listings priced at or below Fair Market Value. These are potential buying opportunities. Use sold comps to understand market value, then check active deals to find cards you can buy right now.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">Where does your data come from?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">We aggregate data from eBay's official API and verified sold listings. Our system analyzes recent sales to calculate Fair Market Values using a blended approach that considers both sold prices and current asking prices. AI relevance scoring ensures only closely matching listings factor into the calculation. For supported sets, estimated print runs are sourced from verified checklist data. Data is cached for performance but refreshed regularly to reflect current market conditions.</p>
+        </div>
+        <div>
+          <h3 style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">How do I get the most accurate results?</h3>
+          <p style="color: var(--subtle-text-color, #6e6e73); line-height: 1.6; margin: 0;">Use specific search terms with quotes around multi-word phrases. Include the card number when possible for the cleanest results. Exclude unwanted terms with a minus sign (e.g., -graded -auto -lot). Check the Search Tips section above the search box for detailed examples.</p>
+        </div>
+        <div style="background: linear-gradient(135deg, #fff9e6 0%, #fffcf0 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid var(--accent-orange, #b35900);">
+          <h3 style="font-size: 1.2rem; font-weight: 600; color: var(--accent-orange, #b35900); margin-bottom: 0.5rem;">Is this financial or investment advice?</h3>
+          <p style="color: var(--text-color, #1d1d1f); line-height: 1.6; margin: 0;"><strong>No.</strong> Kuya Comps provides data analysis tools for informational and educational purposes only. This is <strong>not</strong> financial, investment, or professional advice. All valuations are based on historical sales data and current market listings, which are not guaranteed to predict future prices. Card values can fluctuate significantly based on player performance, market sentiment, and other factors. <strong>Always conduct your own research and consult with qualified professionals before making any buying, selling, or investment decisions.</strong> Use of this tool is at your own risk.</p>
+        </div>
+      </div>
+    `,
+  });
+
+  document.getElementById('how-it-works-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    howModal.open();
+  });
+
+  document.getElementById('faq-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    faqModal.open();
+  });
+});
+</script>
 
 </body>
 </html>

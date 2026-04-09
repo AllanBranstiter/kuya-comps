@@ -1,6 +1,6 @@
 # backend/services/relevance_service.py
 """
-AI-powered listing relevance scoring using OpenRouter (Llama 3.1 8B).
+AI-powered listing relevance scoring using OpenRouter (Mistral Nemo 12B).
 
 Scores each listing title 0.0-1.0 for how well it matches the user's search
 intent. The score is used as a weight multiplier in FMV calculation so
@@ -16,13 +16,14 @@ from typing import List, Optional
 import httpx
 
 from backend.logging_config import get_logger
+from backend.config import AI_MODEL_RELEVANCE
 
 logger = get_logger(__name__)
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "google/gemini-2.0-flash-lite-001"       # used for >40 listings
-OPENROUTER_MODEL_LITE = "google/gemini-1.5-flash-8b"        # used for <=40 listings
+OPENROUTER_MODEL = AI_MODEL_RELEVANCE                            # used for >40 listings
+OPENROUTER_MODEL_LITE = AI_MODEL_RELEVANCE                       # used for <=40 listings
 OPENROUTER_SMALL_THRESHOLD = 40
 OPENROUTER_TIMEOUT = 15  # seconds
 CHUNK_SIZE = 20  # max listings per LLM call (smaller = more reliable parsing)

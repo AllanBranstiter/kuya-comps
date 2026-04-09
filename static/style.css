@@ -2124,8 +2124,8 @@ details summary::-webkit-details-marker {
   color: var(--text-secondary, #8e8e93);
 }
 .market-summary-text {
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 1rem;
+  line-height: 1.6;
   color: var(--text-color, #1d1d1f);
   margin: 0;
 }

@@ -64,13 +64,8 @@ feedbackContainer.innerHTML = `
         <span class="feedback-fab-icon">💬</span>
         <span class="feedback-fab-text">Leave Feedback</span>
     </button>
-    
-    <button class="export-fab">
-        <span class="export-fab-icon">📤</span>
-        <span class="export-fab-text">Export Search Data</span>
-    </button>
-    
-        
+
+
         <!-- Annotation Overlay -->
         <div class="feedback-annotation-overlay">
             <div class="feedback-annotation-container">
@@ -301,20 +296,12 @@ feedbackContainer.innerHTML = `
     };
 
     const startFeedbackFlow = async () => {
-        // Capture screenshot
+        // Capture screenshot silently for context, then go straight to the message box
         const screenshot = await captureScreenshot();
-        
-        if (!screenshot) {
-            // If screenshot failed, go directly to modal
-            showModal();
-            return;
+        if (screenshot) {
+            capturedScreenshot = screenshot;
         }
-        
-        capturedScreenshot = screenshot;
-        
-        // Initialize and show annotation UI
-        initAnnotationCanvas(screenshot);
-        showAnnotationUI();
+        showModal();
     };
 
     // 6. Expandable FAB behavior
