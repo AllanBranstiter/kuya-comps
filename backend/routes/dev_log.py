@@ -60,6 +60,11 @@ class AnalyticsSnapshot(BaseModel):
     collectibility_score: Optional[int] = None
     collectibility_label: Optional[str] = None
     collectibility_scenario: Optional[str] = None
+    # AI Summary token usage
+    summary_prompt_tokens: Optional[int] = None
+    summary_completion_tokens: Optional[int] = None
+    summary_total_tokens: Optional[int] = None
+    summary_model: Optional[str] = None
 
 
 @router.post("/api/dev/analytics-snapshot", status_code=200)

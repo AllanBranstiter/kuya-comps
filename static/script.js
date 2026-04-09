@@ -1576,7 +1576,7 @@ document.head.appendChild(style);
 
 // Helper function to construct the search query with all selected exclusions
 function getSearchQueryWithExclusions(baseQuery) {
-    const excludeLots = document.getElementById("exclude_lots").checked;
+    const excludeLots = document.getElementById("exclude_lots")?.checked || false;
     const ungradedOnly = document.getElementById("ungraded_only").checked;
     const baseOnly = document.getElementById("base_only").checked;
 
@@ -1680,17 +1680,38 @@ function getSearchQueryWithExclusions(baseQuery) {
             '-"buy-back"', '-buyback',
             '-SP', '-sp', '-"short print"', '-"Short Print"', '-ssp', '-SSP',
             '-"super short print"', '-"Super Short Print"',
-            
+
             // Additional variant/parallel exclusions
             '-foil', '-shimmer', '-lava', '-wave', '-raywave', '-speckle', '-mojo',
             '-sapphire', '-ice', '-cracked', '-checker', '-optic', '-paper',
             '-sepia', '-"negative refractor"',
-            
+
             // Additional color exclusions
             '-green', '-orange', '-gold', '-purple', '-pink', '-fuchsia', '-teal',
             '-sky', '-lime', '-bronze', '-copper', '-black', '-white'
         ];
         allExcludedPhrases = allExcludedPhrases.concat(baseOnlyExclusions);
+    }
+
+    const baseChromeOnly = document.getElementById("base_chrome_only").checked;
+    if (baseChromeOnly) {
+        const baseChromeOnlyExclusions = [
+            '-blue', '-red', '-gold', '-green', '-pink', '-prism', '-negative',
+            '-x-fractor', '-xfractor', '-magenta', '-mojo', '-aqua', '-yellow',
+            '-orange', '-purple', '-sepia', '-black', '-nucleus', '-white',
+            '-refractor'
+        ];
+        allExcludedPhrases = allExcludedPhrases.concat(baseChromeOnlyExclusions);
+    }
+
+    const baseRefractorOnly = document.getElementById("base_refractor_only").checked;
+    if (baseRefractorOnly) {
+        const baseRefractorOnlyExclusions = [
+            '-blue', '-red', '-gold', '-green', '-pink', '-prism', '-negative',
+            '-x-fractor', '-xfractor', '-magenta', '-mojo', '-aqua', '-yellow',
+            '-orange', '-purple', '-sepia', '-black', '-nucleus', '-white'
+        ];
+        allExcludedPhrases = allExcludedPhrases.concat(baseRefractorOnlyExclusions);
     }
 
     let finalQuery = baseQuery;
@@ -3137,6 +3158,10 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                 collectibility_score: collectibilityScore,
                 collectibility_label: collectibilityTier.label,
                 collectibility_scenario: collectibilityScenario,
+                summary_prompt_tokens: fmvData.summary_token_usage?.prompt_tokens || null,
+                summary_completion_tokens: fmvData.summary_token_usage?.completion_tokens || null,
+                summary_total_tokens: fmvData.summary_token_usage?.total_tokens || null,
+                summary_model: fmvData.summary_token_usage?.model || null,
             })
         }).catch(err => console.warn('[DEV LOG] analytics-snapshot failed (non-blocking):', err));
     } catch (logErr) {
@@ -3224,7 +3249,7 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                 `}
 
                 <!-- Collectibility Score -->
-                <div class="indicator-card" style="background: ${collectibilityTier.bg}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${collectibilityTier.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Collectibility measures a card's sustained desirability based on price tier and sales volume. Supply/demand balance is shown separately in the Market Activity card.">
+                <div class="indicator-card" style="background: ${collectibilityTier.bg}; padding: 1.5rem; border-radius: 12px; border: 1px solid ${collectibilityTier.border}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); position: relative;" title="Collectibility measures a card's sustained desirability based on price tier and sales volume. The ratio of recent sales to active listings is shown in the Market Activity card.">
                     <div style="margin-bottom: 0.5rem;">
                         <span style="font-size: 0.85rem; color: #666; font-weight: 500;">Collectibility</span>
                     </div>
@@ -3239,9 +3264,47 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                         <strong>Sold:</strong> ${soldCount} comps | <strong>FMV:</strong> $${marketValue.toFixed(0)}
                     </div>
                 </div>
-            </div>
 
-            <!-- Bid / Ask Market Structure -->
+                <!-- Print Run / Scarcity -->
+                ${(() => {
+                    const pri = fmvData.print_run_info;
+                    if (!pri || pri.confidence === 'unknown' || pri.print_run == null) return '';
+                    const pr = typeof pri.print_run === 'number' ? pri.print_run : parseInt(pri.print_run);
+                    const isRange = typeof pri.print_run === 'string' && pri.print_run.includes('-');
+                    const displayValue = isRange ? pri.print_run : (isNaN(pr) ? pri.print_run : pr.toLocaleString());
+
+                    // Scarcity tiers: [maxPrintRun, label, gradStart, gradEnd, borderColor, textColor]
+                    const tiers = [
+                        [1, '1 of 1', '#fff7e6', '#ffecb3', '#ffc107', '#b8860b'],
+                        [50, 'Extremely Rare', '#fce4ec', '#f8bbd0', '#e91e63', '#c2185b'],
+                        [100, 'Very Rare', '#fff3e0', '#ffe0b2', '#ff9800', '#e65100'],
+                        [999, 'Rare', '#fefce8', '#fef9c3', '#eab308', '#92400e'],
+                        [5000, 'A Little Rare', '#e8f5e9', '#c8e6c9', '#4caf50', '#2e7d32'],
+                        [Infinity, 'Common', '#f5f5f5', '#eeeeee', '#9e9e9e', '#616161'],
+                    ];
+                    const tier = tiers.find(t => (isNaN(pr) ? Infinity : pr) <= t[0]) || tiers[tiers.length - 1];
+                    const [, tierLabel, gradStart, gradEnd, borderColor, textColor] = tier;
+
+                    const sourceText = pri.source || '';
+                    const confLabel = pri.confidence === 'confirmed' ? 'Confirmed' : pri.confidence === 'checklist' ? 'Checklist data' : 'Estimated';
+
+                    return `
+                    <div class="indicator-card" style="background: linear-gradient(135deg, ${gradStart} 0%, ${gradEnd} 100%); padding: 1.5rem; border-radius: 12px; border: 1px solid ${borderColor}; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
+                        <div style="margin-bottom: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: ${textColor}; font-weight: 500;">Print Run</span>
+                        </div>
+                        <div style="font-size: 2rem; font-weight: 700; color: ${textColor}; margin-bottom: 0.5rem; line-height: 1;">
+                            ${displayValue}
+                        </div>
+                        <div style="font-size: 0.75rem; font-weight: 600; color: ${textColor}; line-height: 1.4; margin-bottom: 0.5rem;">
+                            ${tierLabel}
+                        </div>
+                        <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                            ${confLabel}${sourceText ? ' · ' + sourceText : ''}
+                        </div>
+                    </div>`;
+                })()}
+            </div>
             <div style="background: var(--card-background); padding: 2rem; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); margin-bottom: 2rem;">
                 <h4 style="margin: 0 0 1.25rem 0; color: var(--text-color);">Sales vs. Listed Now</h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 1.25rem;">
@@ -4081,7 +4144,7 @@ function drawBeeswarmInternal(prices, activePrices = []) {
   ctx.fillStyle = "#1d1d1f";
   ctx.font = "bold 16px " + getComputedStyle(document.body).fontFamily;
   ctx.textAlign = "center";
-  ctx.fillText("Fair Market Value Ranges", width / 2, 25);
+  ctx.fillText("Price Density", width / 2, 25);
 
   // Filter out null/undefined prices and convert to numbers
   const validPrices = prices.filter(p => p != null && !isNaN(p) && p > 0).map(p => parseFloat(p));

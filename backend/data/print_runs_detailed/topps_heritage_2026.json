@@ -1,0 +1,435 @@
+{
+  "set": "Topps Heritage",
+  "year": 2026,
+  "source": "checklist data",
+  "variants": [
+    {
+      "variation": "base",
+      "display_name": "Base",
+      "print_run": 236382,
+      "numbered": false
+    },
+    {
+      "variation": "chrome",
+      "display_name": "Chrome",
+      "print_run": 4330,
+      "numbered": false
+    },
+    {
+      "variation": "dark_gray",
+      "display_name": "Dark Gray",
+      "print_run": 1935,
+      "numbered": false
+    },
+    {
+      "variation": "light_blue_sparkle_refractor",
+      "display_name": "Light Blue Sparkle Refractor",
+      "print_run": 1935,
+      "numbered": false
+    },
+    {
+      "variation": "all_star_logo_variations",
+      "display_name": "All Star Logo Variations",
+      "print_run": 1740,
+      "numbered": false
+    },
+    {
+      "variation": "image_variations",
+      "display_name": "Image Variations",
+      "print_run": 1740,
+      "numbered": false
+    },
+    {
+      "variation": "alternate_banner_variations",
+      "display_name": "Alternate Banner Variations",
+      "print_run": 1740,
+      "numbered": false
+    },
+    {
+      "variation": "nickname_variations",
+      "display_name": "Nickname Variations",
+      "print_run": 1740,
+      "numbered": false
+    },
+    {
+      "variation": "refractor",
+      "display_name": "Refractor",
+      "print_run": 1700,
+      "numbered": false
+    },
+    {
+      "variation": "dark_green",
+      "display_name": "Dark Green",
+      "print_run": 1460,
+      "numbered": false
+    },
+    {
+      "variation": "pink_sparkle_refractor",
+      "display_name": "Pink Sparkle Refractor",
+      "print_run": 1460,
+      "numbered": false
+    },
+    {
+      "variation": "red",
+      "display_name": "Red",
+      "print_run": 1400,
+      "numbered": false
+    },
+    {
+      "variation": "silver_sparkle_refractor",
+      "display_name": "Silver Sparkle Refractor",
+      "print_run": 1400,
+      "numbered": false
+    },
+    {
+      "variation": "light_purple",
+      "display_name": "Light Purple",
+      "print_run": 580,
+      "numbered": false
+    },
+    {
+      "variation": "burgundy_sparkle_refractor",
+      "display_name": "Burgundy Sparkle Refractor",
+      "print_run": 580,
+      "numbered": false
+    },
+    {
+      "variation": "dark_yellow",
+      "display_name": "Dark Yellow",
+      "print_run": 480,
+      "numbered": false
+    },
+    {
+      "variation": "aqua_sparkle_refractor",
+      "display_name": "Aqua Sparkle Refractor",
+      "print_run": 480,
+      "numbered": false
+    },
+    {
+      "variation": "deckle_edge",
+      "display_name": "Deckle Edge",
+      "print_run": 190,
+      "numbered": false
+    },
+    {
+      "variation": "blue_refractor",
+      "display_name": "Blue Refractor",
+      "print_run": 150,
+      "numbered": true
+    },
+    {
+      "variation": "green_refractor",
+      "display_name": "Green Refractor",
+      "print_run": 99,
+      "numbered": true
+    },
+    {
+      "variation": "orange",
+      "display_name": "Orange",
+      "print_run": 77,
+      "numbered": true
+    },
+    {
+      "variation": "color_of_the_year",
+      "display_name": "Color Of The Year",
+      "print_run": 77,
+      "numbered": false
+    },
+    {
+      "variation": "black_refractor",
+      "display_name": "Black Refractor",
+      "print_run": 77,
+      "numbered": true
+    },
+    {
+      "variation": "black",
+      "display_name": "Black",
+      "print_run": 50,
+      "numbered": false
+    },
+    {
+      "variation": "gold_refractor",
+      "display_name": "Gold Refractor",
+      "print_run": 50,
+      "numbered": true
+    },
+    {
+      "variation": "throwback_jerseys_variation",
+      "display_name": "Throwback Jerseys Variation",
+      "print_run": 35,
+      "numbered": false
+    },
+    {
+      "variation": "black_and_white_image_variation",
+      "display_name": "Black and White Image Variation",
+      "print_run": 35,
+      "numbered": false
+    },
+    {
+      "variation": "orange_refractor",
+      "display_name": "Orange Refractor",
+      "print_run": 25,
+      "numbered": true
+    },
+    {
+      "variation": "flip_stock",
+      "display_name": "Flip Stock",
+      "print_run": 5,
+      "numbered": false
+    },
+    {
+      "variation": "red_refractor",
+      "display_name": "Red Refractor",
+      "print_run": 5,
+      "numbered": true
+    },
+    {
+      "variation": "superfractor",
+      "display_name": "SuperFractor",
+      "print_run": 1,
+      "numbered": true
+    }
+  ],
+  "inserts": [
+    {
+      "insert_base": "Raw Power",
+      "variation": "",
+      "display_name": "",
+      "print_run": 16820
+    },
+    {
+      "insert_base": "Ready and Action",
+      "variation": "",
+      "display_name": "",
+      "print_run": 16430
+    },
+    {
+      "insert_base": "The Enterprise",
+      "variation": "",
+      "display_name": "",
+      "print_run": 16350
+    },
+    {
+      "insert_base": "Clubhouse Collection Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 1550
+    },
+    {
+      "insert_base": "Real One Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 280
+    },
+    {
+      "insert_base": "Real One Autographs",
+      "variation": "",
+      "display_name": "",
+      "print_run": 210
+    },
+    {
+      "insert_base": "Expansion Autographs",
+      "variation": "",
+      "display_name": "",
+      "print_run": 200
+    },
+    {
+      "insert_base": "Clubhouse Collection Dual Player Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 85
+    },
+    {
+      "insert_base": "Clubhouse Collection Dual Player Relics",
+      "variation": "red",
+      "display_name": "Red",
+      "print_run": 77
+    },
+    {
+      "insert_base": "Clubhouse Collection Quad Player Relics",
+      "variation": "red",
+      "display_name": "Red",
+      "print_run": 77
+    },
+    {
+      "insert_base": "Clubhouse Collection Relics",
+      "variation": "red",
+      "display_name": "Red",
+      "print_run": 77
+    },
+    {
+      "insert_base": "Expansion Autographs",
+      "variation": "special_edition_red_ink",
+      "display_name": "Special Edition Red Ink",
+      "print_run": 77
+    },
+    {
+      "insert_base": "Flashback Relics",
+      "variation": "red",
+      "display_name": "Red",
+      "print_run": 77
+    },
+    {
+      "insert_base": "Real One Autographs",
+      "variation": "special_edition_red_ink",
+      "display_name": "Special Edition Red Ink",
+      "print_run": 77
+    },
+    {
+      "insert_base": "Real One Relics",
+      "variation": "red",
+      "display_name": "Red",
+      "print_run": 77
+    },
+    {
+      "insert_base": "Flashback Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 65
+    },
+    {
+      "insert_base": "Base Chrome Autograph Variations",
+      "variation": "gold_refractor",
+      "display_name": "Gold Refractor",
+      "print_run": 50
+    },
+    {
+      "insert_base": "Base Chrome Autograph Variations",
+      "variation": "",
+      "display_name": "",
+      "print_run": 45
+    },
+    {
+      "insert_base": "Clubhouse Collection Autograph Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 30
+    },
+    {
+      "insert_base": "Base Chrome Autograph Variations",
+      "variation": "orange_refractor",
+      "display_name": "Orange Refractor",
+      "print_run": 25
+    },
+    {
+      "insert_base": "Real One Dual Autographs",
+      "variation": "",
+      "display_name": "",
+      "print_run": 25
+    },
+    {
+      "insert_base": "Clubhouse Collection Dual Autograph Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 15
+    },
+    {
+      "insert_base": "Clubhouse Collection Quad Player Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 15
+    },
+    {
+      "insert_base": "Turn Back the Clock Autographs",
+      "variation": "",
+      "display_name": "",
+      "print_run": 15
+    },
+    {
+      "insert_base": "Flashbacks Autographed Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 10
+    },
+    {
+      "insert_base": "There Once Was a Man Autographed Relics",
+      "variation": "",
+      "display_name": "",
+      "print_run": 10
+    },
+    {
+      "insert_base": "Base Chrome Autograph Variations",
+      "variation": "red_refractor",
+      "display_name": "Red Refractor",
+      "print_run": 5
+    },
+    {
+      "insert_base": "Real One Quad Autographs",
+      "variation": "",
+      "display_name": "",
+      "print_run": 5
+    },
+    {
+      "insert_base": "Base Chrome Autograph Variations",
+      "variation": "superfractor",
+      "display_name": "SuperFractor",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Clubhouse Collection Autograph Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Clubhouse Collection Dual Autograph Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Clubhouse Collection Dual Player Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Clubhouse Collection Quad Player Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Clubhouse Collection Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Flashback Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Flashbacks Autographed Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Real One Dual Autographs",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Real One Quad Autographs",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "Real One Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    },
+    {
+      "insert_base": "There Once Was a Man Autographed Relics",
+      "variation": "patch",
+      "display_name": "Patch",
+      "print_run": 1
+    }
+  ]
+}

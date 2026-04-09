@@ -15,6 +15,17 @@ logger = get_logger(__name__)
 
 
 # ============================================================================
+# AI Model Configuration (OpenRouter)
+# ============================================================================
+
+AI_MODEL_SUMMARY = os.getenv("AI_MODEL_SUMMARY", "google/gemini-2.0-flash-001")
+"""Model used for AI Market Summary generation."""
+
+AI_MODEL_RELEVANCE = os.getenv("AI_MODEL_RELEVANCE", "google/gemma-3-27b-it")
+"""Model used for AI relevance scoring of listings."""
+
+
+# ============================================================================
 # Environment Configuration
 # ============================================================================
 
@@ -555,3 +566,21 @@ STRIPE_PRICES = {
 # Frontend URL for Stripe redirects
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:8000')
 """Frontend base URL for Stripe checkout success/cancel redirects."""
+
+
+# ============================================================================
+# Print Run Scarcity Tiers
+# ============================================================================
+
+SCARCITY_TIERS = [
+    # (max_print_run, label, gradient_start, gradient_end, border_color)
+    (1, "1 of 1", "#fff7e6", "#ffecb3", "#ffc107"),
+    (50, "Extremely Rare", "#fce4ec", "#f8bbd0", "#e91e63"),
+    (100, "Very Rare", "#fff3e0", "#ffe0b2", "#ff9800"),
+    (999, "Rare", "#fefce8", "#fef9c3", "#eab308"),
+    (5000, "A Little Rare", "#e8f5e9", "#c8e6c9", "#4caf50"),
+    (float("inf"), "Common", "#f5f5f5", "#eeeeee", "#9e9e9e"),
+]
+"""Scarcity tier definitions for the Print Run analytics card.
+Each tuple: (max_print_run, label, gradient_start, gradient_end, border_color).
+"""

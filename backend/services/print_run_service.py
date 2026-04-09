@@ -2,9 +2,10 @@
 """
 Print run estimation service.
 
-Combines two data sources to estimate card print runs:
+Combines three data sources to estimate card print runs:
 1. Confirmed /N numbering extracted from eBay listing titles
-2. Static reference table (backend/data/print_runs.json) for unnumbered cards
+2. Detailed per-set checklist data (backend/data/print_runs_detailed/*.json)
+3. Broad reference table (backend/data/print_runs.json) as fallback
 """
 import json
 import re
@@ -17,7 +18,9 @@ from backend.logging_config import get_logger
 logger = get_logger(__name__)
 
 _DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "print_runs.json"
+_DETAILED_DIR = Path(__file__).resolve().parents[1] / "data" / "print_runs_detailed"
 _CACHE: list[dict] | None = None
+_DETAILED_CACHE: dict[str, dict] | None = None
 
 
 def load_print_runs() -> list[dict]:
@@ -32,6 +35,30 @@ def load_print_runs() -> list[dict]:
         logger.warning(f"[print_run] Failed to load {_DATA_FILE}: {e}")
         _CACHE = []
     return _CACHE
+
+
+def load_detailed_print_runs() -> dict[str, dict]:
+    """Load and cache all detailed print run JSON files."""
+    global _DETAILED_CACHE
+    if _DETAILED_CACHE is not None:
+        return _DETAILED_CACHE
+    _DETAILED_CACHE = {}
+    if not _DETAILED_DIR.exists():
+        return _DETAILED_CACHE
+    for path in _DETAILED_DIR.glob("*.json"):
+        try:
+            data = json.loads(path.read_text())
+            key = f"{data['set'].lower()}_{data['year']}"
+            _DETAILED_CACHE[key] = data
+            variant_count = len(data.get("variants", []))
+            insert_count = len(data.get("inserts", []))
+            logger.info(
+                f"[print_run] Loaded detailed: {path.name} "
+                f"({variant_count} variants, {insert_count} inserts)"
+            )
+        except Exception as e:
+            logger.warning(f"[print_run] Failed to load {path}: {e}")
+    return _DETAILED_CACHE
 
 
 def _extract_year(text: str) -> Optional[int]:
@@ -107,6 +134,152 @@ def _detect_variant_from_query(query: str) -> Optional[str]:
     return None
 
 
+def _normalize_variant(text: str) -> str:
+    """Normalize a variant name for matching."""
+    return re.sub(r'[^a-z0-9]+', '_', text.lower()).strip('_')
+
+
+def _normalize_for_matching(text: str) -> str:
+    """Normalize text for fuzzy substring matching.
+
+    Strips plurals, expands common eBay abbreviations, and removes
+    eBay search syntax (quoted terms, exclusions) so that
+    'real one auto' matches 'Real One Autographs' and
+    '"burgundy"' matches 'Burgundy Sparkle Refractor'.
+    """
+    t = text.lower().strip()
+    # Remove eBay exclusion terms (-word, -"phrase")
+    # Only match exclusions preceded by whitespace or at start of string,
+    # so hyphenated words like "x-fractor" are preserved.
+    t = re.sub(r'(?:^|\s)-"[^"]*"', ' ', t)
+    t = re.sub(r'(?<=\s)-\S+', ' ', t)
+    t = re.sub(r'^-\S+', ' ', t)
+    # Remove remaining quotes
+    t = t.replace('"', ' ')
+    # Remove trailing 's' from words (simple depluralize)
+    t = re.sub(r'\b(\w{3,})s\b', r'\1', t)
+    # 'autograph' -> 'auto' (so 'auto' in query matches 'autograph' in candidate)
+    t = re.sub(r'\bautograph\b', 'auto', t)
+    # Collapse whitespace
+    t = re.sub(r'\s+', ' ', t).strip()
+    return t
+
+
+# Words that are too generic to use as standalone variant identifiers
+_GENERIC_WORDS = {
+    "base", "card", "cards", "the", "and", "of", "a", "an", "red", "black",
+    "orange", "blue", "green", "gold", "silver", "chrome", "refractor",
+    "variation", "variations", "parallel", "insert", "auto", "relic",
+    "image", "edition", "special", "sparkle",
+}
+
+
+def _detect_variant_detailed(query: str, detailed_entry: dict) -> Optional[dict]:
+    """
+    Match a search query against a detailed checklist's variants and inserts.
+
+    Uses longest-match-first to avoid partial matches (e.g., "burgundy sparkle
+    refractor" should not match plain "refractor"). Falls back to matching
+    distinctive single words (e.g., "burgundy" uniquely identifies
+    "Burgundy Sparkle Refractor").
+
+    Returns the matched entry dict or None.
+    """
+    q_norm = _normalize_for_matching(query)
+
+    # Build candidates: (search_phrase, entry_dict) sorted by phrase length desc
+    candidates = []
+
+    for v in detailed_entry.get("variants", []):
+        display = v.get("display_name", "").lower()
+        normalized = v["variation"]
+        if display:
+            candidates.append((display, v, "variant"))
+        spaced = normalized.replace("_", " ")
+        if spaced != display:
+            candidates.append((spaced, v, "variant"))
+
+    for ins in detailed_entry.get("inserts", []):
+        ib = ins["insert_base"].lower()
+        var_display = ins.get("display_name", "").lower()
+        if var_display:
+            candidates.append((f"{ib} {var_display}", ins, "insert"))
+            candidates.append((var_display, ins, "insert"))
+        candidates.append((ib, ins, "insert"))
+
+    # Sort by phrase length descending (longest match first)
+    candidates.sort(key=lambda x: len(x[0]), reverse=True)
+
+    # Pass 1: Full phrase matching (existing logic)
+    for phrase, entry, entry_type in candidates:
+        if phrase == "base" or not phrase:
+            continue
+        phrase_norm = _normalize_for_matching(phrase)
+        if phrase_norm in q_norm:
+            return entry
+
+    # Pass 2: Distinctive single-word matching
+    # For variants with multi-word names, check if any distinctive word
+    # (not in _GENERIC_WORDS) appears in the query. This handles cases like
+    # "burgundy" matching "Burgundy Sparkle Refractor".
+    word_matches = []
+    for phrase, entry, entry_type in candidates:
+        if phrase == "base" or not phrase:
+            continue
+        words = phrase.lower().split()
+        if len(words) < 2:
+            continue  # Single-word variants already handled in Pass 1
+        for word in words:
+            if word in _GENERIC_WORDS or len(word) < 4:
+                continue
+            if re.search(r'\b' + re.escape(word) + r'\b', q_norm):
+                word_matches.append((word, entry))
+                break
+
+    if len(word_matches) == 1:
+        # Exactly one distinctive word match — unambiguous
+        return word_matches[0][1]
+
+    return None
+
+
+def _detailed_lookup(set_name: str, year: int, query: str) -> Optional[dict]:
+    """
+    Look up a print run from the detailed checklist data.
+
+    Returns a print_run_info dict or None.
+    """
+    detailed = load_detailed_print_runs()
+    key = f"{set_name.lower()}_{year}"
+    entry = detailed.get(key)
+    if not entry:
+        return None
+
+    # Try to match a specific variant/insert from the query
+    match = _detect_variant_detailed(query, entry)
+
+    if match:
+        pr = match.get("print_run")
+        display = match.get("display_name") or match.get("insert_base", "")
+        source = f"{entry['set']} {entry['year']} checklist"
+        return {
+            "print_run": pr,
+            "confidence": "checklist",
+            "source": source,
+        }
+
+    # No specific variant matched — default to base
+    for v in entry.get("variants", []):
+        if v["variation"] == "base":
+            return {
+                "print_run": v["print_run"],
+                "confidence": "checklist",
+                "source": f"{entry['set']} {entry['year']} checklist",
+            }
+
+    return None
+
+
 def _lookup(set_name: str, year: int, variant: str) -> Optional[dict]:
     """Find a matching entry in the print runs reference table."""
     entries = load_print_runs()
@@ -124,9 +297,10 @@ def estimate_print_run(query: str, titles: list[str]) -> dict:
     """
     Estimate the print run for a card search.
 
-    Strategy:
+    Three-stage cascade:
     1. Check listing titles for confirmed /N numbering
-    2. If no /N found, match against the static reference table
+    2. Match against detailed checklist data (per-set JSON files)
+    3. Fall back to broad reference table (print_runs.json)
 
     Args:
         query: The user's search query string
@@ -135,12 +309,12 @@ def estimate_print_run(query: str, titles: list[str]) -> dict:
     Returns:
         dict with keys:
         - print_run: int, str range, or None
-        - confidence: "confirmed" | "estimated" | "unknown"
+        - confidence: "confirmed" | "checklist" | "estimated" | "unknown"
         - source: description of where the data came from
     """
     unknown = {"print_run": None, "confidence": "unknown", "source": None}
 
-    # --- Step 1: Check listing titles for confirmed /N numbering ---
+    # --- Stage 1: Check listing titles for confirmed /N numbering ---
     numbered_values = []
     for title in titles:
         _, numbered = detect_parallel_type(title or "")
@@ -148,23 +322,35 @@ def estimate_print_run(query: str, titles: list[str]) -> dict:
             numbered_values.append(numbered)
 
     if numbered_values:
-        # Use the most common /N value (handles mixed listings)
+        # Use the most common /N value, but require it to appear in at least
+        # 30% of ALL listings (not just numbered ones). This prevents a few
+        # stray /77 "Color Of The Year" cards from overriding a base card search.
         from collections import Counter
         most_common_n = Counter(numbered_values).most_common(1)[0][0]
-        pct = numbered_values.count(most_common_n) / len(numbered_values)
-        if pct >= 0.3:  # At least 30% of listings agree
+        pct_of_all = numbered_values.count(most_common_n) / max(len(titles), 1)
+        if pct_of_all >= 0.3:
             return {
                 "print_run": most_common_n,
                 "confidence": "confirmed",
                 "source": "listing data",
             }
 
-    # --- Step 2: Match against the static reference table ---
+    # --- Parse year and set for Stages 2 and 3 ---
     year = _extract_year(query)
     set_name = _detect_set(query)
     if not year or not set_name:
         return unknown
 
+    # --- Stage 2: Detailed checklist lookup ---
+    detailed_result = _detailed_lookup(set_name, year, query)
+    if detailed_result:
+        logger.info(
+            f"[print_run] detailed match: {set_name} {year} -> "
+            f"{detailed_result['print_run']} ({detailed_result['source']})"
+        )
+        return detailed_result
+
+    # --- Stage 3: Broad reference table fallback ---
     # Try query-level variant detection first
     variant = _detect_variant_from_query(query)
 

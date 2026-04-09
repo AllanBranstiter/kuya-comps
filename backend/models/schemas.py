@@ -130,6 +130,8 @@ class FmvResponse(BaseModel):
     sold_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for sold items
     active_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for active items
     market_summary: Optional[str] = None
+    print_run_info: Optional[Dict] = None  # Print run estimation data
+    summary_token_usage: Optional[Dict] = None  # AI summary token usage tracking
 
 
 class MarketMessageRequest(BaseModel):

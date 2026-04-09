@@ -155,7 +155,7 @@ async def get_fmv_v2(
             all_titles += [i.title for i in request.active_items if i.title]
         print_run_info = estimate_print_run(request.query or "", all_titles)
 
-        response_dict["market_summary"] = generate_market_summary(
+        summary, token_usage = generate_market_summary(
             fmv_result=result,
             sold_count=sold_count,
             active_count=active_count,
@@ -164,6 +164,13 @@ async def get_fmv_v2(
             below_fmv_listings=below_fmv_listings,
             print_run_info=print_run_info,
         )
+        response_dict["market_summary"] = summary
+        if token_usage:
+            response_dict["summary_token_usage"] = token_usage
+
+        # Expose print run info to frontend (only if we have data)
+        if print_run_info and print_run_info.get("confidence") != "unknown":
+            response_dict["print_run_info"] = print_run_info
 
         return FmvResponse(**response_dict)
     except Exception as e:
