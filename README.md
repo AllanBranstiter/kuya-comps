@@ -1,4 +1,4 @@
-# eBay Baseball Card Comps Tool v1.1.0
+# eBay Baseball Card Comps Tool v1.2.0
 
 A web application for scraping and analyzing eBay baseball card sold/active listings with FMV calculations, intelligent deal-finding, and a personal card collection tracker with automatic price history.
 
@@ -6,14 +6,15 @@ A web application for scraping and analyzing eBay baseball card sold/active list
 
 ### Comps & Analysis
 *   **Dual Search Display**: Automatically shows both sold listings and active listings below FMV
-*   **Advanced Filtering**: Raw Only, Base Only, Exclude Autographs, and Buy It Now Only filters
+*   **Advanced Filtering**: Raw Only, Base Only, Base Chrome Only, Base Refractor Only filters
 *   **Smart Deal Finding**: Active listings sorted cheapest first with discount indicators showing how much below FMV each listing is priced
 *   **Discount Indicators**: Red percentage showing how much below FMV each active listing is priced
 *   **Market Analysis**: Fair Market Value calculations with Discount/Market Value/Premium ranges, competitive active zone detection for accurate blending
 *   **Competitive Zone Detection**: Identifies active listings priced near recent sales and uses that convergence signal for FMV blending, rather than treating all active listings as one distribution
 *   **Collectibility Score**: 1–10 score using continuous log-scaled price, volume, and scarcity components
+*   **Print Run Database**: Three-stage cascade for estimating card print runs — (1) confirmed /N from listing titles, (2) detailed checklist data per set/year, (3) broad reference table fallback. Print run and scarcity tier shown in a dedicated analytics card. Import script for adding new set checklists.
 *   **AI Relevance Scoring**: LLM-powered listing filter — each sold and active listing is scored 0.0–1.0 for relevance to the search query; low-relevance listings (wrong card, wrong grade, lots) have minimal weight in FMV
-*   **AI Market Summary**: After each search, a plain-English summary describes current market conditions, price direction, and deal opportunities — including a callout when active listings are available below market value
+*   **AI Market Summary**: After each search, a plain-English summary describes current market conditions, price direction, and deal opportunities — including print run context when available from checklist data. Warm, mentor-like tone with precise rarity classifications. Token usage tracked in analytics snapshots.
 *   **Interactive Visualization**: Beeswarm and price density charts showing sold (blue) and active (red) price distributions — all sold comps shown transparently
 *   **PSA Grade Intelligence**: Compare prices across different PSA grades
 
@@ -88,10 +89,18 @@ kuya-comps/
 │   │   ├── valuation_service.py      # Automated FMV updates using volume-weighted algorithm
 │   │   ├── fmv_service.py            # Core volume-weighted FMV calculation (shared)
 │   │   ├── analytics_score_service.py # Market Confidence, Liquidity, Collectibility, Market Pressure
-│   │   ├── relevance_service.py      # AI-powered listing relevance scoring (OpenRouter/Gemini)
+│   │   ├── relevance_service.py      # AI-powered listing relevance scoring (OpenRouter/Gemma 3)
+│   │   ├── market_summary_service.py # AI Market Summary (OpenRouter/Gemini Flash)
+│   │   ├── print_run_service.py      # Three-stage print run estimation (listing /N, checklist, reference)
 │   │   ├── collection_service.py     # Binder/card CRUD, price history writes
 │   │   ├── subscription_service.py   # Tier limits and usage tracking
 │   │   └── ...
+│   ├── data/
+│   │   ├── print_runs.json           # Broad reference table (fallback)
+│   │   └── print_runs_detailed/      # Per-set checklist JSON files
+│   │       └── topps_heritage_2026.json
+│   ├── scripts/
+│   │   └── import_checklist.py       # CSV-to-JSON checklist import tool
 │   ├── database/
 │   │   ├── connection.py             # SQLAlchemy engine (Supabase pooler, SSL, feedback-only init)
 │   │   └── schema.py                 # ORM models: Binder, Card, PriceHistory, FeedbackSubmission
@@ -166,7 +175,9 @@ kuya-comps/
     - `ENVIRONMENT` — set to `production`
     - `SENTRY_DSN` — error monitoring (optional)
     - `REDIS_URL` — automatically provided by Railway for caching
-    - `OPENROUTER_API_KEY` — OpenRouter API key for AI relevance scoring (optional; scoring is skipped gracefully if absent)
+    - `OPENROUTER_API_KEY` — OpenRouter API key for AI relevance scoring and market summary (optional; scoring is skipped gracefully if absent)
+    - `AI_MODEL_SUMMARY` — OpenRouter model ID for market summary (default: `google/gemini-2.0-flash-001`)
+    - `AI_MODEL_RELEVANCE` — OpenRouter model ID for relevance scoring (default: `google/gemma-3-27b-it`)
     - `ADMIN_USER_IDS`, `ADMIN_EMAILS` — comma-separated admin identifiers
 
 ### Supabase Setup
@@ -234,6 +245,40 @@ See [`docs/SECURITY.md`](docs/SECURITY.md) for full security guidelines.
 *   **Middleware Optimization**: Reverse execution order of `add_middleware()` calls
 
 ## Version History
+
+### Version 1.2.0 (Print Run Database, AI Model Split, UI Refresh)
+
+**Print Run Database (`print_run_service.py`):**
+- Three-stage cascade for estimating card print runs: (1) confirmed /N from listing titles, (2) detailed checklist data from per-set JSON files, (3) broad reference table fallback
+- New `backend/data/print_runs_detailed/` directory with compact JSON lookup files per set/year (first: 2026 Topps Heritage with 31 variants + 40 inserts)
+- New `backend/scripts/import_checklist.py` — CLI tool to convert checklist CSVs to JSON; new sets require no code changes
+- Fuzzy variant matching handles eBay search syntax (quoted terms, exclusion operators, abbreviations like "auto" for "autographs"), distinctive single-word fallback (e.g., "burgundy" matches "Burgundy Sparkle Refractor")
+- `print_run_info` returned in FMV API response; new Print Run analytics card on the dashboard with scarcity tiers (Extremely Rare / Very Rare / Rare / A Little Rare / Common)
+- Print run data only fed to AI summary when confidence is "confirmed" or "checklist" — prevents hallucination from vague reference ranges
+
+**AI Model Split & Configuration:**
+- Relevance scoring moved to Gemma 3 27B (`google/gemma-3-27b-it`); market summary stays on Gemini 2.0 Flash
+- Both models configurable via `config.py` constants or environment variables (`AI_MODEL_SUMMARY`, `AI_MODEL_RELEVANCE`)
+- Token usage (prompt, completion, total, model) tracked in analytics snapshots for cost monitoring
+
+**AI Market Summary Prompt Overhaul:**
+- Warm, mentor-like tone — "a friend who really knows his stuff and loves breaking things down simply"
+- Rarity classification injected into prompt (Extremely Rare through Common based on print run)
+- Market data labels rewritten in plain English to prevent jargon parroting (e.g., "How steady are prices" instead of "Price agreement (confidence)")
+- Guardrails: "steal" only for 25%+ discounts; never negative about someone's card; no "interesting"; Strunk & White clarity
+- Print run suppression when only estimated data available
+
+**UI Changes:**
+- How It Works and FAQ moved from bottom of page to nav bar modals (using existing Modal class)
+- New search filters: "Base Chrome Only" and "Base Refractor Only" checkboxes
+- Removed "Exclude Lots" checkbox and "Export Search Data" button
+- Fixed stale beeswarm chart, FMV container, and mirrored chart persisting between searches
+- Market summary font increased from 14px to 1rem
+- Feedback flow simplified — skips annotation step, goes straight to message box
+- Market summary font bumped from 14px to 1rem
+- Beeswarm chart title changed from "Fair Market Value Ranges" to "Price Density"
+- Collectibility tooltip corrected to accurately describe Market Activity card
+- Homepage copy updated to reflect AI features, blended FMV, and print run data
 
 ### Version 1.0.0 (AI Market Summary)
 

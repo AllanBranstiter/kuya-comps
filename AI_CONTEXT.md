@@ -2,8 +2,8 @@
 
 > **Purpose:** This document provides context for AI assistants working on this project. It should be shared at the start of each new task to minimize token usage and accelerate onboarding.
 
-**Last Updated:** April 6, 2026
-**Version:** 1.1.0
+**Last Updated:** April 8, 2026
+**Version:** 1.2.0
 **Maintained By:** Allan Branstiter
 
 ---
@@ -17,7 +17,8 @@ Kuya Comps is a FastAPI web application that scrapes and analyzes eBay baseball 
 - **Dual Search Display:** Automatically shows both sold listings and active listings below FMV
 - **Smart Deal Finding:** Active listings filtered to show only items priced at or below Fair Market Value with discount indicators
 - **Market Analysis:** Blended FMV using both sold comps (bid) and active listings (ask), with Discount/Market Value/Premium ranges. Competitive active zone detection identifies active listings priced near the sold cluster and uses that convergence signal for blending instead of the raw all-active median.
-- **AI Market Summary:** After each FMV calculation, a plain-English summary describes market conditions, price direction, and ease of buying/selling — with a deal alert when active listings are below market value. Tier-aware model selection (Founders: Claude Sonnet; others: Gemini Flash 2.0). Graceful degradation if API key is absent or call fails.
+- **AI Market Summary:** After each FMV calculation, a plain-English summary describes market conditions, price direction, and ease of buying/selling — with print run context when available from checklist data. Warm, mentor-like tone with rarity classifications. Model: Gemini 2.0 Flash via OpenRouter (configurable via `AI_MODEL_SUMMARY` env var). Graceful degradation if API key is absent or call fails.
+- **Print Run Database:** Three-stage estimation cascade — (1) confirmed /N from listing titles, (2) detailed checklist JSON per set/year, (3) broad reference table fallback. Print run and scarcity tier displayed in a dedicated analytics dashboard card. Only "confirmed" or "checklist" confidence data is fed to the AI summary to prevent hallucination.
 - **Sales vs. Listed Now:** Side-by-side panel showing recent sold comps (Discount/Market Value/Premium) vs. active listing prices (Low/Median/High) with a plain-English price gap signal
 - **Collectibility Score:** 1–10 score based on price tier and sales volume (supply/demand balance is captured separately in Market Activity)
 - **Interactive Visualization:** Beeswarm chart showing sold (blue) and active (red) price distributions with outlier clipping
@@ -99,8 +100,9 @@ kuya-comps/
 │   ├── services/        # Business logic
 │   │   ├── fmv_service.py         # FMV calculations
 │   │   ├── analytics_score_service.py  # Market Confidence, Liquidity, Collectibility, Asking vs. Sold
-│   │   ├── relevance_service.py   # AI-powered listing relevance scoring (OpenRouter/Gemini)
-│   │   ├── market_summary_service.py  # AI Market Summary (OpenRouter; tier-aware model selection)
+│   │   ├── relevance_service.py   # AI-powered listing relevance scoring (OpenRouter/Gemma 3 27B)
+│   │   ├── market_summary_service.py  # AI Market Summary (OpenRouter/Gemini Flash; configurable)
+│   │   ├── print_run_service.py   # Three-stage print run estimation (listing /N, checklist, reference)
 │   │   ├── feedback_service.py    # Feedback CRUD
 │   │   ├── intelligence_service.py # Market intelligence
 │   │   ├── market_message_service.py
@@ -123,9 +125,15 @@ kuya-comps/
 │   ├── database/        # Database connection & schema
 │   │   ├── connection.py
 │   │   └── schema.py    # SQLAlchemy models
-│   ├── config.py        # Configuration management
+│   ├── config.py        # Configuration management (includes AI model IDs, scarcity tiers)
 │   ├── cache.py         # Redis caching layer
 │   └── logging_config.py
+│   ├── data/            # Reference data
+│   │   ├── print_runs.json           # Broad print run reference table (fallback)
+│   │   └── print_runs_detailed/      # Per-set checklist JSON files
+│   │       └── topps_heritage_2026.json  # 31 variants + 40 inserts
+│   ├── scripts/
+│   │   └── import_checklist.py       # CSV-to-JSON checklist import tool
 ├── static/              # Frontend files
 │   ├── index.html       # Main application
 │   ├── admin-feedback.html  # Admin dashboard
@@ -184,8 +192,9 @@ kuya-comps/
 | [`backend/routes/dev_log.py`](backend/routes/dev_log.py:1) | POST /api/dev/analytics-snapshot | Frontend posts analytics after dashboard renders |
 | [`backend/routes/collection_valuation.py`](backend/routes/collection_valuation.py:1) | Card valuation API (Phase 4) | Manual & batch FMV updates |
 | [`backend/services/analytics_score_service.py`](backend/services/analytics_score_service.py:1) | Market Confidence, Liquidity, Collectibility, Asking vs. Sold scores | Unified analytics score engine; replaces collectibility_service |
-| [`backend/services/relevance_service.py`](backend/services/relevance_service.py:1) | AI-powered listing relevance scoring | Uses Gemini 2.0 Flash Lite via OpenRouter; chunks 20 listings/call |
-| [`backend/services/market_summary_service.py`](backend/services/market_summary_service.py:1) | AI Market Summary generation | Quality + signal gates; tier-aware model (Founders: Claude Sonnet, others: Gemini Flash 2.0); never raises |
+| [`backend/services/relevance_service.py`](backend/services/relevance_service.py:1) | AI-powered listing relevance scoring | Uses Gemma 3 27B via OpenRouter (configurable via `AI_MODEL_RELEVANCE`); chunks 20 listings/call |
+| [`backend/services/market_summary_service.py`](backend/services/market_summary_service.py:1) | AI Market Summary generation | Quality + signal gates; Gemini 2.0 Flash (configurable via `AI_MODEL_SUMMARY`); warm mentor tone; print run rarity classification; never raises |
+| [`backend/services/print_run_service.py`](backend/services/print_run_service.py:1) | Print run estimation | Three-stage cascade: listing /N → detailed checklist → broad reference. Fuzzy variant matching with eBay syntax handling |
 | [`backend/services/fmv_service.py`](backend/services/fmv_service.py:1) | FMV business logic | Volume-weighted calculations |
 | [`backend/services/collection_service.py`](backend/services/collection_service.py:1) | Collection & binder CRUD | Manages user collections |
 | [`backend/services/valuation_service.py`](backend/services/valuation_service.py:1) | Automated valuation engine | Safety checks, outlier removal |
