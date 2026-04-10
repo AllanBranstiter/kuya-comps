@@ -127,6 +127,12 @@ class FmvResponse(BaseModel):
     count: int
     price_tier: Optional[PriceTier] = None  # NEW: Price tier information
     analytics_scores: Optional[Dict] = None  # Analytics scores (confidence, pressure, liquidity, collectibility)
+    buyer_range_low: Optional[float] = None
+    buyer_range_high: Optional[float] = None
+    seller_range_low: Optional[float] = None
+    seller_range_high: Optional[float] = None
+    buyer_poc: Optional[float] = None   # Point of Control: peak volume price in buyer zone
+    seller_poc: Optional[float] = None  # Point of Control: peak volume price in seller zone
     sold_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for sold items
     active_relevance_scores: Optional[List[float]] = None  # Per-item AI relevance scores for active items
     market_summary: Optional[str] = None

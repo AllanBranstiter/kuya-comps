@@ -119,6 +119,8 @@ async def get_fmv_v2(
                 item.ai_relevance_score = score
         if request.query and request.active_items:
             active_scores = score_listing_relevance(request.query, request.active_items)
+            for item, score in zip(request.active_items, active_scores):
+                item.ai_relevance_score = score
 
         # --- Print Run Estimation (before FMV so collectibility can use it) ---
         all_titles = [i.title for i in request.sold_items if i.title]
@@ -179,6 +181,10 @@ async def get_fmv_v2(
             user_tier=user_tier,
             below_fmv_listings=below_fmv_listings,
             print_run_info=print_run_info,
+            sold_prices=sorted([
+                i.total_price for i in request.sold_items
+                if getattr(i, "total_price", None) and i.total_price > 0
+            ]),
         )
         response_dict["market_summary"] = summary
         if token_usage:

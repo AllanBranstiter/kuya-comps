@@ -9,6 +9,7 @@ import os
 from typing import Optional
 
 import httpx
+import numpy as np
 
 from backend.logging_config import get_logger
 from backend.config import AI_MODEL_SUMMARY
@@ -142,8 +143,35 @@ def _format_rarity_urgency_line(print_run_info: Optional[dict]) -> str:
     )
 
 
+def _describe_level(raw: float) -> str:
+    """Convert a 0-1 raw score to a plain-language descriptor."""
+    if raw >= 0.70:
+        return "strong"
+    elif raw >= 0.40:
+        return "solid"
+    else:
+        return "modest"
+
+
+def _format_player_profile(player_name: str, components: dict) -> str:
+    """Build a plain-language player profile line for the AI prompt."""
+    pedigree = _describe_level(components.get("pedigree", {}).get("raw", 0))
+    stats = _describe_level(components.get("statistics", {}).get("raw", 0))
+    popularity = _describe_level(components.get("popularity", {}).get("raw", 0))
+    tam_raw = components.get("tam", {}).get("raw", 0)
+    tam = "large" if tam_raw >= 0.70 else "mid-size" if tam_raw >= 0.40 else "small"
+    position = _describe_level(components.get("position", {}).get("raw", 0))
+
+    return (
+        f"- Player profile: {player_name} — "
+        f"{pedigree} pedigree, {stats} stats, {popularity} popularity, "
+        f"{tam} market fanbase, {position} positional demand\n"
+    )
+
+
 def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int,
-                  below_fmv_listings: list, print_run_info: Optional[dict] = None) -> str:
+                  below_fmv_listings: list, print_run_info: Optional[dict] = None,
+                  sold_prices: Optional[list] = None) -> str:
     analytics = fmv_result.analytics_scores or {}
     confidence = analytics.get("confidence") or {}
     liquidity = analytics.get("liquidity") or {}
@@ -162,6 +190,16 @@ def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int
     liq_score = liquidity.get("score", "N/A")
     coll_label = collectibility.get("label", "Unknown")
     coll_score = collectibility.get("score", "N/A")
+    coll_components = collectibility.get("components") or {}
+    player_details = coll_components.get("player_details") or {}
+    player_name = player_details.get("identified_player")
+    player_comps = player_details.get("components") or {}
+    buyer_low = fmv_result.buyer_range_low
+    buyer_high = fmv_result.buyer_range_high
+    seller_low = fmv_result.seller_range_low
+    seller_high = fmv_result.seller_range_high
+    buyer_poc = fmv_result.buyer_poc
+    seller_poc = fmv_result.seller_poc
     raw_gap_pct = staleness.get("raw_gap_pct", "N/A")
     pressure_bucket = staleness.get("pressure_bucket", "N/A")
     coeff = staleness.get("coefficient", "N/A")
@@ -200,14 +238,45 @@ def _build_prompt(card_name: str, fmv_result, sold_count: int, active_count: int
         f"that means people want this card and are not letting it go cheap. "
         f"Never use the word 'interesting'. Be friendly and casual, but write with clarity and precision. "
         f"Prefer short words over long ones. Omit needless words. Every sentence should earn its place. "
-        f"Do not use em-dashes, hyphens as dashes, jargon, filler phrases, or cliches like 'at the end of the day'.\n\n"
+        f"Do not use em-dashes, hyphens as dashes, jargon, filler phrases, or cliches like 'at the end of the day'. "
+        f"Use the buyer's zone to advise buyers on realistic prices they can expect to pay. "
+        f"Use the seller's zone to advise sellers on where to price competitively. "
+        f"If a seller wants to sell quickly, advise them to price near the top of the buyer's zone, "
+        f"because that is where buyers are actively transacting. "
+        f"If a seller wants to sell at market rate, advise them to price within the seller's zone. "
+        f"If the buyer's zone and seller's zone overlap, that overlap is where deals are most likely to happen. "
+        f"If there is a gap between them, sellers are asking more than what buyers have been paying. "
+        f"When discussing collectibility or the player, describe what makes the card desirable in plain language. "
+        f"Never cite collectibility scores, percentages, or component numbers.\n\n"
         f"Market data:\n"
-        f"- Market Value: ${market_value} | Quick Sale: ${quick_sale} | Patient Sale: ${patient_sale}\n"
-        f"- Sold comps: {sold_count} | Active listings: {active_count}\n"
-        f"- How steady are prices: {conf_band} ({conf_score}/100)\n"
+        f"- Market Value: ${market_value}\n"
+        + (
+            f"- Buyer's Zone: ${buyer_low:.2f} to ${buyer_high:.2f} (where most sales volume concentrates, peak at ${buyer_poc:.2f})\n"
+            + (
+                f"- Seller's Zone: ${seller_low:.2f} to ${seller_high:.2f} (where most active listings are priced, peak at ${seller_poc:.2f})\n"
+                if seller_low is not None and seller_high is not None
+                else "- Seller's Zone: Not enough active listings to determine\n"
+            )
+            if buyer_low is not None
+            else f"- Quick Sale: ${quick_sale} | Patient Sale: ${patient_sale}\n"
+        )
+        + f"- Sold comps: {sold_count} | Active listings: {active_count}\n"
+        + (
+            (lambda sp: (
+                f"- Where most cards actually sold: {sum(1 for p in sp if p <= float(np.median(sp)))} of {len(sp)} "
+                f"sold at or below ${float(np.median(sp)):.2f} "
+                f"(range ${sp[0]:.2f} to ${sp[-1]:.2f})\n"
+            ))(sold_prices)
+            if sold_prices and len(sold_prices) >= 3 else ""
+        )
+        + f"- How steady are prices: {conf_band} ({conf_score}/100)\n"
         f"- How much buying/selling is happening: {liq_label} ({liq_score}/100)\n"
-        f"- Collectibility: {coll_label} ({coll_score}/10)\n"
-        f"- Are sellers asking more or less than what cards actually sell for: {raw_gap_pct}% gap\n"
+        f"- Collectibility: {coll_label}\n"
+        + (
+            _format_player_profile(player_name, player_comps)
+            if player_name and player_comps else ""
+        )
+        + f"- Are sellers asking more or less than what cards actually sell for: {raw_gap_pct}% gap\n"
         f"- How competitive is the market for sellers: "
         + (
             f"{zone_competitive} of {zone_total} active listings are priced near recent sales "
@@ -242,6 +311,7 @@ def generate_market_summary(
     below_fmv_listings: Optional[list] = None,
     print_run_info: Optional[dict] = None,
     api_key: Optional[str] = None,
+    sold_prices: Optional[list] = None,
 ) -> tuple[Optional[str], Optional[dict]]:
     """
     Generate a plain-English market summary for the given FMV result.
@@ -263,7 +333,7 @@ def generate_market_summary(
 
         model = MODEL_BY_TIER.get(user_tier, MODEL_DEFAULT)
         prompt = _build_prompt(card_name or "this card", fmv_result, sold_count, active_count,
-                               below_fmv_listings or [], print_run_info)
+                               below_fmv_listings or [], print_run_info, sold_prices)
 
         response = httpx.post(
             OPENROUTER_URL,

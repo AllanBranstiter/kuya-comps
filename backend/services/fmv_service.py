@@ -65,6 +65,9 @@ class ClusterResult:
     primary_p25: float
     primary_p75: float
     primary_p80: float
+    # Bin-edge boundaries of the primary cluster (for downstream filtering)
+    primary_lower: float = 0.0
+    primary_upper: float = 0.0
 
 
 class FMVResult:
@@ -83,6 +86,12 @@ class FMVResult:
         count: int = 0,
         price_tier: Optional[Dict] = None,
         analytics_scores: Optional[Dict] = None,
+        buyer_range_low: Optional[float] = None,
+        buyer_range_high: Optional[float] = None,
+        seller_range_low: Optional[float] = None,
+        seller_range_high: Optional[float] = None,
+        buyer_poc: Optional[float] = None,
+        seller_poc: Optional[float] = None,
     ):
         self.fmv_low = fmv_low
         self.fmv_high = fmv_high
@@ -95,6 +104,12 @@ class FMVResult:
         self.count = count
         self.price_tier = price_tier
         self.analytics_scores = analytics_scores
+        self.buyer_range_low = buyer_range_low
+        self.buyer_range_high = buyer_range_high
+        self.seller_range_low = seller_range_low
+        self.seller_range_high = seller_range_high
+        self.buyer_poc = buyer_poc
+        self.seller_poc = seller_poc
         # Internal: filtered data used in calculation (not serialized)
         self._filtered_prices = None
         self._filtered_weights = None
@@ -113,6 +128,12 @@ class FMVResult:
             'count': self.count,
             'price_tier': self.price_tier,
             'analytics_scores': self.analytics_scores,
+            'buyer_range_low': self.buyer_range_low,
+            'buyer_range_high': self.buyer_range_high,
+            'seller_range_low': self.seller_range_low,
+            'seller_range_high': self.seller_range_high,
+            'buyer_poc': self.buyer_poc,
+            'seller_poc': self.seller_poc,
         }
 
 
@@ -313,7 +334,7 @@ def detect_price_clusters(prices: np.ndarray) -> Optional[ClusterResult]:
     overall_median = float(np.median(prices))
     primary_idx = min(range(len(cluster_data)),
                       key=lambda i: abs(cluster_data[i][0] - overall_median))
-    primary_median, primary_prices, _, _ = cluster_data[primary_idx]
+    primary_median, primary_prices, primary_start, primary_end = cluster_data[primary_idx]
     primary_size = len(primary_prices)
 
     # Validate: primary must contain >= ceil(total * MIN_CONCENTRATION_RATIO)
@@ -372,6 +393,8 @@ def detect_price_clusters(prices: np.ndarray) -> Optional[ClusterResult]:
         primary_p25=primary_p25,
         primary_p75=primary_p75,
         primary_p80=primary_p80,
+        primary_lower=primary_start,
+        primary_upper=primary_end,
     )
 
 
@@ -590,6 +613,197 @@ def detect_competitive_zone(
         "p90": competitive[p90_idx],
         "lower": zone_lower,
         "upper": zone_upper,
+    }
+
+
+def find_value_area(
+    prices: np.ndarray,
+) -> Optional[Dict]:
+    """
+    Volume-profile Value Area: find the contiguous price cluster centered
+    on the highest-volume bin (Point of Control).
+
+    Modeled after the Price by Volume (PBV) indicator used in stock trading
+    to identify support and resistance levels.
+
+    Algorithm:
+    1. IQR-filter extreme outliers
+    2. Build adaptive histogram
+    3. Find POC (highest-volume bin)
+    4. Expand through contiguous non-empty bins (natural cluster boundary)
+    5. If cluster < 40% of volume, allow jumping single-bin gaps
+
+    Args:
+        prices: Array of prices (sold prices for buyer zone, active for seller zone)
+
+    Returns:
+        Dict with zone_low, zone_high, poc, volume_in_zone, total_volume
+        or None if fewer than 3 prices.
+    """
+    if prices is None or len(prices) < 3:
+        return None
+
+    # Filter extreme outliers before binning — prevents a single $2,700 listing
+    # on a $20 card from creating thousands of empty bins
+    if len(prices) >= 4:
+        q1, q3 = np.percentile(prices, [25, 75])
+        iqr = q3 - q1
+        lower_fence = q1 - 2.0 * iqr
+        upper_fence = q3 + 2.0 * iqr
+        filtered = prices[(prices >= lower_fence) & (prices <= upper_fence)]
+        if len(filtered) >= 3:
+            prices = filtered
+
+    median_price = float(np.median(prices))
+
+    # Adaptive bin sizing by price tier (matches detect_price_clusters logic)
+    if median_price <= 5:
+        bin_size = 0.50
+    elif median_price <= 50:
+        bin_size = max(1.0, median_price * 0.05)
+    elif median_price <= 500:
+        bin_size = max(5.0, median_price * 0.05)
+    else:
+        bin_size = max(25.0, median_price * 0.05)
+
+    min_p = float(np.min(prices))
+    max_p = float(np.max(prices))
+
+    # Handle near-identical prices
+    if max_p - min_p < bin_size:
+        bin_size = (max_p - min_p) / 3 if max_p > min_p else 1.0
+
+    # Cap bins at 50 — if the price spread is wide relative to bin size,
+    # increase bin size so clusters form rather than creating sparse dust
+    max_bins = 50
+    span = max_p - min_p
+    if span / bin_size > max_bins:
+        bin_size = span / max_bins
+
+    bins = np.arange(min_p, max_p + bin_size, bin_size)
+    if len(bins) < 2:
+        return None
+
+    counts, edges = np.histogram(prices, bins=bins)
+    total_volume = int(counts.sum())
+    if total_volume == 0:
+        return None
+
+    # POC = Point of Control (highest-volume bin)
+    poc_idx = int(np.argmax(counts))
+    poc_price = float((edges[poc_idx] + edges[poc_idx + 1]) / 2)
+
+    # Expand outward from POC through contiguous occupied bins.
+    # Stop when hitting a gap of 2+ consecutive empty bins — this finds the
+    # natural cluster boundary rather than forcing a fixed percentage.
+    # Fallback: if the cluster is too small (< 40% of volume), allow
+    # expansion through single-bin gaps to capture nearby items.
+    captured = int(counts[poc_idx])
+    lo, hi = poc_idx, poc_idx
+
+    # Phase 1: expand through strictly contiguous non-empty bins
+    while lo > 0 and counts[lo - 1] > 0:
+        lo -= 1
+        captured += int(counts[lo])
+    while hi < len(counts) - 1 and counts[hi + 1] > 0:
+        hi += 1
+        captured += int(counts[hi])
+
+    # Trim single-item edge bins — a lone item at the fringe isn't a "zone"
+    while lo < poc_idx and counts[lo] <= 1 and captured - counts[lo] >= total_volume * 0.30:
+        captured -= int(counts[lo])
+        lo += 1
+    while hi > poc_idx and counts[hi] <= 1 and captured - counts[hi] >= total_volume * 0.30:
+        captured -= int(counts[hi])
+        hi -= 1
+
+    # Phase 2: if cluster is very thin (< 25% of volume), allow jumping single-bin gaps
+    min_capture = total_volume * 0.25
+    if captured < min_capture:
+        # Try expanding left
+        probe = lo - 1
+        while probe >= 0 and captured < min_capture:
+            if counts[probe] > 0:
+                lo = probe
+                captured += int(counts[probe])
+                probe -= 1
+            elif probe > 0 and counts[probe - 1] > 0:
+                # Skip one empty bin
+                probe -= 1
+            else:
+                break
+        # Try expanding right
+        probe = hi + 1
+        while probe < len(counts) and captured < min_capture:
+            if counts[probe] > 0:
+                hi = probe
+                captured += int(counts[probe])
+                probe += 1
+            elif probe < len(counts) - 1 and counts[probe + 1] > 0:
+                # Skip one empty bin
+                probe += 1
+            else:
+                break
+
+    # Use actual min/max prices within the zone bins (not bin edges)
+    zone_mask = (prices >= edges[lo]) & (prices <= edges[hi + 1])
+    zone_prices = prices[zone_mask]
+    zone_low = float(np.min(zone_prices)) if len(zone_prices) > 0 else float(edges[lo])
+    zone_high = float(np.max(zone_prices)) if len(zone_prices) > 0 else float(edges[hi + 1])
+
+    return {
+        "zone_low": zone_low,
+        "zone_high": zone_high,
+        "poc": poc_price,
+        "volume_in_zone": captured,
+        "total_volume": total_volume,
+    }
+
+
+def calculate_buyer_seller_ranges(
+    sold_prices: np.ndarray,
+    sold_weights: np.ndarray,
+    active_prices: Optional[np.ndarray] = None,
+) -> Optional[Dict]:
+    """
+    Compute Buyer's Zone and Seller's Zone using volume profile analysis.
+
+    Inspired by the Price by Volume (PBV) indicator from stock trading:
+      - Buyer's Zone (support): the price region where the most sold
+        transaction volume concentrates. Computed from sold price histogram.
+      - Seller's Zone (resistance): the price region where the most active
+        listing volume concentrates. Computed from active listing histogram.
+
+    These zones use two independent data sources (sold = demand, active = supply).
+    Overlap emerges naturally when sellers price competitively near where buyers
+    transact. A gap means sellers are asking above where buyers buy.
+
+    Returns None if insufficient sold data (< 3 prices).
+    Seller's Zone will be None in the return dict if < 3 active listings.
+    """
+    if sold_prices is None or len(sold_prices) < 3:
+        return None
+
+    buyer_zone = find_value_area(sold_prices)
+    if buyer_zone is None:
+        return None
+
+    seller_zone = find_value_area(active_prices) if active_prices is not None and len(active_prices) >= 3 else None
+
+    logger.info(
+        f"Volume profile zones: "
+        f"buyer=${buyer_zone['zone_low']:.2f}-${buyer_zone['zone_high']:.2f} "
+        f"(POC=${buyer_zone['poc']:.2f}, {buyer_zone['volume_in_zone']}/{buyer_zone['total_volume']}), "
+        f"seller={'${:.2f}-${:.2f} (POC=${:.2f}, {}/{})'.format(seller_zone['zone_low'], seller_zone['zone_high'], seller_zone['poc'], seller_zone['volume_in_zone'], seller_zone['total_volume']) if seller_zone else 'N/A'}"
+    )
+
+    return {
+        "buyer_low": buyer_zone["zone_low"],
+        "buyer_high": buyer_zone["zone_high"],
+        "buyer_poc": buyer_zone["poc"],
+        "seller_low": seller_zone["zone_low"] if seller_zone else None,
+        "seller_high": seller_zone["zone_high"] if seller_zone else None,
+        "seller_poc": seller_zone["poc"] if seller_zone else None,
     }
 
 
@@ -830,6 +1044,7 @@ def calculate_fmv(items: List[object]) -> FMVResult:
     )
     result._filtered_prices = prices
     result._filtered_weights = weights
+    result._cluster_result = clusters  # None if no clusters detected
     return result
 
 
@@ -984,6 +1199,7 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
             )
 
     # --- Blend ---
+    supply = None  # Track supply state for downstream guardrails
     if blend_ask_center is None or blend_active_count == 0:
         market_value = bid_center
     else:
@@ -1097,13 +1313,15 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         # --- Active-floor guardrail ---
         # If active listings are abundant, their P10 is a better floor than
         # historical min sold. Apply at 90% of floor to avoid overcorrecting.
-        active_floor = get_active_market_floor(active_items)
-        if active_floor is not None:
-            adjusted_floor = active_floor * 0.90
-            if adjusted_floor > quick_sale:
-                logger.info(f"Active floor ${active_floor:.2f} (90%=${adjusted_floor:.2f}) "
-                            f"raising quick_sale from ${quick_sale:.2f}")
-                quick_sale = adjusted_floor
+        # Skip when sellers-dreaming fired — inflated asks are not a valid floor.
+        if supply != "sellers_dreaming":
+            active_floor = get_active_market_floor(active_items)
+            if active_floor is not None:
+                adjusted_floor = active_floor * 0.90
+                if adjusted_floor > quick_sale:
+                    logger.info(f"Active floor ${active_floor:.2f} (90%=${adjusted_floor:.2f}) "
+                                f"raising quick_sale from ${quick_sale:.2f}")
+                    quick_sale = adjusted_floor
 
         # Re-clamp after adjustments
         if quick_sale > patient_sale:
@@ -1118,6 +1336,23 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
 
     tier_data = get_price_tier(fmv=market_value, avg_listing_price=None)
 
+    # --- Buyer/Seller zones via volume profile ---
+    # Filter active prices by AI relevance (same 0.5 threshold as frontend)
+    # so the zone matches what the user sees in the listings table
+    RELEVANCE_THRESHOLD = 0.5
+    relevant_ask_prices = sorted(
+        i.total_price for i in (active_items or [])
+        if getattr(i, 'total_price', None) and i.total_price > 0
+        and (getattr(i, 'ai_relevance_score', None) is None
+             or i.ai_relevance_score >= RELEVANCE_THRESHOLD)
+    )
+    ask_prices_arr = np.array(relevant_ask_prices) if relevant_ask_prices else None
+    ranges = calculate_buyer_seller_ranges(
+        sold_prices=bid_result._filtered_prices,
+        sold_weights=bid_result._filtered_weights,
+        active_prices=ask_prices_arr,
+    )
+
     return FMVResult(
         fmv_low=None,
         fmv_high=None,
@@ -1129,6 +1364,12 @@ def calculate_fmv_blended(sold_items: List[object], active_items: Optional[List[
         volume_confidence=bid_result.volume_confidence,
         count=bid_result.count,
         price_tier=tier_data,
+        buyer_range_low=ranges["buyer_low"] if ranges else None,
+        buyer_range_high=ranges["buyer_high"] if ranges else None,
+        seller_range_low=ranges["seller_low"] if ranges else None,
+        seller_range_high=ranges["seller_high"] if ranges else None,
+        buyer_poc=ranges.get("buyer_poc") if ranges else None,
+        seller_poc=ranges.get("seller_poc") if ranges else None,
         analytics_scores={
             "confidence": confidence,
             "pressure": pressure,

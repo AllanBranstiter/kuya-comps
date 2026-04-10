@@ -10,6 +10,15 @@ let volumeProfileBins = null; // Store current number of bins for Volume Profile
 let beeswarmCrosshairX = null; // Store crosshair position for FMV beeswarm chart (persists)
 let volumeProfileCrosshairX = null; // Store crosshair position for Volume Profile chart (persists)
 
+// Chart zoom/pan state (per chart, independent)
+let chartZoomState = {
+  beeswarm: { scale: 1.0, panX: 0 },
+  mirrored: { scale: 1.0, panX: 0 },
+  kde:      { scale: 1.0, panX: 0 },
+};
+let zoomDragState = { isDragging: false, startX: 0, startPanX: 0, chartKey: null };
+let pinchState = { startDist: 0, startScale: 1.0, chartKey: null };
+
 // PERFORMANCE FIX: Guard flags to prevent infinite redraw loops
 let isRedrawingBeeswarm = false;
 let isRedrawingVolumeProfile = false;
@@ -82,6 +91,12 @@ if (isIOS) {
 let expectLowGlobal = null;
 let expectHighGlobal = null;
 let marketValueGlobal = null;
+let buyerRangeLowGlobal = null;
+let buyerRangeHighGlobal = null;
+let sellerRangeLowGlobal = null;
+let sellerRangeHighGlobal = null;
+let buyerPocGlobal = null;
+let sellerPocGlobal = null;
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -1223,9 +1238,12 @@ async function renderData(data, secondData = null, marketValue = null) {
     currentBeeswarmPrices = prices;
     currentBeeswarmActivePrices = activePrices;
 
-    // Compute shared axis range for both charts
+    // Compute shared axis range for both charts — includes zone boundaries
+    // so buyer/seller zones are always fully visible
     const filteredForAxis = filterOutliers(prices.filter(p => p != null && !isNaN(p) && p > 0).map(Number));
-    const fmvVals = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const fmvVals = [expectLowGlobal, expectHighGlobal, marketValueGlobal,
+                     buyerRangeLowGlobal, buyerRangeHighGlobal,
+                     sellerRangeLowGlobal, sellerRangeHighGlobal].filter(v => v != null && !isNaN(v));
     if (filteredForAxis.length > 0) {
       const dMin = Math.min(Math.min(...filteredForAxis), ...fmvVals);
       const dMax = Math.max(Math.max(...filteredForAxis), ...fmvVals);
@@ -1437,8 +1455,15 @@ function clearSearch() {
     expectLowGlobal = null;
     expectHighGlobal = null;
     marketValueGlobal = null;
+    buyerRangeLowGlobal = null;
+    buyerRangeHighGlobal = null;
+    sellerRangeLowGlobal = null;
+    sellerRangeHighGlobal = null;
+    buyerPocGlobal = null;
+    sellerPocGlobal = null;
     window.backendAnalyticsScores = null;
     currentBeeswarmPrices = [];
+    resetAllChartZoom();
     
     // Clear crosshair positions
     beeswarmCrosshairX = null;
@@ -1683,7 +1708,7 @@ function getSearchQueryWithExclusions(baseQuery) {
 
             // Additional variant/parallel exclusions
             '-foil', '-shimmer', '-lava', '-wave', '-raywave', '-speckle', '-mojo',
-            '-sapphire', '-ice', '-cracked', '-checker', '-optic', '-paper',
+            '-ice', '-cracked', '-checker', '-optic', '-paper',
             '-sepia', '-"negative refractor"',
 
             // Additional color exclusions
@@ -3151,6 +3176,10 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                 patient_sale: patientSale,
                 fmv_low: fmvData?.fmv_low ?? null,
                 fmv_high: fmvData?.fmv_high ?? null,
+                buyer_range_low: buyerRangeLowGlobal,
+                buyer_range_high: buyerRangeHighGlobal,
+                seller_range_low: sellerRangeLowGlobal,
+                seller_range_high: sellerRangeHighGlobal,
                 median_asking_price: medianAsking,
                 below_fmv_active_count: belowFMV,
                 at_fmv_active_count: atFMV,
@@ -3275,9 +3304,7 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                         ${collectibilityTier.label}
                     </div>
                     <div style="font-size: 0.7rem; color: #999; line-height: 1.3; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
-                        ${collectibilityScenario}<br>
-                        <strong>Sold:</strong> ${soldCount} comps | <strong>FMV:</strong> $${marketValue.toFixed(0)}
-                        ${playerScore != null ? `<br><strong>Player Score:</strong> ${playerScore}/5` : ''}
+                        ${collectibilityScenario}
                         ${playerComponents ? (() => {
                             const pills = [];
                             const factors = [
@@ -3345,15 +3372,27 @@ async function renderAnalysisDashboard(data, fmvData, activeData) {
                     <!-- Recent Sales side -->
                     <div style="background: rgba(0, 122, 255, 0.05); padding: 1.25rem; border-radius: 10px; border: 1px solid rgba(0, 122, 255, 0.2);">
                         <div style="font-size: 0.75rem; font-weight: 600; color: #007aff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Recent Sales — What cards have sold for</div>
+                        ${buyerRangeLowGlobal != null ? `
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">
+                            <span>Buyer's Zone</span><span style="font-weight: 500; color: var(--text-color);">${formatMoney(buyerRangeLowGlobal)} – ${formatMoney(buyerRangeHighGlobal)}</span>
+                        </div>
+                        ` : `
                         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-bottom: 0.4rem;">
                             <span>Discount</span><span style="font-weight: 500; color: var(--text-color);">${formatMoney(quickSale)}</span>
                         </div>
+                        `}
                         <div style="display: flex; justify-content: space-between; font-size: 1rem; color: #007aff; font-weight: 700; margin-bottom: 0.4rem;">
                             <span>Market Value</span><span>${formatMoney(marketValue)}</span>
                         </div>
+                        ${sellerRangeLowGlobal != null ? `
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666;">
+                            <span>Seller's Zone</span><span style="font-weight: 500; color: var(--text-color);">${formatMoney(sellerRangeLowGlobal)} – ${formatMoney(sellerRangeHighGlobal)}</span>
+                        </div>
+                        ` : `
                         <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #666;">
                             <span>Premium</span><span style="font-weight: 500; color: var(--text-color);">${formatMoney(patientSale)}</span>
                         </div>
+                        `}
                         <div style="font-size: 0.7rem; color: #999; margin-top: 0.75rem; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.08);">
                             Based on ${soldCount} sold comp${soldCount !== 1 ? 's' : ''}
                         </div>
@@ -3938,6 +3977,12 @@ async function updateFmv(data, activeData = null) {
     expectLowGlobal = fmvData.expected_low;
     expectHighGlobal = fmvData.expected_high;
     marketValueGlobal = fmvData.market_value || fmvData.expected_high;
+    buyerRangeLowGlobal = fmvData.buyer_range_low ?? null;
+    buyerRangeHighGlobal = fmvData.buyer_range_high ?? null;
+    sellerRangeLowGlobal = fmvData.seller_range_low ?? null;
+    sellerRangeHighGlobal = fmvData.seller_range_high ?? null;
+    buyerPocGlobal = fmvData.buyer_poc ?? null;
+    sellerPocGlobal = fmvData.seller_poc ?? null;
 
     // Store backend analytics scores for analysis dashboard
     window.backendAnalyticsScores = fmvData.analytics_scores || null;
@@ -3960,6 +4005,12 @@ async function updateFmv(data, activeData = null) {
     window.expectLowGlobal = fmvData.expected_low;
     window.expectHighGlobal = fmvData.expected_high;
     window.marketValueGlobal = fmvData.market_value || fmvData.expected_high;
+    window.buyerRangeLowGlobal = buyerRangeLowGlobal;
+    window.buyerRangeHighGlobal = buyerRangeHighGlobal;
+    window.sellerRangeLowGlobal = sellerRangeLowGlobal;
+    window.sellerRangeHighGlobal = sellerRangeHighGlobal;
+    window.buyerPocGlobal = buyerPocGlobal;
+    window.sellerPocGlobal = sellerPocGlobal;
 
     const listPrice = toNinetyNine(fmvData.expected_high);
 
@@ -3993,18 +4044,32 @@ async function updateFmv(data, activeData = null) {
           FMV estimates work best when there are plenty of recent sales to sample and your search terms are tight and accurate.
         </p>
         <div class="stat-grid">
+          ${buyerRangeLowGlobal != null ? `
+          <div class="stat-item">
+            <div class="stat-label">🛒 Buyer's Zone</div>
+            <div class="stat-value">${formatMoney(buyerRangeLowGlobal)} – ${formatMoney(buyerRangeHighGlobal)}</div>
+          </div>
+          ` : `
           <div class="stat-item">
             <div class="stat-label">💰 Discount</div>
             <div class="stat-value">${formatMoney(quickSale)}</div>
           </div>
+          `}
           <div class="stat-item">
             <div class="stat-label">⚖️ Market Value</div>
             <div class="stat-value">${formatMoney(marketValue)}</div>
           </div>
+          ${sellerRangeLowGlobal != null ? `
+          <div class="stat-item">
+            <div class="stat-label">🏷️ Seller's Zone</div>
+            <div class="stat-value">${formatMoney(sellerRangeLowGlobal)} – ${formatMoney(sellerRangeHighGlobal)}</div>
+          </div>
+          ` : `
           <div class="stat-item">
             <div class="stat-label">⭐ Premium</div>
             <div class="stat-value">${formatMoney(patientSale)}</div>
           </div>
+          `}
         </div>
         <p style="font-size: 0.8rem; text-align: center; color: var(--subtle-text-color); margin-top: 1.5rem;">
           Based on ${fmvData.count} recent sales
@@ -4155,6 +4220,128 @@ function calculateWeightedMedian(prices) {
     return uniquePrices[uniquePrices.length - 1];
 }
 
+// ============================================================================
+// CHART ZOOM/PAN INFRASTRUCTURE
+// ============================================================================
+
+function resetAllChartZoom() {
+  chartZoomState.beeswarm = { scale: 1.0, panX: 0 };
+  chartZoomState.mirrored = { scale: 1.0, panX: 0 };
+  chartZoomState.kde = { scale: 1.0, panX: 0 };
+}
+
+function makeZoomedXScale(baseXScale, zoom, marginLeft) {
+  return (price) => {
+    const base = baseXScale(price);
+    return (base - marginLeft) * zoom.scale + marginLeft + zoom.panX;
+  };
+}
+
+function drawZoomIndicator(ctx, zoom, width) {
+  if (zoom.scale <= 1.01) return;
+  ctx.save();
+  const label = `${zoom.scale.toFixed(1)}x — double-click to reset`;
+  ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+  const tw = ctx.measureText(label).width;
+  const px = width - tw - 16;
+  const py = 10;
+  ctx.fillStyle = "rgba(0,0,0,0.06)";
+  ctx.beginPath();
+  ctx.roundRect(px - 6, py - 2, tw + 12, 18, 6);
+  ctx.fill();
+  ctx.fillStyle = "#666";
+  ctx.textAlign = "left";
+  ctx.fillText(label, px, py + 12);
+  ctx.restore();
+}
+
+function getTouchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function attachZoomHandlers(canvas, chartKey, redrawFn) {
+  if (canvas._zoomAttached) return;
+  canvas._zoomAttached = true;
+
+  // Mouse wheel zoom — zooms toward cursor position
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const zoom = chartZoomState[chartKey];
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = Math.max(1.0, Math.min(10.0, zoom.scale * delta));
+    const mouseX = e.offsetX;
+    const mLeft = parseFloat(canvas.dataset.marginLeft) || 40;
+    // Keep the price under the cursor fixed: solve for new panX
+    const relMouse = mouseX - mLeft;
+    zoom.panX = relMouse - (relMouse - zoom.panX) * (newScale / zoom.scale);
+    zoom.scale = newScale;
+    if (zoom.scale <= 1.01) { zoom.scale = 1.0; zoom.panX = 0; }
+    redrawFn();
+  }, { passive: false });
+
+  // Double-click to reset
+  canvas.addEventListener('dblclick', () => {
+    chartZoomState[chartKey] = { scale: 1.0, panX: 0 };
+    redrawFn();
+  });
+
+  // Drag to pan (mouse)
+  canvas.addEventListener('mousedown', (e) => {
+    const zoom = chartZoomState[chartKey];
+    if (zoom.scale > 1.01) {
+      zoomDragState = { isDragging: true, startX: e.clientX, startPanX: zoom.panX, chartKey };
+      canvas.style.cursor = 'grabbing';
+      e.preventDefault();
+    }
+  });
+
+  // Pinch to zoom (touch)
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      pinchState = { startDist: getTouchDist(e.touches), startScale: chartZoomState[chartKey].scale, chartKey };
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && pinchState.chartKey === chartKey) {
+      e.preventDefault();
+      const dist = getTouchDist(e.touches);
+      const zoom = chartZoomState[chartKey];
+      zoom.scale = Math.max(1.0, Math.min(10.0, pinchState.startScale * (dist / pinchState.startDist)));
+      if (zoom.scale <= 1.01) { zoom.scale = 1.0; zoom.panX = 0; }
+      redrawFn();
+    }
+  }, { passive: false });
+}
+
+// Global mousemove/mouseup for drag-to-pan (needs to work outside canvas)
+document.addEventListener('mousemove', (e) => {
+  if (!zoomDragState.isDragging) return;
+  const zoom = chartZoomState[zoomDragState.chartKey];
+  zoom.panX = zoomDragState.startPanX + (e.clientX - zoomDragState.startX);
+  // Redraw the appropriate chart
+  if (zoomDragState.chartKey === 'beeswarm' && currentBeeswarmPrices.length > 0) {
+    drawBeeswarmInternal(currentBeeswarmPrices, currentBeeswarmActivePrices);
+  } else if (zoomDragState.chartKey === 'mirrored' && currentBeeswarmPrices.length > 0) {
+    drawMirroredStrip(currentBeeswarmPrices, currentBeeswarmActivePrices);
+  } else if (zoomDragState.chartKey === 'kde' && currentBeeswarmPrices.length > 0) {
+    drawKDEChart(currentBeeswarmPrices, currentBeeswarmActivePrices);
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  if (zoomDragState.isDragging) {
+    const key = zoomDragState.chartKey;
+    zoomDragState.isDragging = false;
+    const canvasId = key === 'beeswarm' ? 'beeswarmCanvas' : key === 'mirrored' ? 'mirroredStripCanvas' : 'kdeCanvas';
+    const canvas = document.getElementById(canvasId);
+    if (canvas) canvas.style.cursor = chartZoomState[key].scale > 1.01 ? 'grab' : 'crosshair';
+  }
+});
+
+
 /**
  * Internal drawing function - does the actual rendering without guards
  */
@@ -4212,9 +4399,9 @@ function drawBeeswarmInternal(prices, activePrices = []) {
   const maxPrice = Math.max(...filteredPrices);
   const outliersRemoved = validPrices.length - filteredPrices.length;
 
-  // Expand axis to include FMV markers — active prices do NOT expand the axis
-  // (active outliers/dreamers would distort the scale; they're clipped instead)
-  const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+  // Expand axis to include FMV markers and zone boundaries
+  // (zone boundaries are already outlier-filtered by find_value_area)
+  const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal, buyerRangeLowGlobal, buyerRangeHighGlobal, sellerRangeLowGlobal, sellerRangeHighGlobal].filter(v => v != null && !isNaN(v));
   const dataMin = Math.min(minPrice, ...fmvValues);
   const dataMax = Math.max(maxPrice, ...fmvValues);
 
@@ -4229,75 +4416,117 @@ function drawBeeswarmInternal(prices, activePrices = []) {
   // Handle case where all prices are the same
   const priceRange = axisMax - axisMin;
 
-  const xScale = (price) => {
+  const baseXScale = (price) => {
     if (priceRange === 0) {
-      return width / 2; // Center all points if all prices are the same
+      return width / 2;
     }
     return margin.left + ((price - axisMin) / priceRange) * innerWidth;
   };
+  const zoom = chartZoomState.beeswarm;
+  const xScale = makeZoomedXScale(baseXScale, zoom, margin.left);
 
-  // --- Draw Premium FMV Band ---
-  console.log('FMV values:', expectLowGlobal, expectHighGlobal, 'Price range:', priceRange);
-  if (expectLowGlobal !== null && expectHighGlobal !== null && priceRange > 0) {
+  // Clip drawing region when zoomed
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(margin.left, 0, innerWidth, height);
+  ctx.clip();
+
+  // --- Draw Range Bands (Buyer/Seller or legacy FMV) ---
+  console.log('[BEESWARM] Range globals:', buyerRangeLowGlobal, buyerRangeHighGlobal, sellerRangeLowGlobal, sellerRangeHighGlobal);
+  if (buyerRangeLowGlobal !== null && sellerRangeHighGlobal !== null && priceRange > 0) {
+    console.log('[BEESWARM] Drawing BUYER/SELLER range bands');
+    // --- Buyer's Range Band (blue) ---
+    const bx1 = xScale(buyerRangeLowGlobal);
+    const bx2 = xScale(buyerRangeHighGlobal);
+    const buyerGrad = ctx.createLinearGradient(bx1, margin.top, bx2, height - margin.bottom);
+    buyerGrad.addColorStop(0, 'rgba(0, 122, 255, 0.18)');
+    buyerGrad.addColorStop(1, 'rgba(0, 122, 255, 0.08)');
+    ctx.fillStyle = buyerGrad;
+    ctx.fillRect(bx1, margin.top, bx2 - bx1, innerHeight);
+
+    ctx.strokeStyle = 'rgba(0, 122, 255, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(bx1, margin.top); ctx.lineTo(bx1, height - margin.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx2, margin.top); ctx.lineTo(bx2, height - margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(0, 122, 255, 0.9)';
+    ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.fillText(formatMoney(buyerRangeLowGlobal), bx1, margin.top - 8);
+    ctx.fillText(formatMoney(buyerRangeHighGlobal), bx2, margin.top - 8);
+
+    // --- Seller's Range Band (red/orange) ---
+    const sx1 = xScale(sellerRangeLowGlobal);
+    const sx2 = xScale(sellerRangeHighGlobal);
+    const sellerGrad = ctx.createLinearGradient(sx1, margin.top, sx2, height - margin.bottom);
+    sellerGrad.addColorStop(0, 'rgba(255, 69, 58, 0.18)');
+    sellerGrad.addColorStop(1, 'rgba(255, 69, 58, 0.08)');
+    ctx.fillStyle = sellerGrad;
+    ctx.fillRect(sx1, margin.top, sx2 - sx1, innerHeight);
+
+    ctx.strokeStyle = 'rgba(255, 69, 58, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(sx1, margin.top); ctx.lineTo(sx1, height - margin.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx2, margin.top); ctx.lineTo(sx2, height - margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(255, 69, 58, 0.9)';
+    ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.fillText(formatMoney(sellerRangeLowGlobal), sx1, margin.top - 8);
+    ctx.fillText(formatMoney(sellerRangeHighGlobal), sx2, margin.top - 8);
+  } else if (expectLowGlobal !== null && expectHighGlobal !== null && priceRange > 0) {
+    // Legacy green FMV band fallback
     const x1 = xScale(expectLowGlobal);
     const x2 = xScale(expectHighGlobal);
-    
-    // Create modern gradient for FMV band
+
     const gradient = ctx.createLinearGradient(x1, margin.top, x2, height - margin.bottom);
     gradient.addColorStop(0, 'rgba(52, 199, 89, 0.2)');
     gradient.addColorStop(0.5, 'rgba(48, 209, 88, 0.15)');
     gradient.addColorStop(1, 'rgba(52, 199, 89, 0.1)');
-    
-    // Draw gradient background band with subtle shadow
+
     ctx.shadowColor = 'rgba(52, 199, 89, 0.3)';
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 2;
     ctx.fillStyle = gradient;
     ctx.fillRect(x1, margin.top, x2 - x1, innerHeight);
-    
-    // Reset shadow
+
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
-    
-    // Draw modern FMV range border lines with gradient
+
     const lineGradient = ctx.createLinearGradient(0, margin.top, 0, height - margin.bottom);
     lineGradient.addColorStop(0, 'rgba(0, 122, 255, 0.8)');
     lineGradient.addColorStop(0.5, 'rgba(52, 199, 89, 0.9)');
     lineGradient.addColorStop(1, 'rgba(0, 122, 255, 0.6)');
-    
+
     ctx.strokeStyle = lineGradient;
     ctx.lineWidth = 3;
     ctx.setLineDash([8, 4]);
-    
-    // FMV Low line with glow effect
+
     ctx.shadowColor = 'rgba(0, 122, 255, 0.5)';
     ctx.shadowBlur = 6;
     ctx.beginPath();
     ctx.moveTo(x1, margin.top);
     ctx.lineTo(x1, height - margin.bottom);
     ctx.stroke();
-    
-    // FMV High line with glow effect
+
     ctx.beginPath();
     ctx.moveTo(x2, margin.top);
     ctx.lineTo(x2, height - margin.bottom);
     ctx.stroke();
-    
-    // Reset effects
+
     ctx.setLineDash([]);
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
-    
-    // Add FMV dollar value labels (above the bars) with solid text
+
     ctx.fillStyle = "#34c759";
     ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = "center";
-    
-    // FMV Low dollar value label (above bar)
     ctx.fillText(formatMoney(expectLowGlobal), x1, margin.top - 8);
-    
-    // FMV High dollar value label (above bar)
     ctx.fillText(formatMoney(expectHighGlobal), x2, margin.top - 8);
   }
 
@@ -4409,7 +4638,7 @@ function drawBeeswarmInternal(prices, activePrices = []) {
     ctx.fillText("(All prices identical)", width / 2, height - margin.bottom + 35);
   }
   
-  // Draw legend at bottom (centered) — Sold | Active | FMV Range
+  // Draw legend at bottom (centered) — Sold | Active | Range bands
   const legendY = height - 15;
   ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
   const dotR = 6;
@@ -4419,8 +4648,13 @@ function drawBeeswarmInternal(prices, activePrices = []) {
   const items = [
     { label: "Sold Listings",   color: "rgba(0, 122, 255, 0.7)",  stroke: "rgba(0, 122, 255, 0.9)",  type: "dot" },
     { label: "Active Listings", color: "rgba(255, 59, 48, 0.6)",  stroke: "rgba(255, 59, 48, 0.85)", type: "dot" },
-    { label: "FMV Range",       color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)",  type: "rect" },
   ];
+  if (buyerRangeLowGlobal !== null && sellerRangeHighGlobal !== null) {
+    items.push({ label: "Buyer's Zone",  color: "rgba(0, 122, 255, 0.18)",  stroke: "rgba(0, 122, 255, 0.6)", type: "rect" });
+    items.push({ label: "Seller's Zone", color: "rgba(255, 69, 58, 0.18)",  stroke: "rgba(255, 69, 58, 0.6)", type: "rect" });
+  } else if (expectLowGlobal !== null && expectHighGlobal !== null) {
+    items.push({ label: "FMV Range", color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)", type: "rect" });
+  }
 
   // Measure total width
   const itemWidths = items.map(item => {
@@ -4452,18 +4686,33 @@ function drawBeeswarmInternal(prices, activePrices = []) {
     ctx.fillText(item.label, lx + iconW + spacing, legendY - 3);
     lx += itemWidths[i] + itemGap;
   });
-  
+
+  // Restore clip region
+  ctx.restore();
+
+  // Draw zoom indicator (outside clip)
+  drawZoomIndicator(ctx, zoom, width);
+
   // Store chart metadata for interactive crosshair
   canvas.dataset.minPrice = minPrice;
   canvas.dataset.maxPrice = maxPrice;
+  canvas.dataset.axisMin = axisMin;
+  canvas.dataset.axisMax = axisMax;
   canvas.dataset.marginLeft = margin.left;
   canvas.dataset.marginRight = margin.right;
   canvas.dataset.marginTop = margin.top;
   canvas.dataset.marginBottom = margin.bottom;
   canvas.dataset.innerWidth = innerWidth;
-  
+  canvas.dataset.zoomScale = zoom.scale;
+  canvas.dataset.zoomPanX = zoom.panX;
+
   // Make canvas interactive
-  canvas.style.cursor = 'crosshair';
+  canvas.style.cursor = zoom.scale > 1.01 ? 'grab' : 'crosshair';
+
+  // Attach zoom handlers
+  attachZoomHandlers(canvas, 'beeswarm', () => {
+    drawBeeswarmInternal(currentBeeswarmPrices, currentBeeswarmActivePrices);
+  });
   
   // PERFORMANCE FIX: Only attach event listeners once to prevent accumulation
   if (!beeswarmListenersAttached) {
@@ -4577,7 +4826,7 @@ function drawMirroredStrip(prices, activePrices) {
 
   // Axis range — use shared range if available
   const axisMin = sharedChartAxisMin != null ? sharedChartAxisMin : (() => {
-    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal, buyerRangeLowGlobal, buyerRangeHighGlobal, sellerRangeLowGlobal, sellerRangeHighGlobal].filter(v => v != null && !isNaN(v));
     const dMin = Math.min(Math.min(...filteredPrices), ...fmvValues);
     const dMax = Math.max(Math.max(...filteredPrices), ...fmvValues);
     const dMid = (dMin + dMax) / 2; const hSpan = (dMax - dMin) / 2;
@@ -4585,7 +4834,7 @@ function drawMirroredStrip(prices, activePrices) {
     return dMid - hSpan - dPad;
   })();
   const axisMax = sharedChartAxisMax != null ? sharedChartAxisMax : (() => {
-    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal, buyerRangeLowGlobal, buyerRangeHighGlobal, sellerRangeLowGlobal, sellerRangeHighGlobal].filter(v => v != null && !isNaN(v));
     const dMin = Math.min(Math.min(...filteredPrices), ...fmvValues);
     const dMax = Math.max(Math.max(...filteredPrices), ...fmvValues);
     const dMid = (dMin + dMax) / 2; const hSpan = (dMax - dMin) / 2;
@@ -4594,8 +4843,16 @@ function drawMirroredStrip(prices, activePrices) {
   })();
   const priceRange = axisMax - axisMin;
 
-  const xScale = (price) => priceRange === 0 ? width / 2 : margin.left + ((price - axisMin) / priceRange) * innerWidth;
+  const baseXScale = (price) => priceRange === 0 ? width / 2 : margin.left + ((price - axisMin) / priceRange) * innerWidth;
+  const zoom = chartZoomState.mirrored;
+  const xScale = makeZoomedXScale(baseXScale, zoom, margin.left);
   const centerY = margin.top + innerHeight / 2;
+
+  // Clip drawing region when zoomed
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(margin.left, 0, innerWidth, height);
+  ctx.clip();
 
   // Center axis line
   ctx.strokeStyle = "#d2d2d7";
@@ -4605,8 +4862,48 @@ function drawMirroredStrip(prices, activePrices) {
   ctx.lineTo(width - margin.right, centerY);
   ctx.stroke();
 
-  // FMV band
-  if (expectLowGlobal !== null && expectHighGlobal !== null && priceRange > 0) {
+  // Range bands — Buyer/Seller if available, else legacy FMV band
+  if (buyerRangeLowGlobal !== null && sellerRangeHighGlobal !== null && priceRange > 0) {
+    // Buyer's Range (blue)
+    const bx1 = xScale(buyerRangeLowGlobal);
+    const bx2 = xScale(buyerRangeHighGlobal);
+    const buyerGrad = ctx.createLinearGradient(bx1, margin.top, bx2, height - margin.bottom);
+    buyerGrad.addColorStop(0, 'rgba(0, 122, 255, 0.18)');
+    buyerGrad.addColorStop(1, 'rgba(0, 122, 255, 0.08)');
+    ctx.fillStyle = buyerGrad;
+    ctx.fillRect(bx1, margin.top, bx2 - bx1, innerHeight);
+    ctx.strokeStyle = 'rgba(0, 122, 255, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(bx1, margin.top); ctx.lineTo(bx1, height - margin.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx2, margin.top); ctx.lineTo(bx2, height - margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0, 122, 255, 0.9)';
+    ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.fillText(formatMoney(buyerRangeLowGlobal), bx1, margin.top - 8);
+    ctx.fillText(formatMoney(buyerRangeHighGlobal), bx2, margin.top - 8);
+
+    // Seller's Range (red)
+    const sx1 = xScale(sellerRangeLowGlobal);
+    const sx2 = xScale(sellerRangeHighGlobal);
+    const sellerGrad = ctx.createLinearGradient(sx1, margin.top, sx2, height - margin.bottom);
+    sellerGrad.addColorStop(0, 'rgba(255, 69, 58, 0.18)');
+    sellerGrad.addColorStop(1, 'rgba(255, 69, 58, 0.08)');
+    ctx.fillStyle = sellerGrad;
+    ctx.fillRect(sx1, margin.top, sx2 - sx1, innerHeight);
+    ctx.strokeStyle = 'rgba(255, 69, 58, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(sx1, margin.top); ctx.lineTo(sx1, height - margin.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx2, margin.top); ctx.lineTo(sx2, height - margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255, 69, 58, 0.9)';
+    ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
+    ctx.textAlign = "center";
+    ctx.fillText(formatMoney(sellerRangeLowGlobal), sx1, height - margin.bottom + 14);
+    ctx.fillText(formatMoney(sellerRangeHighGlobal), sx2, height - margin.bottom + 14);
+  } else if (expectLowGlobal !== null && expectHighGlobal !== null && priceRange > 0) {
     const x1 = xScale(expectLowGlobal);
     const x2 = xScale(expectHighGlobal);
     const gradient = ctx.createLinearGradient(x1, margin.top, x2, height - margin.bottom);
@@ -4690,8 +4987,13 @@ function drawMirroredStrip(prices, activePrices) {
   const items = [
     { label: "Sold Listings", color: "rgba(0, 122, 255, 0.7)", stroke: "rgba(0, 122, 255, 0.9)" },
     { label: "Active Listings", color: "rgba(255, 59, 48, 0.6)", stroke: "rgba(255, 59, 48, 0.85)" },
-    { label: "FMV Range", color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)", type: "rect" },
   ];
+  if (buyerRangeLowGlobal !== null && sellerRangeHighGlobal !== null) {
+    items.push({ label: "Buyer's Range", color: "rgba(0, 122, 255, 0.18)", stroke: "rgba(0, 122, 255, 0.6)", type: "rect" });
+    items.push({ label: "Seller's Range", color: "rgba(255, 69, 58, 0.18)", stroke: "rgba(255, 69, 58, 0.6)", type: "rect" });
+  } else if (expectLowGlobal !== null && expectHighGlobal !== null) {
+    items.push({ label: "FMV Range", color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)", type: "rect" });
+  }
   const dotLR = 6; const spacing = 6; const itemGap = 24;
   const itemWidths = items.map(item => { const iconW = item.type === "rect" ? 20 : dotLR * 2; return iconW + spacing + ctx.measureText(item.label).width; });
   const totalW = itemWidths.reduce((a, b) => a + b, 0) + itemGap * (items.length - 1);
@@ -4710,6 +5012,12 @@ function drawMirroredStrip(prices, activePrices) {
     lx += itemWidths[i] + itemGap;
   });
 
+  // Restore clip region
+  ctx.restore();
+
+  // Draw zoom indicator (outside clip)
+  drawZoomIndicator(ctx, zoom, width);
+
   // Store axis metadata for crosshair
   canvas.dataset.axisMin = axisMin;
   canvas.dataset.axisMax = axisMax;
@@ -4718,7 +5026,14 @@ function drawMirroredStrip(prices, activePrices) {
   canvas.dataset.marginTop = margin.top;
   canvas.dataset.marginBottom = margin.bottom;
   canvas.dataset.innerWidth = innerWidth;
-  canvas.style.cursor = 'crosshair';
+  canvas.dataset.zoomScale = zoom.scale;
+  canvas.dataset.zoomPanX = zoom.panX;
+  canvas.style.cursor = zoom.scale > 1.01 ? 'grab' : 'crosshair';
+
+  // Attach zoom handlers
+  attachZoomHandlers(canvas, 'mirrored', () => {
+    drawMirroredStrip(currentBeeswarmPrices, currentBeeswarmActivePrices);
+  });
 
   if (!canvas._crosshairAttached) {
     canvas.addEventListener('click', function(e) {
@@ -4776,7 +5091,7 @@ function drawKDEChart(prices, activePrices) {
 
   // Axis range — use shared range from mirrored strip
   const axisMin = sharedChartAxisMin != null ? sharedChartAxisMin : (() => {
-    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal, buyerRangeLowGlobal, buyerRangeHighGlobal, sellerRangeLowGlobal, sellerRangeHighGlobal].filter(v => v != null && !isNaN(v));
     const dMin = Math.min(Math.min(...filteredPrices), ...fmvValues);
     const dMax = Math.max(Math.max(...filteredPrices), ...fmvValues);
     const dMid = (dMin + dMax) / 2; const hSpan = (dMax - dMin) / 2;
@@ -4784,7 +5099,7 @@ function drawKDEChart(prices, activePrices) {
     return dMid - hSpan - dPad;
   })();
   const axisMax = sharedChartAxisMax != null ? sharedChartAxisMax : (() => {
-    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal].filter(v => v != null && !isNaN(v));
+    const fmvValues = [expectLowGlobal, expectHighGlobal, marketValueGlobal, buyerRangeLowGlobal, buyerRangeHighGlobal, sellerRangeLowGlobal, sellerRangeHighGlobal].filter(v => v != null && !isNaN(v));
     const dMin = Math.min(Math.min(...filteredPrices), ...fmvValues);
     const dMax = Math.max(Math.max(...filteredPrices), ...fmvValues);
     const dMid = (dMin + dMax) / 2; const hSpan = (dMax - dMin) / 2;
@@ -4792,7 +5107,15 @@ function drawKDEChart(prices, activePrices) {
     return dMid + hSpan + dPad;
   })();
 
-  const xScale = (v) => margin.left + ((v - axisMin) / (axisMax - axisMin)) * innerWidth;
+  const baseXScale = (v) => margin.left + ((v - axisMin) / (axisMax - axisMin)) * innerWidth;
+  const zoom = chartZoomState.kde;
+  const xScale = makeZoomedXScale(baseXScale, zoom, margin.left);
+
+  // Clip drawing region when zoomed
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(margin.left, 0, innerWidth, height);
+  ctx.clip();
 
   const silverman = (data) => {
     const n = data.length;
@@ -4825,8 +5148,30 @@ function drawKDEChart(prices, activePrices) {
   // Cap curves to 60% of plot height so neither dominates
   const yScale = (v) => height - margin.bottom - (v / maxDensity) * innerHeight * 0.6;
 
-  // FMV band
-  if (expectLowGlobal !== null && expectHighGlobal !== null) {
+  // Range bands — Buyer/Seller if available, else legacy FMV band
+  if (buyerRangeLowGlobal !== null && sellerRangeHighGlobal !== null) {
+    const bx1 = xScale(buyerRangeLowGlobal);
+    const bx2 = xScale(buyerRangeHighGlobal);
+    ctx.fillStyle = 'rgba(0, 122, 255, 0.1)';
+    ctx.fillRect(bx1, margin.top, bx2 - bx1, innerHeight);
+    ctx.strokeStyle = 'rgba(0, 122, 255, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(bx1, margin.top); ctx.lineTo(bx1, height - margin.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx2, margin.top); ctx.lineTo(bx2, height - margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+
+    const sx1 = xScale(sellerRangeLowGlobal);
+    const sx2 = xScale(sellerRangeHighGlobal);
+    ctx.fillStyle = 'rgba(255, 69, 58, 0.1)';
+    ctx.fillRect(sx1, margin.top, sx2 - sx1, innerHeight);
+    ctx.strokeStyle = 'rgba(255, 69, 58, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(sx1, margin.top); ctx.lineTo(sx1, height - margin.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx2, margin.top); ctx.lineTo(sx2, height - margin.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (expectLowGlobal !== null && expectHighGlobal !== null) {
     const x1 = xScale(expectLowGlobal);
     const x2 = xScale(expectHighGlobal);
     ctx.fillStyle = 'rgba(52, 199, 89, 0.1)';
@@ -4912,8 +5257,13 @@ function drawKDEChart(prices, activePrices) {
   const lgItems = [
     { label: "Sold", color: "rgba(0, 122, 255, 0.25)", stroke: "rgba(0, 122, 255, 0.8)" },
     { label: "Active", color: "rgba(255, 59, 48, 0.2)", stroke: "rgba(255, 59, 48, 0.8)" },
-    { label: "FMV Range", color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)" },
   ];
+  if (buyerRangeLowGlobal !== null && sellerRangeHighGlobal !== null) {
+    lgItems.push({ label: "Buyer's Zone", color: "rgba(0, 122, 255, 0.18)", stroke: "rgba(0, 122, 255, 0.6)" });
+    lgItems.push({ label: "Seller's Zone", color: "rgba(255, 69, 58, 0.18)", stroke: "rgba(255, 69, 58, 0.6)" });
+  } else if (expectLowGlobal !== null && expectHighGlobal !== null) {
+    lgItems.push({ label: "FMV Range", color: "rgba(52, 199, 89, 0.35)", stroke: "rgba(52, 199, 89, 0.8)" });
+  }
   const lgWidths = lgItems.map(item => 20 + 6 + ctx.measureText(item.label).width);
   const lgTotal = lgWidths.reduce((a, b) => a + b, 0) + 24;
   let lgx = (width - lgTotal) / 2;
@@ -4925,6 +5275,12 @@ function drawKDEChart(prices, activePrices) {
     lgx += lgWidths[i] + 24;
   });
 
+  // Restore clip region
+  ctx.restore();
+
+  // Draw zoom indicator (outside clip)
+  drawZoomIndicator(ctx, zoom, width);
+
   // Store axis metadata for crosshair
   canvas.dataset.axisMin = axisMin;
   canvas.dataset.axisMax = axisMax;
@@ -4933,7 +5289,14 @@ function drawKDEChart(prices, activePrices) {
   canvas.dataset.marginTop = margin.top;
   canvas.dataset.marginBottom = margin.bottom;
   canvas.dataset.innerWidth = innerWidth;
-  canvas.style.cursor = 'crosshair';
+  canvas.dataset.zoomScale = zoom.scale;
+  canvas.dataset.zoomPanX = zoom.panX;
+  canvas.style.cursor = zoom.scale > 1.01 ? 'grab' : 'crosshair';
+
+  // Attach zoom handlers
+  attachZoomHandlers(canvas, 'kde', () => {
+    drawKDEChart(currentBeeswarmPrices, currentBeeswarmActivePrices);
+  });
 
   if (!canvas._crosshairAttached) {
     canvas.addEventListener('click', function(e) {
@@ -4946,7 +5309,7 @@ function drawKDEChart(prices, activePrices) {
   }
 }
 
-/**
+// drawBeeswarm wrapper — overrides the stale charts.js version
 function drawBeeswarm(prices, activePrices = []) {
   // PERFORMANCE FIX: Add diagnostic logging to track call source
   if (window.DEBUG_MODE.BEESWARM) {
