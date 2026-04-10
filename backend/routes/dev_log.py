@@ -37,6 +37,12 @@ class AnalyticsSnapshot(BaseModel):
     patient_sale: Optional[float] = None
     fmv_low: Optional[float] = None
     fmv_high: Optional[float] = None
+    buyer_range_low: Optional[float] = None
+    buyer_range_high: Optional[float] = None
+    seller_range_low: Optional[float] = None
+    seller_range_high: Optional[float] = None
+    buyer_poc: Optional[float] = None
+    seller_poc: Optional[float] = None
     median_asking_price: Optional[float] = None
     # Price bands
     below_fmv_active_count: Optional[int] = None

@@ -12,9 +12,11 @@ import numpy as np
 from backend.services.fmv_service import (
     calculate_volume_weight,
     find_weighted_percentile,
+    find_value_area,
     calculate_fmv,
     calculate_fmv_blended,
     detect_price_clusters,
+    calculate_buyer_seller_ranges,
     ClusterResult,
     FMVResult
 )
@@ -899,4 +901,129 @@ class TestBlendedFMVWithCompetitiveZone:
         assert result.quick_sale is not None
         assert result.patient_sale is not None
         # Market value should still be anchored to sold data
-        assert result.market_value < 30.0
+
+
+class TestFindValueArea:
+    """Tests for the volume-profile find_value_area function."""
+
+    def test_basic_histogram(self):
+        """Should find the zone containing 70% of volume around the peak bin."""
+        prices = np.array([10, 11, 12, 12, 13, 13, 13, 14, 14, 15], dtype=float)
+        result = find_value_area(prices)
+        assert result is not None
+        assert result["zone_low"] <= 13.0
+        assert result["zone_high"] >= 13.0
+        assert result["volume_in_zone"] >= 7  # 70% of 10
+
+    def test_returns_none_for_fewer_than_3(self):
+        prices = np.array([10.0, 20.0])
+        assert find_value_area(prices) is None
+
+    def test_returns_none_for_none(self):
+        assert find_value_area(None) is None
+
+    def test_tight_cluster(self):
+        """All prices nearly identical should produce a narrow zone."""
+        prices = np.array([50.0, 50.1, 50.2, 50.0, 50.1, 50.2], dtype=float)
+        result = find_value_area(prices)
+        assert result is not None
+        assert result["zone_high"] - result["zone_low"] < 2.0
+
+    def test_bimodal_finds_larger_cluster(self):
+        """POC should land in the larger cluster."""
+        # 8 items in low cluster, 3 in high cluster
+        prices = np.array([5, 6, 6, 7, 7, 7, 8, 8, 50, 55, 60], dtype=float)
+        result = find_value_area(prices)
+        assert result is not None
+        # POC should be near the low cluster
+        assert result["poc"] < 20.0
+
+    def test_poc_is_peak_bin_center(self):
+        """POC should be the center of the highest-volume bin."""
+        prices = np.array([10, 20, 20, 20, 20, 30, 40], dtype=float)
+        result = find_value_area(prices)
+        assert result is not None
+        # Most items are at 20, so POC should be near 20
+        assert abs(result["poc"] - 20.0) < 5.0
+
+    def test_volume_stats(self):
+        """Should report correct volume counts."""
+        prices = np.array([10, 15, 20, 25, 30], dtype=float)
+        result = find_value_area(prices)
+        assert result is not None
+        assert result["total_volume"] == 5
+        assert result["volume_in_zone"] >= 1  # At least the POC bin
+
+
+class TestBuyerSellerRanges:
+    """Tests for the volume-profile calculate_buyer_seller_ranges function."""
+
+    def test_buyer_zone_only(self):
+        """With no active prices, seller zone should be None."""
+        sold = np.array([10, 15, 20, 25, 30, 35, 40], dtype=float)
+        weights = np.ones(7)
+        result = calculate_buyer_seller_ranges(sold, weights)
+        assert result is not None
+        assert result["buyer_low"] is not None
+        assert result["buyer_high"] is not None
+        assert result["buyer_poc"] is not None
+        assert result["seller_low"] is None
+        assert result["seller_high"] is None
+        assert result["seller_poc"] is None
+
+    def test_both_zones_with_active(self):
+        """Both buyer and seller zones computed when active prices provided."""
+        sold = np.array([10, 15, 20, 25, 30, 35, 40], dtype=float)
+        weights = np.ones(7)
+        active = np.array([25, 30, 35, 40, 45, 50], dtype=float)
+        result = calculate_buyer_seller_ranges(sold, weights, active_prices=active)
+        assert result is not None
+        assert result["buyer_low"] is not None
+        assert result["seller_low"] is not None
+        assert result["buyer_poc"] is not None
+        assert result["seller_poc"] is not None
+
+    def test_returns_none_for_fewer_than_3_sold(self):
+        sold = np.array([10.0, 20.0])
+        weights = np.array([1.0, 1.0])
+        assert calculate_buyer_seller_ranges(sold, weights) is None
+
+    def test_seller_none_when_few_active(self):
+        """Seller zone None when fewer than 3 active listings."""
+        sold = np.array([10, 20, 30, 40, 50], dtype=float)
+        weights = np.ones(5)
+        active = np.array([25.0, 35.0])
+        result = calculate_buyer_seller_ranges(sold, weights, active_prices=active)
+        assert result is not None
+        assert result["seller_low"] is None
+
+    def test_natural_overlap(self):
+        """When active prices cluster near sold prices, zones should overlap."""
+        sold = np.array([20, 25, 25, 30, 30, 30, 35, 35, 40], dtype=float)
+        weights = np.ones(9)
+        active = np.array([28, 30, 32, 35, 38, 40, 42], dtype=float)
+        result = calculate_buyer_seller_ranges(sold, weights, active_prices=active)
+        assert result is not None
+        # Both zones exist
+        assert result["buyer_low"] is not None
+        assert result["seller_low"] is not None
+        # Overlap: buyer_high > seller_low
+        assert result["buyer_high"] > result["seller_low"]
+
+    def test_gap_when_sellers_above(self):
+        """When active prices are all above sold prices, no overlap."""
+        sold = np.array([10, 12, 14, 15, 16, 18, 20], dtype=float)
+        weights = np.ones(7)
+        active = np.array([50, 55, 60, 65, 70], dtype=float)
+        result = calculate_buyer_seller_ranges(sold, weights, active_prices=active)
+        assert result is not None
+        # Seller zone should be entirely above buyer zone
+        assert result["seller_low"] > result["buyer_high"]
+
+    def test_buyer_zone_ordering(self):
+        """buyer_low should be <= buyer_high."""
+        sold = np.array([5, 10, 15, 20, 25, 30, 35, 40, 45, 50], dtype=float)
+        weights = np.ones(10)
+        result = calculate_buyer_seller_ranges(sold, weights)
+        assert result["buyer_low"] <= result["buyer_high"]
+

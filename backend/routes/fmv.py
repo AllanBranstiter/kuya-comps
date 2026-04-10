@@ -12,6 +12,8 @@ from backend.services.fmv_service import calculate_fmv, calculate_fmv_blended, g
 from backend.services.relevance_service import score_listing_relevance
 from backend.services.market_summary_service import generate_market_summary
 from backend.services.print_run_service import estimate_print_run
+from backend.services.player_identification_service import identify_player
+from backend.services.player_score_service import calculate_player_score
 from backend.models.schemas import CompItem, FmvResponse
 from backend.middleware.subscription_gate import check_search_limit
 from backend.middleware.supabase_auth import get_current_user_optional
@@ -117,10 +119,32 @@ async def get_fmv_v2(
                 item.ai_relevance_score = score
         if request.query and request.active_items:
             active_scores = score_listing_relevance(request.query, request.active_items)
+            for item, score in zip(request.active_items, active_scores):
+                item.ai_relevance_score = score
+
+        # --- Print Run Estimation (before FMV so collectibility can use it) ---
+        all_titles = [i.title for i in request.sold_items if i.title]
+        if request.active_items:
+            all_titles += [i.title for i in request.active_items if i.title]
+        print_run_info = estimate_print_run(request.query or "", all_titles)
+
+        # --- Player Identification & Score ---
+        player_info = None
+        player_score_result = None
+        if request.query:
+            player_info = identify_player(request.query)
+            if player_info:
+                player_score_result = await calculate_player_score(
+                    player_info=player_info,
+                    # analytics_scores not yet available; liquidity/flipping
+                    # default to neutral (0.5) for this first pass
+                )
 
         result = calculate_fmv_blended(
             sold_items=request.sold_items,
             active_items=request.active_items,
+            print_run_info=print_run_info,
+            player_score=player_score_result,
         )
         response_dict = result.to_dict()
         response_dict['sold_relevance_scores'] = sold_scores
@@ -149,12 +173,6 @@ async def get_fmv_v2(
                 and i.total_price < result.market_value
             ])
 
-        # --- Print Run Estimation ---
-        all_titles = [i.title for i in request.sold_items if i.title]
-        if request.active_items:
-            all_titles += [i.title for i in request.active_items if i.title]
-        print_run_info = estimate_print_run(request.query or "", all_titles)
-
         summary, token_usage = generate_market_summary(
             fmv_result=result,
             sold_count=sold_count,
@@ -163,6 +181,10 @@ async def get_fmv_v2(
             user_tier=user_tier,
             below_fmv_listings=below_fmv_listings,
             print_run_info=print_run_info,
+            sold_prices=sorted([
+                i.total_price for i in request.sold_items
+                if getattr(i, "total_price", None) and i.total_price > 0
+            ]),
         )
         response_dict["market_summary"] = summary
         if token_usage:
@@ -171,6 +193,16 @@ async def get_fmv_v2(
         # Expose print run info to frontend (only if we have data)
         if print_run_info and print_run_info.get("confidence") != "unknown":
             response_dict["print_run_info"] = print_run_info
+
+        # Expose player identification to frontend
+        if player_info:
+            response_dict["player_info"] = {
+                "name": player_info.get("name"),
+                "mlbam_id": player_info.get("mlbam_id"),
+                "team": player_info.get("team"),
+                "position": player_info.get("position"),
+                "confidence": player_info.get("confidence"),
+            }
 
         return FmvResponse(**response_dict)
     except Exception as e:

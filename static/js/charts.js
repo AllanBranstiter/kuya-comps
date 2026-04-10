@@ -25,7 +25,7 @@ function resizeCanvasToContainer(canvas, height = 250) {
 }
 
 // ============================================================================
-// BEESWARM CHART
+// BEESWARM CHART (DEPRECATED — overridden by drawBeeswarmInternal in script.js)
 // ============================================================================
 
 /**
@@ -52,7 +52,7 @@ function drawBeeswarm(prices) {
     ctx.fillStyle = "#1d1d1f";
     ctx.font = "bold 16px " + getComputedStyle(document.body).fontFamily;
     ctx.textAlign = "center";
-    ctx.fillText("Fair Market Value Ranges", width / 2, 25);
+    ctx.fillText("Price Density", width / 2, 25);
 
     // Filter out null/undefined prices and convert to numbers
     const validPrices = prices.filter(p => p != null && !isNaN(p) && p > 0).map(p => parseFloat(p));
@@ -87,54 +87,90 @@ function drawBeeswarm(prices) {
         return margin.left + ((price - minPrice) / priceRange) * innerWidth;
     };
 
-    // Draw FMV Band if globals are set
-    if (expectLowGlobal !== null && expectHighGlobal !== null && priceRange > 0) {
+    // Draw Buyer/Seller range bands (or fall back to legacy FMV band)
+    console.log('[BEESWARM-CHARTS] Range globals:', buyerRangeLowGlobal, buyerRangeHighGlobal, sellerRangeLowGlobal, sellerRangeHighGlobal);
+    if (buyerRangeLowGlobal !== null && sellerRangeHighGlobal !== null && priceRange > 0) {
+        console.log('[BEESWARM-CHARTS] Drawing BUYER/SELLER bands');
+        // --- Buyer's Range (blue) ---
+        const bx1 = xScale(buyerRangeLowGlobal);
+        const bx2 = xScale(buyerRangeHighGlobal);
+        ctx.fillStyle = 'rgba(0, 122, 255, 0.12)';
+        ctx.fillRect(bx1, margin.top, bx2 - bx1, innerHeight);
+        ctx.strokeStyle = 'rgba(0, 122, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.moveTo(bx1, margin.top); ctx.lineTo(bx1, height - margin.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bx2, margin.top); ctx.lineTo(bx2, height - margin.bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#007aff';
+        ctx.font = 'bold 10px ' + getComputedStyle(document.body).fontFamily;
+        ctx.textAlign = 'center';
+        ctx.fillText(formatMoney(buyerRangeLowGlobal), bx1, margin.top - 8);
+        ctx.fillText(formatMoney(buyerRangeHighGlobal), bx2, margin.top - 8);
+
+        // --- Seller's Range (red) ---
+        const sx1 = xScale(sellerRangeLowGlobal);
+        const sx2 = xScale(sellerRangeHighGlobal);
+        ctx.fillStyle = 'rgba(255, 59, 48, 0.12)';
+        ctx.fillRect(sx1, margin.top, sx2 - sx1, innerHeight);
+        ctx.strokeStyle = 'rgba(255, 59, 48, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.moveTo(sx1, margin.top); ctx.lineTo(sx1, height - margin.bottom); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx2, margin.top); ctx.lineTo(sx2, height - margin.bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ff3b30';
+        ctx.font = 'bold 10px ' + getComputedStyle(document.body).fontFamily;
+        ctx.textAlign = 'center';
+        ctx.fillText(formatMoney(sellerRangeLowGlobal), sx1, height - margin.bottom + 14);
+        ctx.fillText(formatMoney(sellerRangeHighGlobal), sx2, height - margin.bottom + 14);
+    } else if (expectLowGlobal !== null && expectHighGlobal !== null && priceRange > 0) {
         const x1 = xScale(expectLowGlobal);
         const x2 = xScale(expectHighGlobal);
-        
+
         // Create gradient for FMV band
         const gradient = ctx.createLinearGradient(x1, margin.top, x2, height - margin.bottom);
         gradient.addColorStop(0, 'rgba(52, 199, 89, 0.2)');
         gradient.addColorStop(0.5, 'rgba(48, 209, 88, 0.15)');
         gradient.addColorStop(1, 'rgba(52, 199, 89, 0.1)');
-        
+
         // Draw gradient background band
         ctx.shadowColor = 'rgba(52, 199, 89, 0.3)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetY = 2;
         ctx.fillStyle = gradient;
         ctx.fillRect(x1, margin.top, x2 - x1, innerHeight);
-        
+
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 0;
-        
+
         // Draw FMV range border lines
         const lineGradient = ctx.createLinearGradient(0, margin.top, 0, height - margin.bottom);
         lineGradient.addColorStop(0, 'rgba(0, 122, 255, 0.8)');
         lineGradient.addColorStop(0.5, 'rgba(52, 199, 89, 0.9)');
         lineGradient.addColorStop(1, 'rgba(0, 122, 255, 0.6)');
-        
+
         ctx.strokeStyle = lineGradient;
         ctx.lineWidth = 3;
         ctx.setLineDash([8, 4]);
-        
+
         ctx.shadowColor = 'rgba(0, 122, 255, 0.5)';
         ctx.shadowBlur = 6;
         ctx.beginPath();
         ctx.moveTo(x1, margin.top);
         ctx.lineTo(x1, height - margin.bottom);
         ctx.stroke();
-        
+
         ctx.beginPath();
         ctx.moveTo(x2, margin.top);
         ctx.lineTo(x2, height - margin.bottom);
         ctx.stroke();
-        
+
         ctx.setLineDash([]);
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
-        
+
         // Add FMV dollar value labels
         ctx.fillStyle = "#34c759";
         ctx.font = "bold 11px " + getComputedStyle(document.body).fontFamily;
@@ -261,25 +297,32 @@ function drawBeeswarm(prices) {
     
     // Draw legend
     const legendY = height - 15;
-    const legendText = "FMV Range";
-    
+    let legendText, legendFill, legendStroke;
+    if (typeof buyerRangeLowGlobal !== 'undefined' && buyerRangeLowGlobal !== null &&
+        typeof sellerRangeHighGlobal !== 'undefined' && sellerRangeHighGlobal !== null) {
+        legendText = "Buyer's / Seller's Zone";
+        legendFill = 'rgba(0, 122, 255, 0.3)';
+        legendStroke = 'rgba(0, 122, 255, 0.8)';
+    } else {
+        legendText = "FMV Range";
+        legendFill = 'rgba(52, 199, 89, 0.3)';
+        legendStroke = 'rgba(52, 199, 89, 0.8)';
+    }
+
     ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
     const textWidth = ctx.measureText(legendText).width;
     const rectWidth = 30;
     const spacing = 5;
     const totalLegendWidth = rectWidth + spacing + textWidth;
     const legendX = (width - totalLegendWidth) / 2;
-    
-    const gradient = ctx.createLinearGradient(legendX, legendY - 8, legendX + rectWidth, legendY - 8);
-    gradient.addColorStop(0, 'rgba(52, 199, 89, 0.3)');
-    gradient.addColorStop(1, 'rgba(52, 199, 89, 0.5)');
-    ctx.fillStyle = gradient;
+
+    ctx.fillStyle = legendFill;
     ctx.fillRect(legendX, legendY - 12, rectWidth, 12);
-    
-    ctx.strokeStyle = 'rgba(52, 199, 89, 0.8)';
+
+    ctx.strokeStyle = legendStroke;
     ctx.lineWidth = 1;
     ctx.strokeRect(legendX, legendY - 12, rectWidth, 12);
-    
+
     ctx.fillStyle = "#1d1d1f";
     ctx.textAlign = "left";
     ctx.fillText(legendText, legendX + rectWidth + spacing, legendY - 3);
