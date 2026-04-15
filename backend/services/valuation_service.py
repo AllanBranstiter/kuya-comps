@@ -211,6 +211,7 @@ async def update_card_valuation(
     db: Session,
     card: Card,
     scraper_func,
+    api_key: str,
 ) -> Dict:
     """
     Update the Fair Market Value for a single card.
@@ -227,7 +228,8 @@ async def update_card_valuation(
     Args:
         db: Database session
         card: Card object to update
-        scraper_func: Async function to scrape eBay (scrape_sold_comps_finding_api)
+        scraper_func: Async function to scrape eBay (scrape_sold_comps)
+        api_key: API key for the scraper service
 
     Returns:
         Dict with update results and statistics
@@ -259,7 +261,9 @@ async def update_card_valuation(
 
         raw_items = await scraper_func(
             query=search_query,
+            api_key=api_key,
             max_pages=2,
+            delay_secs=1.0
         )
 
         logger.info(f"[Valuation] Scraped {len(raw_items)} raw items")
@@ -389,6 +393,7 @@ async def update_card_valuation(
 async def update_stale_cards(
     db: Session,
     scraper_func,
+    api_key: str,
     days_threshold: int = 30,
     max_cards: Optional[int] = None,
     delay_between_cards: float = 2.0
@@ -401,6 +406,7 @@ async def update_stale_cards(
     Args:
         db: Database session
         scraper_func: Async function to scrape eBay
+        api_key: API key for the scraper service
         days_threshold: Number of days to consider a card stale (default: 30)
         max_cards: Maximum number of cards to update (None = all)
         delay_between_cards: Delay in seconds between card updates
@@ -436,7 +442,7 @@ async def update_stale_cards(
     for i, card in enumerate(stale_cards, 1):
         logger.info(f"[Batch Valuation] Processing card {i}/{len(stale_cards)}")
 
-        result = await update_card_valuation(db, card, scraper_func)
+        result = await update_card_valuation(db, card, scraper_func, api_key)
         results.append(result)
 
         if result['updated']:
@@ -472,6 +478,7 @@ async def manually_update_card(
     card_id: int,
     user_id: str,
     scraper_func,
+    api_key: str,
 ) -> Dict:
     """
     Manually trigger a valuation update for a specific card.
@@ -483,6 +490,7 @@ async def manually_update_card(
         card_id: Card ID to update
         user_id: User ID (for ownership verification)
         scraper_func: Async function to scrape eBay
+        api_key: API key for the scraper service
 
     Returns:
         Dict with update results
@@ -500,6 +508,6 @@ async def manually_update_card(
 
     logger.info(f"[Manual Valuation] User {user_id} requested update for card {card_id}")
 
-    result = await update_card_valuation(db, card, scraper_func)
+    result = await update_card_valuation(db, card, scraper_func, api_key)
 
     return result

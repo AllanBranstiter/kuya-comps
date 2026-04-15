@@ -168,7 +168,7 @@ def sample_active_listings() -> List[CompItem]:
 @pytest.fixture
 def mock_scraper_sold(monkeypatch, sample_comp_items):
     """
-    Fixture that mocks the sold comps scraper (Finding API).
+    Fixture that mocks the sold comps scraper.
 
     Returns sample sold items without making actual API calls.
     """
@@ -176,7 +176,7 @@ def mock_scraper_sold(monkeypatch, sample_comp_items):
         return sample_comp_items
 
     import scraper
-    monkeypatch.setattr(scraper, "scrape_sold_comps_finding_api", mock_scrape)
+    monkeypatch.setattr(scraper, "scrape_sold_comps", mock_scrape)
     return mock_scrape
 
 

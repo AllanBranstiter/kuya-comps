@@ -194,20 +194,18 @@ def validate_config() -> None:
     """
     errors = []
 
-    # Check eBay credentials (required for Finding API + Browse API)
+    # Check required API keys
+    if not get_search_api_key():
+        errors.append("SEARCH_API_KEY is required")
+
+    # Check eBay credentials (optional but recommended)
     ebay_app_id = os.getenv('EBAY_APP_ID')
     ebay_dev_id = os.getenv('EBAY_DEV_ID')
     ebay_cert_id = os.getenv('EBAY_CERT_ID')
 
-    if not ebay_app_id:
-        errors.append("EBAY_APP_ID is required for sold listings (Finding API) and active listings (Browse API)")
-
-    if not ebay_cert_id:
-        logger.warning("EBAY_CERT_ID not configured. Active listings (Browse API) may not work.")
-
-    # SearchAPI key is optional (legacy — kept for potential fallback)
-    if not get_search_api_key():
-        logger.info("SEARCH_API_KEY not configured (optional — Finding API used for sold listings)")
+    if not all([ebay_app_id, ebay_dev_id, ebay_cert_id]):
+        # Just warn, don't fail - app can run with SearchAPI only
+        logger.warning("eBay API credentials not fully configured. Active listings may not work.")
 
     # Validate environment name
     env = get_environment()
