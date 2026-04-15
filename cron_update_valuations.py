@@ -13,7 +13,7 @@ Example cron entry (runs daily at 2 AM):
     0 2 * * * cd /path/to/kuya-comps && python3 cron_update_valuations.py >> logs/valuation.log 2>&1
 
 Environment Variables Required:
-    - SEARCHAPI_API_KEY: SearchAPI.io API key for scraping eBay
+    - EBAY_APP_ID: eBay developer App ID for Finding API
     - FEEDBACK_DATABASE_URL: Database connection string (optional, defaults to sqlite)
 """
 import asyncio
@@ -27,9 +27,8 @@ load_dotenv()
 
 from backend.database.connection import SessionLocal
 from backend.services.valuation_service import update_stale_cards
-from backend.config import get_search_api_key
 from backend.logging_config import get_logger
-from scraper import scrape_sold_comps
+from scraper import scrape_sold_comps_finding_api
 
 logger = get_logger(__name__)
 
@@ -70,13 +69,6 @@ async def main():
     logger.info(f"[Cron Job] Parameters: days_threshold={args.days_threshold}, max_cards={args.max_cards}, delay={args.delay}")
     logger.info("=" * 80)
 
-    # Get API key from config
-    api_key = get_search_api_key()
-
-    if not api_key:
-        logger.error("[Cron Job] SEARCHAPI_API_KEY not configured. Exiting.")
-        sys.exit(1)
-
     # Create database session
     db = SessionLocal()
 
@@ -104,8 +96,7 @@ async def main():
         # Perform batch update
         summary = await update_stale_cards(
             db=db,
-            scraper_func=scrape_sold_comps,
-            api_key=api_key,
+            scraper_func=scrape_sold_comps_finding_api,
             days_threshold=args.days_threshold,
             max_cards=args.max_cards,
             delay_between_cards=args.delay

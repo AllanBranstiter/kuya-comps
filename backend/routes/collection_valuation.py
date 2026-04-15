@@ -21,11 +21,10 @@ from backend.services.collection_service import get_card_by_id
 from backend.middleware.supabase_auth import get_current_user_required
 from backend.middleware.admin_auth import require_admin_auth
 from backend.middleware.subscription_gate import require_tier
-from backend.config import get_search_api_key
 from backend.logging_config import get_logger
 
 # Import scraper
-from scraper import scrape_sold_comps
+from scraper import scrape_sold_comps_finding_api
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -122,19 +121,12 @@ async def update_card_value(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found or access denied")
 
-    # Get API key from config
-    api_key = get_search_api_key()
-
-    if not api_key:
-        raise HTTPException(status_code=500, detail="SearchAPI key not configured")
-
     # Perform valuation update
     result = await manually_update_card(
         db=db,
         card_id=card_id,
         user_id=current_user['sub'],
-        scraper_func=scrape_sold_comps,
-        api_key=api_key
+        scraper_func=scrape_sold_comps_finding_api,
     )
 
     if 'error' in result:
@@ -214,17 +206,10 @@ async def batch_update_valuations(
     logger.info(f"[API] Batch valuation update requested by admin {admin_user['id']}")
     logger.info(f"[API] Parameters: days_threshold={request.days_threshold}, max_cards={request.max_cards}")
 
-    # Get API key from config
-    api_key = get_search_api_key()
-
-    if not api_key:
-        raise HTTPException(status_code=500, detail="SearchAPI key not configured")
-
     # Perform batch update
     summary = await update_stale_cards(
         db=db,
-        scraper_func=scrape_sold_comps,
-        api_key=api_key,
+        scraper_func=scrape_sold_comps_finding_api,
         days_threshold=request.days_threshold,
         max_cards=request.max_cards,
         delay_between_cards=request.delay_between_cards

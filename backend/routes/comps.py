@@ -21,14 +21,14 @@ from backend.exceptions import (
 )
 from backend.logging_config import get_logger, log_with_context
 from backend.cache import CacheService
-from backend.config import get_search_api_key, CACHE_TTL_SOLD, CACHE_TTL_ACTIVE
+from backend.config import CACHE_TTL_SOLD, CACHE_TTL_ACTIVE
 from backend.services.intelligence_service import analyze_market_intelligence
 from backend.models.schemas import CompItem, CompsResponse
 from backend.utils import generate_ebay_deep_link, load_test_data
 from backend.middleware.supabase_auth import get_current_user_optional
 from backend.middleware.subscription_gate import check_search_limit
 from backend.services.search_log_service import save_search
-from scraper import scrape_sold_comps, scrape_active_listings_ebay_api
+from scraper import scrape_sold_comps_finding_api, scrape_active_listings_ebay_api
 
 
 # Initialize router
@@ -45,9 +45,11 @@ _BID_PATTERN = re.compile(r'^(\d+)\s+bids?$', re.IGNORECASE)
 
 
 def parse_buying_format(item: dict) -> None:
-    """Parse the buying_format string from SearchAPI and set auction/BIN/BO flags in-place.
+    """Parse the buying_format string and set auction/BIN/BO flags in-place.
 
-    SearchAPI returns buying_format as one of:
+    Sold listings (Finding API) return structured flags directly, so this function
+    mainly hits the fallback path that preserves existing flags. It also handles
+    legacy SearchAPI format strings:
       - "43 bids"       -> auction
       - "Buy It Now"    -> BIN
       - "or Best Offer" -> BIN + Best Offer
@@ -117,8 +119,7 @@ async def get_comps(
       - FMV metrics based on total price (item + shipping)
       - Full list of items
 
-    Note: Uses SearchAPI.io because the official eBay Browse API does NOT support
-    searching sold/completed listings - it only returns active listings.
+    Uses the eBay Finding API (findCompletedItems) for sold listing data.
 
     Authentication: Optional - tracks which user is searching if logged in.
     """
@@ -195,14 +196,6 @@ async def get_comps(
             logger.info("[INFO] Using test mode with CSV data")
             raw_items = load_test_data()
         else:
-            # Check if API key is configured
-            api_key = get_search_api_key()
-            if not api_key:
-                raise APIKeyMissingError(
-                    service="SearchAPI",
-                    details={"endpoint": "/comps", "query": params.query}
-                )
-
             # Modify query based on filters
             modified_query = params.query
             if params.raw_only:
@@ -210,12 +203,9 @@ async def get_comps(
                 # Note: Removed generic '-mint' as it filters out ungraded "mint condition" cards
                 modified_query = f"{modified_query} -PSA -BGS -SGC -CSG -HGA -graded"
 
-            raw_items = await scrape_sold_comps(
+            raw_items = await scrape_sold_comps_finding_api(
                 query=modified_query,
                 max_pages=params.pages,
-                delay_secs=params.delay,
-                ungraded_only=params.raw_only,  # Keep this for backward compatibility
-                api_key=api_key,
                 sort_by=params.sort_by,
                 buying_format=params.buying_format,
                 condition=params.condition,
@@ -278,7 +268,7 @@ async def get_comps(
         log_with_context(
             logger,
             'error',
-            'API key missing',
+            'eBay API credentials missing',
             correlation_id=correlation_id,
             endpoint='/comps',
             error=str(e)
@@ -311,7 +301,7 @@ async def get_comps(
         )
         raise ScraperError(
             message=f"Scraper function signature mismatch: {str(e)}",
-            service="SearchAPI",
+            service="eBay Finding API",
             details={"query": params.query, "error_type": "TypeError", "correlation_id": correlation_id}
         )
     except Exception as e:
@@ -330,13 +320,13 @@ async def get_comps(
         if "API" in error_message or "api" in error_message.lower():
             raise ExternalServiceError(
                 message=f"External API error: {error_message}",
-                service="SearchAPI",
+                service="eBay Finding API",
                 service_error=error_message
             )
         else:
             raise ScraperError(
                 message=f"Failed to scrape sold listings: {error_message}",
-                service="SearchAPI",
+                service="eBay Finding API",
                 details={"query": params.query, "error": error_message, "correlation_id": correlation_id}
             )
 

@@ -194,18 +194,20 @@ def validate_config() -> None:
     """
     errors = []
 
-    # Check required API keys
-    if not get_search_api_key():
-        errors.append("SEARCH_API_KEY is required")
-
-    # Check eBay credentials (optional but recommended)
+    # Check eBay credentials (required for Finding API + Browse API)
     ebay_app_id = os.getenv('EBAY_APP_ID')
     ebay_dev_id = os.getenv('EBAY_DEV_ID')
     ebay_cert_id = os.getenv('EBAY_CERT_ID')
 
-    if not all([ebay_app_id, ebay_dev_id, ebay_cert_id]):
-        # Just warn, don't fail - app can run with SearchAPI only
-        logger.warning("eBay API credentials not fully configured. Active listings may not work.")
+    if not ebay_app_id:
+        errors.append("EBAY_APP_ID is required for sold listings (Finding API) and active listings (Browse API)")
+
+    if not ebay_cert_id:
+        logger.warning("EBAY_CERT_ID not configured. Active listings (Browse API) may not work.")
+
+    # SearchAPI key is optional (legacy — kept for potential fallback)
+    if not get_search_api_key():
+        logger.info("SEARCH_API_KEY not configured (optional — Finding API used for sold listings)")
 
     # Validate environment name
     env = get_environment()
@@ -265,10 +267,13 @@ RATE_LIMIT_STRING = f"{RATE_LIMIT_PER_MINUTE}/minute"
 # ============================================================================
 
 MAX_RESULTS_PER_PAGE = 120
-"""Maximum results to fetch per page from SearchAPI.io."""
+"""Maximum results to fetch per page from SearchAPI.io (legacy)."""
 
 EBAY_API_LIMIT = 200
 """Maximum results per page from eBay Browse API."""
+
+FINDING_API_RESULTS_PER_PAGE = 100
+"""Maximum results per page from eBay Finding API."""
 
 MAX_CONCURRENT_REQUESTS = 3
 """Maximum concurrent API requests to avoid rate limits."""

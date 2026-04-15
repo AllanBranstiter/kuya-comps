@@ -262,3 +262,70 @@ def test_ebay_api():
             "message": str(e),
             "traceback": error_trace
         }
+
+
+@router.get("/test-ebay-finding-api")
+async def test_ebay_finding_api():
+    """
+    Test eBay Finding API connectivity and credentials.
+
+    Verifies that:
+    1. EBAY_APP_ID is configured
+    2. findCompletedItems returns sold listing data
+    3. Response normalization works correctly
+
+    Returns:
+        dict: Test results including status, items found, and sample data
+    """
+    try:
+        from ebay_finding_client import eBayFindingClient, normalize_finding_item
+
+        logger.info("Initializing eBay Finding API client...")
+        client = eBayFindingClient()
+
+        logger.info("Testing findCompletedItems...")
+        results = await client.find_completed_items(
+            query="baseball card",
+            entries_per_page=5,
+            sort_order="BestMatch",
+        )
+
+        raw_items = results.get('items', [])
+        total = results.get('total_entries', 0)
+
+        # Normalize and count sold items
+        normalized = []
+        for item in raw_items:
+            normed = normalize_finding_item(item)
+            if normed:
+                normalized.append({
+                    'title': normed['title'][:80] if normed['title'] else None,
+                    'price': normed['price'],
+                    'shipping': normed['shipping'],
+                    'total_price': normed['total_price'],
+                    'buying_format': normed['buying_format'],
+                    'bids': normed['bids'],
+                    'date_scraped': str(normed['date_scraped']),
+                })
+
+        return {
+            "status": "success",
+            "message": "eBay Finding API is working correctly",
+            "raw_items_returned": len(raw_items),
+            "sold_items_normalized": len(normalized),
+            "total_completed": total,
+            "environment": client.environment,
+            "sample_items": normalized[:3],
+        }
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"eBay Finding API test failed: {e}")
+        logger.error(f"Traceback: {error_trace}")
+
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": error_trace
+        }
