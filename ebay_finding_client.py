@@ -118,17 +118,14 @@ class eBayFindingClient:
                 result = wrapper
 
             # Check for API errors
-            ack = result.get('ack', [None])
-            ack_value = ack[0] if isinstance(ack, list) else ack
+            ack_value = _extract(result, 'ack')
             if ack_value == 'Failure':
                 error_msg = result.get('errorMessage', [{}])
                 if isinstance(error_msg, list) and error_msg:
                     error_msg = error_msg[0]
                 errors = error_msg.get('error', [])
                 error_text = '; '.join(
-                    e.get('message', ['Unknown'])[0]
-                    if isinstance(e.get('message'), list)
-                    else str(e.get('message', 'Unknown'))
+                    _extract(e, 'message', 'Unknown')
                     for e in errors
                 )
                 logger.error(f"[Finding API] API error: {error_text}")
