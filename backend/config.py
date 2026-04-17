@@ -265,10 +265,13 @@ RATE_LIMIT_STRING = f"{RATE_LIMIT_PER_MINUTE}/minute"
 # ============================================================================
 
 MAX_RESULTS_PER_PAGE = 120
-"""Maximum results to fetch per page from SearchAPI.io."""
+"""Maximum results to fetch per page from SearchAPI.io (legacy)."""
 
 EBAY_API_LIMIT = 200
 """Maximum results per page from eBay Browse API."""
+
+FINDING_API_RESULTS_PER_PAGE = 100
+"""Maximum results per page from eBay Finding API."""
 
 MAX_CONCURRENT_REQUESTS = 3
 """Maximum concurrent API requests to avoid rate limits."""

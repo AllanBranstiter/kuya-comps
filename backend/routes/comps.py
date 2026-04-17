@@ -45,9 +45,11 @@ _BID_PATTERN = re.compile(r'^(\d+)\s+bids?$', re.IGNORECASE)
 
 
 def parse_buying_format(item: dict) -> None:
-    """Parse the buying_format string from SearchAPI and set auction/BIN/BO flags in-place.
+    """Parse the buying_format string and set auction/BIN/BO flags in-place.
 
-    SearchAPI returns buying_format as one of:
+    Sold listings (Finding API) return structured flags directly, so this function
+    mainly hits the fallback path that preserves existing flags. It also handles
+    legacy SearchAPI format strings:
       - "43 bids"       -> auction
       - "Buy It Now"    -> BIN
       - "or Best Offer" -> BIN + Best Offer
@@ -118,7 +120,8 @@ async def get_comps(
       - Full list of items
 
     Note: Uses SearchAPI.io because the official eBay Browse API does NOT support
-    searching sold/completed listings - it only returns active listings.
+    searching sold/completed listings. Migration to eBay Marketplace Insights API
+    is planned once API access is granted.
 
     Authentication: Optional - tracks which user is searching if logged in.
     """
@@ -214,7 +217,7 @@ async def get_comps(
                 query=modified_query,
                 max_pages=params.pages,
                 delay_secs=params.delay,
-                ungraded_only=params.raw_only,  # Keep this for backward compatibility
+                ungraded_only=params.raw_only,
                 api_key=api_key,
                 sort_by=params.sort_by,
                 buying_format=params.buying_format,

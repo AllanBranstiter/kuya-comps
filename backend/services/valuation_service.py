@@ -211,7 +211,7 @@ async def update_card_valuation(
     db: Session,
     card: Card,
     scraper_func,
-    api_key: str
+    api_key: str,
 ) -> Dict:
     """
     Update the Fair Market Value for a single card.
@@ -229,7 +229,7 @@ async def update_card_valuation(
         db: Database session
         card: Card object to update
         scraper_func: Async function to scrape eBay (scrape_sold_comps)
-        api_key: SearchAPI.io API key
+        api_key: API key for the scraper service
 
     Returns:
         Dict with update results and statistics
@@ -406,7 +406,7 @@ async def update_stale_cards(
     Args:
         db: Database session
         scraper_func: Async function to scrape eBay
-        api_key: SearchAPI.io API key
+        api_key: API key for the scraper service
         days_threshold: Number of days to consider a card stale (default: 30)
         max_cards: Maximum number of cards to update (None = all)
         delay_between_cards: Delay in seconds between card updates
@@ -478,7 +478,7 @@ async def manually_update_card(
     card_id: int,
     user_id: str,
     scraper_func,
-    api_key: str
+    api_key: str,
 ) -> Dict:
     """
     Manually trigger a valuation update for a specific card.
@@ -490,7 +490,7 @@ async def manually_update_card(
         card_id: Card ID to update
         user_id: User ID (for ownership verification)
         scraper_func: Async function to scrape eBay
-        api_key: SearchAPI.io API key
+        api_key: API key for the scraper service
 
     Returns:
         Dict with update results

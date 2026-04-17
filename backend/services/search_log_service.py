@@ -20,6 +20,7 @@ import math
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from backend.models.schemas import CompsResponse
 from backend.logging_config import get_logger
@@ -78,7 +79,7 @@ def _sanitize(query: str, max_len: int = 40) -> str:
     return slug[:max_len]
 
 
-def _compute_market_confidence(response: CompsResponse) -> float | None:
+def _compute_market_confidence(response: CompsResponse) -> Optional[float]:
     """
     Market confidence: how consistent are the sold prices?
 

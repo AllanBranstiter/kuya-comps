@@ -13,7 +13,7 @@ Example cron entry (runs daily at 2 AM):
     0 2 * * * cd /path/to/kuya-comps && python3 cron_update_valuations.py >> logs/valuation.log 2>&1
 
 Environment Variables Required:
-    - SEARCHAPI_API_KEY: SearchAPI.io API key for scraping eBay
+    - SEARCH_API_KEY: SearchAPI.io API key for scraping eBay
     - FEEDBACK_DATABASE_URL: Database connection string (optional, defaults to sqlite)
 """
 import asyncio
@@ -74,7 +74,7 @@ async def main():
     api_key = get_search_api_key()
 
     if not api_key:
-        logger.error("[Cron Job] SEARCHAPI_API_KEY not configured. Exiting.")
+        logger.error("[Cron Job] SEARCH_API_KEY not configured. Exiting.")
         sys.exit(1)
 
     # Create database session

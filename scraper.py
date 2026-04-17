@@ -65,6 +65,14 @@ except ImportError:
     EBAY_API_AVAILABLE = False
     print("[WARNING] eBay Browse API client not available. Install required dependencies.")
 
+# Try to import eBay Finding API client
+try:
+    from ebay_finding_client import eBayFindingClient, normalize_finding_item
+    FINDING_API_AVAILABLE = True
+except ImportError:
+    FINDING_API_AVAILABLE = False
+    print("[WARNING] eBay Finding API client not available.")
+
 
 
 
@@ -302,6 +310,190 @@ async def scrape_sold_comps(
         all_items.extend(result.get('items', []))
 
     logger.info(f"[scraper] Completed scraping. Final total: {len(all_items)} items across {len(successful_results)} successful pages")
+    return all_items
+
+
+# ============================================================================
+# eBay Finding API — Sold/Completed Listings
+# ============================================================================
+
+# Sort order mapping: SearchAPI/frontend values → Finding API values
+_FINDING_SORT_MAP = {
+    'best_match': 'BestMatch',
+    'bestmatch': 'BestMatch',
+    'time_newly_listed': 'EndTimeSoonest',
+    'price_low_to_high': 'PricePlusShippingLowest',
+    'price_high_to_low': 'PricePlusShippingHighest',
+}
+
+# Buying format mapping: SearchAPI/frontend values → Finding API ListingType values
+_FINDING_FORMAT_MAP = {
+    'auction': ['Auction', 'AuctionWithBIN'],
+    'buy_it_now': ['FixedPrice', 'StoreInventory'],
+    'best_offer': ['FixedPrice'],  # Best Offer is a subset of fixed price
+}
+
+
+async def scrape_sold_comps_finding_api(
+    query: str,
+    max_pages: int = 4,
+    sort_by: str = "best_match",
+    buying_format: Optional[str] = None,
+    condition: Optional[str] = None,
+    price_min: Optional[float] = None,
+    price_max: Optional[float] = None,
+    category_id: Optional[str] = None,
+) -> List[Dict]:
+    """
+    Fetch SOLD/COMPLETED listings using official eBay Finding API (Async with Concurrency).
+
+    Replacement for scrape_sold_comps() which used SearchAPI.io.
+    Uses the same concurrent fetching pattern as scrape_active_listings_ebay_api().
+
+    Note: No api_key parameter — uses EBAY_APP_ID from environment.
+
+    Args:
+        query: Search query string
+        max_pages: Number of pages to fetch (100 items per page, fetched concurrently)
+        sort_by: Sort order (best_match, time_newly_listed, price_low_to_high, price_high_to_low)
+        buying_format: Filter — "auction", "buy_it_now", "best_offer"
+        condition: Filter — condition name
+        price_min: Minimum price filter
+        price_max: Maximum price filter
+        category_id: Optional eBay category ID
+
+    Returns:
+        List of normalized item dicts compatible with CompItem schema
+    """
+    if not FINDING_API_AVAILABLE:
+        raise RuntimeError(
+            "eBay Finding API client not available. "
+            "Make sure ebay_finding_client.py is in the same directory and EBAY_APP_ID is set."
+        )
+
+    logger.info(f"[Finding API scraper] Starting search: '{query}' (max_pages={max_pages})")
+
+    client = eBayFindingClient()
+
+    # Map sort order
+    sort_order = _FINDING_SORT_MAP.get(sort_by.lower(), 'BestMatch')
+
+    # Build item filters
+    item_filters = []
+
+    # SoldItemsOnly is added automatically by the client, but we include it explicitly
+    item_filters.append({'name': 'SoldItemsOnly', 'value': 'true'})
+
+    # Buying format filter
+    if buying_format:
+        listing_types = _FINDING_FORMAT_MAP.get(buying_format.lower())
+        if listing_types:
+            item_filters.append({'name': 'ListingType', 'values': listing_types})
+
+    # Price range filters
+    if price_min is not None:
+        item_filters.append({'name': 'MinPrice', 'value': str(price_min)})
+    if price_max is not None:
+        item_filters.append({'name': 'MaxPrice', 'value': str(price_max)})
+
+    # Condition filter (Finding API uses condition IDs, but also accepts display names)
+    if condition:
+        condition_map = {
+            'new': '1000',
+            'used': '3000',
+            'not specified': '10',
+        }
+        cond_id = condition_map.get(condition.lower(), condition)
+        item_filters.append({'name': 'Condition', 'value': cond_id})
+
+    # Helper to fetch a single page
+    async def fetch_page(page_num: int, semaphore: asyncio.Semaphore) -> Dict:
+        async with semaphore:
+            try:
+                page_start = time.time()
+                response = await client.find_completed_items(
+                    query=query,
+                    entries_per_page=100,
+                    page_number=page_num,
+                    sort_order=sort_order,
+                    item_filters=item_filters,
+                    category_id=category_id,
+                )
+                fetch_time = time.time() - page_start
+
+                raw_items = response.get('items', [])
+                if not raw_items:
+                    logger.info(f"[Finding API scraper] No items on page {page_num}")
+                    return {
+                        'page': page_num,
+                        'success': True,
+                        'items': [],
+                        'fetch_time': fetch_time,
+                    }
+
+                # Normalize items
+                normalized = []
+                for raw in raw_items:
+                    normed = normalize_finding_item(raw)
+                    if normed is not None:
+                        normalized.append(normed)
+
+                logger.info(
+                    f"[Finding API scraper] Page {page_num}: "
+                    f"{len(normalized)} sold items from {len(raw_items)} results "
+                    f"in {fetch_time:.2f}s"
+                )
+
+                return {
+                    'page': page_num,
+                    'success': True,
+                    'items': normalized,
+                    'fetch_time': fetch_time,
+                }
+
+            except Exception as e:
+                fetch_time = time.time() - page_start if 'page_start' in locals() else 0
+                logger.error(f"[Finding API scraper] Error on page {page_num}: {e}")
+                return {
+                    'page': page_num,
+                    'success': False,
+                    'items': [],
+                    'error': str(e),
+                    'fetch_time': fetch_time,
+                }
+
+    # Concurrent fetching
+    start_time = time.time()
+    semaphore = asyncio.Semaphore(3)
+
+    tasks = [fetch_page(page, semaphore) for page in range(1, max_pages + 1)]
+    logger.info(f"[Finding API scraper] Starting concurrent fetch of {max_pages} pages (max 3 concurrent)")
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    total_time = time.time() - start_time
+
+    successful_results = [r for r in results if isinstance(r, dict) and r.get('success')]
+    failed_results = [r for r in results if isinstance(r, Exception) or (isinstance(r, dict) and not r.get('success'))]
+
+    avg_fetch = sum(r.get('fetch_time', 0) for r in successful_results) / len(successful_results) if successful_results else 0
+    seq_estimate = avg_fetch * max_pages
+    time_saved = seq_estimate - total_time
+    pct_faster = (time_saved / seq_estimate * 100) if seq_estimate > 0 else 0
+
+    logger.info(f"[Finding API scraper] Done: {len(successful_results)} ok, {len(failed_results)} failed")
+    logger.info(f"[Finding API scraper] Time: {total_time:.2f}s concurrent vs {seq_estimate:.2f}s sequential (est), {pct_faster:.0f}% faster")
+
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error(f"[Finding API scraper] Page fetch exception: {result}")
+        elif isinstance(result, dict) and not result.get('success'):
+            logger.error(f"[Finding API scraper] Page {result.get('page')} failed: {result.get('error')}")
+
+    all_items = []
+    for result in successful_results:
+        all_items.extend(result.get('items', []))
+
+    logger.info(f"[Finding API scraper] Final total: {len(all_items)} sold items across {len(successful_results)} pages")
     return all_items
 
 
