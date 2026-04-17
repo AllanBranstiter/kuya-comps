@@ -13,6 +13,18 @@ from pathlib import Path
 # Cache for loaded message content
 _MESSAGE_CONTENT_CACHE = None
 
+# Mapping from internal snake_case message types to camelCase JSON keys
+_MESSAGE_TYPE_TO_JSON_KEY = {
+    "data_quality_warning": "dataQualityWarning",
+    "two_tier_market": "twoTierMarket",
+    "high_pressure_low_liquidity": "highRiskConditions",
+    "overpriced_active_market": "overpricedActiveMarket",
+    "fair_price_low_liquidity": "fairPricingLimitedDemand",
+    "strong_buy_opportunity": "strongBuyOpportunity",
+    "healthy_market_conditions": "healthyMarketConditions",
+    "normal_market": "balancedMarket",
+}
+
 
 def load_message_content() -> Dict:
     """
@@ -192,18 +204,13 @@ def get_market_message(
         above_fmv_count=above_fmv_count
     )
 
-    if message_type not in messages:
+    # Map internal message type to JSON key
+    json_key = _MESSAGE_TYPE_TO_JSON_KEY.get(message_type, message_type)
+
+    if json_key not in messages:
         raise ValueError(f"Message type '{message_type}' not found in content")
 
-    message_config = messages[message_type]
-
-    # Get tier-specific content (fallback to tier_1 if tier not defined)
-    tier_content = message_config.get(tier_id)
-    if tier_content is None:
-        # Some messages only have tier_1 (like data_quality_warning)
-        tier_content = message_config.get("tier_1")
-        if tier_content is None:
-            raise ValueError(f"No content found for {message_type} in {tier_id}")
+    message_config = messages[json_key]
 
     # Prepare placeholders for substitution
     placeholders = {
@@ -220,17 +227,19 @@ def get_market_message(
         **extra_placeholders
     }
 
-    # Format the message content
-    formatted_content = format_message_placeholders(tier_content["content"], placeholders)
+    # Format the message content (JSON uses "message" field)
+    raw_content = message_config.get("message", "")
+    formatted_content = format_message_placeholders(raw_content, placeholders)
 
-    # Build advice object
+    # Build advice object from personaAdvice
     advice = {}
-    if tier_content.get("advice_seller"):
-        advice["seller"] = tier_content["advice_seller"]
-    if tier_content.get("advice_buyer"):
-        advice["buyer"] = tier_content["advice_buyer"]
-    if tier_content.get("advice_collector"):
-        advice["collector"] = tier_content["advice_collector"]
+    persona_advice = message_config.get("personaAdvice", {})
+    if persona_advice.get("seller"):
+        advice["seller"] = persona_advice["seller"]
+    if persona_advice.get("flipper"):
+        advice["buyer"] = persona_advice["flipper"]
+    if persona_advice.get("collector"):
+        advice["collector"] = persona_advice["collector"]
 
     return {
         "message_type": message_type,
@@ -238,29 +247,44 @@ def get_market_message(
         "icon": message_config["icon"],
         "content": formatted_content,
         "advice": advice,
-        "color": message_config["base_color"]
+        "color": message_config["color"]
     }
 
 
 def get_liquidity_popup_content(tier_id: str) -> Dict:
     """
-    Get tier-specific content for the liquidity risk popup.
+    Get content for the liquidity risk popup.
+
+    The popup content is shared across all tiers (not tier-specific).
 
     Args:
         tier_id: Price tier identifier (e.g., "tier_1")
 
     Returns:
-        dict: Popup content with title and tier-specific explanation
+        dict: Popup content with title and content string
     """
     content_data = load_message_content()
-    liquidity_popup = content_data["liquidity_popup"]
+    liquidity_popup = content_data["popups"]["liquidityRisk"]
 
-    tier_content = liquidity_popup.get(tier_id)
-    if tier_content is None:
-        # Fallback to tier_1 if specific tier not found
-        tier_content = liquidity_popup.get("tier_1", {})
+    # Flatten sections into a content string for API consumers
+    sections = liquidity_popup.get("sections", [])
+    content_parts = []
+    for section in sections:
+        section_type = section.get("type")
+        if section_type in ("text", "formula"):
+            content_parts.append(section.get("content", ""))
+        elif section_type == "header":
+            content_parts.append(section.get("content", ""))
+        elif section_type == "bands":
+            for band in section.get("items", []):
+                content_parts.append(
+                    f"{band.get('title', '')}: {band.get('meaning', '')}"
+                )
+        elif section_type == "list":
+            for item in section.get("items", []):
+                content_parts.append(f"- {item}")
 
     return {
         "title": liquidity_popup["title"],
-        "content": tier_content.get("content", "")
+        "content": "\n\n".join(content_parts)
     }

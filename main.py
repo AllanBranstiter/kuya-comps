@@ -56,9 +56,10 @@ from backend.config import (
     is_development
 )
 from backend.middleware.admin_gate import get_current_admin_required
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from fastapi.responses import PlainTextResponse
 
 # Import middleware
 from backend.middleware import RequestIDMiddleware, MetricsMiddleware, SecurityHeadersMiddleware
@@ -127,7 +128,22 @@ app.add_middleware(RequestIDMiddleware)  # Request ID (executes first)
 # Initialize rate limiter (10 requests per minute per IP)
 limiter = Limiter(key_func=get_remote_address, default_limits=["10/minute"])
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def rate_limit_exceeded_handler(request, exc):
+    client_ip = request.client.host if request.client else "unknown"
+    logger.warning(
+        f"[RATE LIMIT] 429 returned: ip={client_ip}, "
+        f"path={request.url.path}, limit={exc.detail}"
+    )
+    return PlainTextResponse(
+        str(exc.detail),
+        status_code=429,
+        headers={"Retry-After": str(getattr(exc, "retry_after", 60))}
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # Initialize cache service and make it available to routers
 redis_url = get_redis_url()

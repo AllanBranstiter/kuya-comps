@@ -6,6 +6,7 @@ This module contains endpoints for calculating fair market value
 from comp data and testing external API connectivity.
 """
 from typing import List, Optional
+import time
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from backend.services.fmv_service import calculate_fmv, calculate_fmv_blended, get_active_market_floor
@@ -110,9 +111,15 @@ async def get_fmv_v2(
       - Bid/ask spread (how far sellers are from recent comps)
     """
     try:
+        t_start = time.time()
+        sold_count_in = len(request.sold_items)
+        active_count_in = len(request.active_items or [])
+        logger.info(f"[FMV v2] Request started: query='{request.query}', sold={sold_count_in}, active={active_count_in}")
+
         # Score listing relevance if query is provided
         sold_scores = None
         active_scores = None
+        t0 = time.time()
         if request.query and request.sold_items:
             sold_scores = score_listing_relevance(request.query, request.sold_items)
             for item, score in zip(request.sold_items, sold_scores):
@@ -121,14 +128,18 @@ async def get_fmv_v2(
             active_scores = score_listing_relevance(request.query, request.active_items)
             for item, score in zip(request.active_items, active_scores):
                 item.ai_relevance_score = score
+        logger.info(f"[FMV v2] Relevance scoring: {sold_count_in} sold, {active_count_in} active in {time.time()-t0:.3f}s")
 
         # --- Print Run Estimation (before FMV so collectibility can use it) ---
+        t1 = time.time()
         all_titles = [i.title for i in request.sold_items if i.title]
         if request.active_items:
             all_titles += [i.title for i in request.active_items if i.title]
         print_run_info = estimate_print_run(request.query or "", all_titles)
+        logger.info(f"[FMV v2] Print run estimation: confidence={print_run_info.get('confidence', 'N/A')} in {time.time()-t1:.3f}s")
 
         # --- Player Identification & Score ---
+        t2 = time.time()
         player_info = None
         player_score_result = None
         if request.query:
@@ -139,7 +150,9 @@ async def get_fmv_v2(
                     # analytics_scores not yet available; liquidity/flipping
                     # default to neutral (0.5) for this first pass
                 )
+        logger.info(f"[FMV v2] Player identification: found={'yes' if player_info else 'no'} in {time.time()-t2:.3f}s")
 
+        t3 = time.time()
         result = calculate_fmv_blended(
             sold_items=request.sold_items,
             active_items=request.active_items,
@@ -149,6 +162,7 @@ async def get_fmv_v2(
         response_dict = result.to_dict()
         response_dict['sold_relevance_scores'] = sold_scores
         response_dict['active_relevance_scores'] = active_scores
+        logger.info(f"[FMV v2] Blended FMV: market_value={result.market_value}, quick_sale={result.quick_sale} in {time.time()-t3:.3f}s")
 
         # --- AI Market Summary ---
         user_tier = "free"
@@ -173,6 +187,7 @@ async def get_fmv_v2(
                 and i.total_price < result.market_value
             ])
 
+        t4 = time.time()
         summary, token_usage = generate_market_summary(
             fmv_result=result,
             sold_count=sold_count,
@@ -189,6 +204,7 @@ async def get_fmv_v2(
         response_dict["market_summary"] = summary
         if token_usage:
             response_dict["summary_token_usage"] = token_usage
+        logger.info(f"[FMV v2] Market summary: tokens={token_usage} in {time.time()-t4:.3f}s")
 
         # Expose print run info to frontend (only if we have data)
         if print_run_info and print_run_info.get("confidence") != "unknown":
@@ -204,6 +220,7 @@ async def get_fmv_v2(
                 "confidence": player_info.get("confidence"),
             }
 
+        logger.info(f"[FMV v2] Request complete in {time.time()-t_start:.3f}s")
         return FmvResponse(**response_dict)
     except Exception as e:
         logger.exception("[FMV] Error calculating blended FMV")
@@ -252,15 +269,11 @@ def test_ebay_api():
         }
 
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        logger.error(f"eBay API test failed: {e}")
-        logger.error(f"Traceback: {error_trace}")
+        logger.exception("eBay API test failed")
 
         return {
             "status": "error",
             "message": str(e),
-            "traceback": error_trace
         }
 
 
@@ -319,13 +332,9 @@ async def test_ebay_finding_api():
         }
 
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        logger.error(f"eBay Finding API test failed: {e}")
-        logger.error(f"Traceback: {error_trace}")
+        logger.exception("eBay Finding API test failed")
 
         return {
             "status": "error",
             "message": str(e),
-            "traceback": error_trace
         }

@@ -43,8 +43,8 @@ class TestGetPriceTier:
 
         assert result['tier_id'] == 'tier_3'
         assert result['tier_emoji'] == '🟣'
-        assert result['tier_name'] == '$500-$2K'
-        assert result['tier_range'] == '$500-$2K'
+        assert result['tier_name'] == '$500-$2,000'
+        assert result['tier_range'] == '$500-$2,000'
         assert result['tier_color'] == '#5856d6'
         assert result['price_used'] == 1000.0
         assert result['price_source'] == 'fmv'
@@ -55,8 +55,8 @@ class TestGetPriceTier:
 
         assert result['tier_id'] == 'tier_4'
         assert result['tier_emoji'] == '🟠'
-        assert result['tier_name'] == '$2K-$10K'
-        assert result['tier_range'] == '$2K-$10K'
+        assert result['tier_name'] == '$2,000-$10,000'
+        assert result['tier_range'] == '$2,000-$10,000'
         assert result['tier_color'] == '#ff9500'
         assert result['price_used'] == 5000.0
         assert result['price_source'] == 'fmv'
@@ -67,8 +67,8 @@ class TestGetPriceTier:
 
         assert result['tier_id'] == 'tier_5'
         assert result['tier_emoji'] == '🔴'
-        assert result['tier_name'] == '$10K+'
-        assert result['tier_range'] == '$10K+'
+        assert result['tier_name'] == '$10,000+'
+        assert result['tier_range'] == '$10,000+'
         assert result['tier_color'] == '#ff3b30'
         assert result['price_used'] == 25000.0
         assert result['price_source'] == 'fmv'
@@ -85,21 +85,21 @@ class TestGetPriceTier:
         result = get_price_tier(fmv=500.0, avg_listing_price=None)
 
         assert result['tier_id'] == 'tier_3'
-        assert result['tier_name'] == '$500-$2K'
+        assert result['tier_name'] == '$500-$2,000'
 
     def test_tier_boundary_2000_exactly(self):
         """Exactly $2000 should be tier_4."""
         result = get_price_tier(fmv=2000.0, avg_listing_price=None)
 
         assert result['tier_id'] == 'tier_4'
-        assert result['tier_name'] == '$2K-$10K'
+        assert result['tier_name'] == '$2,000-$10,000'
 
     def test_tier_boundary_10000_exactly(self):
         """Exactly $10000 should be tier_5."""
         result = get_price_tier(fmv=10000.0, avg_listing_price=None)
 
         assert result['tier_id'] == 'tier_5'
-        assert result['tier_name'] == '$10K+'
+        assert result['tier_name'] == '$10,000+'
 
     def test_uses_avg_listing_when_no_fmv(self):
         """Should use avg_listing_price when FMV is None."""
@@ -107,7 +107,7 @@ class TestGetPriceTier:
 
         assert result['tier_id'] == 'tier_2'
         assert result['price_used'] == 350.0
-        assert result['price_source'] == 'avg_listing_price'
+        assert result['price_source'] == 'avg_listing'
 
     def test_prefers_fmv_over_avg_listing(self):
         """Should prefer FMV when both values are provided."""
@@ -118,24 +118,22 @@ class TestGetPriceTier:
         assert result['price_source'] == 'fmv'
 
     def test_returns_none_when_both_prices_none(self):
-        """Should return None tier when both prices are None."""
+        """Should return null tier when both prices are None."""
         result = get_price_tier(fmv=None, avg_listing_price=None)
 
-        assert result is None
+        assert result['tier_id'] is None
 
-    def test_zero_price_treated_as_tier_1(self):
-        """Zero price should be treated as under $100 (tier_1)."""
+    def test_zero_price_returns_null_tier(self):
+        """Zero price should return null tier (rejected by service)."""
         result = get_price_tier(fmv=0.0, avg_listing_price=None)
 
-        assert result['tier_id'] == 'tier_1'
-        assert result['tier_name'] == 'Under $100'
+        assert result['tier_id'] is None
 
-    def test_negative_price_treated_as_tier_1(self):
-        """Negative price should be treated as under $100 (tier_1)."""
+    def test_negative_price_returns_null_tier(self):
+        """Negative price should return null tier (rejected by service)."""
         result = get_price_tier(fmv=-10.0, avg_listing_price=None)
 
-        assert result['tier_id'] == 'tier_1'
-        assert result['tier_name'] == 'Under $100'
+        assert result['tier_id'] is None
 
     def test_very_small_price(self):
         """Very small price like $0.01 should be tier_1."""
@@ -163,21 +161,21 @@ class TestGetPriceTier:
         result = get_price_tier(fmv=1999.99, avg_listing_price=None)
 
         assert result['tier_id'] == 'tier_3'
-        assert result['tier_name'] == '$500-$2K'
+        assert result['tier_name'] == '$500-$2,000'
 
     def test_boundary_9999_99(self):
         """$9999.99 should be tier_4."""
         result = get_price_tier(fmv=9999.99, avg_listing_price=None)
 
         assert result['tier_id'] == 'tier_4'
-        assert result['tier_name'] == '$2K-$10K'
+        assert result['tier_name'] == '$2,000-$10,000'
 
     def test_very_large_price(self):
         """Very large price like $1,000,000 should be tier_5."""
         result = get_price_tier(fmv=1000000.0, avg_listing_price=None)
 
         assert result['tier_id'] == 'tier_5'
-        assert result['tier_name'] == '$10K+'
+        assert result['tier_name'] == '$10,000+'
 
     def test_all_tier_metadata_present(self):
         """All tiers should have complete metadata."""

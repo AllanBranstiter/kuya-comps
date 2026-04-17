@@ -184,22 +184,22 @@ class TestGetMarketMessage:
 
     @patch('backend.services.market_message_service.load_message_content')
     def test_get_message_for_tier_1(self, mock_load):
-        """Should return tier_1 specific message."""
+        """Should return message with content and advice."""
         mock_load.return_value = {
             "messages": {
-                "normal_market": {
-                    "title": "Normal Market",
-                    "icon": "📊",
-                    "base_color": "#007aff",
-                    "tier_1": {
-                        "content": "Tier 1 content with {marketPressure}%",
-                        "advice_seller": ["Sell advice"],
-                        "advice_buyer": ["Buy advice"],
-                        "advice_collector": ["Collect advice"]
+                "balancedMarket": {
+                    "title": "Balanced Market",
+                    "icon": "\U0001f4ca",
+                    "color": "#007aff",
+                    "message": "Tier 1 content with {marketPressure}%",
+                    "personaAdvice": {
+                        "seller": ["Sell advice"],
+                        "flipper": ["Buy advice"],
+                        "collector": ["Collect advice"]
                     }
                 }
             },
-            "liquidity_popup": {}
+            "popups": {}
         }
 
         result = get_market_message(
@@ -210,33 +210,33 @@ class TestGetMarketMessage:
         )
 
         assert result["message_type"] == "normal_market"
-        assert result["title"] == "Normal Market"
-        assert result["icon"] == "📊"
+        assert result["title"] == "Balanced Market"
+        assert result["icon"] == "\U0001f4ca"
         assert "15.0%" in result["content"] or "+15.0" in result["content"]
         assert "seller" in result["advice"]
         assert "buyer" in result["advice"]
         assert "collector" in result["advice"]
 
     @patch('backend.services.market_message_service.load_message_content')
-    def test_get_message_fallback_to_tier_1(self, mock_load):
-        """Should fallback to tier_1 if specific tier not available."""
+    def test_get_message_for_data_quality_warning(self, mock_load):
+        """Should return data quality warning message."""
         mock_load.return_value = {
             "messages": {
-                "data_quality_warning": {
+                "dataQualityWarning": {
                     "title": "Data Quality Warning",
-                    "icon": "⚠️",
-                    "base_color": "#ff9500",
-                    "tier_1": {
-                        "content": "Generic warning",
-                        "advice_seller": ["Be cautious"]
+                    "icon": "\u26a0\ufe0f",
+                    "color": "#ff9500",
+                    "message": "Generic warning",
+                    "personaAdvice": {
+                        "seller": ["Be cautious"]
                     }
                 }
             },
-            "liquidity_popup": {}
+            "popups": {}
         }
 
         result = get_market_message(
-            tier_id="tier_5",  # Request tier_5
+            tier_id="tier_5",
             market_pressure=25.0,
             liquidity_score=50,
             market_confidence=25  # Triggers data_quality_warning
@@ -250,17 +250,17 @@ class TestGetMarketMessage:
         """Placeholders should be substituted correctly."""
         mock_load.return_value = {
             "messages": {
-                "normal_market": {
+                "balancedMarket": {
                     "title": "Test",
-                    "icon": "📊",
-                    "base_color": "#007aff",
-                    "tier_2": {
-                        "content": "Pressure: {absMarketPressure}%, Liquidity: {liquidityScore}",
-                        "advice_seller": []
+                    "icon": "\U0001f4ca",
+                    "color": "#007aff",
+                    "message": "Pressure: {absMarketPressure}%, Liquidity: {liquidityScore}",
+                    "personaAdvice": {
+                        "seller": []
                     }
                 }
             },
-            "liquidity_popup": {}
+            "popups": {}
         }
 
         result = get_market_message(
@@ -279,17 +279,17 @@ class TestGetMarketMessage:
         """Extra placeholders should be included in substitution."""
         mock_load.return_value = {
             "messages": {
-                "normal_market": {
+                "balancedMarket": {
                     "title": "Test",
-                    "icon": "📊",
-                    "base_color": "#007aff",
-                    "tier_3": {
-                        "content": "Custom: {customValue}",
-                        "advice_seller": []
+                    "icon": "\U0001f4ca",
+                    "color": "#007aff",
+                    "message": "Custom: {customValue}",
+                    "personaAdvice": {
+                        "seller": []
                     }
                 }
             },
-            "liquidity_popup": {}
+            "popups": {}
         }
 
         result = get_market_message(
@@ -307,52 +307,42 @@ class TestGetLiquidityPopupContent:
     """Test liquidity popup content retrieval."""
 
     @patch('backend.services.market_message_service.load_message_content')
-    def test_get_tier_specific_content(self, mock_load):
-        """Should return tier-specific liquidity content."""
+    def test_get_popup_content(self, mock_load):
+        """Should return liquidity popup content."""
         mock_load.return_value = {
             "messages": {},
-            "liquidity_popup": {
-                "title": "How Easy Is It to Sell?",
-                "tier_2": {
-                    "content": "Tier 2 liquidity explanation"
+            "popups": {
+                "liquidityRisk": {
+                    "title": "Understanding Market Activity",
+                    "sections": [
+                        {"type": "text", "content": "Market Activity measures sales activity."},
+                        {"type": "header", "content": "Absorption Ratio"}
+                    ]
                 }
             }
         }
 
         result = get_liquidity_popup_content("tier_2")
 
-        assert result["title"] == "How Easy Is It to Sell?"
-        assert result["content"] == "Tier 2 liquidity explanation"
+        assert result["title"] == "Understanding Market Activity"
+        assert "Market Activity measures sales activity." in result["content"]
 
     @patch('backend.services.market_message_service.load_message_content')
-    def test_fallback_to_tier_1(self, mock_load):
-        """Should fallback to tier_1 if specific tier not found."""
+    def test_empty_sections_returns_empty_content(self, mock_load):
+        """Should return empty content if no sections."""
         mock_load.return_value = {
             "messages": {},
-            "liquidity_popup": {
-                "title": "Liquidity Info",
-                "tier_1": {
-                    "content": "Default explanation"
+            "popups": {
+                "liquidityRisk": {
+                    "title": "Liquidity Info",
+                    "sections": []
                 }
-            }
-        }
-
-        result = get_liquidity_popup_content("tier_99")
-
-        assert result["content"] == "Default explanation"
-
-    @patch('backend.services.market_message_service.load_message_content')
-    def test_empty_content_when_missing(self, mock_load):
-        """Should return empty content if nothing found."""
-        mock_load.return_value = {
-            "messages": {},
-            "liquidity_popup": {
-                "title": "Liquidity Info"
             }
         }
 
         result = get_liquidity_popup_content("tier_4")
 
+        assert result["title"] == "Liquidity Info"
         assert result["content"] == ""
 
 
@@ -361,14 +351,11 @@ class TestLoadMessageContent:
 
     def test_load_content_caches_result(self):
         """Content should be cached after first load."""
-        # This test is tricky due to global cache
-        # In real tests, you'd reset the cache between tests
-        # For now, just verify it doesn't raise an error
         try:
             content = load_message_content()
             assert isinstance(content, dict)
             assert "messages" in content
-            assert "liquidity_popup" in content
+            assert "popups" in content
         except FileNotFoundError:
             # Expected if not running from project root
             pytest.skip("JSON file not accessible in test environment")

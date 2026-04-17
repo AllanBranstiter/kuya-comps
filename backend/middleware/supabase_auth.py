@@ -81,8 +81,7 @@ class SupabaseAuth:
                 options={"verify_signature": False, "verify_exp": False, "verify_aud": False}
             )
             logger.debug(f"[SUPABASE AUTH] Token claims (unverified): aud={unverified_payload.get('aud')}, "
-                        f"iss={unverified_payload.get('iss')}, exp={unverified_payload.get('exp')}, "
-                        f"email={unverified_payload.get('email')}")
+                        f"iss={unverified_payload.get('iss')}, exp={unverified_payload.get('exp')}")
         except Exception as e:
             logger.warning(f"[SUPABASE AUTH] Failed to decode token structure: {e}")
 
@@ -120,7 +119,7 @@ class SupabaseAuth:
                 }
             )
 
-            logger.info(f"[SUPABASE AUTH] ✓ Token verified successfully for user: {decoded.get('email', 'unknown')}")
+            logger.info(f"[SUPABASE AUTH] ✓ Token verified successfully for user: {decoded.get('sub', 'unknown')}")
             return decoded
 
         except jwt.ExpiredSignatureError as e:
