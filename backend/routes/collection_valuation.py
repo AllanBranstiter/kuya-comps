@@ -120,6 +120,7 @@ async def update_card_value(
         raise HTTPException(status_code=500, detail="An internal error occurred")
 
     if not card:
+        logger.warning(f"[VALUATION] Card {card_id} not found or access denied for user {current_user['sub']}")
         raise HTTPException(status_code=404, detail="Card not found or access denied")
 
     # Get API key from config
@@ -138,6 +139,7 @@ async def update_card_value(
     )
 
     if 'error' in result:
+        logger.warning(f"[VALUATION] Manual update failed for card {card_id}: {result['error']}")
         return ManualUpdateResponse(
             success=False,
             updated=False,
@@ -147,6 +149,12 @@ async def update_card_value(
             num_outliers=0,
             error=result['error']
         )
+
+    logger.info(
+        f"[VALUATION] Manual update completed for card {card_id}: "
+        f"updated={result.get('updated')}, flagged={result.get('flagged_for_review')}, "
+        f"prev_fmv={result.get('previous_fmv')}, new_fmv={result.get('new_fmv')}"
+    )
 
     return ManualUpdateResponse(
         success=result['success'],
@@ -230,6 +238,11 @@ async def batch_update_valuations(
         delay_between_cards=request.delay_between_cards
     )
 
+    logger.info(
+        f"[VALUATION] Batch update completed: {summary['total_cards']} processed, "
+        f"{summary['updated']} updated, {summary['flagged']} flagged, {summary['errors']} errors"
+    )
+
     message = (
         f"Batch update complete: {summary['updated']} cards updated, "
         f"{summary['flagged']} flagged for review, "
@@ -263,28 +276,34 @@ async def get_valuation_stats(
     - `cards_flagged_for_review`: Cards currently flagged for manual review
     - `cards_with_no_recent_sales`: Cards with no recent sales data
     """
+    logger.info(f"[VALUATION] Stats requested by admin {admin_user['id']}")
+
     from backend.services.collection_service import get_cards_for_auto_update
     from backend.database.schema import Card
 
-    # Get counts for different thresholds
-    cards_30d = get_cards_for_auto_update(db, days_threshold=30)
-    cards_60d = get_cards_for_auto_update(db, days_threshold=60)
-    cards_90d = get_cards_for_auto_update(db, days_threshold=90)
+    try:
+        # Get counts for different thresholds
+        cards_30d = get_cards_for_auto_update(db, days_threshold=30)
+        cards_60d = get_cards_for_auto_update(db, days_threshold=60)
+        cards_90d = get_cards_for_auto_update(db, days_threshold=90)
 
-    # Get total cards with auto-update enabled
-    total_auto_update = db.query(Card).filter(Card.auto_update == True).count()  # noqa: E712
+        # Get total cards with auto-update enabled
+        total_auto_update = db.query(Card).filter(Card.auto_update == True).count()  # noqa: E712
 
-    # Get flagged cards
-    flagged_cards = db.query(Card).filter(Card.review_required == True).count()  # noqa: E712
+        # Get flagged cards
+        flagged_cards = db.query(Card).filter(Card.review_required == True).count()  # noqa: E712
 
-    # Get cards with no recent sales
-    no_sales_cards = db.query(Card).filter(Card.no_recent_sales == True).count()  # noqa: E712
+        # Get cards with no recent sales
+        no_sales_cards = db.query(Card).filter(Card.no_recent_sales == True).count()  # noqa: E712
 
-    return {
-        'total_cards_with_auto_update': total_auto_update,
-        'cards_needing_update_30d': len(cards_30d),
-        'cards_needing_update_60d': len(cards_60d),
-        'cards_needing_update_90d': len(cards_90d),
-        'cards_flagged_for_review': flagged_cards,
-        'cards_with_no_recent_sales': no_sales_cards
-    }
+        return {
+            'total_cards_with_auto_update': total_auto_update,
+            'cards_needing_update_30d': len(cards_30d),
+            'cards_needing_update_60d': len(cards_60d),
+            'cards_needing_update_90d': len(cards_90d),
+            'cards_flagged_for_review': flagged_cards,
+            'cards_with_no_recent_sales': no_sales_cards
+        }
+    except Exception as e:
+        logger.exception("[VALUATION] Error fetching valuation stats")
+        raise HTTPException(status_code=500, detail="An internal error occurred")

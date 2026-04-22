@@ -163,8 +163,13 @@ input[type="number"]:focus {
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
 }
 
-#query {
+#query-wrapper {
+  position: relative;
   flex-grow: 1;
+}
+
+#query {
+  width: 100%;
   font-size: 1rem;
 }
 
@@ -637,6 +642,15 @@ td a:hover {
  p.subtitle {
    font-size: 1rem;
    margin-bottom: 1.5rem;
+ }
+
+ #controls .recent-searches-dropdown {
+   border-radius: 8px;
+ }
+
+ #controls .recent-search-entry {
+   padding: 0.75rem 1rem;
+   min-height: 44px;
  }
 
  /* Mobile Nav Links */
@@ -2128,4 +2142,150 @@ details summary::-webkit-details-marker {
   line-height: 1.6;
   color: var(--text-color, #1d1d1f);
   margin: 0;
+}
+
+/* ===== Recent Searches Dropdown ===== */
+/* All selectors use #controls prefix to beat #controls div { display: flex } */
+
+#controls .recent-searches-dropdown {
+  display: block;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  margin-top: 4px;
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+#controls .recent-searches-dropdown[hidden] {
+  display: none;
+}
+
+#controls .recent-searches-header {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+#controls .recent-searches-header span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--subtle-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#controls .recent-searches-clear-all {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: #c9302c;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  white-space: nowrap;
+}
+
+#controls .recent-searches-clear-all:hover {
+  text-decoration: underline;
+  transform: none;
+  box-shadow: none;
+}
+
+#controls .recent-searches-list {
+  display: block;
+}
+
+#controls .recent-search-entry {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid rgba(229, 229, 234, 0.5);
+}
+
+#controls .recent-search-entry:last-child {
+  border-bottom: none;
+}
+
+#controls .recent-search-entry:hover,
+#controls .recent-search-entry:focus {
+  background: var(--background-color);
+  outline: none;
+}
+
+#controls .recent-search-info {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0.15rem;
+  align-items: flex-start;
+  min-width: 0;
+  flex: 1;
+}
+
+#controls .recent-search-query {
+  font-size: 0.9rem;
+  color: var(--text-color);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+#controls .recent-search-meta {
+  display: inline;
+  font-size: 0.75rem;
+  color: var(--subtle-text-color);
+}
+
+#controls .recent-search-filters {
+  color: var(--primary-blue);
+  font-weight: 500;
+}
+
+#controls .recent-search-time {
+  color: var(--subtle-text-color);
+}
+
+#controls .recent-search-filters + .recent-search-time::before {
+  content: "\00b7";
+  margin: 0 0.3rem;
+  color: var(--subtle-text-color);
+}
+
+#controls .recent-search-remove {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--subtle-text-color);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  flex-shrink: 0;
+  border-radius: 4px;
+  line-height: 1;
+  margin-left: 0.5rem;
+}
+
+#controls .recent-search-remove:hover {
+  color: #c9302c;
+  background: rgba(201, 48, 44, 0.08);
+  transform: none;
+  box-shadow: none;
 }

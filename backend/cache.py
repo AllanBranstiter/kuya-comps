@@ -84,15 +84,19 @@ class CacheService:
                 metrics.record_cache_miss()
             return None
 
+        prefix = key.split(":")[0] if ":" in key else key
+
         try:
             value = await self.redis.get(key)
             if value is None:
                 # Cache miss
+                logger.debug(f"[CACHE] MISS prefix={prefix}")
                 if METRICS_AVAILABLE:
                     metrics.record_cache_miss()
                 return None
 
             # Cache hit
+            logger.debug(f"[CACHE] HIT prefix={prefix}")
             if METRICS_AVAILABLE:
                 metrics.record_cache_hit()
             return json.loads(value)

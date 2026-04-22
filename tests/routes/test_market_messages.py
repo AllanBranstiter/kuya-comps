@@ -185,7 +185,7 @@ class TestMarketMessageEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["tier"]["tier_id"] == "tier_2"
-        assert data["tier"]["price_source"] == "avg_listing_price"
+        assert data["tier"]["price_source"] == "avg_listing"
 
     def test_market_message_no_prices_available(self, test_client):
         """Should handle case when both prices are None."""
