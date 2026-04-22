@@ -154,7 +154,10 @@
     <div id="controls">
       <div>
         <label for="query">Search:</label>
-        <input id="query" type="text" placeholder="e.g., 2024 Topps Chrome Elly De La Cruz" aria-label="Search for a baseball card">
+        <div id="query-wrapper">
+          <input id="query" type="text" placeholder="e.g., 2024 Topps Chrome Elly De La Cruz" aria-label="Search for a baseball card">
+          <div id="recent-searches-dropdown" class="recent-searches-dropdown" role="listbox" aria-label="Recent searches" hidden></div>
+        </div>
       </div>
 
       <!-- Expandable Search Tips (novice-friendly) -->
@@ -233,6 +236,8 @@
         <button id="clear-button" onclick="clearSearch()">Clear</button>
       </div>
     </div>
+
+    <div id="filter-chips-container"></div>
 
     <!-- Sub-tab Navigation -->
     <div class="sub-tab-nav" role="tablist" aria-label="Comps and Analysis sub-navigation">
@@ -564,6 +569,8 @@
 <script src="js/contentLoader.js"></script>
 <script src="js/analysis.js"></script>
 <script src="js/grading-advisor.js"></script>
+<script src="js/recentSearches.js"></script>
+<script src="js/filterChips.js"></script>
 <script src="script.js?v=36"></script>
 <script src="js/feedback.js"></script>
 <script src="js/onboarding.js"></script>

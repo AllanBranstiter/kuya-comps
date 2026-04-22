@@ -1270,6 +1270,10 @@ async function renderData(data, secondData = null, marketValue = null) {
     // Clear loading UI from stats-container
     const loadingUi = document.getElementById('search-loading-ui');
     if (loadingUi) loadingUi.remove();
+
+    if (window.FilterChips) {
+      FilterChips.render();
+    }
 }
 
 function toggleActiveListingsView() {
@@ -1475,7 +1479,11 @@ function clearSearch() {
     window.marketValueGlobal = null;
     window.expectLowGlobal = null;
     window.expectHighGlobal = null;
-    
+
+    if (window.FilterChips) {
+      FilterChips.hide();
+    }
+
     // Focus on the query input
     document.getElementById("query").focus();
 }
@@ -2302,7 +2310,16 @@ console.log('[DEBUG] Market Value before active search:', formatMoney(marketValu
     }
     // Store prices for resize handling (using first search results)
     currentBeeswarmPrices = data.items.map(item => item.total_price);
-    
+
+    if (window.RecentSearches) {
+      RecentSearches.addEntry(baseQuery, {
+        ungraded_only: document.getElementById("ungraded_only").checked,
+        base_only: document.getElementById("base_only").checked,
+        base_chrome_only: document.getElementById("base_chrome_only").checked,
+        base_refractor_only: document.getElementById("base_refractor_only").checked
+      });
+    }
+
     // Update usage statistics after successful search
     if (window.SubscriptionManager) {
       await SubscriptionManager.fetchUsageStats();

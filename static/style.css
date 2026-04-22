@@ -163,8 +163,13 @@ input[type="number"]:focus {
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
 }
 
-#query {
+#query-wrapper {
+  position: relative;
   flex-grow: 1;
+}
+
+#query {
+  width: 100%;
   font-size: 1rem;
 }
 
@@ -637,6 +642,28 @@ td a:hover {
  p.subtitle {
    font-size: 1rem;
    margin-bottom: 1.5rem;
+ }
+
+ .recent-searches-dropdown {
+   border-radius: 8px;
+ }
+
+ .recent-search-entry {
+   padding: 1rem;
+   min-height: 48px;
+ }
+
+ .filter-chips-bar {
+   gap: 0.4rem;
+   overflow-x: auto;
+   flex-wrap: nowrap;
+   -webkit-overflow-scrolling: touch;
+   padding-bottom: 0.5rem;
+ }
+
+ .filter-chip {
+   min-height: 36px;
+   font-size: 0.8rem !important;
  }
 
  /* Mobile Nav Links */
@@ -2128,4 +2155,192 @@ details summary::-webkit-details-marker {
   line-height: 1.6;
   color: var(--text-color, #1d1d1f);
   margin: 0;
+}
+
+/* ===== Recent Searches Dropdown ===== */
+
+.recent-searches-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  margin-top: 4px;
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.recent-searches-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--subtle-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.recent-searches-clear-all {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #c9302c;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem !important;
+}
+
+.recent-searches-clear-all:hover {
+  text-decoration: underline;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.recent-search-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid rgba(229, 229, 234, 0.5);
+}
+
+.recent-search-entry:last-child {
+  border-bottom: none;
+}
+
+.recent-search-entry:hover,
+.recent-search-entry:focus {
+  background: var(--background-color);
+  outline: none;
+}
+
+.recent-search-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.recent-search-query {
+  font-size: 0.95rem;
+  color: var(--text-color);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-search-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--subtle-text-color);
+}
+
+.recent-search-filters {
+  color: var(--primary-blue);
+  font-weight: 500;
+}
+
+.recent-search-remove {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--subtle-text-color);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem !important;
+  flex-shrink: 0;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.recent-search-remove:hover {
+  color: #c9302c;
+  background: rgba(201, 48, 44, 0.08) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ===== Filter Chips ===== */
+
+#filter-chips-container:empty {
+  display: none;
+}
+
+.filter-chips-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  flex-wrap: wrap;
+}
+
+.filter-chips-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--subtle-text-color);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.filter-chip {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem !important;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 20px !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  border: 1px solid var(--border-color) !important;
+  background: var(--card-background) !important;
+  color: var(--text-color) !important;
+  box-shadow: none !important;
+}
+
+.filter-chip:hover {
+  background: var(--background-color) !important;
+  border-color: var(--primary-blue) !important;
+  color: var(--primary-blue) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.filter-chip::before {
+  display: none !important;
+}
+
+.filter-chip.applied {
+  background: rgba(0, 102, 204, 0.1) !important;
+  border-color: var(--primary-blue) !important;
+  color: var(--primary-blue) !important;
+}
+
+.filter-chip.applied:hover {
+  background: rgba(0, 102, 204, 0.18) !important;
+}
+
+.filter-chip-remove {
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.filter-chip.applied .filter-chip-remove {
+  opacity: 1;
 }
