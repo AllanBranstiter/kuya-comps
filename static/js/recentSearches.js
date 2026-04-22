@@ -277,7 +277,7 @@ window.RecentSearches = (function () {
     wrapperEl = document.getElementById('query-wrapper');
     if (!queryInput || !dropdownEl) return;
 
-    queryInput.addEventListener('focus', function () {
+    queryInput.addEventListener('click', function () {
       show();
     });
 
@@ -288,10 +288,35 @@ window.RecentSearches = (function () {
     queryInput.addEventListener('keydown', handleKeydown);
     dropdownEl.addEventListener('keydown', handleKeydown);
 
-    document.addEventListener('pointerdown', function (e) {
+    // Prevent clicks inside the dropdown from stealing focus from the input,
+    // so entry pointerdown handlers can fire before the dropdown hides.
+    dropdownEl.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+    });
+
+    // Dismiss on any click or tap anywhere outside the wrapper.
+    // Uses capture phase so it runs before stopPropagation in child handlers.
+    document.addEventListener('click', function (e) {
+      if (!isVisible()) return;
       if (wrapperEl && !wrapperEl.contains(e.target)) {
         hide();
       }
+    }, true);
+
+    document.addEventListener('touchend', function (e) {
+      if (!isVisible()) return;
+      if (wrapperEl && !wrapperEl.contains(e.target)) {
+        hide();
+      }
+    }, true);
+
+    // Dismiss when switching browser tabs or the window loses focus.
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) hide();
+    });
+
+    window.addEventListener('blur', function () {
+      hide();
     });
   }
 

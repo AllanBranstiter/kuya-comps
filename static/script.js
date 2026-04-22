@@ -1270,10 +1270,6 @@ async function renderData(data, secondData = null, marketValue = null) {
     // Clear loading UI from stats-container
     const loadingUi = document.getElementById('search-loading-ui');
     if (loadingUi) loadingUi.remove();
-
-    if (window.FilterChips) {
-      FilterChips.render();
-    }
 }
 
 function toggleActiveListingsView() {
@@ -1479,10 +1475,6 @@ function clearSearch() {
     window.marketValueGlobal = null;
     window.expectLowGlobal = null;
     window.expectHighGlobal = null;
-
-    if (window.FilterChips) {
-      FilterChips.hide();
-    }
 
     // Focus on the query input
     document.getElementById("query").focus();
